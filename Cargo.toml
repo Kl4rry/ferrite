@@ -1,14 +1,25 @@
 [package]
-name = "dim"
+name = "ferrite"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ropey = "1.5.1"
-crossterm = "0.26.0"
 anyhow = "1.0.68"
-unicode-width = "0.1.10"
-unicode-segmentation = "1.10.0"
+chardetng = "0.1.17"
+clap = { version = "4.1.4", features = ["derive"] }
+crossterm = "0.26.0"
+encoding_rs = "0.8.31"
+ropey = "1.5.1"
+serde = { version = "1.0.152", features = ["derive"] }
+toml = "0.7.1"
 tui = "0.19.0"
+unicode-segmentation = "1.10.0"
+unicode-width = "0.1.10"
+utility = { path = "./utility" }
+
+[workspace]
+members = [
+    "utility"
+]
