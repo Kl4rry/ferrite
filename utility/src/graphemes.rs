@@ -11,7 +11,7 @@ use std::{
     slice, str,
 };
 
-use ropey::{iter::Chunks, str_utils::byte_to_char_idx, RopeSlice};
+use ropey::{iter::Chunks, str_utils::byte_to_char_idx, Rope, RopeSlice};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
@@ -19,6 +19,7 @@ use super::{
     chars::{char_is_whitespace, char_is_word},
     line_ending::LineEnding,
 };
+use crate::line_ending::{self, line_without_line_ending};
 
 #[inline]
 pub fn tab_width_at(visual_x: usize, tab_width: u16) -> usize {
@@ -115,7 +116,7 @@ fn grapheme_width(g: &str) -> usize {
         // properly.
         // TODO properly handle unicode width for all codepoints
         // example of where unicode width is currently wrong: 🤦🏼‍♂️ (taken from https://hsivonen.fi/string-length/)
-        UnicodeWidthStr::width(g).max(1)
+        UnicodeWidthStr::width_cjk(g).max(1)
     }
 }
 
@@ -209,12 +210,9 @@ pub fn nth_next_grapheme_boundary(slice: RopeSlice, char_idx: usize, n: usize) -
 }
 
 #[must_use]
-pub fn nth_next_grapheme_boundary_byte(slice: RopeSlice, mut byte_idx: usize, n: usize) -> usize {
+fn nth_next_grapheme_boundary_byte(slice: RopeSlice, mut byte_idx: usize, n: usize) -> usize {
     // Bounds check
-    //debug_assert!(byte_idx <= slice.len_bytes());
-    if !(byte_idx <= slice.len_bytes()) {
-        panic!("{} <= {}", byte_idx, slice.len_bytes())
-    }
+    debug_assert!(byte_idx <= slice.len_bytes());
 
     // Get the chunk with our byte index in it.
     let (mut chunk, mut chunk_byte_idx, mut _chunk_char_idx, _) = slice.chunk_at_byte(byte_idx);
@@ -248,12 +246,9 @@ pub fn nth_next_grapheme_boundary_byte(slice: RopeSlice, mut byte_idx: usize, n:
 }
 
 #[must_use]
-pub fn nth_prev_grapheme_boundary_byte(slice: RopeSlice, mut byte_idx: usize, n: usize) -> usize {
+fn nth_prev_grapheme_boundary_byte(slice: RopeSlice, mut byte_idx: usize, n: usize) -> usize {
     // Bounds check
-    //debug_assert!(byte_idx <= slice.len_bytes());
-    if !(byte_idx <= slice.len_bytes()) {
-        panic!("{} <= {}", byte_idx, slice.len_bytes())
-    }
+    debug_assert!(byte_idx <= slice.len_bytes());
 
     // Get the chunk with our byte index in it.
     let (mut chunk, mut chunk_byte_idx, _, _) = slice.chunk_at_byte(byte_idx);
@@ -289,21 +284,21 @@ pub fn nth_prev_grapheme_boundary_byte(slice: RopeSlice, mut byte_idx: usize, n:
 /// Finds the next grapheme boundary after the given byte position.
 #[must_use]
 #[inline(always)]
-pub fn prev_grapheme_boundary_byte(slice: RopeSlice, byte_idx: usize) -> usize {
+fn prev_grapheme_boundary_byte(slice: RopeSlice, byte_idx: usize) -> usize {
     nth_prev_grapheme_boundary_byte(slice, byte_idx, 1)
 }
 
 /// Finds the next grapheme boundary after the given char position.
 #[must_use]
 #[inline(always)]
-pub fn next_grapheme_boundary(slice: RopeSlice, char_idx: usize) -> usize {
+fn next_grapheme_boundary(slice: RopeSlice, char_idx: usize) -> usize {
     nth_next_grapheme_boundary(slice, char_idx, 1)
 }
 
 /// Finds the next grapheme boundary after the given byte position.
 #[must_use]
 #[inline(always)]
-pub fn next_grapheme_boundary_byte(slice: RopeSlice, byte_idx: usize) -> usize {
+fn next_grapheme_boundary_byte(slice: RopeSlice, byte_idx: usize) -> usize {
     nth_next_grapheme_boundary_byte(slice, byte_idx, 1)
 }
 
@@ -576,16 +571,75 @@ impl Clone for GraphemeStr<'_> {
     }
 }
 
-pub fn rope_width(rope: RopeSlice) -> usize {
-    let mut width = 0;
-    let mut buffer = String::new();
-    for grapheme in RopeGraphemes::new(rope) {
-        buffer.clear();
-        unsafe {
-            let vec = buffer.as_mut_vec();
-            vec.extend(grapheme.bytes());
+pub trait RopeGraphemeExt {
+    fn width(&self) -> usize;
+    fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice;
+    fn prev_grapheme_boundary_byte(&self, byte_idx: usize) -> usize;
+    fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
+    fn next_grapheme_boundary_byte(&self, byte_idx: usize) -> usize;
+    fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
+}
+
+impl RopeGraphemeExt for RopeSlice<'_> {
+    fn width(&self) -> usize {
+        let mut width = 0;
+        let mut buffer = String::new();
+        for grapheme in RopeGraphemes::new(*self) {
+            buffer.clear();
+            unsafe {
+                let vec = buffer.as_mut_vec();
+                vec.extend(grapheme.bytes());
+            }
+            width += grapheme_width(buffer.as_str());
         }
-        width += UnicodeWidthStr::width_cjk(buffer.as_str());
+        width
     }
-    width
+
+    fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice {
+        line_without_line_ending(self, line_idx)
+    }
+
+    fn prev_grapheme_boundary_byte(&self, byte_idx: usize) -> usize {
+        prev_grapheme_boundary_byte(*self, byte_idx)
+    }
+
+    fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
+        nth_prev_grapheme_boundary_byte(*self, byte_idx, n)
+    }
+
+    fn next_grapheme_boundary_byte(&self, byte_idx: usize) -> usize {
+        next_grapheme_boundary_byte(*self, byte_idx)
+    }
+
+    fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
+        nth_next_grapheme_boundary_byte(*self, byte_idx, n)
+    }
+}
+
+impl RopeGraphemeExt for Rope {
+    fn width(&self) -> usize {
+        self.slice(..).width()
+    }
+
+    fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice {
+        let start = self.line_to_char(line_idx);
+        let end = line_ending::line_end_char_index(&self.slice(..), line_idx);
+        self.slice(start..end)
+    }
+
+    fn prev_grapheme_boundary_byte(&self, byte_idx: usize) -> usize {
+        self.slice(..).prev_grapheme_boundary_byte(byte_idx)
+    }
+
+    fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
+        self.slice(..).nth_prev_grapheme_boundary_byte(byte_idx, n)
+    }
+
+    fn next_grapheme_boundary_byte(&self, byte_idx: usize) -> usize {
+        self.slice(..).next_grapheme_boundary_byte(byte_idx)
+    }
+
+    fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
+        self.slice(..).nth_next_grapheme_boundary_byte(byte_idx, n)
+    }
 }

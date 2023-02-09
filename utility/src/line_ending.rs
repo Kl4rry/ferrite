@@ -167,7 +167,7 @@ pub fn line_end_char_index(slice: &RopeSlice, line: usize) -> usize {
 }
 
 /// Fetches line `line_idx` from the passed rope slice, sans any line ending.
-pub fn line_without_line_ending<'a>(slice: &'a RopeSlice, line_idx: usize) -> RopeSlice<'a> {
+pub(crate) fn line_without_line_ending<'a>(slice: &'a RopeSlice, line_idx: usize) -> RopeSlice<'a> {
     let start = slice.line_to_char(line_idx);
     let end = line_end_char_index(slice, line_idx);
     slice.slice(start..end)

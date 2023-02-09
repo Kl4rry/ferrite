@@ -5,7 +5,7 @@ use tui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
-use utility::line_ending::line_without_line_ending;
+use utility::graphemes::RopeGraphemeExt;
 
 use super::info_line::InfoLine;
 use crate::core::{editor::Editor, theme::EditorTheme};
@@ -59,7 +59,7 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                 buf.set_stringn(0, i as u16, &line_number, width.into(), theme.line_nr);
                 left_offset = line_number.width_cjk();
 
-                let line = line_without_line_ending(&line, 0);
+                let line = line.line_without_line_ending(0);
                 for chunk in line.chunks() {
                     line_buffer.push_str(chunk);
                 }
@@ -104,8 +104,8 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                 theme,
                 encoding: editor.buffer.encoding,
                 file: editor.buffer.file(),
-                column: editor.buffer.cursor_pos().1 + 1,
-                line: editor.buffer.cursor_grapheme_column(),
+                line: editor.buffer.cursor_pos().1 + 1,
+                column: editor.buffer.cursor_grapheme_column(),
             };
             info_line.render(Rect::new(0, height, width, 1), buf);
         }

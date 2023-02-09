@@ -1,6 +1,5 @@
 use std::{
     cmp,
-    collections::HashMap,
     fs::File,
     io::{self, Read},
     path::{Path, PathBuf},
@@ -8,34 +7,26 @@ use std::{
 
 use encoding_rs::Encoding;
 use ropey::{Rope, RopeBuilder, RopeSlice};
-use utility::{
-    graphemes::{
-        next_grapheme_boundary_byte, nth_next_grapheme_boundary_byte, prev_grapheme_boundary_byte,
-        rope_width, RopeGraphemes,
-    },
-    line_ending::line_without_line_ending,
-};
+use utility::graphemes::{RopeGraphemeExt as _, RopeGraphemes};
 
 pub struct Buffer {
-    cursor_x: usize,
-    cursor_y: usize,
+    cursor: usize,
     line_pos: usize,
     rope: Rope,
     file: Option<PathBuf>,
     pub encoding: &'static Encoding,
-    column_cache: HashMap<usize, usize>,
+    cursor_affinity: usize,
 }
 
 impl Default for Buffer {
     fn default() -> Self {
         Self {
-            cursor_x: 0,
-            cursor_y: 0,
+            cursor: 0,
             line_pos: 0,
             rope: Rope::new(),
             file: None,
             encoding: encoding_rs::UTF_8,
-            column_cache: HashMap::new(),
+            cursor_affinity: 0,
         }
     }
 }
@@ -141,26 +132,38 @@ impl Buffer {
         let start_line = self.line_pos;
         let end_line = std::cmp::min(self.rope.len_lines(), max_lines + self.line_pos);
 
-        if self.cursor_y >= start_line && self.cursor_y < end_line {
-            Some((self.cursor_x, self.cursor_y - start_line))
+        let (column, line) = self.cursor_pos();
+
+        if line >= start_line && line < end_line {
+            Some((column, line - start_line))
         } else {
             None
         }
     }
 
+    pub fn current_line_idx(&self) -> usize {
+        self.rope.byte_to_line(self.cursor)
+    }
+
     pub fn cursor_pos(&self) -> (usize, usize) {
-        (self.cursor_x, self.cursor_y)
+        let current_line = self.current_line_idx();
+        let start_of_line = self.rope.line_to_byte(current_line);
+        let column = self.cursor - start_of_line;
+
+        (column, current_line)
     }
 
     pub fn cursor_grapheme_column(&self) -> usize {
-        let line = self.get_line(self.cursor_y).unwrap();
+        let (column_idx, line_idx) = self.cursor_pos();
+
+        let line = self.get_line(line_idx).unwrap();
         let graphemes = RopeGraphemes::new(line);
         let mut byte_width = 0;
         let mut col = 0;
         for grapheme in graphemes {
             let buf = grapheme.to_string();
 
-            if byte_width > self.cursor_x {
+            if byte_width > column_idx {
                 break;
             }
 
@@ -184,117 +187,88 @@ impl Buffer {
     }
 
     pub fn move_right(&mut self) {
-        let slice = self.rope.slice(..);
-        let line = line_without_line_ending(&slice, self.cursor_y);
-        let new_index = next_grapheme_boundary_byte(line, self.cursor_x);
-        if new_index == self.cursor_x {
-            if self.get_line(self.cursor_y + 1).is_some() {
-                self.cursor_x = 0;
-                self.cursor_y += 1;
-            }
-        } else {
-            self.cursor_x = new_index;
-        }
-        self.column_cache.clear();
-        self.column_cache.insert(self.cursor_y, self.cursor_x);
+        let new_idx = self.rope.next_grapheme_boundary_byte(self.cursor);
+        self.cursor = new_idx;
+
+        let (column_idx, line_idx) = self.cursor_pos();
+        self.cursor_affinity = self
+            .rope
+            .line_without_line_ending(line_idx)
+            .byte_slice(..column_idx)
+            .width();
     }
 
     pub fn move_left(&mut self) {
-        let slice = self.rope.slice(..);
-        let line = line_without_line_ending(&slice, self.cursor_y);
-        let new_index = prev_grapheme_boundary_byte(line, self.cursor_x);
-        if new_index == self.cursor_x {
-            if self.cursor_y > 0 {
-                let line = line_without_line_ending(&slice, self.cursor_y - 1);
-                self.cursor_x = line.len_bytes();
-                self.cursor_y -= 1;
-            }
-        } else {
-            self.cursor_x = new_index;
-        }
-        self.column_cache.clear();
-        self.column_cache.insert(self.cursor_y, self.cursor_x);
+        let new_idx = self.rope.prev_grapheme_boundary_byte(self.cursor);
+        self.cursor = new_idx;
+
+        let (column_idx, line_idx) = self.cursor_pos();
+        self.cursor_affinity = self
+            .rope
+            .line_without_line_ending(line_idx)
+            .byte_slice(..column_idx)
+            .width();
     }
 
     pub fn move_down(&mut self) {
-        if self.cursor_y + 1 >= self.rope.len_lines() {
+        let (column_idx, line_idx) = self.cursor_pos();
+        if line_idx + 1 >= self.rope.len_lines() {
             return;
         }
 
-        if let Some(pos) = self.column_cache.get(&(self.cursor_y + 1)) {
-            self.cursor_x = *pos;
-            self.cursor_y += 1;
-            return;
-        }
-
-        let slice = self.rope.slice(..);
-        let before_cursor =
-            rope_width(line_without_line_ending(&slice, self.cursor_y).byte_slice(..self.cursor_x));
-        let next_line = line_without_line_ending(&slice, self.cursor_y + 1);
-        let next_width = rope_width(next_line);
+        let before_cursor = self
+            .rope
+            .line_without_line_ending(line_idx)
+            .byte_slice(..column_idx)
+            .width()
+            .max(self.cursor_affinity);
+        let next_line = self.rope.line_without_line_ending(line_idx + 1);
+        let next_width = next_line.width();
+        let next_line_start = self.rope.line_to_byte(line_idx + 1);
 
         if next_width < before_cursor {
-            self.cursor_x = next_line.len_bytes();
+            self.cursor = next_line_start + next_line.len_bytes();
         } else {
-            let idx = nth_next_grapheme_boundary_byte(next_line, 0, before_cursor);
-            self.cursor_x = idx;
+            let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
+            self.cursor = next_line_start + idx;
         }
-        self.cursor_y += 1;
-        self.column_cache.insert(self.cursor_y, self.cursor_x);
     }
 
     pub fn move_up(&mut self) {
-        if self.cursor_y == 0 {
+        let (column_idx, line_idx) = self.cursor_pos();
+        if line_idx == 0 {
             return;
         }
 
-        if let Some(pos) = self.column_cache.get(&(self.cursor_y - 1)) {
-            self.cursor_x = *pos;
-            self.cursor_y -= 1;
-            return;
-        }
-
-        let slice = self.rope.slice(..);
-        let before_cursor =
-            rope_width(line_without_line_ending(&slice, self.cursor_y).byte_slice(..self.cursor_x));
-        let next_line = line_without_line_ending(&slice, self.cursor_y - 1);
-        let next_width = rope_width(next_line);
+        let before_cursor = self
+            .rope
+            .line_without_line_ending(line_idx)
+            .byte_slice(..column_idx)
+            .width()
+            .max(self.cursor_affinity);
+        let next_line = self.rope.line_without_line_ending(line_idx - 1);
+        let next_width = next_line.width();
+        let next_line_start = self.rope.line_to_byte(line_idx - 1);
 
         if next_width < before_cursor {
-            self.cursor_x = next_line.len_bytes();
+            self.cursor = next_line_start + next_line.len_bytes();
         } else {
-            let idx = nth_next_grapheme_boundary_byte(next_line, 0, before_cursor);
-            self.cursor_x = idx;
+            let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
+            self.cursor = next_line_start + idx;
         }
-        self.cursor_y -= 1;
-        self.column_cache.insert(self.cursor_y, self.cursor_x);
     }
 
     pub fn insert_text(&mut self, text: &str) {
-        let line_start = self.rope.line_to_byte(self.cursor_y);
-        let idx = self.rope.byte_to_char(line_start + self.cursor_x);
-        self.rope.insert(idx, text);
-        self.move_right();
+        self.rope.insert(self.rope.byte_to_char(self.cursor), text);
+        self.cursor += text.len();
     }
 
     pub fn backspace(&mut self) {
-        let line_start = self.rope.line_to_byte(self.cursor_y);
-        let end_byte_idx = line_start + self.cursor_x;
-        let start_byte_idx = prev_grapheme_boundary_byte(self.rope.slice(..), end_byte_idx);
-
-        let start = self.rope.byte_to_char(start_byte_idx);
-        let end = self.rope.byte_to_char(end_byte_idx);
-
-        self.rope.remove(start..end);
-
-        let new_line_idx = self.rope.byte_to_line(start_byte_idx);
-        let new_line_start = self.rope.line_to_byte(new_line_idx);
-
-        self.cursor_x = start_byte_idx - new_line_start;
-        self.cursor_y = new_line_idx;
-
-        self.column_cache.clear();
-        self.column_cache.insert(self.cursor_y, self.cursor_x);
+        let start_byte_idx = self.rope.prev_grapheme_boundary_byte(self.cursor);
+        let start_char_idx = self.rope.byte_to_char(start_byte_idx);
+        let end_char_idx = self.rope.byte_to_char(self.cursor);
+        self.rope.remove(start_char_idx..end_char_idx);
+        self.cursor = start_byte_idx;
     }
 }
 
