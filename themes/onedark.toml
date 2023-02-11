@@ -1,9 +1,11 @@
 
 
 line_nr = { fg = "line_nr" }
+current_line_nr = { fg = "white" }
 text = { fg = "white" }
 info_line = { fg = "white", bg = "light_black" }
-background = { bg = "black" }
+background = { bg = "black", fg = "white" }
+selection = { bg = "gray"}
 
 [palette]
 yellow = "#E5C07B"

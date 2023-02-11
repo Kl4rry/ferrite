@@ -83,9 +83,11 @@ impl Theme {
 
 pub struct EditorTheme {
     pub line_nr: style::Style,
+    pub current_line_nr: style::Style,
     pub text: style::Style,
     pub info_line: style::Style,
     pub background: style::Style,
+    pub selection: style::Style,
 }
 
 impl EditorTheme {
@@ -94,9 +96,11 @@ impl EditorTheme {
 
         Ok(Self {
             line_nr: theme.get_style("line_nr")?,
+            current_line_nr: theme.get_style("current_line_nr")?,
             text: theme.get_style("text")?,
             info_line: theme.get_style("info_line")?,
             background: theme.get_style("background")?,
+            selection: theme.get_style("selection")?,
         })
     }
 

@@ -2,11 +2,7 @@ use std::{io, path::Path};
 
 use self::buffer::Buffer;
 
-mod buffer;
-
-/*pub enum EditorCommand {
-    Scroll(i64),
-}*/
+pub mod buffer;
 
 pub struct Editor {
     pub buffer: Buffer,

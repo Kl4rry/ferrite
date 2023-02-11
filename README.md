@@ -8,6 +8,7 @@
 - [ ] Quick fuzzy file finding
 - [ ] Real relative line numbers
 - [ ] Softwrapping
+- [ ] Logger buffer for debugging using [log](https://crates.io/crates/log).
 
 ### Micro features
 - [ ] Highlighted line number

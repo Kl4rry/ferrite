@@ -8,7 +8,13 @@ use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use super::info_line::InfoLine;
-use crate::core::{editor::Editor, theme::EditorTheme};
+use crate::core::{
+    editor::{
+        buffer::{BufferPos, Selection},
+        Editor,
+    },
+    theme::EditorTheme,
+};
 
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
@@ -36,6 +42,8 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
 
         buf.set_style(area, theme.background);
 
+        let current_line_number = editor.buffer.cursor_line_idx() + 1;
+
         let mut left_offset = 0;
         {
             let mut line_buffer = String::with_capacity(width.into());
@@ -50,19 +58,32 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                 )
                 .enumerate()
             {
-                let line_number = line_number.to_string();
-                let line_number = format!(
-                    "{}{} │",
-                    " ".repeat(line_number_max_width - line_number.len()),
+                let line_number_str = line_number.to_string();
+                let line_number_str = format!(
+                    " {}{} │",
+                    " ".repeat(line_number_max_width - line_number_str.len()),
                     line_number
                 );
-                buf.set_stringn(0, i as u16, &line_number, width.into(), theme.line_nr);
-                left_offset = line_number.width_cjk();
+                if line_number == current_line_number {
+                    buf.set_stringn(
+                        0,
+                        i as u16,
+                        &line_number_str,
+                        width.into(),
+                        theme.current_line_nr,
+                    );
+                } else {
+                    buf.set_stringn(0, i as u16, &line_number_str, width.into(), theme.line_nr);
+                }
+
+                left_offset = line_number_str.width_cjk();
 
                 let line = line.line_without_line_ending(0);
                 for chunk in line.chunks() {
                     line_buffer.push_str(chunk);
                 }
+
+                line_buffer.push(' ');
 
                 buf.set_stringn(
                     left_offset as u16,
@@ -84,20 +105,43 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                                 if i >= column {
                                     break;
                                 }
-                                view_col += grapheme.width_cjk();
+                                view_col += grapheme.width_cjk().max(1);
                             }
-                            buf.set_style(
-                                Rect {
-                                    x: area.x + view_col as u16 + left_offset as u16,
-                                    y: area.y + row as u16,
-                                    width: 1,
-                                    height: 1,
-                                },
-                                Style::default().bg(tui::style::Color::Green),
-                            )
+                            let x = area.x + view_col as u16 + left_offset as u16;
+                            if x < area.width {
+                                buf.set_style(
+                                    Rect {
+                                        x,
+                                        y: area.y + row as u16,
+                                        width: 1,
+                                        height: 1,
+                                    },
+                                    Style::default().add_modifier(tui::style::Modifier::REVERSED),
+                                )
+                            }
                         }
                     }
                 }
+            }
+
+            if let Some(bg) = theme.selection.bg {
+                //let cursor = editor.buffer.cursor();
+                //if cursor.position != cursor.anchor {
+                let Selection { start, end } = editor.buffer.get_view_selection();
+
+                for y in 0..buf.area.height - 2 {
+                    for x in 0..(buf.area.width - (left_offset as u16)) {
+                        let current = BufferPos {
+                            column: x.into(),
+                            line: y.into(),
+                        };
+                        if current >= start && current < end {
+                            let cell = buf.get_mut(x + left_offset as u16, y);
+                            cell.bg = bg;
+                        }
+                    }
+                }
+                //}
             }
 
             let info_line = InfoLine {

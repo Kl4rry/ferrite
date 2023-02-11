@@ -53,6 +53,11 @@ impl TuiApp {
                             {
                                 break;
                             }
+                            KeyCode::Char('a')
+                                if event.modifiers.contains(KeyModifiers::CONTROL) =>
+                            {
+                                editor.buffer.select_all();
+                            }
                             KeyCode::Char(c) => {
                                 let s = String::from(c);
                                 editor.buffer.insert_text(&s);
@@ -70,16 +75,24 @@ impl TuiApp {
                                 editor.buffer.scroll(50);
                             }
                             KeyCode::Right => {
-                                editor.buffer.move_right();
+                                editor
+                                    .buffer
+                                    .move_right_char(event.modifiers.contains(KeyModifiers::SHIFT));
                             }
                             KeyCode::Left => {
-                                editor.buffer.move_left();
+                                editor
+                                    .buffer
+                                    .move_left_char(event.modifiers.contains(KeyModifiers::SHIFT));
                             }
                             KeyCode::Down => {
-                                editor.buffer.move_down();
+                                editor
+                                    .buffer
+                                    .move_down(event.modifiers.contains(KeyModifiers::SHIFT));
                             }
                             KeyCode::Up => {
-                                editor.buffer.move_up();
+                                editor
+                                    .buffer
+                                    .move_up(event.modifiers.contains(KeyModifiers::SHIFT));
                             }
                             _ => (),
                         }
@@ -94,7 +107,9 @@ impl TuiApp {
                     }
                     _ => (),
                 },
-                Event::Paste(_data) => (),
+                Event::Paste(text) => {
+                    editor.buffer.insert_text(&text);
+                }
                 _ => (),
             }
 
