@@ -9,12 +9,12 @@ use tui::layout::Rect;
 
 use self::{
     input::get_default_mappings,
-    widgets::{cmd_palette_widget::CmdPaletteWidget, editor_widget::EditorWidget},
+    widgets::{editor_widget::EditorWidget, palette_widget::CmdPaletteWidget},
 };
 use crate::{
     core::{
         buffer::Buffer,
-        cmd_palette::{cmd, cmd_parser, CommandPalette},
+        palette::{cmd, cmd_parser, CommandPalette},
         theme::EditorTheme,
     },
     tui_app::input::InputCommand,

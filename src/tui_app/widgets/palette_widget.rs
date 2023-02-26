@@ -3,7 +3,7 @@ use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use crate::core::{
-    cmd_palette::{CommandPalette, PaletteState},
+    palette::{CommandPalette, PaletteState},
     theme::EditorTheme,
 };
 

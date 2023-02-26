@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
-use crate::core::cmd_palette::cmd_parser::generic_cmd::GenericCommand;
+use crate::core::palette::cmd_parser::generic_cmd::GenericCommand;
 
 pub mod lexer;
 
