@@ -1,5 +1,8 @@
 ### Basic features
 - [ ] VScode/windows like cursor movement
+- [ ] Multicursor
+- [ ] Search and replace
+- [ ] Find/Match command that creates selections from substring match
 - [ ] Mouse jumping and selection
 - [ ] Command palette
 - [ ] Custom themes
@@ -8,11 +11,17 @@
 - [ ] Quick fuzzy file finding
 - [ ] Real relative line numbers
 - [ ] Softwrapping
-- [ ] Logger buffer for debugging using [log](https://crates.io/crates/log).
+- [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
+- [ ] .gitignore support [ignore](https://crates.io/crates/ignore)
+- [ ] Infinte undo with undo file and non truncating history
 
 ### Micro features
-- [ ] Highlighted line number
+- [x] Highlighted line number
 - [ ] Loading spinner
+- [x] Tab detection
+- [ ] Indetation deletion like vscode
+- [ ] Variable length tabs
+- [ ] Command palette completion
 
 ### Big features
 - [ ] tree sitter
@@ -24,7 +33,5 @@
 ### Gui
 - [ ] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
 
-
 ### TODO list
-Switch to byte index for cursor instead of row col.  
 Make window scroll to the right so cursor stays in view.

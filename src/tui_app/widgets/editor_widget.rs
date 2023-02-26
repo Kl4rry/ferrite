@@ -1,61 +1,56 @@
+use ropey::RopeSlice;
 use tui::{
     layout::Rect,
     style::Style,
     widgets::{StatefulWidget, Widget},
 };
-use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use super::info_line::InfoLine;
 use crate::core::{
-    editor::{
-        buffer::{BufferPos, Selection},
-        Editor,
-    },
+    buffer::{Buffer, BufferPos, Selection},
     theme::EditorTheme,
 };
 
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
+    has_focus: bool,
 }
 
 impl<'a> EditorWidget<'a> {
-    pub fn new(theme: &'a EditorTheme) -> Self {
-        Self { theme }
+    pub fn new(theme: &'a EditorTheme, has_focus: bool) -> Self {
+        Self { theme, has_focus }
     }
 }
 
-impl<'a> StatefulWidget for EditorWidget<'a> {
-    type State = Editor;
+impl StatefulWidget for EditorWidget<'_> {
+    type State = Buffer;
 
     fn render(
         self,
         area: tui::layout::Rect,
         buf: &mut tui::buffer::Buffer,
-        editor: &mut Self::State,
+        buffer: &mut Self::State,
     ) {
-        let Self { theme } = self;
-        let line_number_max_width = editor.buffer.len_lines().to_string().len();
+        let Self { theme, has_focus } = self;
+        let line_number_max_width = buffer.len_lines().to_string().len();
         let width = area.width;
         let height = area.height - 1;
 
         buf.set_style(area, theme.background);
 
-        let current_line_number = editor.buffer.cursor_line_idx() + 1;
+        let current_line_number = buffer.cursor_line_idx() + 1;
 
         let mut left_offset = 0;
         {
             let mut line_buffer = String::with_capacity(width.into());
-            let view = editor.buffer.get_buffer_view(height.into());
+            let view = buffer.get_buffer_view(height.into());
 
             for (i, (line, line_number)) in view
                 .lines
                 .into_iter()
-                .zip(
-                    (editor.buffer.line_pos() + 1)
-                        ..=editor.buffer.line_pos() + editor.buffer.len_lines(),
-                )
+                .zip((buffer.line_pos() + 1)..=buffer.line_pos() + buffer.len_lines())
                 .enumerate()
             {
                 let line_number_str = line_number.to_string();
@@ -76,11 +71,18 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                     buf.set_stringn(0, i as u16, &line_number_str, width.into(), theme.line_nr);
                 }
 
+                // This is correct because there are no tabs in the line numbers.
                 left_offset = line_number_str.width_cjk();
 
                 let line = line.line_without_line_ending(0);
                 for chunk in line.chunks() {
-                    line_buffer.push_str(chunk);
+                    for c in chunk.chars() {
+                        if c == '\t' {
+                            line_buffer.push_str("    ");
+                        } else {
+                            line_buffer.push(c);
+                        }
+                    }
                 }
 
                 line_buffer.push(' ');
@@ -96,19 +98,36 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                 line_buffer.clear();
             }
 
-            {
-                if let Some((column, row)) = editor.buffer.cursor_view_pos(height.into()) {
-                    if let Some(line) = editor.buffer.get_line(row + editor.buffer.line_pos()) {
-                        let mut view_col = 0;
-                        for chunk in line.chunks() {
-                            for (i, grapheme) in chunk.grapheme_indices(true) {
-                                if i >= column {
-                                    break;
+            if has_focus {
+                'exit: {
+                    if let Some((_, row)) = buffer.cursor_view_pos(height.into()) {
+                        let column = buffer.cursor_grapheme_column();
+                        if let Some(line) = buffer.get_line(row + buffer.line_pos()) {
+                            let mut view_col = 0;
+                            let mut last = RopeSlice::from("");
+                            for grapheme in line.grapehemes() {
+                                if view_col >= column {
+                                    let x = area.x + view_col as u16 + left_offset as u16;
+                                    if x <= area.width {
+                                        buf.set_style(
+                                            Rect {
+                                                x,
+                                                y: area.y + row as u16,
+                                                width: 1,
+                                                height: 1,
+                                            },
+                                            Style::default()
+                                                .add_modifier(tui::style::Modifier::REVERSED),
+                                        );
+                                        break 'exit;
+                                    }
                                 }
-                                view_col += grapheme.width_cjk().max(1);
+                                view_col += grapheme.width();
+                                last = grapheme;
                             }
-                            let x = area.x + view_col as u16 + left_offset as u16;
-                            if x < area.width {
+                            // Edge case for last line
+                            if last.get_line_ending().is_none() {
+                                let x = area.x + view_col as u16 + left_offset as u16;
                                 buf.set_style(
                                     Rect {
                                         x,
@@ -117,7 +136,7 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                                         height: 1,
                                     },
                                     Style::default().add_modifier(tui::style::Modifier::REVERSED),
-                                )
+                                );
                             }
                         }
                     }
@@ -125,9 +144,7 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
             }
 
             if let Some(bg) = theme.selection.bg {
-                //let cursor = editor.buffer.cursor();
-                //if cursor.position != cursor.anchor {
-                let Selection { start, end } = editor.buffer.get_view_selection();
+                let Selection { start, end } = buffer.get_view_selection();
 
                 for y in 0..buf.area.height - 2 {
                     for x in 0..(buf.area.width - (left_offset as u16)) {
@@ -141,15 +158,14 @@ impl<'a> StatefulWidget for EditorWidget<'a> {
                         }
                     }
                 }
-                //}
             }
 
             let info_line = InfoLine {
                 theme,
-                encoding: editor.buffer.encoding,
-                file: editor.buffer.file(),
-                line: editor.buffer.cursor_pos().1 + 1,
-                column: editor.buffer.cursor_grapheme_column(),
+                encoding: buffer.encoding,
+                file: buffer.file(),
+                line: buffer.cursor_pos().1 + 1,
+                column: buffer.cursor_grapheme_column() + 1,
             };
             info_line.render(Rect::new(0, height, width, 1), buf);
         }

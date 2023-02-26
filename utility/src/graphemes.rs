@@ -15,87 +15,10 @@ use ropey::{iter::Chunks, str_utils::byte_to_char_idx, Rope, RopeSlice};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
-use super::{
-    chars::{char_is_whitespace, char_is_word},
-    line_ending::LineEnding,
-};
-use crate::line_ending::{self, line_without_line_ending};
-
-#[inline]
-pub fn tab_width_at(visual_x: usize, tab_width: u16) -> usize {
-    tab_width as usize - (visual_x % tab_width as usize)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Grapheme<'a> {
-    Newline,
-    Tab { width: usize },
-    Other { g: GraphemeStr<'a> },
-}
-
-impl<'a> Grapheme<'a> {
-    pub fn new(g: GraphemeStr<'a>, visual_x: usize, tab_width: u16) -> Grapheme<'a> {
-        match g {
-            g if g == "\t" => Grapheme::Tab {
-                width: tab_width_at(visual_x, tab_width),
-            },
-            _ if LineEnding::from_str(&g).is_some() => Grapheme::Newline,
-            _ => Grapheme::Other { g },
-        }
-    }
-
-    pub fn change_position(&mut self, visual_x: usize, tab_width: u16) {
-        if let Grapheme::Tab { width } = self {
-            *width = tab_width_at(visual_x, tab_width)
-        }
-    }
-
-    /// Returns the a visual width of this grapheme,
-    #[inline]
-    pub fn width(&self) -> usize {
-        match *self {
-            // width is not cached because we are dealing with
-            // ASCII almost all the time which already has a fastpath
-            // it's okay to convert to u16 here because no codepoint has a width larger
-            // than 2 and graphemes are usually atmost two visible codepoints wide
-            Grapheme::Other { ref g } => grapheme_width(g),
-            Grapheme::Tab { width } => width,
-            Grapheme::Newline => 1,
-        }
-    }
-
-    pub fn is_whitespace(&self) -> bool {
-        !matches!(&self, Grapheme::Other { g } if !g.chars().all(char_is_whitespace))
-    }
-
-    // TODO currently word boundaries are used for softwrapping.
-    // This works best for programming languages and well for prose.
-    // This could however be improved in the future by considering unicode
-    // character classes but
-    pub fn is_word_boundary(&self) -> bool {
-        !matches!(&self, Grapheme::Other { g,.. } if g.chars().all(char_is_word))
-    }
-}
-
-impl Display for Grapheme<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match *self {
-            Grapheme::Newline => write!(f, " "),
-            Grapheme::Tab { width } => {
-                for _ in 0..width {
-                    write!(f, " ")?;
-                }
-                Ok(())
-            }
-            Grapheme::Other { ref g } => {
-                write!(f, "{g}")
-            }
-        }
-    }
-}
+use crate::line_ending::{self, get_line_ending, line_without_line_ending, LineEnding};
 
 #[must_use]
-fn grapheme_width(g: &str) -> usize {
+pub fn grapheme_width(g: &str) -> usize {
     if g.as_bytes()[0] <= 127 {
         // Fast-path ascii.
         // Point 1: theoretically, ascii control characters should have zero
@@ -110,6 +33,8 @@ fn grapheme_width(g: &str) -> usize {
         // Point 3: we're only examining the first _byte_.  But for utf8, when
         // checking for ascii range values only, that works.
         1
+    } else if g.as_bytes()[0] == b'\t' {
+        4
     } else {
         // We use max(1) here because all grapeheme clusters--even illformed
         // ones--should have at least some width so they can be edited
@@ -578,6 +503,9 @@ pub trait RopeGraphemeExt {
     fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
     fn next_grapheme_boundary_byte(&self, byte_idx: usize) -> usize;
     fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
+    fn grapehemes(&self) -> RopeGraphemes;
+    fn get_line_ending(&self) -> Option<LineEnding>;
+    fn last_n_columns(&self, n: usize) -> RopeSlice;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
@@ -614,6 +542,30 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
         nth_next_grapheme_boundary_byte(*self, byte_idx, n)
     }
+
+    fn grapehemes(&self) -> RopeGraphemes {
+        RopeGraphemes::new(*self)
+    }
+
+    fn get_line_ending(&self) -> Option<LineEnding> {
+        get_line_ending(self)
+    }
+
+    fn last_n_columns(&self, n: usize) -> RopeSlice {
+        let left = self.width().saturating_sub(n);
+        let mut width = 0;
+        let mut byte_idx = 0;
+        for grapheme in self.grapehemes() {
+            if width >= left {
+                break;
+            }
+
+            width += grapheme.width();
+            byte_idx += grapheme.len_bytes();
+        }
+
+        self.byte_slice(byte_idx..)
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -641,5 +593,29 @@ impl RopeGraphemeExt for Rope {
 
     fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
         self.slice(..).nth_next_grapheme_boundary_byte(byte_idx, n)
+    }
+
+    fn grapehemes(&self) -> RopeGraphemes {
+        RopeGraphemes::new(self.slice(..))
+    }
+
+    fn get_line_ending(&self) -> Option<LineEnding> {
+        self.slice(..).get_line_ending()
+    }
+
+    fn last_n_columns(&self, n: usize) -> RopeSlice {
+        let left = self.width().saturating_sub(n);
+        let mut width = 0;
+        let mut byte_idx = 0;
+        for grapheme in self.grapehemes() {
+            if width >= left {
+                break;
+            }
+
+            width += grapheme.width();
+            byte_idx += grapheme.len_bytes();
+        }
+
+        self.byte_slice(byte_idx..)
     }
 }

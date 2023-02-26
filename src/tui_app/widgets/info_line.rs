@@ -16,15 +16,18 @@ pub struct InfoLine<'a> {
 
 impl Widget for InfoLine<'_> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        if let Some(file) = self.file {
-            buf.set_stringn(
-                area.x + 1,
-                area.y,
-                &file.to_string_lossy(),
-                area.width.into(),
-                self.theme.info_line,
-            );
-        }
+        let file = self
+            .file
+            .map(|p| p.to_string_lossy())
+            .unwrap_or_else(|| "[scratch]".into());
+
+        buf.set_stringn(
+            area.x + 1,
+            area.y,
+            &file,
+            area.width.into(),
+            self.theme.info_line,
+        );
 
         {
             let output = format!(" {}:{} {} ", self.line, self.column, self.encoding.name());

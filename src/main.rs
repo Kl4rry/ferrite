@@ -1,4 +1,8 @@
-use std::path::PathBuf;
+use std::{
+    fs::OpenOptions,
+    io::{self, LineWriter, Read},
+    path::PathBuf,
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -15,13 +19,22 @@ pub struct Args {
 }
 
 fn main() -> Result<()> {
-    // let mut stdin = io::stdin().lock();
-    // let mut content = String::new();
-    // stdin.read_to_string(&mut content)?;
-    // println!("{content}");
+    let log_file = LineWriter::new(
+        OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(".log.txt")?,
+    );
+    simplelog::WriteLogger::init(log::LevelFilter::Trace, Default::default(), log_file)?;
 
     let args = Args::parse();
-    let tui_app = tui_app::TuiApp::new(args)?;
+    let mut tui_app = tui_app::TuiApp::new(args)?;
+    if atty::isnt(atty::Stream::Stdin) {
+        let mut stdin = io::stdin().lock();
+        let mut text = String::new();
+        stdin.read_to_string(&mut text)?;
+        tui_app.new_buffer_with_text(&text)
+    }
     tui_app.run()?;
 
     Ok(())
