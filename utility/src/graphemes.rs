@@ -506,6 +506,9 @@ pub trait RopeGraphemeExt {
     fn grapehemes(&self) -> RopeGraphemes;
     fn get_line_ending(&self) -> Option<LineEnding>;
     fn last_n_columns(&self, n: usize) -> RopeSlice;
+
+    fn end_of_line_byte(&self, line_idx: usize) -> usize;
+    fn end_of_line_char(&self, line_idx: usize) -> usize;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
@@ -566,6 +569,18 @@ impl RopeGraphemeExt for RopeSlice<'_> {
 
         self.byte_slice(byte_idx..)
     }
+
+    fn end_of_line_byte(&self, line_idx: usize) -> usize {
+        let line_len = self.line(line_idx).len_bytes();
+        let line_start = self.line_to_byte(line_idx);
+        line_start + line_len
+    }
+
+    fn end_of_line_char(&self, line_idx: usize) -> usize {
+        let line_len = self.line(line_idx).len_chars();
+        let line_start = self.line_to_char(line_idx);
+        line_start + line_len
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -617,5 +632,13 @@ impl RopeGraphemeExt for Rope {
         }
 
         self.byte_slice(byte_idx..)
+    }
+
+    fn end_of_line_byte(&self, byte_idx: usize) -> usize {
+        self.slice(..).end_of_line_byte(byte_idx)
+    }
+
+    fn end_of_line_char(&self, char_idx: usize) -> usize {
+        self.slice(..).end_of_line_char(char_idx)
     }
 }

@@ -166,6 +166,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 file: buffer.file(),
                 line: buffer.cursor_pos().1 + 1,
                 column: buffer.cursor_grapheme_column() + 1,
+                dirty: buffer.dirty(),
             };
             info_line.render(Rect::new(0, height, width, 1), buf);
         }

@@ -12,6 +12,12 @@ impl Mapping {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LineMoveDir {
+    Up,
+    Down,
+}
+
 #[derive(Debug, Clone)]
 pub enum InputCommand {
     MoveRight { shift: bool },
@@ -20,6 +26,7 @@ pub enum InputCommand {
     MoveDown { shift: bool },
     Insert(String),
     Char(char),
+    MoveLine(LineMoveDir),
     Backspace,
     Delete,
     Home { shift: bool },
@@ -172,6 +179,14 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand)> {
         (
             Mapping::new(KeyCode::Down, KeyModifiers::SHIFT),
             InputCommand::MoveDown { shift: true },
+        ),
+        (
+            Mapping::new(KeyCode::Up, KeyModifiers::ALT),
+            InputCommand::MoveLine(LineMoveDir::Up),
+        ),
+        (
+            Mapping::new(KeyCode::Down, KeyModifiers::ALT),
+            InputCommand::MoveLine(LineMoveDir::Down),
         ),
     ]
 }

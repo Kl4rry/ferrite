@@ -12,14 +12,20 @@ pub struct InfoLine<'a> {
     pub file: Option<&'a Path>,
     pub column: usize,
     pub line: usize,
+    pub dirty: bool,
 }
 
 impl Widget for InfoLine<'_> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
-        let file = self
+        let mut file = self
             .file
             .map(|p| p.to_string_lossy())
-            .unwrap_or_else(|| "[scratch]".into());
+            .unwrap_or_else(|| "[scratch]".into())
+            .to_string();
+
+        if self.dirty {
+            file += " *";
+        }
 
         buf.set_stringn(
             area.x + 1,

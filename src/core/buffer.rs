@@ -1,21 +1,24 @@
 use std::{
-    cmp,
-    fs::{self, File},
-    io::{self, BufWriter, Write},
+    cmp, io,
     num::NonZeroUsize,
     path::{Path, PathBuf},
 };
 
 use encoding_rs::Encoding;
 use ropey::{Rope, RopeSlice};
-use utility::graphemes::RopeGraphemeExt as _;
+use utility::{graphemes::RopeGraphemeExt as _, line_ending::rope_end_without_line_ending};
 
 use self::error::BufferError;
 use super::indent::Indentation;
+use crate::tui_app::input::LineMoveDir;
 
 pub mod error;
 mod input;
 mod read;
+mod write;
+
+#[cfg(test)]
+pub mod buffer_tests;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BufferPos {
@@ -104,12 +107,16 @@ impl Buffer {
         self.cursor
     }
 
+    pub fn dirty(&self) -> bool {
+        self.dirty
+    }
+
     pub fn get_buffer_view(&self, max_lines: usize) -> BufferView {
         let end_line = std::cmp::min(self.rope.len_lines(), max_lines + self.line_pos);
 
         let mut lines = Vec::new();
         for line_idx in self.line_pos..end_line {
-            lines.push(self.rope.get_line(line_idx).unwrap());
+            lines.push(self.rope.line(line_idx));
         }
 
         BufferView { lines }
@@ -193,14 +200,14 @@ impl Buffer {
 
     pub fn cursor_grapheme_column(&self) -> usize {
         let (column_idx, line_idx) = self.cursor_pos();
-        let line = self.get_line(line_idx).unwrap();
+        let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
         start.width()
     }
 
     pub fn anchor_grapheme_column(&self) -> usize {
         let (column_idx, line_idx) = self.anchor_pos();
-        let line = self.get_line(line_idx).unwrap();
+        let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
         start.width()
     }
@@ -306,7 +313,9 @@ impl Buffer {
     }
 
     pub fn goto(&mut self, line: i64) {
-        let line_idx = (self.rope.len_lines() as i64).min(line).max(0) as usize;
+        let line_idx = (self.rope.len_lines().saturating_sub(1) as i64)
+            .min(line)
+            .max(0) as usize;
         let (column_idx, _) = self.cursor_pos();
 
         let before_cursor = self
@@ -315,9 +324,11 @@ impl Buffer {
             .byte_slice(..column_idx)
             .width()
             .max(self.cursor.affinity);
-        let next_line = self.rope.line_without_line_ending(line_idx - 1);
+        let next_line = self
+            .rope
+            .line_without_line_ending(line_idx.saturating_sub(1));
         let next_width = next_line.width();
-        let next_line_start = self.rope.line_to_byte(line_idx - 1);
+        let next_line_start = self.rope.line_to_byte(line_idx.saturating_sub(1));
 
         if next_width < before_cursor {
             self.cursor.position = next_line_start + next_line.len_bytes();
@@ -329,8 +340,24 @@ impl Buffer {
     }
 
     pub fn home(&mut self, shift: bool) {
-        let line_idx = self.cursor_line_idx();
-        let byte = self.rope.line_to_byte(line_idx);
+        let (col, line_idx) = self.cursor_pos();
+        let line = self.rope.line_without_line_ending(line_idx);
+
+        let mut byte_col = 0;
+        for grapheme in line.grapehemes() {
+            if byte_col >= col {
+                byte_col = 0;
+                break;
+            }
+
+            if grapheme.chars().any(char::is_whitespace) {
+                byte_col += grapheme.len_bytes();
+            } else {
+                break;
+            }
+        }
+
+        let byte = self.rope.line_to_byte(line_idx) + byte_col;
         self.cursor.position = byte;
         if !shift {
             self.cursor.anchor = self.cursor.position;
@@ -371,6 +398,7 @@ impl Buffer {
         self.cursor.position += text.len();
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
+        self.dirty = true;
     }
 
     pub fn backspace(&mut self) {
@@ -390,6 +418,7 @@ impl Buffer {
         self.cursor.position = start_byte_idx;
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
+        self.dirty = true;
     }
 
     pub fn delete(&mut self) {
@@ -409,6 +438,66 @@ impl Buffer {
         self.cursor.position = start_byte_idx;
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
+        self.dirty = true;
+    }
+
+    pub fn move_line(&mut self, dir: LineMoveDir) {
+        let (cursor_col, cursor_line_idx) = self.cursor_pos();
+        let (anchor_col, anchor_line_idx) = self.anchor_pos();
+
+        let start_line_idx = cursor_line_idx.min(anchor_line_idx);
+        let mut end_line_idx = cursor_line_idx.max(anchor_line_idx);
+
+        if start_line_idx == 0 && dir == LineMoveDir::Up {
+            return;
+        }
+
+        if end_line_idx + 1 >= self.len_lines() && dir == LineMoveDir::Down {
+            return;
+        }
+
+        let end_col = cursor_col.max(anchor_col);
+        if end_col == 0 && start_line_idx < end_line_idx {
+            end_line_idx -= 1;
+        }
+
+        let old_line_idx = self
+            .rope
+            .byte_to_line(self.cursor.position.min(self.cursor.anchor));
+        let offset = match dir {
+            LineMoveDir::Up => -1,
+            LineMoveDir::Down => 1,
+        };
+        let new_line_idx = (old_line_idx as i64 + offset) as usize;
+
+        let new_line_has_line_ending = self.rope.line(new_line_idx).get_line_ending().is_some();
+
+        let start_char_idx = self.rope.line_to_char(start_line_idx);
+        let end_char_idx = self.rope.end_of_line_char(end_line_idx);
+
+        let removed = self.rope.slice(start_char_idx..end_char_idx);
+        let removed = if new_line_has_line_ending {
+            removed.to_string()
+        } else {
+            removed
+                .slice(..rope_end_without_line_ending(&removed))
+                .to_string()
+        };
+
+        self.rope.remove(start_char_idx..end_char_idx);
+
+        let new_line_start_char_idx = self.rope.line_to_char(new_line_idx);
+        self.rope.insert(new_line_start_char_idx, &removed);
+
+        if !new_line_has_line_ending {
+            self.rope.insert(new_line_start_char_idx, "\n");
+        }
+
+        let new_cursor_line_idx = (cursor_line_idx as i64 + offset) as usize;
+        let new_anchor_line_idx = (anchor_line_idx as i64 + offset) as usize;
+
+        self.cursor.position = self.rope.line_to_byte(new_cursor_line_idx) + cursor_col;
+        self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_col;
     }
 
     pub fn tab(&mut self, back: bool) {
@@ -437,6 +526,7 @@ impl Buffer {
             }*/
         }
         self.update_affinity();
+        self.dirty = true;
     }
 
     pub fn select_all(&mut self) {
@@ -447,9 +537,8 @@ impl Buffer {
     pub fn select_line(&mut self) {
         {
             let line_idx = self.cursor_line_idx();
-            let line_start = self.rope.line_to_byte(line_idx);
-            let line_len = self.rope.get_line(line_idx).unwrap().len_bytes();
-            self.cursor.position = line_start + line_len;
+            let line_start = self.rope.line_to_byte(line_idx + 1);
+            self.cursor.position = line_start;
         }
 
         {
@@ -463,7 +552,7 @@ impl Buffer {
         let start = self.cursor.position.min(self.cursor.anchor);
         let end = self.cursor.position.max(self.cursor.anchor);
         let content = if start == end {
-            self.get_line(self.cursor_line_idx()).unwrap().to_string()
+            self.rope.line(self.cursor_line_idx()).to_string()
         } else {
             self.rope.byte_slice(start..end).to_string()
         };
@@ -479,27 +568,9 @@ impl Buffer {
             return Err(BufferError::NoPathSet)
         };
 
-        let Some(parent) = path.parent() else {
-            return Err(BufferError::InvalidPath(path))
-        };
+        write::write(self.encoding, self.rope.clone(), path)?;
 
-        let Some(filename) = path.file_name() else {
-            return Err(BufferError::InvalidPath(path))
-        };
-
-        let temp = PathBuf::from(format!(
-            "{}/.{}.part",
-            parent.to_string_lossy(),
-            filename.to_string_lossy()
-        ));
-        let mut file = BufWriter::new(File::open(&temp)?);
-
-        for chunk in self.rope.chunks() {
-            file.write_all(chunk.as_bytes())?;
-        }
-
-        file.flush()?;
-        fs::rename(temp, path)?;
+        self.dirty = false;
 
         Ok(())
     }
@@ -512,6 +583,7 @@ impl Buffer {
         let (encoding, rope) = read::read(path)?;
         self.encoding = encoding;
         self.rope = rope;
+        self.dirty = false;
 
         Ok(())
     }

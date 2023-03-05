@@ -14,6 +14,7 @@
 - [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
 - [ ] .gitignore support [ignore](https://crates.io/crates/ignore)
 - [ ] Infinte undo with undo file and non truncating history
+- [ ] Basic auto complete recommendations based on words in document
 
 ### Micro features
 - [x] Highlighted line number
@@ -22,6 +23,8 @@
 - [ ] Indetation deletion like vscode
 - [ ] Variable length tabs
 - [ ] Command palette completion
+- [ ] Git mv aware rename/move command
+- [ ] Open directory and browse
 
 ### Big features
 - [ ] tree sitter
@@ -34,4 +37,5 @@
 - [ ] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
 
 ### TODO list
-Make window scroll to the right so cursor stays in view.
+Make window scroll to the right so cursor stays in view.  
+Switch to event loop from iterator api.  

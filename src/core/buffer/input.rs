@@ -3,12 +3,12 @@ use crate::tui_app::input::InputCommand;
 
 impl Buffer {
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
-        self.dirty = true;
         match input {
             InputCommand::MoveRight { shift } => self.move_right_char(shift),
             InputCommand::MoveLeft { shift } => self.move_left_char(shift),
             InputCommand::MoveUp { shift } => self.move_up(shift),
             InputCommand::MoveDown { shift } => self.move_down(shift),
+            InputCommand::MoveLine(dir) => self.move_line(dir),
             InputCommand::Insert(text) => self.insert_text(&text),
             InputCommand::Char(ch) => self.insert_text(&String::from(ch)),
             InputCommand::Backspace => self.backspace(),

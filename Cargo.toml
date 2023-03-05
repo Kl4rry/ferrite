@@ -26,6 +26,9 @@ unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
 utility = { path = "./utility" }
 
+[dev-dependencies]
+tempdir = "0.3.7"
+
 [profile.dev.package."*"]
 opt-level = 3
 
@@ -33,3 +36,7 @@ opt-level = 3
 members = [
     "utility"
 ]
+
+[[bin]]
+name = "fe"
+path = "src/main.rs"
