@@ -6,7 +6,7 @@ use super::{read, write};
 
 #[test]
 fn read_test_utf8() {
-    const TEST_FILE: &'static str = "test files/emoji-utf8.json";
+    const TEST_FILE: &'static str = "test_files/emoji-utf8.json";
     let (_, rope) = read::read(TEST_FILE).unwrap();
     let decoded = rope.to_string();
     let reference = fs::read_to_string(TEST_FILE).unwrap();
@@ -17,7 +17,7 @@ fn read_test_utf8() {
 
 #[test]
 fn read_write_test_utf8() {
-    const TEST_FILE: &'static str = "test files/emoji-utf8.json";
+    const TEST_FILE: &'static str = "test_files/emoji-utf8.json";
     let (encoding, rope) = read::read(TEST_FILE).unwrap();
     let tmp_dir = TempDir::new("test").unwrap();
     let output_path = tmp_dir.path().join("output.json");
