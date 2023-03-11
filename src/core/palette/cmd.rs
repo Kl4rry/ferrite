@@ -6,6 +6,7 @@ pub enum Command {
     SaveFile(Option<PathBuf>),
     Reload,
     Logger,
+    ForceQuit,
     Goto(i64),
     /*
     ViewBuffers,

@@ -125,7 +125,26 @@ impl TuiApp {
                 if let Some(input) = input {
                     match input {
                         InputCommand::Quit => {
-                            *control_flow = TuiEventLoopControlFlow::Exit;
+                            let unsaved: Vec<_> = buffers
+                                .iter()
+                                .filter_map(|(_, buffer)| {
+                                    if buffer.is_dirty() {
+                                        Some(buffer.name().unwrap_or_else(|| "scratch".into()))
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+
+                            if unsaved.is_empty() {
+                                *control_flow = TuiEventLoopControlFlow::Exit;
+                            } else {
+                                palette.set_msg(format!(
+                                    "You have {} buffer(s): {:?}",
+                                    unsaved.len(),
+                                    unsaved
+                                ));
+                            }
                         }
                         InputCommand::Escape if palette_focus => {
                             palette_focus = false;
@@ -176,9 +195,12 @@ impl TuiApp {
                                 cmd::Command::Goto(line) => {
                                     buffers[current_buffer_id].goto(line);
                                 }
+                                cmd::Command::ForceQuit => {
+                                    *control_flow = TuiEventLoopControlFlow::Exit;
+                                }
                                 cmd::Command::Logger => todo!(),
                             },
-                            Err(err) => palette.set_msg(&err.to_string()),
+                            Err(err) => palette.set_msg(err.to_string()),
                         }
                     }
                     "goto" => {

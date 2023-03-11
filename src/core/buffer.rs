@@ -107,8 +107,18 @@ impl Buffer {
         self.cursor
     }
 
-    pub fn dirty(&self) -> bool {
+    pub fn is_dirty(&self) -> bool {
         self.dirty
+    }
+
+    pub fn name(&self) -> Option<String> {
+        Some(
+            self.file
+                .as_ref()?
+                .file_name()?
+                .to_string_lossy()
+                .to_string(),
+        )
     }
 
     pub fn get_buffer_view(&self, max_lines: usize) -> BufferView {

@@ -27,6 +27,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("goto", [line]) => Ok(Command::Goto(line.take().unwrap().unwrap_int())),
         ("reload", []) => Ok(Command::Reload),
         ("logger", []) => Ok(Command::Logger),
+        ("quit!", []) => Ok(Command::ForceQuit),
         _ => Err(CommandParseError::UnkownCommand(name.to_string())),
     };
 
@@ -40,5 +41,6 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("goto", vec![("line", CommandTemplateArg::Int)], 0),
         CommandTemplate::new("reload", vec![], 0),
         CommandTemplate::new("logger", vec![], 0),
+        CommandTemplate::new("quit!", vec![], 0),
     ]
 });
