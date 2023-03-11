@@ -23,9 +23,7 @@ impl Buffer {
             InputCommand::Tab { back } => self.tab(back),
             InputCommand::Scroll(distance) => self.scroll(distance),
             InputCommand::Save => self.save(None)?,
-            InputCommand::Quit => (),
-            InputCommand::FocusPalette => (),
-            InputCommand::Escape => (),
+            _ => (),
         }
         Ok(())
     }

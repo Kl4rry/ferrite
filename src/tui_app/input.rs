@@ -29,6 +29,7 @@ pub enum InputCommand {
     MoveLine(LineMoveDir),
     Backspace,
     Delete,
+    PromptGoto,
     Home { shift: bool },
     End { shift: bool },
     Eof { shift: bool },
@@ -87,6 +88,10 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand)> {
         (
             Mapping::new(KeyCode::Char('p'), KeyModifiers::CONTROL),
             InputCommand::FocusPalette,
+        ),
+        (
+            Mapping::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
+            InputCommand::PromptGoto,
         ),
         (
             Mapping::new(KeyCode::Tab, KeyModifiers::NONE),

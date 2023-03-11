@@ -25,6 +25,7 @@
 - [ ] Command palette completion
 - [ ] Git mv aware rename/move command
 - [ ] Open directory and browse
+- [ ] Delete word jump word
 
 ### Big features
 - [ ] tree sitter
@@ -38,4 +39,4 @@
 
 ### TODO list
 Make window scroll to the right so cursor stays in view.  
-Switch to event loop from iterator api.  
+Figure out ipc stuff.  

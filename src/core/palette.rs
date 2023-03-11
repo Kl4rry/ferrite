@@ -1,10 +1,11 @@
-use std::sync::mpsc::{self, Receiver, Sender};
-
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use super::buffer::{error::BufferError, Buffer};
-use crate::tui_app::input::InputCommand;
+use crate::tui_app::{
+    event_loop::{TuiAppEvent, TuiEventLoopProxy},
+    input::InputCommand,
+};
 
 pub mod cmd;
 pub mod cmd_parser;
@@ -13,20 +14,22 @@ pub enum PaletteState {
     Input {
         buffer: Buffer,
         prompt: String,
-        sender: Sender<String>,
+        mode: String,
     },
     Message(String),
     Nothing,
 }
 
 pub struct CommandPalette {
+    proxy: TuiEventLoopProxy,
     state: PaletteState,
 }
 
 impl CommandPalette {
-    pub fn new() -> Self {
+    pub fn new(proxy: TuiEventLoopProxy) -> Self {
         Self {
             state: PaletteState::Nothing,
+            proxy,
         }
     }
 
@@ -38,14 +41,12 @@ impl CommandPalette {
         self.state = PaletteState::Nothing;
     }
 
-    pub fn focus(&mut self, prompt: &str) -> Receiver<String> {
-        let (sender, receiver) = mpsc::channel();
+    pub fn focus(&mut self, prompt: impl Into<String>, mode: impl Into<String>) {
         self.state = PaletteState::Input {
             buffer: Buffer::new(),
-            prompt: prompt.to_string(),
-            sender,
+            prompt: prompt.into(),
+            mode: mode.into(),
         };
-        receiver
     }
 
     pub fn state(&self) -> &PaletteState {
@@ -55,7 +56,7 @@ impl CommandPalette {
 
 impl CommandPalette {
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
-        if let PaletteState::Input { buffer, sender, .. } = &mut self.state {
+        if let PaletteState::Input { buffer, mode, .. } = &mut self.state {
             let mut enter = false;
             match input {
                 InputCommand::Insert(string) => {
@@ -73,7 +74,10 @@ impl CommandPalette {
             }
 
             if enter && buffer.rope().len_bytes() > 0 {
-                let _ = sender.send(buffer.rope().to_string());
+                self.proxy.send(TuiAppEvent::PaletteEvent {
+                    mode: mode.clone(),
+                    content: buffer.rope().to_string(),
+                });
             }
         }
         Ok(())
