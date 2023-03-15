@@ -507,6 +507,9 @@ pub trait RopeGraphemeExt {
     fn get_line_ending(&self) -> Option<LineEnding>;
     fn last_n_columns(&self, n: usize) -> RopeSlice;
 
+    fn is_whitespace(&self) -> bool;
+    fn is_word_char(&self) -> bool;
+
     fn end_of_line_byte(&self, line_idx: usize) -> usize;
     fn end_of_line_char(&self, line_idx: usize) -> usize;
 }
@@ -570,6 +573,27 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         self.byte_slice(byte_idx..)
     }
 
+    fn is_whitespace(&self) -> bool {
+        self.chars().all(char::is_whitespace)
+    }
+
+    fn is_word_char(&self) -> bool {
+        self.chars().all(|ch| {
+            use unicode_general_category::GeneralCategory;
+            matches!(
+                unicode_general_category::get_general_category(ch),
+                GeneralCategory::ConnectorPunctuation
+                    | GeneralCategory::UppercaseLetter
+                    | GeneralCategory::TitlecaseLetter
+                    | GeneralCategory::LowercaseLetter
+                    | GeneralCategory::NonspacingMark
+                    | GeneralCategory::DecimalNumber
+                    | GeneralCategory::LetterNumber
+                    | GeneralCategory::OtherLetter
+            )
+        })
+    }
+
     fn end_of_line_byte(&self, line_idx: usize) -> usize {
         let line_len = self.line(line_idx).len_bytes();
         let line_start = self.line_to_byte(line_idx);
@@ -585,37 +609,39 @@ impl RopeGraphemeExt for RopeSlice<'_> {
 
 impl RopeGraphemeExt for Rope {
     fn width(&self) -> usize {
-        self.slice(..).width()
+        self.byte_slice(..).width()
     }
 
     fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice {
         let start = self.line_to_char(line_idx);
-        let end = line_ending::line_end_char_index(&self.slice(..), line_idx);
+        let end = line_ending::line_end_char_index(&self.byte_slice(..), line_idx);
         self.slice(start..end)
     }
 
     fn prev_grapheme_boundary_byte(&self, byte_idx: usize) -> usize {
-        self.slice(..).prev_grapheme_boundary_byte(byte_idx)
+        self.byte_slice(..).prev_grapheme_boundary_byte(byte_idx)
     }
 
     fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
-        self.slice(..).nth_prev_grapheme_boundary_byte(byte_idx, n)
+        self.byte_slice(..)
+            .nth_prev_grapheme_boundary_byte(byte_idx, n)
     }
 
     fn next_grapheme_boundary_byte(&self, byte_idx: usize) -> usize {
-        self.slice(..).next_grapheme_boundary_byte(byte_idx)
+        self.byte_slice(..).next_grapheme_boundary_byte(byte_idx)
     }
 
     fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize {
-        self.slice(..).nth_next_grapheme_boundary_byte(byte_idx, n)
+        self.byte_slice(..)
+            .nth_next_grapheme_boundary_byte(byte_idx, n)
     }
 
     fn grapehemes(&self) -> RopeGraphemes {
-        RopeGraphemes::new(self.slice(..))
+        RopeGraphemes::new(self.byte_slice(..))
     }
 
     fn get_line_ending(&self) -> Option<LineEnding> {
-        self.slice(..).get_line_ending()
+        self.byte_slice(..).get_line_ending()
     }
 
     fn last_n_columns(&self, n: usize) -> RopeSlice {
@@ -634,11 +660,19 @@ impl RopeGraphemeExt for Rope {
         self.byte_slice(byte_idx..)
     }
 
+    fn is_whitespace(&self) -> bool {
+        self.byte_slice(..).is_whitespace()
+    }
+
+    fn is_word_char(&self) -> bool {
+        self.byte_slice(..).is_word_char()
+    }
+
     fn end_of_line_byte(&self, byte_idx: usize) -> usize {
-        self.slice(..).end_of_line_byte(byte_idx)
+        self.byte_slice(..).end_of_line_byte(byte_idx)
     }
 
     fn end_of_line_char(&self, char_idx: usize) -> usize {
-        self.slice(..).end_of_line_char(char_idx)
+        self.byte_slice(..).end_of_line_char(char_idx)
     }
 }

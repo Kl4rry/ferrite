@@ -24,6 +24,8 @@ pub enum InputCommand {
     MoveLeft { shift: bool },
     MoveUp { shift: bool },
     MoveDown { shift: bool },
+    MoveRightWord { shift: bool },
+    MoveLeftWord { shift: bool },
     Insert(String),
     Char(char),
     MoveLine(LineMoveDir),
@@ -37,6 +39,7 @@ pub enum InputCommand {
     SelectAll,
     SelectLine,
     Copy,
+    Cut,
     Tab { back: bool },
     Scroll(i64),
     FocusPalette,
@@ -84,6 +87,10 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand)> {
         (
             Mapping::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             InputCommand::Copy,
+        ),
+        (
+            Mapping::new(KeyCode::Char('x'), KeyModifiers::CONTROL),
+            InputCommand::Cut,
         ),
         (
             Mapping::new(KeyCode::Char('p'), KeyModifiers::CONTROL),
@@ -184,6 +191,22 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand)> {
         (
             Mapping::new(KeyCode::Down, KeyModifiers::SHIFT),
             InputCommand::MoveDown { shift: true },
+        ),
+        (
+            Mapping::new(KeyCode::Right, KeyModifiers::CONTROL),
+            InputCommand::MoveRightWord { shift: false },
+        ),
+        (
+            Mapping::new(KeyCode::Left, KeyModifiers::CONTROL),
+            InputCommand::MoveLeftWord { shift: false },
+        ),
+        (
+            Mapping::new(KeyCode::Right, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
+            InputCommand::MoveRightWord { shift: true },
+        ),
+        (
+            Mapping::new(KeyCode::Left, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
+            InputCommand::MoveLeftWord { shift: true },
         ),
         (
             Mapping::new(KeyCode::Up, KeyModifiers::ALT),

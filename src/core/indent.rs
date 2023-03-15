@@ -20,9 +20,9 @@ impl Indentation {
         let mut buffer = String::with_capacity(10240);
         for chunk in rope.chunks() {
             if chunk.len() + buffer.len() > buffer.capacity() {
-                buffer.push_str(chunk);
                 break;
             }
+            buffer.push_str(chunk);
         }
         Self::detect_indent(&buffer)
     }
@@ -48,8 +48,7 @@ impl Indentation {
             Indentation::Spaces(amount) => {
                 let amount = amount.get();
                 let rest = col % amount;
-                let len = if rest == 0 { col } else { rest };
-
+                let len = if rest == 0 { amount } else { amount - rest };
                 " ".repeat(len)
             }
         }

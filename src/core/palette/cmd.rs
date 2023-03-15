@@ -8,6 +8,7 @@ pub enum Command {
     Logger,
     ForceQuit,
     Goto(i64),
+    Indent,
     /*
     ViewBuffers,
     ViewWorkspace,

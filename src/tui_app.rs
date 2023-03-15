@@ -1,3 +1,5 @@
+use std::{fs, io};
+
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
@@ -15,6 +17,7 @@ use self::{
 use crate::{
     core::{
         buffer::Buffer,
+        indent::Indentation,
         palette::{cmd, cmd_parser, CommandPalette},
         theme::EditorTheme,
     },
@@ -38,7 +41,13 @@ pub struct TuiApp {
 impl TuiApp {
     pub fn new(args: Args) -> Result<Self> {
         let buffer = match args.file {
-            Some(file) => Buffer::from_file(file)?,
+            Some(file) => match Buffer::from_file(&file) {
+                Ok(buffer) => buffer,
+                Err(err) => match err.kind() {
+                    io::ErrorKind::NotFound => Buffer::with_path(file),
+                    _ => Buffer::new(),
+                },
+            },
             None => Buffer::new(),
         };
 
@@ -144,6 +153,7 @@ impl TuiApp {
                                     unsaved.len(),
                                     unsaved
                                 ));
+                                *control_flow = TuiEventLoopControlFlow::Exit;
                             }
                         }
                         InputCommand::Escape if palette_focus => {
@@ -176,17 +186,38 @@ impl TuiApp {
                         palette_focus = false;
                         match cmd_parser::parse_cmd(&content) {
                             Ok(cmd) => match cmd {
-                                cmd::Command::OpenFile(path) => match Buffer::from_file(path) {
-                                    Ok(buffer) => {
-                                        current_buffer_id = buffers.insert(buffer);
+                                cmd::Command::OpenFile(path) => {
+                                    // FIXME remove these unwrap
+                                    let real_path = fs::canonicalize(&path).unwrap();
+                                    match buffers.iter().find(|(_, buffer)| {
+                                        buffer
+                                            .file()
+                                            .map(|path| fs::canonicalize(path).unwrap())
+                                            .as_deref()
+                                            == Some(&real_path)
+                                    }) {
+                                        Some((id, _)) => current_buffer_id = id,
+                                        None => match Buffer::from_file(path) {
+                                            Ok(buffer) => {
+                                                current_buffer_id = buffers.insert(buffer);
+                                            }
+                                            Err(err) => palette.set_msg(err.to_string()),
+                                        },
                                     }
-                                    Err(err) => palette.set_msg(err.to_string()),
-                                },
+                                }
                                 cmd::Command::SaveFile(path) => {
                                     if let Err(err) = buffers[current_buffer_id].save(path) {
                                         palette.set_msg(err.to_string())
                                     }
                                 }
+                                cmd::Command::Indent => match buffers[current_buffer_id].indent {
+                                    Indentation::Tabs(amount) => {
+                                        palette.set_msg(format!("{} tabs(s)", amount))
+                                    }
+                                    Indentation::Spaces(amount) => {
+                                        palette.set_msg(format!("{} space(s)", amount))
+                                    }
+                                },
                                 cmd::Command::Reload => {
                                     if let Err(err) = buffers[current_buffer_id].reload() {
                                         palette.set_msg(err.to_string())

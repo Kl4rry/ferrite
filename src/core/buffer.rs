@@ -84,6 +84,13 @@ impl Buffer {
         }
     }
 
+    pub fn with_path(path: impl Into<PathBuf>) -> Self {
+        Self {
+            file: Some(path.into()),
+            ..Default::default()
+        }
+    }
+
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, io::Error> {
         let path = path.as_ref();
         let (encoding, rope) = read::read(path)?;
@@ -91,13 +98,12 @@ impl Buffer {
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
-            file: Some(path.to_path_buf()),
+            file: Some(path.into()),
             encoding,
             ..Default::default()
         })
     }
 
-    #[allow(dead_code)]
     pub fn set_text(&mut self, text: &str) {
         self.rope = Rope::from(text);
     }
@@ -322,6 +328,116 @@ impl Buffer {
         }
     }
 
+    pub fn move_right_word(&mut self, shift: bool) {
+        let mut current_idx = self.cursor.position;
+        let mut skipping = Skipping::None;
+        loop {
+            let new_idx = self.rope.next_grapheme_boundary_byte(current_idx);
+            if new_idx == current_idx {
+                break;
+            }
+
+            let grapheme = self.rope.byte_slice(current_idx..new_idx);
+            match skipping {
+                Skipping::Whitespace => {
+                    skipping = if grapheme.is_word_char() {
+                        Skipping::WordChar
+                    } else if grapheme.is_whitespace() {
+                        if grapheme.get_line_ending().is_some() {
+                            break;
+                        }
+                        Skipping::Whitespace
+                    } else {
+                        Skipping::Other
+                    };
+                }
+                Skipping::WordChar => {
+                    if !grapheme.is_word_char() {
+                        break;
+                    }
+                }
+                Skipping::Other => {
+                    if grapheme.is_whitespace() || grapheme.is_word_char() {
+                        break;
+                    }
+                }
+                Skipping::None => {
+                    skipping = if grapheme.is_whitespace() {
+                        Skipping::Whitespace
+                    } else if grapheme.is_word_char() {
+                        Skipping::WordChar
+                    } else {
+                        Skipping::Other
+                    };
+                }
+            }
+            current_idx = new_idx;
+        }
+
+        self.cursor.position = current_idx;
+
+        if !shift {
+            self.cursor.anchor = self.cursor.position;
+        }
+
+        self.update_affinity();
+    }
+
+    pub fn move_left_word(&mut self, shift: bool) {
+        let mut current_idx = self.cursor.position;
+        let mut skipping = Skipping::None;
+        loop {
+            let new_idx = self.rope.prev_grapheme_boundary_byte(current_idx);
+            if new_idx == current_idx {
+                break;
+            }
+
+            let grapheme = self.rope.byte_slice(new_idx..current_idx);
+            match skipping {
+                Skipping::Whitespace => {
+                    skipping = if grapheme.is_word_char() {
+                        Skipping::WordChar
+                    } else if grapheme.is_whitespace() {
+                        if grapheme.get_line_ending().is_some() {
+                            break;
+                        }
+                        Skipping::Whitespace
+                    } else {
+                        Skipping::Other
+                    };
+                }
+                Skipping::WordChar => {
+                    if !grapheme.is_word_char() {
+                        break;
+                    }
+                }
+                Skipping::Other => {
+                    if grapheme.is_whitespace() || grapheme.is_word_char() {
+                        break;
+                    }
+                }
+                Skipping::None => {
+                    skipping = if grapheme.is_whitespace() {
+                        Skipping::Whitespace
+                    } else if grapheme.is_word_char() {
+                        Skipping::WordChar
+                    } else {
+                        Skipping::Other
+                    };
+                }
+            }
+            current_idx = new_idx;
+        }
+
+        self.cursor.position = current_idx;
+
+        if !shift {
+            self.cursor.anchor = self.cursor.position;
+        }
+
+        self.update_affinity();
+    }
+
     pub fn goto(&mut self, line: i64) {
         let line_idx = (self.rope.len_lines().saturating_sub(1) as i64)
             .min(line)
@@ -403,15 +519,29 @@ impl Buffer {
     }
 
     pub fn insert_text(&mut self, text: &str) {
+        if self.cursor.position != self.cursor.anchor {
+            let start_char_idx = self
+                .rope
+                .byte_to_char(self.cursor.position.min(self.cursor.anchor));
+            let end_char_idx = self
+                .rope
+                .byte_to_char(self.cursor.position.max(self.cursor.anchor));
+            self.rope.remove(start_char_idx..end_char_idx);
+            self.cursor.position = self.cursor.position.min(self.cursor.anchor);
+            self.cursor.anchor = self.cursor.position;
+        }
+
         self.rope
             .insert(self.rope.byte_to_char(self.cursor.position), text);
         self.cursor.position += text.len();
         self.cursor.anchor = self.cursor.position;
+
         self.update_affinity();
         self.dirty = true;
     }
 
     pub fn backspace(&mut self) {
+        // TODO add indentation removal when only white space is to the left of cursor
         let (start_byte_idx, end_byte_idx) = if self.cursor.position == self.cursor.anchor {
             let start_byte_idx = self.rope.prev_grapheme_boundary_byte(self.cursor.position);
             (start_byte_idx, self.cursor.position)
@@ -508,18 +638,12 @@ impl Buffer {
 
         self.cursor.position = self.rope.line_to_byte(new_cursor_line_idx) + cursor_col;
         self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_col;
+        self.update_affinity();
+        self.dirty = true;
     }
 
-    pub fn tab(&mut self, back: bool) {
-        if back {
-            let start = self
-                .rope
-                .byte_to_line(self.cursor.position.min(self.cursor.anchor));
-            let end = self
-                .rope
-                .byte_to_line(self.cursor.position.max(self.cursor.anchor));
-            for _line_idx in start..end {}
-        } else if self.cursor.position == self.cursor.anchor {
+    pub fn tab(&mut self) {
+        if self.cursor.position == self.cursor.anchor {
             let col = self.cursor_grapheme_column();
             self.insert_text(&self.indent.to_next_ident(col));
         } else {
@@ -535,6 +659,21 @@ impl Buffer {
                 self.rope.insert(char_idx, &indent)
             }*/
         }
+        self.update_affinity();
+        self.dirty = true;
+    }
+
+    pub fn back_tab(&mut self) {
+        /*
+        let start = self
+                .rope
+                .byte_to_line(self.cursor.position.min(self.cursor.anchor));
+            let end = self
+                .rope
+                .byte_to_line(self.cursor.position.max(self.cursor.anchor));
+            for _line_idx in start..end {}
+         */
+
         self.update_affinity();
         self.dirty = true;
     }
@@ -561,12 +700,30 @@ impl Buffer {
     pub fn copy(&mut self) {
         let start = self.cursor.position.min(self.cursor.anchor);
         let end = self.cursor.position.max(self.cursor.anchor);
-        let content = if start == end {
+        let copied = if start == end {
             self.rope.line(self.cursor_line_idx()).to_string()
         } else {
             self.rope.byte_slice(start..end).to_string()
         };
-        cli_clipboard::set_contents(content).unwrap();
+        cli_clipboard::set_contents(copied).unwrap();
+    }
+
+    pub fn cut(&mut self) {
+        let mut start = self.cursor.position.min(self.cursor.anchor);
+        let mut end = self.cursor.position.max(self.cursor.anchor);
+
+        if start == end {
+            start = self.rope.line_to_byte(self.rope.byte_to_line(start));
+            end = self.rope.end_of_line_byte(self.rope.byte_to_line(end));
+        }
+        let cut = self.rope.byte_slice(start..end).to_string();
+        cli_clipboard::set_contents(cut).unwrap();
+        self.rope
+            .remove(self.rope.byte_to_char(start)..self.rope.byte_to_char(end));
+        self.cursor.position = start;
+        self.cursor.anchor = self.cursor.position;
+        self.update_affinity();
+        self.dirty = true;
     }
 
     pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), BufferError> {
@@ -601,4 +758,12 @@ impl Buffer {
 
 pub struct BufferView<'a> {
     pub lines: Vec<RopeSlice<'a>>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Skipping {
+    Whitespace,
+    WordChar,
+    Other,
+    None,
 }
