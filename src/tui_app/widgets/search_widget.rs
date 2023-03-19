@@ -58,7 +58,7 @@ where
         for i in 0..inner_area.height {
             buf.set_stringn(
                 inner_area.x,
-                inner_area.y + i as u16,
+                inner_area.y + i,
                 " ".repeat(inner_area.width.into()),
                 inner_area.width.into(),
                 self.theme.text,
@@ -77,7 +77,6 @@ where
         search_field_area.height = 1;
 
         {
-
             buf.set_stringn(
                 search_field_area.x,
                 search_field_area.y,

@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Result;
 use clap::Parser;
+use tui_app::event_loop::TuiEventLoop;
 
 mod core;
 
@@ -47,14 +48,17 @@ fn main() -> Result<ExitCode> {
         return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
     }
 
-    let mut tui_app = tui_app::TuiApp::new(args)?;
-    if atty::isnt(atty::Stream::Stdin) {
-        let mut stdin = io::stdin().lock();
-        let mut text = String::new();
-        stdin.read_to_string(&mut text)?;
-        tui_app.new_buffer_with_text(&text)
+    {
+        let event_loop = TuiEventLoop::new();
+        let mut tui_app = tui_app::TuiApp::new(args, event_loop.create_proxy())?;
+        if atty::isnt(atty::Stream::Stdin) {
+            let mut stdin = io::stdin().lock();
+            let mut text = String::new();
+            stdin.read_to_string(&mut text)?;
+            tui_app.new_buffer_with_text(&text)
+        }
+        tui_app.run(event_loop)?;
     }
-    tui_app.run()?;
 
     Ok(ExitCode::from(0))
 }
