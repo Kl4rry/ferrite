@@ -38,6 +38,8 @@ impl StatefulWidget for EditorWidget<'_> {
         let width = area.width;
         let height = area.height - 1;
 
+        buffer.set_view_lines(height.into());
+
         buf.set_style(area, theme.background);
 
         let current_line_number = buffer.cursor_line_idx() + 1;
@@ -45,7 +47,7 @@ impl StatefulWidget for EditorWidget<'_> {
         let mut left_offset = 0;
         {
             let mut line_buffer = String::with_capacity(width.into());
-            let view = buffer.get_buffer_view(height.into());
+            let view = buffer.get_buffer_view();
 
             for (i, (line, line_number)) in view
                 .lines
@@ -128,15 +130,18 @@ impl StatefulWidget for EditorWidget<'_> {
                             // Edge case for last line
                             if last.get_line_ending().is_none() {
                                 let x = area.x + view_col as u16 + left_offset as u16;
-                                buf.set_style(
-                                    Rect {
-                                        x,
-                                        y: area.y + row as u16,
-                                        width: 1,
-                                        height: 1,
-                                    },
-                                    Style::default().add_modifier(tui::style::Modifier::REVERSED),
-                                );
+                                if x < area.right() {
+                                    buf.set_style(
+                                        Rect {
+                                            x,
+                                            y: area.y + row as u16,
+                                            width: 1,
+                                            height: 1,
+                                        },
+                                        Style::default()
+                                            .add_modifier(tui::style::Modifier::REVERSED),
+                                    );
+                                }
                             }
                         }
                     }

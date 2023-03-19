@@ -41,6 +41,11 @@ pub struct TuiApp {
 impl TuiApp {
     pub fn new(args: Args) -> Result<Self> {
         let buffer = match args.file {
+            Some(file) if file.is_dir() => {
+                std::env::set_current_dir(file)?;
+                // TODO open file searcher here
+                Buffer::new()
+            }
             Some(file) => match Buffer::from_file(&file) {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
@@ -93,9 +98,11 @@ impl TuiApp {
         terminal::enable_raw_mode()?;
         execute!(
             stdout,
+            event::EnableBracketedPaste,
             terminal::EnterAlternateScreen,
             event::EnableMouseCapture,
         )?;
+
         let backend = tui::backend::CrosstermBackend::new(stdout);
         let mut terminal = tui::Terminal::new(backend)?;
 
@@ -127,7 +134,10 @@ impl TuiApp {
                         event::MouseEventKind::ScrollDown => Some(InputCommand::Scroll(3)),
                         _ => None,
                     },
-                    Event::Paste(text) => Some(InputCommand::Insert(text)),
+                    Event::Paste(text) => {
+                        debug!("paste: {text}");
+                        Some(InputCommand::Insert(text))
+                    }
                     _ => None,
                 };
 
@@ -270,7 +280,8 @@ impl TuiApp {
         execute!(
             terminal.backend_mut(),
             terminal::LeaveAlternateScreen,
-            event::DisableMouseCapture
+            event::DisableMouseCapture,
+            event::DisableBracketedPaste,
         )?;
         terminal.show_cursor()?;
 

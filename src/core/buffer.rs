@@ -34,6 +34,12 @@ pub struct Cursor {
     pub affinity: usize,
 }
 
+impl Cursor {
+    pub fn has_selection(&self) -> bool {
+        self.position != self.anchor
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Selection {
     pub start: BufferPos,
@@ -48,6 +54,10 @@ pub struct Buffer {
     pub encoding: &'static Encoding,
     pub indent: Indentation,
     dirty: bool,
+    clamp_cursor: bool,
+    clamp_distance: usize,
+    // view stuff
+    view_lines: usize,
 }
 
 impl Default for Buffer {
@@ -60,6 +70,9 @@ impl Default for Buffer {
             encoding: encoding_rs::UTF_8,
             indent: Indentation::Spaces(NonZeroUsize::new(4).unwrap()), //indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
+            clamp_cursor: true,
+            clamp_distance: 4,
+            view_lines: usize::MAX,
         }
     }
 }
@@ -117,6 +130,13 @@ impl Buffer {
         self.dirty
     }
 
+    pub fn set_view_lines(&mut self, max_lines: usize) {
+        self.view_lines = max_lines;
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
+    }
+
     pub fn name(&self) -> Option<String> {
         Some(
             self.file
@@ -127,8 +147,8 @@ impl Buffer {
         )
     }
 
-    pub fn get_buffer_view(&self, max_lines: usize) -> BufferView {
-        let end_line = std::cmp::min(self.rope.len_lines(), max_lines + self.line_pos);
+    pub fn get_buffer_view(&self) -> BufferView {
+        let end_line = std::cmp::min(self.rope.len_lines(), self.view_lines + self.line_pos);
 
         let mut lines = Vec::new();
         for line_idx in self.line_pos..end_line {
@@ -244,9 +264,25 @@ impl Buffer {
                 self.line_pos as i64 + distance,
             );
             self.line_pos = new_pos as usize;
+            if self.clamp_cursor {
+                while {
+                    let cursor_line = self.rope.byte_to_line(self.cursor.position);
+                    (self.line_pos + self.clamp_distance) > cursor_line
+                } {
+                    self.move_down(false);
+                }
+            }
         } else {
             let new_pos = cmp::max(0, self.line_pos as i64 + distance);
             self.line_pos = new_pos as usize;
+            if self.clamp_cursor {
+                while {
+                    let cursor_line = self.rope.byte_to_line(self.cursor.position);
+                    (self.line_pos + self.view_lines - self.clamp_distance) < cursor_line
+                } {
+                    self.move_up(false);
+                }
+            }
         }
     }
 
@@ -328,7 +364,35 @@ impl Buffer {
         }
     }
 
-    pub fn move_right_word(&mut self, shift: bool) {
+    pub fn select_word(&mut self) {
+        // TODO add matching multi selection when already having a selection
+        if !self.cursor.has_selection() {
+            let mut start_byte_idx = self.cursor.position;
+            loop {
+                let new_idx = self.rope.prev_grapheme_boundary_byte(start_byte_idx);
+                let grapheme = self.rope.byte_slice(new_idx..start_byte_idx);
+                if new_idx == start_byte_idx || !grapheme.is_word_char() {
+                    break;
+                }
+                start_byte_idx = new_idx;
+            }
+
+            let mut end_byte_idx = self.cursor.position;
+            loop {
+                let new_idx = self.rope.next_grapheme_boundary_byte(end_byte_idx);
+                let grapheme = self.rope.byte_slice(end_byte_idx..new_idx);
+                if new_idx == end_byte_idx || !grapheme.is_word_char() {
+                    break;
+                }
+                end_byte_idx = new_idx;
+            }
+
+            self.cursor.position = end_byte_idx;
+            self.cursor.anchor = start_byte_idx;
+        }
+    }
+
+    fn next_word_end(&self) -> usize {
         let mut current_idx = self.cursor.position;
         let mut skipping = Skipping::None;
         loop {
@@ -373,17 +437,10 @@ impl Buffer {
             }
             current_idx = new_idx;
         }
-
-        self.cursor.position = current_idx;
-
-        if !shift {
-            self.cursor.anchor = self.cursor.position;
-        }
-
-        self.update_affinity();
+        current_idx
     }
 
-    pub fn move_left_word(&mut self, shift: bool) {
+    fn prev_word_start(&self) -> usize {
         let mut current_idx = self.cursor.position;
         let mut skipping = Skipping::None;
         loop {
@@ -428,8 +485,23 @@ impl Buffer {
             }
             current_idx = new_idx;
         }
+        current_idx
+    }
 
-        self.cursor.position = current_idx;
+    pub fn move_right_word(&mut self, shift: bool) {
+        let next_word = self.next_word_end();
+        self.cursor.position = next_word;
+
+        if !shift {
+            self.cursor.anchor = self.cursor.position;
+        }
+
+        self.update_affinity();
+    }
+
+    pub fn move_left_word(&mut self, shift: bool) {
+        let prev_word = self.prev_word_start();
+        self.cursor.position = prev_word;
 
         if !shift {
             self.cursor.anchor = self.cursor.position;
@@ -519,7 +591,7 @@ impl Buffer {
     }
 
     pub fn insert_text(&mut self, text: &str) {
-        if self.cursor.position != self.cursor.anchor {
+        if self.cursor.has_selection() {
             let start_char_idx = self
                 .rope
                 .byte_to_char(self.cursor.position.min(self.cursor.anchor));
@@ -538,13 +610,47 @@ impl Buffer {
 
         self.update_affinity();
         self.dirty = true;
+
+        // Close pairs
+        match text {
+            "{" => self
+                .rope
+                .insert(self.rope.byte_to_char(self.cursor.position), "}"),
+            "[" => self
+                .rope
+                .insert(self.rope.byte_to_char(self.cursor.position), "]"),
+            "(" => self
+                .rope
+                .insert(self.rope.byte_to_char(self.cursor.position), ")"),
+            "'" => self
+                .rope
+                .insert(self.rope.byte_to_char(self.cursor.position), "'"),
+            "\"" => self
+                .rope
+                .insert(self.rope.byte_to_char(self.cursor.position), "\""),
+            _ => (),
+        }
     }
 
     pub fn backspace(&mut self) {
         // TODO add indentation removal when only white space is to the left of cursor
-        let (start_byte_idx, end_byte_idx) = if self.cursor.position == self.cursor.anchor {
+        let (start_byte_idx, end_byte_idx) = if !self.cursor.has_selection() {
             let start_byte_idx = self.rope.prev_grapheme_boundary_byte(self.cursor.position);
-            (start_byte_idx, self.cursor.position)
+
+            let start_byte = self.rope.get_byte(start_byte_idx);
+            let end_byte = self.rope.get_byte(start_byte_idx + 1);
+
+            // Remove pair
+            let end_byte_idx = match (start_byte, end_byte) {
+                (Some(b'{'), Some(b'}')) => self.cursor.position + 1,
+                (Some(b'['), Some(b']')) => self.cursor.position + 1,
+                (Some(b'('), Some(b')')) => self.cursor.position + 1,
+                (Some(b'\''), Some(b'\'')) => self.cursor.position + 1,
+                (Some(b'"'), Some(b'"')) => self.cursor.position + 1,
+                _ => self.cursor.position,
+            };
+
+            (start_byte_idx, end_byte_idx)
         } else {
             let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
             let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
@@ -561,8 +667,23 @@ impl Buffer {
         self.dirty = true;
     }
 
+    pub fn backspace_word(&mut self) {
+        if self.cursor.has_selection() {
+            self.backspace_word();
+        } else {
+            let prev_word = self.prev_word_start();
+            let start_char_idx = self.rope.byte_to_char(prev_word);
+            let end_char_idx = self.rope.byte_to_char(self.cursor.position);
+            self.rope.remove(start_char_idx..end_char_idx);
+            self.cursor.position = prev_word;
+            self.cursor.anchor = self.cursor.position;
+            self.update_affinity();
+            self.dirty = true;
+        }
+    }
+
     pub fn delete(&mut self) {
-        let (start_byte_idx, end_byte_idx) = if self.cursor.position == self.cursor.anchor {
+        let (start_byte_idx, end_byte_idx) = if !self.cursor.has_selection() {
             let end_byte_idx = self.rope.next_grapheme_boundary_byte(self.cursor.position);
             (self.cursor.position, end_byte_idx)
         } else {
@@ -579,6 +700,19 @@ impl Buffer {
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
         self.dirty = true;
+    }
+
+    pub fn delete_word(&mut self) {
+        if self.cursor.has_selection() {
+            self.delete();
+        } else {
+            let next_word = self.next_word_end();
+            let start_char_idx = self.rope.byte_to_char(self.cursor.position);
+            let end_char_idx = self.rope.byte_to_char(next_word);
+            self.rope.remove(start_char_idx..end_char_idx);
+            self.update_affinity();
+            self.dirty = true;
+        }
     }
 
     pub fn move_line(&mut self, dir: LineMoveDir) {
@@ -643,7 +777,7 @@ impl Buffer {
     }
 
     pub fn tab(&mut self) {
-        if self.cursor.position == self.cursor.anchor {
+        if !self.cursor.has_selection() {
             let col = self.cursor_grapheme_column();
             self.insert_text(&self.indent.to_next_ident(col));
         } else {
@@ -753,6 +887,15 @@ impl Buffer {
         self.dirty = false;
 
         Ok(())
+    }
+
+    pub fn center_on_cursor(&mut self) {
+        let cursor_line = self.rope.byte_to_line(self.cursor.position);
+        let start_line = self.line_pos;
+        let end_line = self.line_pos + self.view_lines;
+        if cursor_line < start_line || cursor_line > end_line {
+            self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);
+        }
     }
 }
 

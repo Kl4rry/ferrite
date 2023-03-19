@@ -14,13 +14,16 @@ impl Buffer {
             InputCommand::Insert(text) => self.insert_text(&text),
             InputCommand::Char(ch) => self.insert_text(&String::from(ch)),
             InputCommand::Backspace => self.backspace(),
+            InputCommand::BackspaceWord => self.backspace_word(),
             InputCommand::Delete => self.delete(),
+            InputCommand::DeleteWord => self.delete_word(),
             InputCommand::Home { shift } => self.home(shift),
             InputCommand::End { shift } => self.end(shift),
             InputCommand::Eof { shift } => self.eof(shift),
             InputCommand::Start { shift } => self.start(shift),
             InputCommand::SelectAll => self.select_all(),
             InputCommand::SelectLine => self.select_line(),
+            InputCommand::SelectWord => self.select_word(),
             InputCommand::Copy => self.copy(),
             InputCommand::Cut => self.cut(),
             InputCommand::Tab { back } if !back => self.tab(),
@@ -29,6 +32,11 @@ impl Buffer {
             InputCommand::Save => self.save(None)?,
             _ => (),
         }
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
+
         Ok(())
     }
 }
