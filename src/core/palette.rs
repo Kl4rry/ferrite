@@ -42,8 +42,11 @@ impl CommandPalette {
     }
 
     pub fn focus(&mut self, prompt: impl Into<String>, mode: impl Into<String>) {
+        let mut buffer = Buffer::new();
+        buffer.set_view_lines(1);
+        buffer.clamp_cursor = false;
         self.state = PaletteState::Input {
-            buffer: Buffer::new(),
+            buffer,
             prompt: prompt.into(),
             mode: mode.into(),
         };

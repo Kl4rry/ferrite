@@ -117,4 +117,8 @@ impl TuiEventLoopProxy {
         let _ = self.proxy_tx.send(event);
         let _ = self.waker_tx.send(());
     }
+
+    pub fn request_render(&self) {
+        let _ = self.waker_tx.send(());
+    }
 }

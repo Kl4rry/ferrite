@@ -6,6 +6,7 @@ text = { fg = "white" }
 info_line = { fg = "white", bg = "light_black" }
 background = { bg = "black", fg = "white" }
 selection = { bg = "gray"}
+border = { bg = "black", fg = "white" }
 
 [palette]
 yellow = "#E5C07B"

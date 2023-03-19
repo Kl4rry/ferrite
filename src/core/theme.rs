@@ -88,6 +88,7 @@ pub struct EditorTheme {
     pub info_line: style::Style,
     pub background: style::Style,
     pub selection: style::Style,
+    pub border: style::Style,
 }
 
 impl EditorTheme {
@@ -101,6 +102,7 @@ impl EditorTheme {
             info_line: theme.get_style("info_line")?,
             background: theme.get_style("background")?,
             selection: theme.get_style("selection")?,
+            border: theme.get_style("border")?,
         })
     }
 

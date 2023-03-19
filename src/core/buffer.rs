@@ -46,6 +46,7 @@ pub struct Selection {
     pub end: BufferPos,
 }
 
+#[derive(Debug)]
 pub struct Buffer {
     cursor: Cursor,
     line_pos: usize,
@@ -54,8 +55,8 @@ pub struct Buffer {
     pub encoding: &'static Encoding,
     pub indent: Indentation,
     dirty: bool,
-    clamp_cursor: bool,
-    clamp_distance: usize,
+    pub clamp_cursor: bool,
+    pub clamp_distance: usize,
     // view stuff
     view_lines: usize,
 }
@@ -264,7 +265,7 @@ impl Buffer {
                 self.line_pos as i64 + distance,
             );
             self.line_pos = new_pos as usize;
-            if self.clamp_cursor {
+            if self.clamp_cursor && self.len_lines() > self.view_lines {
                 while {
                     let cursor_line = self.rope.byte_to_line(self.cursor.position);
                     (self.line_pos + self.clamp_distance) > cursor_line
@@ -275,7 +276,7 @@ impl Buffer {
         } else {
             let new_pos = cmp::max(0, self.line_pos as i64 + distance);
             self.line_pos = new_pos as usize;
-            if self.clamp_cursor {
+            if self.clamp_cursor && self.len_lines() > self.view_lines {
                 while {
                     let cursor_line = self.rope.byte_to_line(self.cursor.position);
                     (self.line_pos + self.view_lines - self.clamp_distance) < cursor_line

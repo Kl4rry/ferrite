@@ -41,7 +41,7 @@ fn main() -> Result<ExitCode> {
 
     if args.log_file {
         let mut child = std::process::Command::new("tail")
-            .args(&["-fn", "1000", &log_file_path.to_string_lossy()])
+            .args(["-fn", "1000", &log_file_path.to_string_lossy()])
             .spawn()?;
         let exit_status = child.wait()?;
         return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));

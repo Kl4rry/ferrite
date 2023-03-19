@@ -8,11 +8,10 @@
 - [ ] Custom themes
 - [ ] Split panes
 - [ ] Multiple buffers and buffer selection screen (maybe tabs for the gui version)
-- [ ] Quick fuzzy file finding with either [fuzzy-matcher](https://github.com/lotabout/fuzzy-matcher) or [sublime_fuzzy](https://github.com/Schlechtwetterfront/fuzzy-rs)
+- [ ] Quick fuzzy file finding
 - [ ] Real relative line numbers
 - [ ] Softwrapping
 - [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
-- [ ] .gitignore support [ignore](https://crates.io/crates/ignore)
 - [ ] Infinte undo with undo file and non truncating history
 - [ ] Basic auto complete recommendations based on words in document
 
@@ -25,7 +24,6 @@
 - [ ] Command palette completion
 - [ ] Git mv aware rename/move command
 - [ ] Open directory and browse
-- [ ] Delete word jump word
 - [ ] Auto indent
 
 ### Big features

@@ -1,24 +1,26 @@
-use std::{fs, io};
+use std::{fs, io, path::PathBuf};
 
 use anyhow::Result;
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
     execute, terminal,
 };
-use log::debug;
 use slab::Slab;
-use tui::layout::Rect;
+use tui::layout::{Margin, Rect};
 
 use self::{
     event_loop::{TuiEventLoop, TuiEventLoopControlFlow},
     input::get_default_mappings,
-    widgets::{editor_widget::EditorWidget, palette_widget::CmdPaletteWidget},
+    widgets::{
+        editor_widget::EditorWidget, palette_widget::CmdPaletteWidget, search_widget::SearchWidget,
+    },
 };
 use crate::{
     core::{
         buffer::Buffer,
         indent::Indentation,
         palette::{cmd, cmd_parser, CommandPalette},
+        search_buffer::{fuzzy_file_find::FuzzyFileFindProvider, SearchBuffer},
         theme::EditorTheme,
     },
     tui_app::input::InputCommand,
@@ -34,6 +36,7 @@ pub struct TuiApp {
     current_buffer_id: usize,
     theme: EditorTheme,
     palette: CommandPalette,
+    file_finder: Option<SearchBuffer<FuzzyFileFindProvider>>,
     palette_focus: bool,
     event_loop: TuiEventLoop,
 }
@@ -66,11 +69,14 @@ impl TuiApp {
         let mut slab = Slab::new();
         let id = slab.insert(buffer);
 
+        let file_finder = None;
+
         Ok(Self {
             buffers: slab,
             current_buffer_id: id,
             theme,
             palette,
+            file_finder,
             palette_focus,
             event_loop,
         })
@@ -90,6 +96,7 @@ impl TuiApp {
             mut buffers,
             mut palette,
             mut palette_focus,
+            mut file_finder,
             event_loop,
             ..
         } = self;
@@ -108,12 +115,12 @@ impl TuiApp {
 
         let default_mappings = get_default_mappings();
 
-        event_loop.run(|_proxy, event, control_flow| match event {
+        event_loop.run(|proxy, event, control_flow| match event {
             event_loop::TuiEvent::Crossterm(event) => {
                 let input = match event {
                     Event::Key(event) => {
                         if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
-                            debug!("{:?}", event);
+                            log::debug!("{:?}", event);
                             match input::get_command_from_input(
                                 event.code,
                                 event.modifiers,
@@ -135,7 +142,7 @@ impl TuiApp {
                         _ => None,
                     },
                     Event::Paste(text) => {
-                        debug!("paste: {text}");
+                        log::debug!("paste: {text}");
                         Some(InputCommand::Insert(text))
                     }
                     _ => None,
@@ -171,16 +178,52 @@ impl TuiApp {
                             palette.reset();
                         }
                         InputCommand::FocusPalette if !palette_focus => {
+                            file_finder = None;
                             palette_focus = true;
                             palette.focus("> ", "command");
                         }
                         InputCommand::PromptGoto => {
+                            file_finder = None;
                             palette_focus = true;
                             palette.focus("goto: ", "goto");
+                        }
+                        InputCommand::Escape if file_finder.is_some() => {
+                            file_finder = None;
+                        }
+                        InputCommand::FindFile => {
+                            palette.reset();
+                            palette_focus = false;
+                            file_finder = Some(SearchBuffer::new(FuzzyFileFindProvider::new(
+                                std::env::current_dir().unwrap_or(PathBuf::from("/")),
+                                proxy.clone(),
+                            )));
                         }
                         input => {
                             if palette_focus {
                                 let _ = palette.handle_input(input);
+                            } else if let Some(finder) = &mut file_finder {
+                                let _ = finder.handle_input(input);
+                                if let Some(choice) = finder.get_choice() {
+                                    file_finder = None;
+                                    // FIXME dedupe this code
+                                    // FIXME remove these unwrap
+                                    let real_path = fs::canonicalize(&choice).unwrap();
+                                    match buffers.iter().find(|(_, buffer)| {
+                                        buffer
+                                            .file()
+                                            .map(|path| fs::canonicalize(path).unwrap())
+                                            .as_deref()
+                                            == Some(&real_path)
+                                    }) {
+                                        Some((id, _)) => current_buffer_id = id,
+                                        None => match Buffer::from_file(choice) {
+                                            Ok(buffer) => {
+                                                current_buffer_id = buffers.insert(buffer);
+                                            }
+                                            Err(err) => palette.set_msg(err.to_string()),
+                                        },
+                                    }
+                                }
                             } else if let Err(err) = buffers[current_buffer_id].handle_input(input)
                             {
                                 palette.set_msg(err.to_string());
@@ -197,6 +240,7 @@ impl TuiApp {
                         match cmd_parser::parse_cmd(&content) {
                             Ok(cmd) => match cmd {
                                 cmd::Command::OpenFile(path) => {
+                                    // FIXME dedupe this code
                                     // FIXME remove these unwrap
                                     let real_path = fs::canonicalize(&path).unwrap();
                                     match buffers.iter().find(|(_, buffer)| {
@@ -260,10 +304,18 @@ impl TuiApp {
                         let size = f.size();
                         let editor_size = Rect::new(size.x, size.y, size.width, size.height - 1);
                         f.render_stateful_widget(
-                            EditorWidget::new(&theme, !palette_focus),
+                            EditorWidget::new(&theme, !palette_focus && file_finder.is_none()),
                             editor_size,
                             &mut buffers[current_buffer_id],
                         );
+
+                        if let Some(file_finder) = &mut file_finder {
+                            let size = size.inner(&Margin {
+                                horizontal: 5,
+                                vertical: 2,
+                            });
+                            f.render_stateful_widget(SearchWidget::new(&theme, "Open file"), size, file_finder);
+                        }
 
                         let palette_size = Rect::new(size.x, size.height - 1, size.width, 1);
                         f.render_stateful_widget(

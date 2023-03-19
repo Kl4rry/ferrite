@@ -23,7 +23,7 @@ serde = { version = "1.0.152", features = ["derive"] }
 simplelog = "0.12.0"
 slab = "0.4.8"
 toml = "0.7.1"
-tree_magic_mini = "3.0.3"
+tree_magic_mini = { version = "3.0.3", features = ["with-gpl-data"] }
 tui = "0.19.0"
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"

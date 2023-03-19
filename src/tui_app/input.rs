@@ -46,6 +46,7 @@ pub enum InputCommand {
     Tab { back: bool },
     Scroll(i64),
     FocusPalette,
+    FindFile,
     Escape,
     Save,
     Quit,
@@ -138,6 +139,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
             InputCommand::PromptGoto,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
+            InputCommand::FindFile,
             Exclusiveness::Exclusive,
         ),
         (
