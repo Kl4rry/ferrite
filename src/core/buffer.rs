@@ -879,7 +879,7 @@ impl Buffer {
 
     pub fn reload(&mut self) -> Result<(), BufferError> {
         let Some(path) = &self.file else {
-            return Err(BufferError::NoPathSet)
+            return Err(BufferError::NoPathSet);
         };
 
         let (encoding, rope) = read::read(path)?;
@@ -888,6 +888,12 @@ impl Buffer {
         self.dirty = false;
 
         Ok(())
+    }
+
+    pub fn escape(&mut self) {
+        if self.cursor.has_selection() {
+            self.cursor.anchor = self.cursor.position;
+        }
     }
 
     pub fn center_on_cursor(&mut self) {

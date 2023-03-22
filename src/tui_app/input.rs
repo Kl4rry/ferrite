@@ -86,6 +86,10 @@ pub fn get_command_from_input(
         }
     }
 
+    if let KeyCode::Char(ch) = keycode {
+        return Some(InputCommand::Char(ch));
+    }
+
     None
 }
 

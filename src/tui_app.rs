@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEventKind},
+    event::{self, Event, KeyEventKind},
     execute, terminal,
 };
 use slab::Slab;
@@ -181,17 +181,11 @@ impl TuiApp {
                 Event::Key(event) => {
                     if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
                         log::debug!("{:?}", event);
-                        match input::get_command_from_input(
+                        input::get_command_from_input(
                             event.code,
                             event.modifiers,
                             &self.key_mappings,
-                        ) {
-                            Some(input) => Some(input),
-                            None => match event.code {
-                                KeyCode::Char(ch) => Some(InputCommand::Char(ch)),
-                                _ => None,
-                            },
-                        }
+                        )
                     } else {
                         None
                     }
