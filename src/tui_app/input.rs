@@ -47,6 +47,7 @@ pub enum InputCommand {
     Scroll(i64),
     FocusPalette,
     FindFile,
+    FindBuffer,
     Escape,
     Save,
     Quit,
@@ -148,6 +149,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
             InputCommand::FindFile,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
+            InputCommand::FindBuffer,
             Exclusiveness::Exclusive,
         ),
         (

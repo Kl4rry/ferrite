@@ -52,6 +52,10 @@ impl CommandPalette {
         };
     }
 
+    pub fn has_focus(&self) -> bool {
+        matches!(self.state, PaletteState::Input { .. })
+    }
+
     pub fn state(&self) -> &PaletteState {
         &self.state
     }

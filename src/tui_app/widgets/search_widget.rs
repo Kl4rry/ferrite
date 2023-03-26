@@ -10,17 +10,17 @@ use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use crate::core::{
-    search_buffer::{ResultProvider, SearchBuffer},
+    search_buffer::{Matchable, SearchBuffer},
     theme::EditorTheme,
 };
 
-pub struct SearchWidget<'a, T> {
+pub struct SearchWidget<'a, M> {
     theme: &'a EditorTheme,
     title: &'a str,
-    _phantom: PhantomData<T>,
+    _phantom: PhantomData<M>,
 }
 
-impl<'a, T> SearchWidget<'a, T> {
+impl<'a, M> SearchWidget<'a, M> {
     pub fn new(theme: &'a EditorTheme, title: &'a str) -> Self {
         Self {
             theme,
@@ -30,11 +30,11 @@ impl<'a, T> SearchWidget<'a, T> {
     }
 }
 
-impl<T> StatefulWidget for SearchWidget<'_, T>
+impl<M> StatefulWidget for SearchWidget<'_, M>
 where
-    T: ResultProvider,
+    M: Matchable,
 {
-    type State = SearchBuffer<T>;
+    type State = SearchBuffer<M>;
 
     fn render(
         self,
@@ -131,7 +131,7 @@ where
             result_area.height -= 2;
 
             let selected = state.selected();
-            let result = state.provider().poll_result();
+            let result = state.get_result();
 
             for (i, result) in result.iter().enumerate() {
                 if i >= result_area.height.into() {
@@ -141,15 +141,16 @@ where
                 let padding: usize = 1;
                 let width = result_area.width as usize - padding;
 
-                let result = if result.width() > width - 3 {
-                    let rope = RopeSlice::from(result.as_str());
+                let result = if result.display().width() > width - 3 {
+                    let display = result.display();
+                    let rope = RopeSlice::from(display.as_ref());
                     let slice = rope.last_n_columns(width - 4);
                     let mut shorted = String::with_capacity(slice.len_bytes() + "…".len());
                     shorted.push('…');
                     shorted.push_str(slice.as_str().unwrap());
                     Cow::Owned(shorted)
                 } else {
-                    Cow::Borrowed(result.as_str())
+                    result.display()
                 };
 
                 let result = if i == selected {

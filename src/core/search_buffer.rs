@@ -1,51 +1,86 @@
-use std::cmp;
+use std::{borrow::Cow, cmp, sync::mpsc, thread};
 
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use super::buffer::{error::BufferError, Buffer};
-use crate::tui_app::input::InputCommand;
+use crate::tui_app::{event_loop::TuiEventLoopProxy, input::InputCommand};
 
-pub mod fuzzy_file_find;
+pub mod buffer_find;
+pub mod file_find;
+pub mod fuzzy_match;
 
 #[derive(Debug)]
-pub struct SearchBuffer<T> {
+pub struct SearchBuffer<M> {
     search_field: Buffer,
     selected: usize,
-    result_provider: T,
-    choice: Option<String>,
+    result: Vec<M>,
+    choice: Option<M>,
+    tx: mpsc::Sender<String>,
+    rx: mpsc::Receiver<Vec<M>>,
 }
 
-impl<T> SearchBuffer<T>
+impl<M> SearchBuffer<M>
 where
-    T: ResultProvider,
+    M: Matchable + Send + Sync + Clone + 'static,
 {
-    pub fn new(result_provider: T) -> Self {
+    pub fn new<T: SearchOptionProvider<Matchable = M> + Send + Sync + 'static>(
+        option_provder: T,
+        proxy: TuiEventLoopProxy,
+    ) -> Self {
         let mut search_field = Buffer::new();
         search_field.set_view_lines(1);
         search_field.clamp_cursor = false;
+
+        let (search_tx, search_rx): (_, mpsc::Receiver<String>) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            let options = option_provder.get_options();
+            let _ = result_tx.send(options.clone());
+            proxy.request_render();
+            while let Ok(term) = search_rx.recv() {
+                let output = fuzzy_match::fuzzy_match(&term, options.clone());
+                if result_tx.send(output).is_err() {
+                    break;
+                }
+
+                proxy.request_render();
+            }
+        });
+
         Self {
             search_field,
-            result_provider,
             selected: 0,
             choice: None,
+            tx: search_tx,
+            rx: result_rx,
+            result: Vec::new(),
         }
     }
+}
 
+impl<M> SearchBuffer<M>
+where
+    M: Clone,
+{
     pub fn search_field(&self) -> &Buffer {
         &self.search_field
-    }
-
-    pub fn provider(&mut self) -> &mut T {
-        &mut self.result_provider
     }
 
     pub fn selected(&self) -> usize {
         self.selected
     }
 
-    pub fn get_choice(&mut self) -> Option<String> {
+    pub fn get_choice(&mut self) -> Option<M> {
         self.choice.take()
+    }
+
+    pub fn get_result(&mut self) -> &[M] {
+        if let Ok(result) = self.rx.try_recv() {
+            self.result = result;
+        }
+        &self.result
     }
 
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
@@ -62,7 +97,7 @@ where
                     enter = true;
                 } else {
                     self.selected = 0;
-                    self.result_provider.search(self.search_field.to_string());
+                    let _ = self.tx.send(self.search_field.to_string());
                 }
             }
             InputCommand::Char(ch) if LineEnding::from_char(ch).is_some() => {
@@ -70,28 +105,36 @@ where
             }
             input => {
                 self.search_field.handle_input(input)?;
-                self.result_provider.search(self.search_field.to_string());
+                let _ = self.tx.send(self.search_field.to_string());
             }
         }
 
-        self.selected = cmp::min(
-            self.selected,
-            self.provider().poll_result().len().saturating_sub(1),
-        );
+        self.selected = cmp::min(self.selected, self.get_result().len().saturating_sub(1));
 
         if enter {
             let selected = self.selected;
-            self.choice = self
-                .provider()
-                .poll_result()
-                .get(selected)
-                .map(|s| s.to_string())
+            self.choice = self.get_result().get(selected).cloned();
         }
         Ok(())
     }
 }
 
-pub trait ResultProvider {
-    fn poll_result(&mut self) -> &[String];
-    fn search(&mut self, term: String);
+pub trait Matchable: Clone {
+    fn as_match_str(&self) -> Cow<str>;
+    fn display(&self) -> Cow<str>;
+}
+
+pub trait SearchOptionProvider {
+    type Matchable: Matchable;
+    fn get_options(&self) -> Vec<Self::Matchable>;
+}
+
+impl Matchable for String {
+    fn as_match_str(&self) -> Cow<str> {
+        self.as_str().into()
+    }
+
+    fn display(&self) -> Cow<str> {
+        self.as_str().into()
+    }
 }

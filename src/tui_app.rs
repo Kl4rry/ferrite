@@ -24,7 +24,11 @@ use crate::{
         buffer::Buffer,
         indent::Indentation,
         palette::{cmd, cmd_parser, CommandPalette},
-        search_buffer::{fuzzy_file_find::FuzzyFileFindProvider, SearchBuffer},
+        search_buffer::{
+            buffer_find::{BufferFindProvider, BufferItem},
+            file_find::FileFindProvider,
+            SearchBuffer,
+        },
         theme::EditorTheme,
     },
     tui_app::input::InputCommand,
@@ -41,8 +45,8 @@ pub struct TuiApp {
     current_buffer_id: usize,
     theme: EditorTheme,
     palette: CommandPalette,
-    file_finder: Option<SearchBuffer<FuzzyFileFindProvider>>,
-    palette_focus: bool,
+    file_finder: Option<SearchBuffer<String>>,
+    buffer_finder: Option<SearchBuffer<BufferItem>>,
     key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
 }
 
@@ -67,12 +71,12 @@ impl TuiApp {
         let theme = EditorTheme::from_str(include_str!("../themes/onedark.toml"))?;
 
         let palette = CommandPalette::new(proxy);
-        let palette_focus = false;
 
         let mut slab = Slab::new();
         let id = slab.insert(buffer);
 
         let file_finder = None;
+        let buffer_finder = None;
 
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
@@ -81,7 +85,7 @@ impl TuiApp {
             theme,
             palette,
             file_finder,
-            palette_focus,
+            buffer_finder,
             key_mappings: get_default_mappings(),
         })
     }
@@ -142,7 +146,7 @@ impl TuiApp {
                 f.render_stateful_widget(
                     EditorWidget::new(
                         &self.theme,
-                        !self.palette_focus && self.file_finder.is_none(),
+                        !self.palette.has_focus() && self.file_finder.is_none(),
                     ),
                     editor_size,
                     &mut self.buffers[self.current_buffer_id],
@@ -157,6 +161,18 @@ impl TuiApp {
                         SearchWidget::new(&self.theme, "Open file"),
                         size,
                         file_finder,
+                    );
+                }
+
+                if let Some(buffer_finder) = &mut self.buffer_finder {
+                    let size = size.inner(&Margin {
+                        horizontal: 5,
+                        vertical: 2,
+                    });
+                    f.render_stateful_widget(
+                        SearchWidget::<BufferItem>::new(&self.theme, "Open buffer"),
+                        size,
+                        buffer_finder,
                     );
                 }
 
@@ -228,39 +244,72 @@ impl TuiApp {
                             *control_flow = TuiEventLoopControlFlow::Exit;
                         }
                     }
-                    InputCommand::Escape if self.palette_focus => {
-                        self.palette_focus = false;
+                    InputCommand::Escape if self.palette.has_focus() => {
                         self.palette.reset();
                     }
-                    InputCommand::FocusPalette if !self.palette_focus => {
+                    InputCommand::FocusPalette if !self.palette.has_focus() => {
                         self.file_finder = None;
-                        self.palette_focus = true;
+                        self.buffer_finder = None;
                         self.palette.focus("> ", "command");
                     }
                     InputCommand::PromptGoto => {
                         self.file_finder = None;
-                        self.palette_focus = true;
+                        self.buffer_finder = None;
                         self.palette.focus("goto: ", "goto");
                     }
-                    InputCommand::Escape if self.file_finder.is_some() => {
+                    InputCommand::Escape
+                        if self.file_finder.is_some() | self.buffer_finder.is_some() =>
+                    {
                         self.file_finder = None;
+                        self.buffer_finder = None;
                     }
                     InputCommand::FindFile => {
                         self.palette.reset();
-                        self.palette_focus = false;
-                        self.file_finder = Some(SearchBuffer::new(FuzzyFileFindProvider::new(
-                            std::env::current_dir().unwrap_or(PathBuf::from("/")),
+                        self.buffer_finder = None;
+                        self.file_finder = Some(SearchBuffer::new(
+                            FileFindProvider(std::env::current_dir().unwrap_or(PathBuf::from("/"))),
                             proxy.clone(),
-                        )));
+                        ));
+                    }
+                    InputCommand::FindBuffer => {
+                        self.palette.reset();
+                        self.file_finder = None;
+                        let mut scratch_buffer_number = 1;
+                        let buffers: Vec<_> = self
+                            .buffers
+                            .iter()
+                            .map(|(id, buffer)| BufferItem {
+                                id,
+                                dirty: buffer.is_dirty(),
+                                name: buffer
+                                    .file()
+                                    .map(|path| path.to_string_lossy().to_string())
+                                    .unwrap_or_else(|| {
+                                        scratch_buffer_number += 1;
+                                        format!("[Scratch] {scratch_buffer_number}")
+                                    }),
+                            })
+                            .collect();
+
+                        self.buffer_finder = Some(SearchBuffer::new(
+                            BufferFindProvider(buffers),
+                            proxy.clone(),
+                        ));
                     }
                     input => {
-                        if self.palette_focus {
+                        if self.palette.has_focus() {
                             let _ = self.palette.handle_input(input);
                         } else if let Some(finder) = &mut self.file_finder {
                             let _ = finder.handle_input(input);
                             if let Some(path) = finder.get_choice() {
                                 self.file_finder = None;
                                 self.open_file(path);
+                            }
+                        } else if let Some(finder) = &mut self.buffer_finder {
+                            let _ = finder.handle_input(input);
+                            if let Some(choice) = finder.get_choice() {
+                                self.buffer_finder = None;
+                                self.current_buffer_id = choice.id;
                             }
                         } else if let Err(err) =
                             self.buffers[self.current_buffer_id].handle_input(input)
@@ -283,7 +332,6 @@ impl TuiApp {
             event_loop::TuiAppEvent::PaletteEvent { mode, content } => match mode.as_str() {
                 "command" => {
                     self.palette.reset();
-                    self.palette_focus = false;
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
                             cmd::Command::OpenFile(path) => self.open_file(path),
@@ -320,7 +368,6 @@ impl TuiApp {
                 }
                 "goto" => {
                     self.palette.reset();
-                    self.palette_focus = false;
                     if let Ok(line) = content.trim().parse::<i64>() {
                         self.buffers[self.current_buffer_id].goto(line);
                     }
@@ -349,7 +396,12 @@ impl TuiApp {
             Some((id, _)) => self.current_buffer_id = id,
             None => match Buffer::from_file(path) {
                 Ok(buffer) => {
-                    self.current_buffer_id = self.buffers.insert(buffer);
+                    let current_buf = self.buffers.get_mut(self.current_buffer_id).unwrap();
+                    if !current_buf.is_dirty() && current_buf.rope().len_bytes() == 0 {
+                        *current_buf = buffer;
+                    } else {
+                        self.current_buffer_id = self.buffers.insert(buffer);
+                    }
                 }
                 Err(err) => self.palette.set_msg(err.to_string()),
             },
