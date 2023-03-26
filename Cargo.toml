@@ -12,7 +12,7 @@ clap = { version = "4.1.4", features = ["derive"] }
 cli-clipboard = "0.4.0"
 crossterm = "0.26.0"
 detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev = "f645bcc" }
-directories = "4.0.1"
+directories = "5.0.0"
 encoding_rs = "0.8.31"
 jwalk = "0.8.1"
 lexical-sort = "0.3.1"

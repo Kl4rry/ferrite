@@ -1,4 +1,4 @@
-use std::{borrow::Cow, cmp, sync::mpsc, thread};
+use std::{borrow::Cow, sync::mpsc, thread};
 
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -37,7 +37,9 @@ where
 
         thread::spawn(move || {
             let options = option_provder.get_options();
-            let _ = result_tx.send(options.clone());
+            if result_tx.send(options.clone()).is_err() {
+                return;
+            }
             proxy.request_render();
             while let Ok(term) = search_rx.recv() {
                 let output = fuzzy_match::fuzzy_match(&term, options.clone());
@@ -87,7 +89,7 @@ where
         let mut enter = false;
         match input {
             InputCommand::MoveUp { .. } => self.selected = self.selected.saturating_sub(1),
-            InputCommand::MoveDown { .. } => self.selected += 1,
+            InputCommand::MoveDown { .. } | InputCommand::Tab { .. } => self.selected += 1,
             InputCommand::Insert(string) => {
                 let rope = RopeSlice::from(string.as_str());
                 let line = rope.line_without_line_ending(0);
@@ -109,7 +111,9 @@ where
             }
         }
 
-        self.selected = cmp::min(self.selected, self.get_result().len().saturating_sub(1));
+        if self.selected > self.get_result().len() {
+            self.selected = 0;
+        }
 
         if enter {
             let selected = self.selected;
