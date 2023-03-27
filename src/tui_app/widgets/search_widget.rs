@@ -141,8 +141,8 @@ where
                 let padding: usize = 1;
                 let width = result_area.width as usize - padding;
 
-                let result = if result.display().width() > width - 3 {
-                    let display = result.display();
+                let result = if result.item.display().width() > width - 3 {
+                    let display = result.item.display();
                     let rope = RopeSlice::from(display.as_ref());
                     let slice = rope.last_n_columns(width - 4);
                     let mut shorted = String::with_capacity(slice.len_bytes() + "…".len());
@@ -150,7 +150,7 @@ where
                     shorted.push_str(slice.as_str().unwrap());
                     Cow::Owned(shorted)
                 } else {
-                    result.display()
+                    result.item.display()
                 };
 
                 let result = if i == selected {

@@ -3,6 +3,7 @@ use std::{borrow::Cow, sync::mpsc, thread};
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
+use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
 use crate::tui_app::{event_loop::TuiEventLoopProxy, input::InputCommand};
 
@@ -11,13 +12,13 @@ pub mod file_find;
 pub mod fuzzy_match;
 
 #[derive(Debug)]
-pub struct SearchBuffer<M> {
+pub struct SearchBuffer<M: Matchable> {
     search_field: Buffer,
     selected: usize,
-    result: Vec<M>,
+    result: Vec<FuzzyMatch<M>>,
     choice: Option<M>,
     tx: mpsc::Sender<String>,
-    rx: mpsc::Receiver<Vec<M>>,
+    rx: mpsc::Receiver<Vec<FuzzyMatch<M>>>,
 }
 
 impl<M> SearchBuffer<M>
@@ -33,11 +34,20 @@ where
         search_field.clamp_cursor = false;
 
         let (search_tx, search_rx): (_, mpsc::Receiver<String>) = mpsc::channel();
-        let (result_tx, result_rx) = mpsc::channel();
+        let (result_tx, result_rx): (_, mpsc::Receiver<Vec<FuzzyMatch<_>>>) = mpsc::channel();
 
         thread::spawn(move || {
-            let options = option_provder.get_options();
-            if result_tx.send(options.clone()).is_err() {
+            let options: Vec<_> = option_provder.get_options();
+            if result_tx
+                .send(
+                    options
+                        .iter()
+                        .cloned()
+                        .map(|item| FuzzyMatch { score: 0, item })
+                        .collect(),
+                )
+                .is_err()
+            {
                 return;
             }
             proxy.request_render();
@@ -64,7 +74,7 @@ where
 
 impl<M> SearchBuffer<M>
 where
-    M: Clone,
+    M: Matchable,
 {
     pub fn search_field(&self) -> &Buffer {
         &self.search_field
@@ -78,7 +88,7 @@ where
         self.choice.take()
     }
 
-    pub fn get_result(&mut self) -> &[M] {
+    pub fn get_result(&mut self) -> &[FuzzyMatch<M>] {
         if let Ok(result) = self.rx.try_recv() {
             self.result = result;
         }
@@ -117,7 +127,11 @@ where
 
         if enter {
             let selected = self.selected;
-            self.choice = self.get_result().get(selected).cloned();
+            self.choice = self
+                .get_result()
+                .get(selected)
+                .map(|FuzzyMatch { item, .. }| item)
+                .cloned();
         }
         Ok(())
     }
