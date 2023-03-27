@@ -861,6 +861,13 @@ impl Buffer {
         self.dirty = true;
     }
 
+    pub fn paste(&mut self) {
+        let Ok(text) = cli_clipboard::get_contents() else {
+            return;
+        };
+        self.insert_text(&text);
+    }
+
     pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), BufferError> {
         if let Some(path) = path {
             self.file = Some(path);

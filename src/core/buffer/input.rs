@@ -26,6 +26,7 @@ impl Buffer {
             InputCommand::SelectWord => self.select_word(),
             InputCommand::Copy => self.copy(),
             InputCommand::Cut => self.cut(),
+            InputCommand::Paste => self.paste(),
             InputCommand::Tab { back } if !back => self.tab(),
             InputCommand::Tab { back } if back => self.back_tab(),
             InputCommand::Scroll(distance) => self.scroll(distance),

@@ -43,6 +43,7 @@ pub enum InputCommand {
     SelectWord,
     Copy,
     Cut,
+    Paste,
     Tab { back: bool },
     Scroll(i64),
     FocusPalette,
@@ -129,6 +130,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             InputCommand::Copy,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('v'), KeyModifiers::CONTROL),
+            InputCommand::Paste,
             Exclusiveness::Exclusive,
         ),
         (
