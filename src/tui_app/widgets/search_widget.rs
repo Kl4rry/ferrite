@@ -133,11 +133,15 @@ where
             let selected = state.selected();
             let result = state.get_result();
 
-            for (i, result) in result.iter().enumerate() {
-                if i >= result_area.height.into() {
-                    break;
-                }
+            let start = selected / result_area.height as usize;
+            let cursor_pos = selected % result_area.height as usize;
 
+            for (i, result) in result
+                .iter()
+                .skip(start * result_area.height as usize)
+                .take(result_area.height as usize)
+                .enumerate()
+            {
                 let padding: usize = 1;
                 let width = result_area.width as usize - padding;
 
@@ -153,7 +157,7 @@ where
                     result.item.display()
                 };
 
-                let result = if i == selected {
+                let result = if i == cursor_pos {
                     format!(" > {result}")
                 } else {
                     format!("   {result}")
@@ -167,7 +171,7 @@ where
                     self.theme.text,
                 );
 
-                if i == selected {
+                if i == cursor_pos {
                     buf.set_style(
                         Rect {
                             x: result_area.x,

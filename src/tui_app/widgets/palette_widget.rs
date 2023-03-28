@@ -3,7 +3,7 @@ use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use crate::core::{
-    palette::{CommandPalette, PaletteState},
+    palette::{CommandPalette, PaletteState, SelectedPrompt},
     theme::EditorTheme,
 };
 
@@ -64,6 +64,36 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 buf.set_stringn(area.x, area.y, msg, area.width.into(), self.theme.text);
             }
             PaletteState::Nothing => (),
+            PaletteState::Prompt {
+                selected,
+                prompt,
+                alt1_char,
+                alt2_char,
+                ..
+            } => {
+                let prompt = format!("{prompt}: ");
+                let prompt_width = prompt.width_cjk() as u16;
+                buf.set_stringn(area.x, area.y, &prompt, area.width.into(), self.theme.text);
+                let alt1 = if *selected == SelectedPrompt::Alt1 {
+                    alt1_char.to_ascii_uppercase()
+                } else {
+                    *alt1_char
+                };
+
+                let alt2 = if *selected == SelectedPrompt::Alt2 {
+                    alt2_char.to_ascii_uppercase()
+                } else {
+                    *alt2_char
+                };
+
+                buf.set_stringn(
+                    area.x + prompt_width,
+                    area.y,
+                    format!("{alt1} / {alt2}"),
+                    area.width.into(),
+                    self.theme.text,
+                );
+            }
         };
     }
 }

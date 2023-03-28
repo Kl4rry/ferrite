@@ -23,7 +23,7 @@ use crate::{
     core::{
         buffer::Buffer,
         indent::Indentation,
-        palette::{cmd, cmd_parser, CommandPalette},
+        palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
         search_buffer::{
             buffer_find::{BufferFindProvider, BufferItem},
             file_find::FileFindProvider,
@@ -241,7 +241,16 @@ impl TuiApp {
                                 unsaved.len(),
                                 unsaved
                             ));
-                            *control_flow = TuiEventLoopControlFlow::Exit;
+
+                            self.palette.set_prompt(
+                                format!(
+                                    "You have {} buffer(s): {:?}, Are you sure you want to exit?",
+                                    unsaved.len(),
+                                    unsaved
+                                ),
+                                ('y', PalettePromptEvent::Quit),
+                                ('n', PalettePromptEvent::Nop),
+                            );
                         }
                     }
                     InputCommand::Escape if self.palette.has_focus() => {
@@ -373,6 +382,10 @@ impl TuiApp {
                     }
                 }
                 _ => (),
+            },
+            TuiAppEvent::PromptEvent(event) => match event {
+                PalettePromptEvent::Nop => (),
+                PalettePromptEvent::Quit => *control_flow = TuiEventLoopControlFlow::Exit,
             },
         }
     }

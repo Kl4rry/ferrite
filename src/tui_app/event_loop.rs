@@ -4,6 +4,8 @@ use std::{
     time::Duration,
 };
 
+use crate::core::palette::PalettePromptEvent;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiEventLoopControlFlow {
@@ -15,6 +17,7 @@ pub enum TuiEventLoopControlFlow {
 
 pub enum TuiAppEvent {
     PaletteEvent { mode: String, content: String },
+    PromptEvent(PalettePromptEvent),
 }
 
 pub enum TuiEvent {
