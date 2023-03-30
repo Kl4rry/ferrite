@@ -18,6 +18,9 @@ mod tui_app;
 pub struct Args {
     /// Path to file that will be opened
     pub file: Option<PathBuf>,
+    /// Line to open file on
+    #[arg(long, short, default_value = "0")]
+    pub line: u32,
     /// Tail log file
     #[arg(long, name = "log-file")]
     pub log_file: bool,
@@ -50,12 +53,15 @@ fn main() -> Result<ExitCode> {
 
     {
         let event_loop = TuiEventLoop::new();
-        let mut tui_app = tui_app::TuiApp::new(args, event_loop.create_proxy())?;
+        let mut tui_app = tui_app::TuiApp::new(&args, event_loop.create_proxy())?;
         if atty::isnt(atty::Stream::Stdin) {
             let mut stdin = io::stdin().lock();
             let mut text = String::new();
             stdin.read_to_string(&mut text)?;
-            tui_app.new_buffer_with_text(&text)
+            let buffer = tui_app.new_buffer_with_text(&text);
+            let (_, height) = crossterm::terminal::size()?;
+            buffer.set_view_lines(height.saturating_sub(2).into());
+            buffer.goto(args.line as i64);
         }
         tui_app.run(event_loop)?;
     }

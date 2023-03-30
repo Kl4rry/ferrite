@@ -51,14 +51,14 @@ pub struct TuiApp {
 }
 
 impl TuiApp {
-    pub fn new(args: Args, proxy: TuiEventLoopProxy) -> Result<Self> {
-        let buffer = match args.file {
+    pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
+        let mut buffer = match &args.file {
             Some(file) if file.is_dir() => {
                 std::env::set_current_dir(file)?;
                 // TODO open file searcher here
                 Buffer::new()
             }
-            Some(file) => match Buffer::from_file(&file) {
+            Some(file) => match Buffer::from_file(file) {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
                     io::ErrorKind::NotFound => Buffer::with_path(file),
@@ -67,6 +67,10 @@ impl TuiApp {
             },
             None => Buffer::new(),
         };
+
+        let (_, height) = crossterm::terminal::size()?;
+        buffer.set_view_lines(height.saturating_sub(2).into());
+        buffer.goto(args.line as i64);
 
         let theme = EditorTheme::from_str(include_str!("../themes/onedark.toml"))?;
 
@@ -90,11 +94,12 @@ impl TuiApp {
         })
     }
 
-    pub fn new_buffer_with_text(&mut self, text: &str) {
+    pub fn new_buffer_with_text(&mut self, text: &str) -> &mut Buffer {
         let mut buffer = Buffer::new();
         buffer.set_text(text);
         let id = self.buffers.insert(buffer);
         self.current_buffer_id = id;
+        &mut self.buffers[self.current_buffer_id]
     }
 
     pub fn run(mut self, event_loop: TuiEventLoop) -> Result<()> {

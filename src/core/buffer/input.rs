@@ -35,10 +35,6 @@ impl Buffer {
             _ => (),
         }
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
-        }
-
         Ok(())
     }
 }

@@ -133,9 +133,6 @@ impl Buffer {
 
     pub fn set_view_lines(&mut self, max_lines: usize) {
         self.view_lines = max_lines;
-        if self.clamp_cursor {
-            self.center_on_cursor();
-        }
     }
 
     pub fn name(&self) -> Option<String> {
@@ -149,7 +146,7 @@ impl Buffer {
     }
 
     pub fn get_buffer_view(&self) -> BufferView {
-        let end_line = std::cmp::min(self.rope.len_lines(), self.view_lines + self.line_pos);
+        let end_line = cmp::min(self.rope.len_lines(), self.view_lines + self.line_pos);
 
         let mut lines = Vec::new();
         for line_idx in self.line_pos..end_line {
@@ -259,32 +256,8 @@ impl Buffer {
     }
 
     pub fn scroll(&mut self, distance: i64) {
-        if distance.is_positive() {
-            let new_pos = cmp::min(
-                cmp::max(self.len_lines(), 1) as i64 - 1,
-                self.line_pos as i64 + distance,
-            );
-            self.line_pos = new_pos as usize;
-            if self.clamp_cursor && self.len_lines() > self.view_lines {
-                while {
-                    let cursor_line = self.rope.byte_to_line(self.cursor.position);
-                    (self.line_pos + self.clamp_distance) > cursor_line
-                } {
-                    self.move_down(false);
-                }
-            }
-        } else {
-            let new_pos = cmp::max(0, self.line_pos as i64 + distance);
-            self.line_pos = new_pos as usize;
-            if self.clamp_cursor && self.len_lines() > self.view_lines {
-                while {
-                    let cursor_line = self.rope.byte_to_line(self.cursor.position);
-                    (self.line_pos + self.view_lines - self.clamp_distance) < cursor_line
-                } {
-                    self.move_up(false);
-                }
-            }
-        }
+        self.line_pos = (self.line_pos as i128 + distance as i128)
+            .clamp(0, self.len_lines() as i128 - 1) as usize;
     }
 
     pub fn move_right_char(&mut self, shift: bool) {
@@ -296,6 +269,10 @@ impl Buffer {
         }
 
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn move_left_char(&mut self, shift: bool) {
@@ -307,6 +284,10 @@ impl Buffer {
         }
 
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn move_down(&mut self, shift: bool) {
@@ -335,6 +316,10 @@ impl Buffer {
         if !shift {
             self.cursor.anchor = self.cursor.position;
         }
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn move_up(&mut self, shift: bool) {
@@ -362,6 +347,10 @@ impl Buffer {
 
         if !shift {
             self.cursor.anchor = self.cursor.position;
+        }
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
         }
     }
 
@@ -536,6 +525,10 @@ impl Buffer {
             self.cursor.position = next_line_start + idx;
             self.cursor.anchor = self.cursor.position;
         }
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn home(&mut self, shift: bool) {
@@ -562,6 +555,10 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn end(&mut self, shift: bool) {
@@ -573,6 +570,10 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn start(&mut self, shift: bool) {
@@ -581,6 +582,10 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn eof(&mut self, shift: bool) {
@@ -589,6 +594,10 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn insert_text(&mut self, text: &str) {
@@ -631,6 +640,10 @@ impl Buffer {
                 .insert(self.rope.byte_to_char(self.cursor.position), "\""),
             _ => (),
         }
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn backspace(&mut self) {
@@ -666,6 +679,10 @@ impl Buffer {
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
         self.dirty = true;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn backspace_word(&mut self) {
@@ -680,6 +697,10 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
             self.update_affinity();
             self.dirty = true;
+
+            if self.clamp_cursor {
+                self.center_on_cursor();
+            }
         }
     }
 
@@ -701,6 +722,10 @@ impl Buffer {
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
         self.dirty = true;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn delete_word(&mut self) {
@@ -713,6 +738,10 @@ impl Buffer {
             self.rope.remove(start_char_idx..end_char_idx);
             self.update_affinity();
             self.dirty = true;
+
+            if self.clamp_cursor {
+                self.center_on_cursor();
+            }
         }
     }
 
@@ -775,6 +804,10 @@ impl Buffer {
         self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_col;
         self.update_affinity();
         self.dirty = true;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn tab(&mut self) {
@@ -796,6 +829,10 @@ impl Buffer {
         }
         self.update_affinity();
         self.dirty = true;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn back_tab(&mut self) {
@@ -811,6 +848,10 @@ impl Buffer {
 
         self.update_affinity();
         self.dirty = true;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn select_all(&mut self) {
@@ -859,6 +900,10 @@ impl Buffer {
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
         self.dirty = true;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn paste(&mut self) {
@@ -907,7 +952,7 @@ impl Buffer {
         let cursor_line = self.rope.byte_to_line(self.cursor.position);
         let start_line = self.line_pos;
         let end_line = self.line_pos + self.view_lines;
-        if cursor_line < start_line || cursor_line > end_line {
+        if cursor_line < start_line || cursor_line >= end_line {
             self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);
         }
     }
