@@ -14,6 +14,7 @@ pub mod cmd_parser;
 pub enum PalettePromptEvent {
     Nop,
     Quit,
+    Reload,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,7 +67,6 @@ impl CommandPalette {
     pub fn focus(&mut self, prompt: impl Into<String>, mode: impl Into<String>) {
         let mut buffer = Buffer::new();
         buffer.set_view_lines(1);
-        buffer.clamp_cursor = false;
         self.state = PaletteState::Input {
             buffer,
             prompt: prompt.into(),
@@ -102,8 +102,8 @@ impl CommandPalette {
         )
     }
 
-    pub fn state(&self) -> &PaletteState {
-        &self.state
+    pub fn state(&mut self) -> &mut PaletteState {
+        &mut self.state
     }
 }
 

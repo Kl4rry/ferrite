@@ -22,6 +22,7 @@ use self::{
 use crate::{
     core::{
         buffer::Buffer,
+        git::branch::BranchWatcher,
         indent::Indentation,
         palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
         search_buffer::{
@@ -48,14 +49,19 @@ pub struct TuiApp {
     file_finder: Option<SearchBuffer<String>>,
     buffer_finder: Option<SearchBuffer<BufferItem>>,
     key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
+    branch_watcher: BranchWatcher,
 }
 
 impl TuiApp {
     pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
+        let mut file_finder = None;
         let mut buffer = match &args.file {
             Some(file) if file.is_dir() => {
                 std::env::set_current_dir(file)?;
-                // TODO open file searcher here
+                file_finder = Some(SearchBuffer::new(
+                    FileFindProvider(std::env::current_dir().unwrap_or(PathBuf::from("/"))),
+                    proxy.clone(),
+                ));
                 Buffer::new()
             }
             Some(file) => match Buffer::from_file(file) {
@@ -68,18 +74,18 @@ impl TuiApp {
             None => Buffer::new(),
         };
 
-        let (_, height) = crossterm::terminal::size()?;
+        let (width, height) = crossterm::terminal::size()?;
         buffer.set_view_lines(height.saturating_sub(2).into());
+        buffer.set_view_columns(width.into());
         buffer.goto(args.line as i64);
 
         let theme = EditorTheme::from_str(include_str!("../themes/onedark.toml"))?;
 
-        let palette = CommandPalette::new(proxy);
+        let palette = CommandPalette::new(proxy.clone());
 
         let mut slab = Slab::new();
         let id = slab.insert(buffer);
 
-        let file_finder = None;
         let buffer_finder = None;
 
         Ok(Self {
@@ -91,6 +97,7 @@ impl TuiApp {
             file_finder,
             buffer_finder,
             key_mappings: get_default_mappings(),
+            branch_watcher: BranchWatcher::new(proxy)?,
         })
     }
 
@@ -152,6 +159,7 @@ impl TuiApp {
                     EditorWidget::new(
                         &self.theme,
                         !self.palette.has_focus() && self.file_finder.is_none(),
+                        self.branch_watcher.current_branch(),
                     ),
                     editor_size,
                     &mut self.buffers[self.current_buffer_id],
@@ -241,12 +249,6 @@ impl TuiApp {
                         if unsaved.is_empty() {
                             *control_flow = TuiEventLoopControlFlow::Exit;
                         } else {
-                            self.palette.set_msg(format!(
-                                "You have {} buffer(s): {:?}",
-                                unsaved.len(),
-                                unsaved
-                            ));
-
                             self.palette.set_prompt(
                                 format!(
                                     "You have {} buffer(s): {:?}, Are you sure you want to exit?",
@@ -365,6 +367,11 @@ impl TuiApp {
                                 }
                             }
                             cmd::Command::Reload => {
+                                self.palette.set_prompt(
+                                    "The buffer is unsaved are you sure you want to reload?".into(),
+                                    ('y', PalettePromptEvent::Reload),
+                                    ('n', PalettePromptEvent::Nop),
+                                );
                                 if let Err(err) = self.buffers[self.current_buffer_id].reload() {
                                     self.palette.set_msg(err.to_string())
                                 };
@@ -390,6 +397,11 @@ impl TuiApp {
             },
             TuiAppEvent::PromptEvent(event) => match event {
                 PalettePromptEvent::Nop => (),
+                PalettePromptEvent::Reload => {
+                    if let Err(err) = self.buffers[self.current_buffer_id].reload() {
+                        self.palette.set_msg(err.to_string());
+                    }
+                }
                 PalettePromptEvent::Quit => *control_flow = TuiEventLoopControlFlow::Exit,
             },
         }

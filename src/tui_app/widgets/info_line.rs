@@ -13,6 +13,7 @@ pub struct InfoLine<'a> {
     pub column: usize,
     pub line: usize,
     pub dirty: bool,
+    pub branch: &'a Option<String>,
 }
 
 impl Widget for InfoLine<'_> {
@@ -36,7 +37,12 @@ impl Widget for InfoLine<'_> {
         );
 
         {
-            let output = format!(" {}:{} {} ", self.line, self.column, self.encoding.name());
+            let output = format!("{}:{} {} ", self.line, self.column, self.encoding.name());
+            let output = match self.branch {
+                Some(branch) => format!(" {} {}", branch, output),
+                None => output,
+            };
+
             let len = output.width_cjk();
             let mut output_area = area;
             output_area.x = (output_area.x + output_area.width) - len as u16;

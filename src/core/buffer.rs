@@ -50,15 +50,18 @@ pub struct Selection {
 pub struct Buffer {
     cursor: Cursor,
     line_pos: usize,
+    col_pos: usize,
     rope: Rope,
     file: Option<PathBuf>,
+    dirty: bool,
+    read_only: bool,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
-    dirty: bool,
     pub clamp_cursor: bool,
     pub clamp_distance: usize,
     // view stuff
     view_lines: usize,
+    view_columns: usize,
 }
 
 impl Default for Buffer {
@@ -66,14 +69,17 @@ impl Default for Buffer {
         Self {
             cursor: Cursor::default(),
             line_pos: 0,
+            col_pos: 0,
             rope: Rope::new(),
             file: None,
             encoding: encoding_rs::UTF_8,
             indent: Indentation::Spaces(NonZeroUsize::new(4).unwrap()), //indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
+            read_only: false,
             clamp_cursor: true,
             clamp_distance: 4,
             view_lines: usize::MAX,
+            view_columns: usize::MAX,
         }
     }
 }
@@ -131,8 +137,12 @@ impl Buffer {
         self.dirty
     }
 
-    pub fn set_view_lines(&mut self, max_lines: usize) {
-        self.view_lines = max_lines;
+    pub fn set_view_lines(&mut self, lines: usize) {
+        self.view_lines = lines;
+    }
+
+    pub fn set_view_columns(&mut self, cols: usize) {
+        self.view_columns = cols;
     }
 
     pub fn name(&self) -> Option<String> {
@@ -150,7 +160,22 @@ impl Buffer {
 
         let mut lines = Vec::new();
         for line_idx in self.line_pos..end_line {
-            lines.push(self.rope.line(line_idx));
+            let line = self.rope.line(line_idx);
+            let mut idx = 0;
+            let mut width = 0;
+            for grapheme in line.grapehemes() {
+                if width >= self.col_pos {
+                    break;
+                }
+                width += grapheme.width();
+                idx += grapheme.len_bytes();
+            }
+            let line = line.byte_slice(idx..);
+            log::debug!("width: {width}, self.col_pos: {}", self.col_pos);
+            lines.push(ViewLine {
+                text: line,
+                col_start_offset: width.saturating_sub(self.col_pos),
+            });
         }
 
         BufferView { lines }
@@ -160,16 +185,16 @@ impl Buffer {
         self.rope.slice(..)
     }
 
-    pub fn get_line(&self, line_idx: usize) -> Option<RopeSlice> {
-        self.rope.get_line(line_idx)
-    }
-
     pub fn file(&self) -> Option<&Path> {
         self.file.as_deref()
     }
 
     pub fn line_pos(&self) -> usize {
         self.line_pos
+    }
+
+    pub fn col_pos(&self) -> usize {
+        self.col_pos
     }
 
     pub fn len_lines(&self) -> usize {
@@ -204,6 +229,8 @@ impl Buffer {
         let mut end = pos.max(anchor);
         start.line -= self.line_pos as i64;
         end.line -= self.line_pos as i64;
+        start.column -= self.col_pos as i64;
+        end.column -= self.col_pos as i64;
 
         Selection { start, end }
     }
@@ -255,9 +282,14 @@ impl Buffer {
             .width();
     }
 
-    pub fn scroll(&mut self, distance: i64) {
+    pub fn vertical_scroll(&mut self, distance: i64) {
         self.line_pos = (self.line_pos as i128 + distance as i128)
             .clamp(0, self.len_lines() as i128 - 1) as usize;
+    }
+
+    pub fn horizontal_scroll(&mut self, distance: i64) {
+        self.col_pos =
+            (self.col_pos as i128 + distance as i128).clamp(0, usize::MAX as i128 - 1) as usize;
     }
 
     pub fn move_right_char(&mut self, shift: bool) {
@@ -487,6 +519,10 @@ impl Buffer {
         }
 
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn move_left_word(&mut self, shift: bool) {
@@ -498,6 +534,10 @@ impl Buffer {
         }
 
         self.update_affinity();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn goto(&mut self, line: i64) {
@@ -945,21 +985,43 @@ impl Buffer {
     pub fn escape(&mut self) {
         if self.cursor.has_selection() {
             self.cursor.anchor = self.cursor.position;
+            if self.clamp_cursor {
+                self.center_on_cursor();
+            }
         }
     }
 
     pub fn center_on_cursor(&mut self) {
-        let cursor_line = self.rope.byte_to_line(self.cursor.position);
-        let start_line = self.line_pos;
-        let end_line = self.line_pos + self.view_lines;
-        if cursor_line < start_line || cursor_line >= end_line {
-            self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);
+        {
+            let cursor_line = self.rope.byte_to_line(self.cursor.position);
+            let start_line = self.line_pos;
+            let end_line = self.line_pos + self.view_lines;
+            if cursor_line < start_line || cursor_line >= end_line {
+                self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);
+            }
+        }
+
+        {
+            let cursor_col = self.cursor_grapheme_column();
+            let start_col = self.col_pos;
+            let end_col = self.col_pos + self.view_columns;
+
+            if cursor_col <= start_col {
+                self.horizontal_scroll(-((start_col - cursor_col) as i64));
+            } else if cursor_col >= end_col {
+                self.horizontal_scroll((cursor_col - end_col + 1) as i64);
+            }
         }
     }
 }
 
+pub struct ViewLine<'a> {
+    pub text: RopeSlice<'a>,
+    pub col_start_offset: usize,
+}
+
 pub struct BufferView<'a> {
-    pub lines: Vec<RopeSlice<'a>>,
+    pub lines: Vec<ViewLine<'a>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

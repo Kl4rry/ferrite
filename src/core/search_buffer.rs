@@ -31,7 +31,6 @@ where
     ) -> Self {
         let mut search_field = Buffer::new();
         search_field.set_view_lines(1);
-        search_field.clamp_cursor = false;
 
         let (search_tx, search_rx): (_, mpsc::Receiver<String>) = mpsc::channel();
         let (result_tx, result_rx): (_, mpsc::Receiver<Vec<FuzzyMatch<_>>>) = mpsc::channel();
@@ -76,8 +75,8 @@ impl<M> SearchBuffer<M>
 where
     M: Matchable,
 {
-    pub fn search_field(&self) -> &Buffer {
-        &self.search_field
+    pub fn search_field(&mut self) -> &mut Buffer {
+        &mut self.search_field
     }
 
     pub fn selected(&self) -> usize {

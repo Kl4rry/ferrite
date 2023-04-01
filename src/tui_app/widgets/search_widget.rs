@@ -3,12 +3,12 @@ use std::{borrow::Cow, marker::PhantomData};
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
-    style::Style,
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
+use super::one_line_input_widget::OneLineInputWidget;
 use crate::core::{
     search_buffer::{Matchable, SearchBuffer},
     theme::EditorTheme,
@@ -77,48 +77,24 @@ where
         search_field_area.height = 1;
 
         {
+            const PROMPT: &str = " > ";
             buf.set_stringn(
                 search_field_area.x,
                 search_field_area.y,
-                " > ",
+                PROMPT,
                 search_field_area.width.into(),
                 self.theme.text,
             );
 
-            let prompt_width = 3;
-            buf.set_stringn(
-                search_field_area.x + prompt_width,
-                search_field_area.y,
-                state
-                    .search_field()
-                    .rope()
-                    .last_n_columns(search_field_area.width as usize - 3)
-                    .to_string(),
-                search_field_area.width.into(),
-                self.theme.text,
-            );
-            let cursor = state.search_field().cursor_grapheme_column() as u16;
-            let anchor = state.search_field().anchor_grapheme_column() as u16;
-            let start = cursor.min(anchor);
-            let end = cursor.max(anchor);
-            buf.set_style(search_field_area, self.theme.text);
-            let rect = Rect {
-                x: search_field_area.x + prompt_width + start,
+            let prompt_width = PROMPT.width() as u16;
+            let input_area = Rect {
+                x: search_field_area.x + prompt_width,
                 y: search_field_area.y,
-                width: end - start,
+                width: search_field_area.width.saturating_sub(prompt_width),
                 height: 1,
             };
-            buf.set_style(rect, self.theme.selection);
 
-            buf.set_style(
-                Rect {
-                    x: search_field_area.x + prompt_width + cursor,
-                    y: search_field_area.y,
-                    width: 1,
-                    height: 1,
-                },
-                Style::default().add_modifier(tui::style::Modifier::REVERSED),
-            );
+            OneLineInputWidget::new(self.theme).render(input_area, buf, state.search_field());
         }
 
         if inner_area.height < 3 {
