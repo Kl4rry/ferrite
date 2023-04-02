@@ -89,6 +89,7 @@ pub struct EditorTheme {
     pub background: style::Style,
     pub selection: style::Style,
     pub border: style::Style,
+    pub search_match: style::Style,
 }
 
 impl EditorTheme {
@@ -103,6 +104,7 @@ impl EditorTheme {
             background: theme.get_style("background")?,
             selection: theme.get_style("selection")?,
             border: theme.get_style("border")?,
+            search_match: theme.get_style("search_match")?,
         })
     }
 

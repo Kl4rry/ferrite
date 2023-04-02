@@ -45,5 +45,4 @@
 - [ ] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
 
 ### TODO list
-Make window scroll to the right so cursor stays in view.  
 Figure out ipc stuff.  

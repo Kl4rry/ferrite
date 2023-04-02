@@ -171,7 +171,6 @@ impl Buffer {
                 idx += grapheme.len_bytes();
             }
             let line = line.byte_slice(idx..);
-            log::debug!("width: {width}, self.col_pos: {}", self.col_pos);
             lines.push(ViewLine {
                 text: line,
                 col_start_offset: width.saturating_sub(self.col_pos),

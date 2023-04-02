@@ -42,7 +42,11 @@ where
                     options
                         .iter()
                         .cloned()
-                        .map(|item| FuzzyMatch { score: 0, item })
+                        .map(|item| FuzzyMatch {
+                            score: 0,
+                            item,
+                            matches: Vec::new(),
+                        })
                         .collect(),
                 )
                 .is_err()
@@ -90,6 +94,7 @@ where
     pub fn get_result(&mut self) -> &[FuzzyMatch<M>] {
         if let Ok(result) = self.rx.try_recv() {
             self.result = result;
+            self.selected = 0;
         }
         &self.result
     }
@@ -107,7 +112,6 @@ where
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
-                    self.selected = 0;
                     let _ = self.tx.send(self.search_field.to_string());
                 }
             }
@@ -120,7 +124,7 @@ where
             }
         }
 
-        if self.selected > self.get_result().len() {
+        if self.selected >= self.get_result().len() {
             self.selected = 0;
         }
 

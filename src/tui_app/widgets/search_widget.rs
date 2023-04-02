@@ -3,6 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
+    text::{Span, Spans},
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
@@ -112,7 +113,7 @@ where
             let start = selected / result_area.height as usize;
             let cursor_pos = selected % result_area.height as usize;
 
-            for (i, result) in result
+            for (i, fuzzy_match) in result
                 .iter()
                 .skip(start * result_area.height as usize)
                 .take(result_area.height as usize)
@@ -121,30 +122,79 @@ where
                 let padding: usize = 1;
                 let width = result_area.width as usize - padding;
 
-                let result = if result.item.display().width() > width - 3 {
-                    let display = result.item.display();
+                let elipsies = "…";
+                let elipsies_len = elipsies.len();
+
+                let mut diff = 0;
+                let result = if fuzzy_match.item.display().width() > width - 3 {
+                    let display = fuzzy_match.item.display();
                     let rope = RopeSlice::from(display.as_ref());
                     let slice = rope.last_n_columns(width - 4);
-                    let mut shorted = String::with_capacity(slice.len_bytes() + "…".len());
-                    shorted.push('…');
+                    let mut shorted = String::with_capacity(slice.len_bytes() + elipsies_len);
+                    shorted.push_str(elipsies);
                     shorted.push_str(slice.as_str().unwrap());
+
+                    let real_len = rope.len_chars();
+                    let slice_len = slice.len_chars();
+
+                    diff = real_len as i64 - slice_len as i64 - elipsies.chars().count() as i64;
+
                     Cow::Owned(shorted)
                 } else {
-                    result.item.display()
+                    fuzzy_match.item.display()
                 };
 
-                let result = if i == cursor_pos {
-                    format!(" > {result}")
+                let prompt = if i == cursor_pos {
+                    " > ".to_string()
                 } else {
-                    format!("   {result}")
+                    "   ".to_string()
                 };
 
                 buf.set_stringn(
                     result_area.x,
                     result_area.y + i as u16,
-                    result,
+                    &prompt,
                     width,
                     self.theme.text,
+                );
+
+                let mut spans = Vec::new();
+                let mut current_idx = 0;
+                let chars: Vec<_> = result.chars().collect();
+                for i in 0..fuzzy_match.matches.len() {
+                    let m = fuzzy_match.matches[i];
+                    let start = (m.start as i64).saturating_sub(diff).max(0) as usize;
+                    if start > current_idx {
+                        let s: String = chars[current_idx..start].iter().collect();
+                        spans.push(Span {
+                            content: s.into(),
+                            style: self.theme.text,
+                        });
+                        current_idx = start;
+                    }
+
+                    let end = start + m.len;
+                    let s: String = chars[current_idx..end].iter().collect();
+                    spans.push(Span {
+                        content: s.into(),
+                        style: self.theme.search_match,
+                    });
+                    current_idx = end;
+                }
+
+                if result.len() > current_idx {
+                    let s: String = chars[current_idx..chars.len()].iter().collect();
+                    spans.push(Span {
+                        content: s.into(),
+                        style: self.theme.text,
+                    });
+                }
+
+                buf.set_spans(
+                    result_area.x + prompt.width() as u16,
+                    result_area.y + i as u16,
+                    &Spans::from(spans),
+                    (width - prompt.width()) as u16,
                 );
 
                 if i == cursor_pos {

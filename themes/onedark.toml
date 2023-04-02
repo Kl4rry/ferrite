@@ -7,6 +7,7 @@ info_line = { fg = "white", bg = "light_black" }
 background = { bg = "black", fg = "white" }
 selection = { bg = "gray"}
 border = { bg = "black", fg = "white" }
+search_match = { fg = "blue" }
 
 [palette]
 yellow = "#E5C07B"
