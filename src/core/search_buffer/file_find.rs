@@ -11,7 +11,7 @@ impl SearchOptionProvider for FileFindProvider {
     type Matchable = String;
     fn get_options(&self) -> Vec<Self::Matchable> {
         let path: PathBuf = self.0.clone();
-        let path_str = path.to_string_lossy().to_string();
+        let path_str = path.to_string_lossy().into_owned();
 
         let mut files = Vec::new();
 

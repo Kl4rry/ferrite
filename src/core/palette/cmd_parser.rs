@@ -21,14 +21,17 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
     let GenericCommand { name, mut args } = cmd.parse_cmd(tokens)?;
     let name = name.as_str();
 
+    #[rustfmt::skip]
     let cmd = match (name, args.as_mut_slice()) {
         ("open", [path]) => Ok(Command::OpenFile(path.take().unwrap().unwrap_path())),
         ("save", [path]) => Ok(Command::SaveFile(path.take().map(|arg| arg.unwrap_path()))),
         ("goto", [line]) => Ok(Command::Goto(line.take().unwrap().unwrap_int())),
+        ("theme", [theme]) => Ok(Command::Theme(theme.take().map(|theme| theme.unwrap_string()))),
         ("indent", []) => Ok(Command::Indent),
         ("reload", []) => Ok(Command::Reload),
         ("logger", []) => Ok(Command::Logger),
         ("quit!", []) => Ok(Command::ForceQuit),
+        ("quit", []) => Ok(Command::Quit),
         _ => Err(CommandParseError::UnkownCommand(name.to_string())),
     };
 
@@ -40,9 +43,11 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("save", vec![("path", CommandTemplateArg::Path)], 1),
         CommandTemplate::new("open", vec![("path", CommandTemplateArg::Path)], 0),
         CommandTemplate::new("goto", vec![("line", CommandTemplateArg::Int)], 0),
+        CommandTemplate::new("theme", vec![("theme", CommandTemplateArg::String)], 1),
         CommandTemplate::new("indent", vec![], 0),
         CommandTemplate::new("reload", vec![], 0),
         CommandTemplate::new("logger", vec![], 0),
         CommandTemplate::new("quit!", vec![], 0),
+        CommandTemplate::new("quit", vec![], 0),
     ]
 });

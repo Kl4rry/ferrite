@@ -42,6 +42,15 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
             PaletteState::Message(msg) => {
                 buf.set_stringn(area.x, area.y, msg, area.width.into(), self.theme.text);
             }
+            PaletteState::Error(msg) => {
+                buf.set_stringn(
+                    area.x,
+                    area.y,
+                    msg,
+                    area.width.into(),
+                    self.theme.error_text,
+                );
+            }
             PaletteState::Nothing => (),
             PaletteState::Prompt {
                 selected,

@@ -7,8 +7,10 @@ pub enum Command {
     Reload,
     Logger,
     ForceQuit,
+    Quit,
     Goto(i64),
     Indent,
+    Theme(Option<String>),
     /*
     ViewBuffers,
     ViewWorkspace,

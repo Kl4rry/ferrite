@@ -1,3 +1,5 @@
+use std::fmt;
+
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
@@ -40,6 +42,7 @@ pub enum PaletteState {
         alt2_event: PalettePromptEvent,
     },
     Message(String),
+    Error(String),
     Nothing,
 }
 
@@ -58,6 +61,10 @@ impl CommandPalette {
 
     pub fn set_msg(&mut self, msg: impl Into<String>) {
         self.state = PaletteState::Message(msg.into());
+    }
+
+    pub fn set_error(&mut self, msg: impl fmt::Display) {
+        self.state = PaletteState::Error(msg.to_string());
     }
 
     pub fn reset(&mut self) {

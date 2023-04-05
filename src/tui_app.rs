@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     io::{self, Stdout},
     path::{Path, PathBuf},
@@ -22,6 +23,7 @@ use self::{
 use crate::{
     core::{
         buffer::Buffer,
+        config::Config,
         git::branch::BranchWatcher,
         indent::Indentation,
         palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
@@ -44,7 +46,8 @@ pub struct TuiApp {
     terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
     buffers: Slab<Buffer>,
     current_buffer_id: usize,
-    theme: EditorTheme,
+    themes: HashMap<String, EditorTheme>,
+    config: Config,
     palette: CommandPalette,
     file_finder: Option<SearchBuffer<String>>,
     buffer_finder: Option<SearchBuffer<BufferItem>>,
@@ -79,23 +82,33 @@ impl TuiApp {
         buffer.set_view_columns(width.into());
         buffer.goto(args.line as i64);
 
-        let theme = EditorTheme::from_str(include_str!("../themes/onedark.toml"))?;
+        let mut palette = CommandPalette::new(proxy.clone());
 
-        let palette = CommandPalette::new(proxy.clone());
+        let mut config = match Config::load() {
+            Ok(config) => config,
+            Err(err) => {
+                palette.set_error(err);
+                Config::default()
+            }
+        };
 
-        let mut slab = Slab::new();
-        let id = slab.insert(buffer);
+        let themes = EditorTheme::load_themes();
+        if !themes.contains_key(&config.theme) {
+            config.theme = "default".into();
+        }
 
-        let buffer_finder = None;
+        let mut buffers = Slab::new();
+        let current_buffer_id = buffers.insert(buffer);
 
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
-            buffers: slab,
-            current_buffer_id: id,
-            theme,
+            buffers,
+            current_buffer_id,
+            themes,
+            config,
             palette,
             file_finder,
-            buffer_finder,
+            buffer_finder: None,
             key_mappings: get_default_mappings(),
             branch_watcher: BranchWatcher::new(proxy)?,
         })
@@ -153,11 +166,12 @@ impl TuiApp {
     pub fn render(&mut self) {
         self.terminal
             .draw(|f| {
+                let theme = &self.themes[&self.config.theme];
                 let size = f.size();
                 let editor_size = Rect::new(size.x, size.y, size.width, size.height - 1);
                 f.render_stateful_widget(
                     EditorWidget::new(
-                        &self.theme,
+                        theme,
                         !self.palette.has_focus() && self.file_finder.is_none(),
                         self.branch_watcher.current_branch(),
                     ),
@@ -171,7 +185,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        SearchWidget::new(&self.theme, "Open file"),
+                        SearchWidget::new(theme, "Open file"),
                         size,
                         file_finder,
                     );
@@ -183,7 +197,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        SearchWidget::<BufferItem>::new(&self.theme, "Open buffer"),
+                        SearchWidget::<BufferItem>::new(theme, "Open buffer"),
                         size,
                         buffer_finder,
                     );
@@ -191,7 +205,7 @@ impl TuiApp {
 
                 let palette_size = Rect::new(size.x, size.height - 1, size.width, 1);
                 f.render_stateful_widget(
-                    CmdPaletteWidget::new(&self.theme),
+                    CmdPaletteWidget::new(theme),
                     palette_size,
                     &mut self.palette,
                 );
@@ -234,31 +248,7 @@ impl TuiApp {
             if let Some(input) = input {
                 match input {
                     InputCommand::Quit => {
-                        let unsaved: Vec<_> = self
-                            .buffers
-                            .iter()
-                            .filter_map(|(_, buffer)| {
-                                if buffer.is_dirty() {
-                                    Some(buffer.name().unwrap_or_else(|| "scratch".into()))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
-
-                        if unsaved.is_empty() {
-                            *control_flow = TuiEventLoopControlFlow::Exit;
-                        } else {
-                            self.palette.set_prompt(
-                                format!(
-                                    "You have {} buffer(s): {:?}, Are you sure you want to exit?",
-                                    unsaved.len(),
-                                    unsaved
-                                ),
-                                ('y', PalettePromptEvent::Quit),
-                                ('n', PalettePromptEvent::Nop),
-                            );
-                        }
+                        self.quit(control_flow);
                     }
                     InputCommand::Escape if self.palette.has_focus() => {
                         self.palette.reset();
@@ -299,7 +289,7 @@ impl TuiApp {
                                 dirty: buffer.is_dirty(),
                                 name: buffer
                                     .file()
-                                    .map(|path| path.to_string_lossy().to_string())
+                                    .map(|path| path.to_string_lossy().into_owned())
                                     .unwrap_or_else(|| {
                                         scratch_buffer_number += 1;
                                         format!("[Scratch] {scratch_buffer_number}")
@@ -330,7 +320,7 @@ impl TuiApp {
                         } else if let Err(err) =
                             self.buffers[self.current_buffer_id].handle_input(input)
                         {
-                            self.palette.set_msg(err.to_string());
+                            self.palette.set_error(err);
                         }
                     }
                 }
@@ -348,43 +338,55 @@ impl TuiApp {
             event_loop::TuiAppEvent::PaletteEvent { mode, content } => match mode.as_str() {
                 "command" => {
                     self.palette.reset();
+                    use cmd::Command;
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
-                            cmd::Command::OpenFile(path) => self.open_file(path),
-                            cmd::Command::SaveFile(path) => {
+                            Command::OpenFile(path) => self.open_file(path),
+                            Command::SaveFile(path) => {
                                 if let Err(err) = self.buffers[self.current_buffer_id].save(path) {
                                     self.palette.set_msg(err.to_string())
                                 }
                             }
-                            cmd::Command::Indent => {
-                                match self.buffers[self.current_buffer_id].indent {
-                                    Indentation::Tabs(amount) => {
-                                        self.palette.set_msg(format!("{} tabs(s)", amount))
-                                    }
-                                    Indentation::Spaces(amount) => {
-                                        self.palette.set_msg(format!("{} space(s)", amount))
-                                    }
+                            Command::Indent => match self.buffers[self.current_buffer_id].indent {
+                                Indentation::Tabs(amount) => {
+                                    self.palette.set_msg(format!("{} tabs(s)", amount))
                                 }
-                            }
-                            cmd::Command::Reload => {
+                                Indentation::Spaces(amount) => {
+                                    self.palette.set_msg(format!("{} space(s)", amount))
+                                }
+                            },
+                            Command::Reload => {
                                 self.palette.set_prompt(
                                     "The buffer is unsaved are you sure you want to reload?".into(),
                                     ('y', PalettePromptEvent::Reload),
                                     ('n', PalettePromptEvent::Nop),
                                 );
                                 if let Err(err) = self.buffers[self.current_buffer_id].reload() {
-                                    self.palette.set_msg(err.to_string())
+                                    self.palette.set_error(err)
                                 };
                             }
-                            cmd::Command::Goto(line) => {
+                            Command::Goto(line) => {
                                 self.buffers[self.current_buffer_id].goto(line);
                             }
-                            cmd::Command::ForceQuit => {
+                            Command::Quit => self.quit(control_flow),
+                            Command::ForceQuit => {
                                 *control_flow = TuiEventLoopControlFlow::Exit;
                             }
-                            cmd::Command::Logger => todo!(),
+                            Command::Logger => todo!(),
+                            Command::Theme(name) => match name {
+                                Some(name) => {
+                                    if self.themes.contains_key(&name) {
+                                        self.config.theme = name;
+                                    } else {
+                                        self.palette.set_error("Theme not found");
+                                    }
+                                }
+                                None => {
+                                    self.palette.set_msg(&self.config.theme);
+                                }
+                            },
                         },
-                        Err(err) => self.palette.set_msg(err.to_string()),
+                        Err(err) => self.palette.set_error(err),
                     }
                 }
                 "goto" => {
@@ -399,7 +401,7 @@ impl TuiApp {
                 PalettePromptEvent::Nop => (),
                 PalettePromptEvent::Reload => {
                     if let Err(err) = self.buffers[self.current_buffer_id].reload() {
-                        self.palette.set_msg(err.to_string());
+                        self.palette.set_error(err);
                     }
                 }
                 PalettePromptEvent::Quit => *control_flow = TuiEventLoopControlFlow::Exit,
@@ -411,7 +413,7 @@ impl TuiApp {
         let real_path = match fs::canonicalize(&path) {
             Ok(path) => path,
             Err(err) => {
-                self.palette.set_msg(err.to_string());
+                self.palette.set_error(err);
                 return;
             }
         };
@@ -433,8 +435,36 @@ impl TuiApp {
                         self.current_buffer_id = self.buffers.insert(buffer);
                     }
                 }
-                Err(err) => self.palette.set_msg(err.to_string()),
+                Err(err) => self.palette.set_error(err),
             },
+        }
+    }
+
+    pub fn quit(&mut self, control_flow: &mut TuiEventLoopControlFlow) {
+        let unsaved: Vec<_> = self
+            .buffers
+            .iter()
+            .filter_map(|(_, buffer)| {
+                if buffer.is_dirty() {
+                    Some(buffer.name().unwrap_or_else(|| "scratch".into()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if unsaved.is_empty() {
+            *control_flow = TuiEventLoopControlFlow::Exit;
+        } else {
+            self.palette.set_prompt(
+                format!(
+                    "You have {} buffer(s): {:?}, Are you sure you want to exit?",
+                    unsaved.len(),
+                    unsaved
+                ),
+                ('y', PalettePromptEvent::Quit),
+                ('n', PalettePromptEvent::Nop),
+            );
         }
     }
 }

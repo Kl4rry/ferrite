@@ -8,6 +8,7 @@ background = { bg = "black", fg = "white" }
 selection = { bg = "gray"}
 border = { bg = "black", fg = "white" }
 search_match = { fg = "blue" }
+error_text = { fg = "red" }
 
 [palette]
 yellow = "#E5C07B"
