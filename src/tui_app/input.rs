@@ -45,7 +45,7 @@ pub enum InputCommand {
     Cut,
     Paste,
     Tab { back: bool },
-    Scroll(i64),
+    VerticalScroll(i64),
     FocusPalette,
     FindFile,
     FindBuffer,
@@ -239,22 +239,22 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         ),
         (
             Mapping::new(KeyCode::PageUp, KeyModifiers::NONE),
-            InputCommand::Scroll(-50),
+            InputCommand::VerticalScroll(-50),
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::PageDown, KeyModifiers::NONE),
-            InputCommand::Scroll(50),
+            InputCommand::VerticalScroll(50),
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::Up, KeyModifiers::CONTROL),
-            InputCommand::Scroll(-5),
+            InputCommand::VerticalScroll(-5),
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::Down, KeyModifiers::CONTROL),
-            InputCommand::Scroll(5),
+            InputCommand::VerticalScroll(5),
             Exclusiveness::Exclusive,
         ),
         (

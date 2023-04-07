@@ -30,7 +30,7 @@ impl Buffer {
             Paste if !self.read_only => self.paste(),
             Tab { back } if !back && !self.read_only => self.tab(),
             Tab { back } if back && !self.read_only => self.back_tab(),
-            Scroll(distance) => self.vertical_scroll(distance),
+            VerticalScroll(distance) => self.vertical_scroll(distance),
             Escape => self.escape(),
             Save => self.save(None)?,
             _ => (),

@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyEventKind},
+    event::{self, Event, KeyEventKind, MouseEventKind},
     execute, terminal,
 };
 use slab::Slab;
@@ -234,8 +234,8 @@ impl TuiApp {
                     }
                 }
                 Event::Mouse(event) => match event.kind {
-                    event::MouseEventKind::ScrollUp => Some(InputCommand::Scroll(-3)),
-                    event::MouseEventKind::ScrollDown => Some(InputCommand::Scroll(3)),
+                    MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
+                    MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
                     _ => None,
                 },
                 Event::Paste(text) => {
