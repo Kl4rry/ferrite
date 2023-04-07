@@ -87,6 +87,8 @@ impl StatefulWidget for EditorWidget<'_> {
                     );
                 }
 
+                const NON_PRINTABLE: [u32; 27] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 127];
+
                 let text = line.text.line_without_line_ending(0);
                 line_buffer.push_str(&" ".repeat(line.col_start_offset));
                 for chunk in text.chunks() {
@@ -94,6 +96,8 @@ impl StatefulWidget for EditorWidget<'_> {
                         if c == '\t' {
                             // TODO add dynamic tabs
                             line_buffer.push_str("    ");
+                        } else if NON_PRINTABLE.contains(&(c as u32)) {
+                            line_buffer.push('�')
                         } else {
                             line_buffer.push(c);
                         }
