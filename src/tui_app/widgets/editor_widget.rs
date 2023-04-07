@@ -1,6 +1,5 @@
 use tui::{
     layout::Rect,
-    style::Style,
     widgets::{StatefulWidget, Widget},
 };
 use utility::graphemes::RopeGraphemeExt;
@@ -8,19 +7,27 @@ use utility::graphemes::RopeGraphemeExt;
 use super::info_line::InfoLine;
 use crate::core::{
     buffer::{Buffer, BufferPos, Selection},
+    config::Config,
     theme::EditorTheme,
 };
 
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
+    config: &'a Config,
     has_focus: bool,
     branch: Option<String>,
 }
 
 impl<'a> EditorWidget<'a> {
-    pub fn new(theme: &'a EditorTheme, has_focus: bool, branch: Option<String>) -> Self {
+    pub fn new(
+        theme: &'a EditorTheme,
+        config: &'a Config,
+        has_focus: bool,
+        branch: Option<String>,
+    ) -> Self {
         Self {
             theme,
+            config,
             has_focus,
             branch,
         }
@@ -38,6 +45,7 @@ impl StatefulWidget for EditorWidget<'_> {
     ) {
         let Self {
             theme,
+            config,
             has_focus,
             branch,
         } = self;
@@ -69,37 +77,31 @@ impl StatefulWidget for EditorWidget<'_> {
                     " ".repeat(line_number_max_width - line_number_str.len()),
                     line_number
                 );
-                if line_number == current_line_number {
-                    buf.set_stringn(
-                        area.x,
-                        area.y + i as u16,
-                        &line_number_str,
-                        width.into(),
-                        theme.current_line_nr,
-                    );
+                let line_nr_theme = if line_number == current_line_number {
+                    theme.current_line_nr
                 } else {
-                    buf.set_stringn(
-                        area.x,
-                        area.y + i as u16,
-                        &line_number_str,
-                        width.into(),
-                        theme.line_nr,
-                    );
-                }
+                    theme.line_nr
+                };
 
-                const NON_PRINTABLE: [u32; 27] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 127];
+                buf.set_stringn(
+                    area.x,
+                    area.y + i as u16,
+                    &line_number_str,
+                    width.into(),
+                    line_nr_theme,
+                );
 
                 let text = line.text.line_without_line_ending(0);
                 line_buffer.push_str(&" ".repeat(line.col_start_offset));
                 for chunk in text.chunks() {
-                    for c in chunk.chars() {
-                        if c == '\t' {
+                    for ch in chunk.chars() {
+                        if ch == '\t' {
                             // TODO add dynamic tabs
                             line_buffer.push_str("    ");
-                        } else if NON_PRINTABLE.contains(&(c as u32)) {
+                        } else if ch.is_ascii_control() {
                             line_buffer.push('�')
                         } else {
-                            line_buffer.push(c);
+                            line_buffer.push(ch);
                         }
                     }
                 }
@@ -115,6 +117,20 @@ impl StatefulWidget for EditorWidget<'_> {
                 );
 
                 line_buffer.clear();
+            }
+
+            for ruler in config.rulers.iter().copied() {
+                let real_col =
+                    ruler as i64 - buffer.col_pos() as i64 + area.x as i64 + left_offset as i64 + 1;
+                if (area.left().into()..area.right().into()).contains(&real_col) {
+                    for y in area.top()..(area.bottom() - 1) {
+                        let cell = buf.get_mut(real_col as u16, y);
+                        if cell.symbol.chars().all(|ch| ch.is_whitespace()) {
+                            cell.set_symbol("│");
+                            cell.set_style(theme.ruler);
+                        }
+                    }
+                }
             }
 
             if has_focus {
@@ -133,7 +149,7 @@ impl StatefulWidget for EditorWidget<'_> {
                                         width: 1,
                                         height: 1,
                                     },
-                                    Style::default().add_modifier(tui::style::Modifier::REVERSED),
+                                    theme.text.add_modifier(tui::style::Modifier::REVERSED),
                                 );
                                 break 'exit;
                             }

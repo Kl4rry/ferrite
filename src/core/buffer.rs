@@ -717,7 +717,10 @@ impl Buffer {
         self.cursor.position = start_byte_idx;
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
-        self.dirty = true;
+
+        if start_char_idx != end_char_idx {
+            self.dirty = true;
+        }
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -735,7 +738,10 @@ impl Buffer {
             self.cursor.position = prev_word;
             self.cursor.anchor = self.cursor.position;
             self.update_affinity();
-            self.dirty = true;
+
+            if start_char_idx != end_char_idx {
+                self.dirty = true;
+            }
 
             if self.clamp_cursor {
                 self.center_on_cursor();
@@ -760,7 +766,10 @@ impl Buffer {
         self.cursor.position = start_byte_idx;
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
-        self.dirty = true;
+
+        if start_char_idx != end_char_idx {
+            self.dirty = true;
+        }
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -776,7 +785,10 @@ impl Buffer {
             let end_char_idx = self.rope.byte_to_char(next_word);
             self.rope.remove(start_char_idx..end_char_idx);
             self.update_affinity();
-            self.dirty = true;
+
+            if start_char_idx != end_char_idx {
+                self.dirty = true;
+            }
 
             if self.clamp_cursor {
                 self.center_on_cursor();
@@ -938,7 +950,10 @@ impl Buffer {
         self.cursor.position = start;
         self.cursor.anchor = self.cursor.position;
         self.update_affinity();
-        self.dirty = true;
+
+        if start != end {
+            self.dirty = true;
+        }
 
         if self.clamp_cursor {
             self.center_on_cursor();

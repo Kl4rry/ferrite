@@ -1,14 +1,15 @@
 
 
-line_nr = { fg = "line_nr" }
-current_line_nr = { fg = "white" }
-text = { fg = "white" }
-info_line = { fg = "white", bg = "light_black" }
-background = { bg = "black", fg = "white" }
-selection = { bg = "gray"}
-border = { bg = "black", fg = "white" }
-search_match = { fg = "blue" }
-error_text = { fg = "red" }
+"editor.line_nr" = { fg = "line_nr" }
+"editor.current_line_nr" = { fg = "white" }
+"editor.text" = { fg = "white" }
+"editor.info_line" = { fg = "white", bg = "light_black" }
+"editor.background" = { bg = "black", fg = "white" }
+"editor.selection" = { bg = "gray"}
+"editor.border" = { bg = "black", fg = "white" }
+"editor.ruler" = { fg = "faint_gray" }
+"editor.search_match" = { fg = "blue" }
+"editor.error_text" = { fg = "red" }
 
 [palette]
 yellow = "#E5C07B"

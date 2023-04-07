@@ -11,8 +11,9 @@ pub enum Command {
     Goto(i64),
     Indent,
     Theme(Option<String>),
-    /*
-    ViewBuffers,
-    ViewWorkspace,
-     */
+    BrowseBuffers,
+    BrowseWorkspace,
+    OpenConfig,
+    ForceClose,
+    Close,
 }

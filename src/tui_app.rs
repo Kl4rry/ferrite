@@ -23,7 +23,7 @@ use self::{
 use crate::{
     core::{
         buffer::Buffer,
-        config::Config,
+        config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
         palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
@@ -48,11 +48,14 @@ pub struct TuiApp {
     current_buffer_id: usize,
     themes: HashMap<String, EditorTheme>,
     config: Config,
+    config_path: Option<PathBuf>,
+    config_watcher: Option<ConfigWatcher>,
     palette: CommandPalette,
     file_finder: Option<SearchBuffer<String>>,
     buffer_finder: Option<SearchBuffer<BufferItem>>,
     key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
     branch_watcher: BranchWatcher,
+    proxy: TuiEventLoopProxy,
 }
 
 impl TuiApp {
@@ -84,13 +87,19 @@ impl TuiApp {
 
         let mut palette = CommandPalette::new(proxy.clone());
 
-        let mut config = match Config::load() {
+        let config_path = Config::get_default_location().ok();
+        let mut config = match Config::load_and_create_default() {
             Ok(config) => config,
             Err(err) => {
                 palette.set_error(err);
                 Config::default()
             }
         };
+
+        let mut config_watcher = None;
+        if let Some(ref config_path) = config_path {
+            config_watcher = Some(ConfigWatcher::watch(config_path, proxy.clone())?);
+        }
 
         let themes = EditorTheme::load_themes();
         if !themes.contains_key(&config.theme) {
@@ -106,11 +115,14 @@ impl TuiApp {
             current_buffer_id,
             themes,
             config,
+            config_path,
+            config_watcher,
             palette,
             file_finder,
             buffer_finder: None,
             key_mappings: get_default_mappings(),
-            branch_watcher: BranchWatcher::new(proxy)?,
+            branch_watcher: BranchWatcher::new(proxy.clone())?,
+            proxy,
         })
     }
 
@@ -159,7 +171,26 @@ impl TuiApp {
             event_loop::TuiEvent::AppEvent(event) => {
                 self.handle_app_event(proxy, event, control_flow)
             }
-            event_loop::TuiEvent::Render => self.render(),
+            event_loop::TuiEvent::Render => {
+                self.do_polling();
+                self.render();
+            }
+        }
+    }
+
+    pub fn do_polling(&mut self) {
+        if let Some(config_watcher) = &self.config_watcher {
+            if config_watcher.has_changed() {
+                if let Some(path) = &self.config_path {
+                    match Config::load(path) {
+                        Ok(config) => {
+                            self.config = config;
+                            self.palette.set_msg("Reloaded config");
+                        }
+                        Err(err) => self.palette.set_error(err),
+                    }
+                }
+            }
         }
     }
 
@@ -172,6 +203,7 @@ impl TuiApp {
                 f.render_stateful_widget(
                     EditorWidget::new(
                         theme,
+                        &self.config,
                         !self.palette.has_focus() && self.file_finder.is_none(),
                         self.branch_watcher.current_branch(),
                     ),
@@ -215,7 +247,7 @@ impl TuiApp {
 
     pub fn handle_crossterm_event(
         &mut self,
-        proxy: &TuiEventLoopProxy,
+        _proxy: &TuiEventLoopProxy,
         event: event::Event,
         control_flow: &mut TuiEventLoopControlFlow,
     ) {
@@ -269,39 +301,9 @@ impl TuiApp {
                         self.file_finder = None;
                         self.buffer_finder = None;
                     }
-                    InputCommand::FindFile => {
-                        self.palette.reset();
-                        self.buffer_finder = None;
-                        self.file_finder = Some(SearchBuffer::new(
-                            FileFindProvider(std::env::current_dir().unwrap_or(PathBuf::from("/"))),
-                            proxy.clone(),
-                        ));
-                    }
-                    InputCommand::FindBuffer => {
-                        self.palette.reset();
-                        self.file_finder = None;
-                        let mut scratch_buffer_number = 1;
-                        let buffers: Vec<_> = self
-                            .buffers
-                            .iter()
-                            .map(|(id, buffer)| BufferItem {
-                                id,
-                                dirty: buffer.is_dirty(),
-                                name: buffer
-                                    .file()
-                                    .map(|path| path.to_string_lossy().into_owned())
-                                    .unwrap_or_else(|| {
-                                        scratch_buffer_number += 1;
-                                        format!("[Scratch] {scratch_buffer_number}")
-                                    }),
-                            })
-                            .collect();
+                    InputCommand::FindFile => self.browse_workspace(),
 
-                        self.buffer_finder = Some(SearchBuffer::new(
-                            BufferFindProvider(buffers),
-                            proxy.clone(),
-                        ));
-                    }
+                    InputCommand::FindBuffer => self.browse_buffers(),
                     input => {
                         if self.palette.has_focus() {
                             let _ = self.palette.handle_input(input);
@@ -337,8 +339,8 @@ impl TuiApp {
         match event {
             event_loop::TuiAppEvent::PaletteEvent { mode, content } => match mode.as_str() {
                 "command" => {
-                    self.palette.reset();
                     use cmd::Command;
+                    self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
                             Command::OpenFile(path) => self.open_file(path),
@@ -357,7 +359,7 @@ impl TuiApp {
                             },
                             Command::Reload => {
                                 self.palette.set_prompt(
-                                    "The buffer is unsaved are you sure you want to reload?".into(),
+                                    "The buffer is unsaved are you sure you want to reload?",
                                     ('y', PalettePromptEvent::Reload),
                                     ('n', PalettePromptEvent::Nop),
                                 );
@@ -385,6 +387,11 @@ impl TuiApp {
                                     self.palette.set_msg(&self.config.theme);
                                 }
                             },
+                            Command::BrowseBuffers => self.browse_buffers(),
+                            Command::BrowseWorkspace => self.browse_workspace(),
+                            Command::OpenConfig => self.open_config(),
+                            Command::ForceClose => self.force_close_current_buffer(),
+                            Command::Close => self.close_current_buffer(),
                         },
                         Err(err) => self.palette.set_error(err),
                     }
@@ -405,6 +412,7 @@ impl TuiApp {
                     }
                 }
                 PalettePromptEvent::Quit => *control_flow = TuiEventLoopControlFlow::Exit,
+                PalettePromptEvent::CloseCurrent => self.force_close_current_buffer(),
             },
         }
     }
@@ -458,13 +466,73 @@ impl TuiApp {
         } else {
             self.palette.set_prompt(
                 format!(
-                    "You have {} buffer(s): {:?}, Are you sure you want to exit?",
+                    "You have {} unsaved buffer(s): {:?}, Are you sure you want to exit?",
                     unsaved.len(),
                     unsaved
                 ),
                 ('y', PalettePromptEvent::Quit),
                 ('n', PalettePromptEvent::Nop),
             );
+        }
+    }
+
+    pub fn browse_buffers(&mut self) {
+        self.palette.reset();
+        self.file_finder = None;
+        let mut scratch_buffer_number = 1;
+        let buffers: Vec<_> = self
+            .buffers
+            .iter()
+            .map(|(id, buffer)| BufferItem {
+                id,
+                dirty: buffer.is_dirty(),
+                name: buffer
+                    .file()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| {
+                        scratch_buffer_number += 1;
+                        format!("[Scratch] {scratch_buffer_number}")
+                    }),
+            })
+            .collect();
+
+        self.buffer_finder = Some(SearchBuffer::new(
+            BufferFindProvider(buffers),
+            self.proxy.clone(),
+        ));
+    }
+
+    pub fn browse_workspace(&mut self) {
+        self.palette.reset();
+        self.buffer_finder = None;
+        self.file_finder = Some(SearchBuffer::new(
+            FileFindProvider(std::env::current_dir().unwrap_or(PathBuf::from("/"))),
+            self.proxy.clone(),
+        ));
+    }
+
+    pub fn open_config(&mut self) {
+        match &self.config_path {
+            Some(path) => self.open_file(path.clone()),
+            None => self.palette.set_error("Could not locate the config file"),
+        }
+    }
+
+    pub fn close_current_buffer(&mut self) {
+        if self.buffers[self.current_buffer_id].is_dirty() {
+            self.palette.set_prompt(
+                "Current buffer has unsaved changes are you sure you want to close it?",
+                ('y', PalettePromptEvent::CloseCurrent),
+                ('n', PalettePromptEvent::Nop),
+            );
+        }
+    }
+
+    pub fn force_close_current_buffer(&mut self) {
+        self.buffers.remove(self.current_buffer_id);
+        self.current_buffer_id = match self.buffers.iter().next() {
+            Some((id, _)) => id,
+            None => self.buffers.insert(Buffer::new()),
         }
     }
 }

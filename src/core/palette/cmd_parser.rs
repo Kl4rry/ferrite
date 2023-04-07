@@ -23,21 +23,27 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
 
     #[rustfmt::skip]
     let cmd = match (name, args.as_mut_slice()) {
-        ("open", [path]) => Ok(Command::OpenFile(path.take().unwrap().unwrap_path())),
-        ("save", [path]) => Ok(Command::SaveFile(path.take().map(|arg| arg.unwrap_path()))),
-        ("goto", [line]) => Ok(Command::Goto(line.take().unwrap().unwrap_int())),
-        ("theme", [theme]) => Ok(Command::Theme(theme.take().map(|theme| theme.unwrap_string()))),
-        ("indent", []) => Ok(Command::Indent),
-        ("reload", []) => Ok(Command::Reload),
-        ("logger", []) => Ok(Command::Logger),
-        ("quit!", []) => Ok(Command::ForceQuit),
-        ("quit", []) => Ok(Command::Quit),
-        _ => Err(CommandParseError::UnkownCommand(name.to_string())),
+        ("open", [path]) => Command::OpenFile(path.take().unwrap().unwrap_path()),
+        ("save", [path]) => Command::SaveFile(path.take().map(|arg| arg.unwrap_path())),
+        ("goto", [line]) => Command::Goto(line.take().unwrap().unwrap_int()),
+        ("theme", [theme]) => Command::Theme(theme.take().map(|theme| theme.unwrap_string())),
+        ("indent", []) => Command::Indent,
+        ("reload", []) => Command::Reload,
+        ("logger", []) => Command::Logger,
+        ("quit!", []) => Command::ForceQuit,
+        ("quit", []) => Command::Quit,
+        ("buffers", []) => Command::BrowseBuffers,
+        ("browse", []) => Command::BrowseWorkspace,
+        ("config", []) => Command::OpenConfig,
+        ("close!", []) => Command::ForceClose,
+        ("close", []) => Command::Close,
+        _ => return Err(CommandParseError::UnkownCommand(name.to_string())),
     };
 
-    cmd
+    Ok(cmd)
 }
 
+#[rustfmt::skip]
 static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
     vec![
         CommandTemplate::new("save", vec![("path", CommandTemplateArg::Path)], 1),
@@ -49,5 +55,10 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("logger", vec![], 0),
         CommandTemplate::new("quit!", vec![], 0),
         CommandTemplate::new("quit", vec![], 0),
+        CommandTemplate::new("buffers", vec![], 0),
+        CommandTemplate::new("browse", vec![], 0),
+        CommandTemplate::new("config", vec![], 0),
+        CommandTemplate::new("close!", vec![], 0),
+        CommandTemplate::new("close", vec![], 0),
     ]
 });

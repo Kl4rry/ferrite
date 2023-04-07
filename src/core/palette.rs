@@ -17,6 +17,7 @@ pub enum PalettePromptEvent {
     Nop,
     Quit,
     Reload,
+    CloseCurrent,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,7 +84,7 @@ impl CommandPalette {
 
     pub fn set_prompt(
         &mut self,
-        prompt: String,
+        prompt: impl Into<String>,
         (alt1_char, alt1_event): (char, PalettePromptEvent),
         (alt2_char, alt2_event): (char, PalettePromptEvent),
     ) {
@@ -94,7 +95,7 @@ impl CommandPalette {
         );
         self.state = PaletteState::Prompt {
             selected: SelectedPrompt::Neither,
-            prompt,
+            prompt: prompt.into(),
             alt1_char: alt1_char.to_ascii_lowercase(),
             alt1_event,
             alt2_char: alt2_char.to_ascii_lowercase(),

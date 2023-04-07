@@ -91,6 +91,7 @@ pub struct EditorTheme {
     pub border: style::Style,
     pub search_match: style::Style,
     pub error_text: style::Style,
+    pub ruler: style::Style,
 }
 
 impl EditorTheme {
@@ -98,15 +99,16 @@ impl EditorTheme {
         let theme: Theme = toml::from_str(s)?;
 
         Ok(Self {
-            line_nr: theme.get_style("line_nr")?,
-            current_line_nr: theme.get_style("current_line_nr")?,
-            text: theme.get_style("text")?,
-            info_line: theme.get_style("info_line")?,
-            background: theme.get_style("background")?,
-            selection: theme.get_style("selection")?,
-            border: theme.get_style("border")?,
-            search_match: theme.get_style("search_match")?,
-            error_text: theme.get_style("error_text")?,
+            line_nr: theme.get_style("editor.line_nr")?,
+            current_line_nr: theme.get_style("editor.current_line_nr")?,
+            text: theme.get_style("editor.text")?,
+            info_line: theme.get_style("editor.info_line")?,
+            background: theme.get_style("editor.background")?,
+            selection: theme.get_style("editor.selection")?,
+            border: theme.get_style("editor.border")?,
+            search_match: theme.get_style("editor.search_match")?,
+            error_text: theme.get_style("editor.error_text")?,
+            ruler: theme.get_style("editor.ruler")?,
         })
     }
 
