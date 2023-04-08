@@ -2,7 +2,7 @@ use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
 };
-use utility::graphemes::RopeGraphemeExt;
+use utility::graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH};
 
 use super::info_line::InfoLine;
 use crate::core::{
@@ -93,17 +93,24 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 let text = line.text.line_without_line_ending(0);
                 line_buffer.push_str(&" ".repeat(line.col_start_offset));
-                for chunk in text.chunks() {
-                    for ch in chunk.chars() {
-                        if ch == '\t' {
-                            // TODO add dynamic tabs
-                            line_buffer.push_str("    ");
-                        } else if ch.is_ascii_control() {
-                            line_buffer.push('�')
+                let mut current_width = 0;
+                for grapheme in text.grapehemes() {
+                    if grapheme.starts_width_char('\t') {
+                        let tab_width = tab_width_at(current_width, TAB_WIDTH);
+                        line_buffer.push_str(&" ".repeat(tab_width));
+                        current_width += tab_width;
+                        continue;
+                    }
+
+                    for ch in grapheme.chars() {
+                        if ch.is_ascii_control() {
+                            line_buffer.push('�');
                         } else {
                             line_buffer.push(ch);
                         }
                     }
+
+                    current_width += grapheme.width(current_width);
                 }
 
                 line_buffer.push(' ');

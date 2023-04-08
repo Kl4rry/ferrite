@@ -350,9 +350,7 @@ impl TuiApp {
                                 }
                             }
                             Command::Indent => match self.buffers[self.current_buffer_id].indent {
-                                Indentation::Tabs(amount) => {
-                                    self.palette.set_msg(format!("{} tabs(s)", amount))
-                                }
+                                Indentation::Tabs(_) => self.palette.set_msg("tabs"),
                                 Indentation::Spaces(amount) => {
                                     self.palette.set_msg(format!("{} space(s)", amount))
                                 }

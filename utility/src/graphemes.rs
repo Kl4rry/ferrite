@@ -6,7 +6,7 @@ use std::{
     borrow::Cow,
     fmt::{self, Debug, Display},
     marker::PhantomData,
-    ops::Deref,
+    ops::{Deref, RangeBounds},
     ptr::NonNull,
     slice, str,
 };
@@ -17,8 +17,15 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::line_ending::{self, get_line_ending, line_without_line_ending, LineEnding};
 
+pub const TAB_WIDTH: u16 = 4;
+
+#[inline]
+pub fn tab_width_at(visual_x: usize, tab_width: u16) -> usize {
+    tab_width as usize - (visual_x % tab_width as usize)
+}
+
 #[must_use]
-pub fn grapheme_width(g: &str) -> usize {
+pub fn grapheme_width(g: &str, current_col: usize) -> usize {
     if g.as_bytes()[0] <= 127 {
         // Fast-path ascii.
         // Point 1: theoretically, ascii control characters should have zero
@@ -32,9 +39,11 @@ pub fn grapheme_width(g: &str) -> usize {
         // regardless, so, again, we can get away with that here.
         // Point 3: we're only examining the first _byte_.  But for utf8, when
         // checking for ascii range values only, that works.
-        1
-    } else if g.as_bytes()[0] == b'\t' {
-        4
+        if g.as_bytes()[0] == b'\t' {
+            tab_width_at(current_col, TAB_WIDTH)
+        } else {
+            1
+        }
     } else {
         // We use max(1) here because all grapeheme clusters--even illformed
         // ones--should have at least some width so they can be edited
@@ -497,7 +506,7 @@ impl Clone for GraphemeStr<'_> {
 }
 
 pub trait RopeGraphemeExt {
-    fn width(&self) -> usize;
+    fn width(&self, current_col: usize) -> usize;
     fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice;
     fn prev_grapheme_boundary_byte(&self, byte_idx: usize) -> usize;
     fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
@@ -512,10 +521,15 @@ pub trait RopeGraphemeExt {
 
     fn end_of_line_byte(&self, line_idx: usize) -> usize;
     fn end_of_line_char(&self, line_idx: usize) -> usize;
+
+    fn starts_width_char(&self, ch: char) -> bool;
+
+    fn get_text_start_col(&self, line_idx: usize) -> usize;
+    fn get_text_start_byte(&self, line_idx: usize) -> usize;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
-    fn width(&self) -> usize {
+    fn width(&self, current_col: usize) -> usize {
         let mut width = 0;
         let mut buffer = String::new();
         for grapheme in RopeGraphemes::new(*self) {
@@ -524,7 +538,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
                 let vec = buffer.as_mut_vec();
                 vec.extend(grapheme.bytes());
             }
-            width += grapheme_width(buffer.as_str());
+            width += grapheme_width(buffer.as_str(), current_col + width);
         }
         width
     }
@@ -558,7 +572,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     }
 
     fn last_n_columns(&self, n: usize) -> RopeSlice {
-        let left = self.width().saturating_sub(n);
+        let left = self.width(0).saturating_sub(n);
         let mut width = 0;
         let mut byte_idx = 0;
         for grapheme in self.grapehemes() {
@@ -566,7 +580,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
                 break;
             }
 
-            width += grapheme.width();
+            width += grapheme.width(width);
             byte_idx += grapheme.len_bytes();
         }
 
@@ -605,11 +619,42 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         let line_start = self.line_to_char(line_idx);
         line_start + line_len
     }
+
+    fn starts_width_char(&self, ch: char) -> bool {
+        self.chars()
+            .next()
+            .map(|first| first == ch)
+            .unwrap_or(false)
+    }
+
+    fn get_text_start_col(&self, line_idx: usize) -> usize {
+        let line = self.line_without_line_ending(line_idx);
+        let mut width = 0;
+        for grapheme in line.grapehemes() {
+            if !grapheme.is_whitespace() {
+                break;
+            }
+            width += grapheme.width(width);
+        }
+        width
+    }
+
+    fn get_text_start_byte(&self, line_idx: usize) -> usize {
+        let line = self.line_without_line_ending(line_idx);
+        let mut len = 0;
+        for grapheme in line.grapehemes() {
+            if !grapheme.is_whitespace() {
+                break;
+            }
+            len += grapheme.len_bytes();
+        }
+        len
+    }
 }
 
 impl RopeGraphemeExt for Rope {
-    fn width(&self) -> usize {
-        self.byte_slice(..).width()
+    fn width(&self, current_col: usize) -> usize {
+        self.byte_slice(..).width(current_col)
     }
 
     fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice {
@@ -645,7 +690,7 @@ impl RopeGraphemeExt for Rope {
     }
 
     fn last_n_columns(&self, n: usize) -> RopeSlice {
-        let left = self.width().saturating_sub(n);
+        let left = self.width(0).saturating_sub(n);
         let mut width = 0;
         let mut byte_idx = 0;
         for grapheme in self.grapehemes() {
@@ -653,7 +698,7 @@ impl RopeGraphemeExt for Rope {
                 break;
             }
 
-            width += grapheme.width();
+            width += grapheme.width(width);
             byte_idx += grapheme.len_bytes();
         }
 
@@ -674,5 +719,33 @@ impl RopeGraphemeExt for Rope {
 
     fn end_of_line_char(&self, char_idx: usize) -> usize {
         self.byte_slice(..).end_of_line_char(char_idx)
+    }
+
+    fn starts_width_char(&self, ch: char) -> bool {
+        self.slice(..).starts_width_char(ch)
+    }
+
+    fn get_text_start_col(&self, line_idx: usize) -> usize {
+        self.slice(..).get_text_start_col(line_idx)
+    }
+
+    fn get_text_start_byte(&self, line_idx: usize) -> usize {
+        self.slice(..).get_text_start_byte(line_idx)
+    }
+}
+
+pub trait RopeReplaceExt {
+    fn replace<R: RangeBounds<usize>>(&mut self, char_range: R, replacement: &str);
+}
+
+impl RopeReplaceExt for Rope {
+    fn replace<R: RangeBounds<usize>>(&mut self, char_range: R, replacement: &str) {
+        let start = match char_range.start_bound() {
+            std::ops::Bound::Included(bounds) => *bounds,
+            std::ops::Bound::Excluded(bounds) => *bounds + 1,
+            std::ops::Bound::Unbounded => 0,
+        };
+        self.remove(char_range);
+        self.insert(start, replacement);
     }
 }

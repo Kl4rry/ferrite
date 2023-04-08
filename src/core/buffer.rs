@@ -6,7 +6,10 @@ use std::{
 
 use encoding_rs::Encoding;
 use ropey::{Rope, RopeSlice};
-use utility::{graphemes::RopeGraphemeExt as _, line_ending::rope_end_without_line_ending};
+use utility::{
+    graphemes::{RopeGraphemeExt as _, RopeReplaceExt},
+    line_ending::rope_end_without_line_ending,
+};
 
 use self::error::BufferError;
 use super::indent::Indentation;
@@ -73,7 +76,7 @@ impl Default for Buffer {
             rope: Rope::new(),
             file: None,
             encoding: encoding_rs::UTF_8,
-            indent: Indentation::Spaces(NonZeroUsize::new(4).unwrap()), //indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
+            indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
             read_only: false,
             clamp_cursor: true,
@@ -167,7 +170,7 @@ impl Buffer {
                 if width >= self.col_pos {
                     break;
                 }
-                width += grapheme.width();
+                width += grapheme.width(width);
                 idx += grapheme.len_bytes();
             }
             let line = line.byte_slice(idx..);
@@ -262,14 +265,14 @@ impl Buffer {
         let (column_idx, line_idx) = self.cursor_pos();
         let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
-        start.width()
+        start.width(0)
     }
 
     pub fn anchor_grapheme_column(&self) -> usize {
         let (column_idx, line_idx) = self.anchor_pos();
         let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
-        start.width()
+        start.width(0)
     }
 
     pub fn update_affinity(&mut self) {
@@ -278,7 +281,7 @@ impl Buffer {
             .rope
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
-            .width();
+            .width(0);
     }
 
     pub fn vertical_scroll(&mut self, distance: i64) {
@@ -331,10 +334,10 @@ impl Buffer {
             .rope
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
-            .width()
+            .width(0)
             .max(self.cursor.affinity);
         let next_line = self.rope.line_without_line_ending(line_idx + 1);
-        let next_width = next_line.width();
+        let next_width = next_line.width(0);
         let next_line_start = self.rope.line_to_byte(line_idx + 1);
 
         if next_width < before_cursor {
@@ -363,10 +366,10 @@ impl Buffer {
             .rope
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
-            .width()
+            .width(0)
             .max(self.cursor.affinity);
         let next_line = self.rope.line_without_line_ending(line_idx - 1);
-        let next_width = next_line.width();
+        let next_width = next_line.width(0);
         let next_line_start = self.rope.line_to_byte(line_idx - 1);
 
         if next_width < before_cursor {
@@ -549,12 +552,12 @@ impl Buffer {
             .rope
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
-            .width()
+            .width(0)
             .max(self.cursor.affinity);
         let next_line = self
             .rope
             .line_without_line_ending(line_idx.saturating_sub(1));
-        let next_width = next_line.width();
+        let next_width = next_line.width(0);
         let next_line_start = self.rope.line_to_byte(line_idx.saturating_sub(1));
 
         if next_width < before_cursor {
@@ -861,23 +864,94 @@ impl Buffer {
         }
     }
 
-    pub fn tab(&mut self) {
-        if !self.cursor.has_selection() {
+    pub fn tab(&mut self, back: bool) {
+        // TODO optimize for larger files
+
+        if !self.cursor.has_selection() && !back {
             let col = self.cursor_grapheme_column();
             self.insert_text(&self.indent.to_next_ident(col));
-        } else {
-            /*let start = self
+
+            self.update_affinity();
+            self.dirty = true;
+
+            if self.clamp_cursor {
+                self.center_on_cursor();
+            }
+            return;
+        }
+
+        {
+            let cursor_col = self.cursor_grapheme_column();
+            let anchor_col = self.anchor_grapheme_column();
+            let cursor_line_idx = self.cursor_line_idx();
+            let anchor_line_idx = self.anchor_line_idx();
+
+            let start = self
                 .rope
                 .byte_to_line(self.cursor.position.min(self.cursor.anchor));
             let end = self
                 .rope
                 .byte_to_line(self.cursor.position.max(self.cursor.anchor));
-            let indent = self.indent.to_string();
-            for line_idx in start..end {
-                let char_idx = self.rope.line_to_char(line_idx);
-                self.rope.insert(char_idx, &indent)
-            }*/
+
+            let last_line_at_start =
+                self.cursor.position.max(self.cursor.anchor) == self.rope.line_to_byte(end);
+
+            let tab_direction = match back {
+                true => -1,
+                false => 1,
+            };
+
+            for line_idx in start..=end {
+                let line = self.rope.line_without_line_ending(line_idx);
+                let line_start_byte_idx = self.rope.line_to_byte(line_idx);
+                let text_start_byte = self.rope.get_text_start_byte(line_idx);
+                let text_start_col = self.rope.get_text_start_col(line_idx);
+
+                let diff: i64 = 'm: {
+                    if line_idx == end && last_line_at_start {
+                        break 'm 0;
+                    }
+
+                    let current_indent = line.byte_slice(..text_start_byte);
+                    let current_indent_width = current_indent.width(0);
+                    let indent_width = self.indent.width();
+
+                    let new_number_of_indent = ((current_indent_width as i64 / indent_width as i64)
+                        + tab_direction)
+                        .max(0) as usize;
+                    let new_start_of_line =
+                        self.indent.to_next_ident(0).repeat(new_number_of_indent);
+
+                    let start_char_idx = self.rope.byte_to_char(line_start_byte_idx);
+                    let end_char_idx = self
+                        .rope
+                        .byte_to_char(line_start_byte_idx + text_start_byte);
+                    self.rope
+                        .replace(start_char_idx..end_char_idx, &new_start_of_line);
+
+                    new_number_of_indent as i64 * indent_width as i64 - current_indent_width as i64
+                };
+
+                if line_idx == cursor_line_idx {
+                    self.cursor.position = self.rope.line_to_byte(cursor_line_idx);
+                    if cursor_col < text_start_col || cursor_col == 0 {
+                        self.set_cursor_col(cursor_col);
+                    } else {
+                        self.set_cursor_col((cursor_col as i64 + diff) as usize);
+                    }
+                }
+
+                if line_idx == anchor_line_idx {
+                    self.cursor.anchor = self.rope.line_to_byte(anchor_line_idx);
+                    if anchor_col < text_start_col || anchor_col == 0 {
+                        self.set_anchor_col(anchor_col);
+                    } else {
+                        self.set_anchor_col((anchor_col as i64 + diff) as usize);
+                    }
+                }
+            }
         }
+
         self.update_affinity();
         self.dirty = true;
 
@@ -886,23 +960,34 @@ impl Buffer {
         }
     }
 
-    pub fn back_tab(&mut self) {
-        /*
-        let start = self
-                .rope
-                .byte_to_line(self.cursor.position.min(self.cursor.anchor));
-            let end = self
-                .rope
-                .byte_to_line(self.cursor.position.max(self.cursor.anchor));
-            for _line_idx in start..end {}
-         */
-
-        self.update_affinity();
-        self.dirty = true;
-
-        if self.clamp_cursor {
-            self.center_on_cursor();
+    pub fn set_cursor_col(&mut self, col: usize) {
+        let cursor_line_idx = self.cursor_line_idx();
+        let line = self.rope.line_without_line_ending(cursor_line_idx);
+        let mut byte_idx = 0;
+        let mut width = 0;
+        for grapheme in line.grapehemes() {
+            if width >= col {
+                break;
+            }
+            byte_idx += grapheme.len_bytes();
+            width += grapheme.width(width);
         }
+        self.cursor.position = self.rope.line_to_byte(cursor_line_idx) + byte_idx;
+    }
+
+    pub fn set_anchor_col(&mut self, col: usize) {
+        let anchor_line_idx = self.anchor_line_idx();
+        let line = self.rope.line_without_line_ending(anchor_line_idx);
+        let mut byte_idx = 0;
+        let mut width = 0;
+        for grapheme in line.grapehemes() {
+            if width >= col {
+                break;
+            }
+            byte_idx += grapheme.len_bytes();
+            width += grapheme.width(width);
+        }
+        self.cursor.anchor = self.rope.line_to_byte(anchor_line_idx) + byte_idx;
     }
 
     pub fn select_all(&mut self) {

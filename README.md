@@ -6,7 +6,7 @@
 - [ ] Mouse jumping and selection
 - [x] Command palette
 - [ ] Command palette auto complete
-- [ ] Custom themes
+- [x] Custom themes
 - [ ] Split panes
 - [ ] Multiple buffers and buffer selection screen (maybe tabs for the gui version)
 - [x] Quick fuzzy file finding
@@ -19,15 +19,15 @@
 - [ ] Loading spinner
 - [x] Tab detection
 - [ ] Indetation deletion like vscode
-- [ ] Variable length tabs
+- [x] Variable length tabs
 - [ ] Command palette completion
 - [ ] Git mv aware rename/move command
-- [ ] Open directory and browse
+- [x] Open directory and browse
 - [ ] Auto indent
-- [ ] Replace empty scratch buffer when opening new file
 - [ ] Indentation guides
 
 ### Less important features
+- [ ] Diff tool
 - [ ] Project wide search using ripgrep that displays matches in multibuffers
 - [ ] File tree
 - [ ] Basic auto complete recommendations based on words in document

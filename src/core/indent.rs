@@ -2,6 +2,7 @@ use std::num::NonZeroUsize;
 
 use detect_indent::IndentKind;
 use ropey::RopeSlice;
+use utility::graphemes::TAB_WIDTH;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
@@ -38,6 +39,13 @@ impl Indentation {
             }
             Some(IndentKind::Tab) => Indentation::Tabs(NonZeroUsize::new(indent.amount()).unwrap()),
             None => Default::default(),
+        }
+    }
+
+    pub fn width(&self) -> usize {
+        match self {
+            Indentation::Tabs(_) => TAB_WIDTH.into(),
+            Indentation::Spaces(amount) => amount.get(),
         }
     }
 
