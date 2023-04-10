@@ -11,7 +11,6 @@ pub mod buffer_find;
 pub mod file_find;
 pub mod fuzzy_match;
 
-#[derive(Debug)]
 pub struct SearchBuffer<M: Matchable> {
     search_field: Buffer,
     selected: usize,

@@ -70,7 +70,7 @@ impl TuiApp {
                 ));
                 Buffer::new()
             }
-            Some(file) => match Buffer::from_file(file) {
+            Some(file) => match Buffer::from_file(file, proxy.clone()) {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
                     io::ErrorKind::NotFound => Buffer::with_path(file),
@@ -302,7 +302,6 @@ impl TuiApp {
                         self.buffer_finder = None;
                     }
                     InputCommand::FindFile => self.browse_workspace(),
-
                     InputCommand::FindBuffer => self.browse_buffers(),
                     input => {
                         if self.palette.has_focus() {
@@ -432,7 +431,7 @@ impl TuiApp {
                 == Some(&real_path)
         }) {
             Some((id, _)) => self.current_buffer_id = id,
-            None => match Buffer::from_file(path) {
+            None => match Buffer::from_file(path, self.proxy.clone()) {
                 Ok(buffer) => {
                     let current_buf = self.buffers.get_mut(self.current_buffer_id).unwrap();
                     if !current_buf.is_dirty() && current_buf.rope().len_bytes() == 0 {

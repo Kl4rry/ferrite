@@ -14,6 +14,7 @@ pub struct InfoLine<'a> {
     pub line: usize,
     pub dirty: bool,
     pub branch: &'a Option<String>,
+    pub language: String,
 }
 
 impl Widget for InfoLine<'_> {
@@ -37,7 +38,13 @@ impl Widget for InfoLine<'_> {
         );
 
         {
-            let output = format!("{}:{} {} ", self.line, self.column, self.encoding.name());
+            let output = format!(
+                "{}:{} {} {} ",
+                self.line,
+                self.column,
+                self.encoding.name(),
+                self.language
+            );
             let output = match self.branch {
                 Some(branch) => format!(" {} {}", branch, output),
                 None => output,

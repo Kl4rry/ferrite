@@ -11,6 +11,36 @@
 "editor.search_match" = { fg = "blue" }
 "editor.error_text" = { fg = "red" }
 
+[syntax]
+"attribute" = { fg = "yellow" }
+"comment" = { fg = "light-gray", modifiers = ["italic"] }
+"constant" = { fg = "cyan" }
+"constant.numeric" = { fg = "gold" }
+"constant.builtin" = { fg = "gold" }
+"constant.character.escape" = { fg = "gold" }
+"escape" = { fg = "cyan" }
+"function" = { fg = "blue" }
+"function.builtin" = { fg = "blue" }
+"function.macro" = { fg = "purple" }
+"function.method" = { fg = "blue" }
+"keyword" = { fg = "purple" }
+"keyword.control" = { fg = "purple" }
+"keyword.control.import" = { fg = "purple" }
+"keyword.directive" = { fg = "purple" }
+"label" = { fg = "yellow" }
+"namespace" = { fg = "blue" }
+"operator" = { fg = "purple" }
+"keyword.operator" = { fg = "purple" }
+"special" = { fg = "blue" }
+"string" = { fg = "green" }
+"type" = { fg = "cyan" }
+"type.builtin" = { fg = "yellow" }
+"variable.builtin" = { fg = "red" }
+"variable.parameter" = { fg = "red" }
+"variable.other.member" = { fg = "red" } 
+"constructor" = { fg = "blue" }
+"property" = { fg = "white" }
+
 [palette]
 yellow = "#E5C07B"
 blue = "#61AFEF"

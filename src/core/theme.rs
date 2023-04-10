@@ -38,6 +38,7 @@ struct Theme {
     palette: HashMap<String, String>,
     #[serde(flatten)]
     items: HashMap<String, Style>,
+    syntax: HashMap<String, Style>,
 }
 
 pub fn hex_str_to_color(string: &str) -> Result<Color> {
@@ -59,26 +60,28 @@ pub fn hex_str_to_color(string: &str) -> Result<Color> {
 impl Theme {
     pub fn get_style(&self, name: &str) -> Result<style::Style> {
         match self.items.get(name) {
-            Some(s) => {
-                let mut style = style::Style::default();
-
-                if let Some(fg) = &s.fg {
-                    if let Some(color) = self.palette.get(fg) {
-                        style.fg = Some(hex_str_to_color(color)?);
-                    }
-                }
-
-                if let Some(bg) = &s.bg {
-                    if let Some(color) = self.palette.get(bg) {
-                        style.bg = Some(hex_str_to_color(color)?);
-                    }
-                }
-
-                Ok(style)
-            }
+            Some(s) => raw_style_to_style(s, &self.palette),
             None => Err(StyleLoadError::StyleNotFound(name.to_string()))?,
         }
     }
+}
+
+fn raw_style_to_style(s: &Style, palette: &HashMap<String, String>) -> Result<style::Style> {
+    let mut style = style::Style::default();
+
+    if let Some(fg) = &s.fg {
+        if let Some(color) = palette.get(fg) {
+            style.fg = Some(hex_str_to_color(color)?);
+        }
+    }
+
+    if let Some(bg) = &s.bg {
+        if let Some(color) = palette.get(bg) {
+            style.bg = Some(hex_str_to_color(color)?);
+        }
+    }
+
+    Ok(style)
 }
 
 pub struct EditorTheme {
@@ -92,6 +95,8 @@ pub struct EditorTheme {
     pub search_match: style::Style,
     pub error_text: style::Style,
     pub ruler: style::Style,
+    // syntax styles
+    syntax: HashMap<String, style::Style>,
 }
 
 impl EditorTheme {
@@ -109,7 +114,21 @@ impl EditorTheme {
             search_match: theme.get_style("editor.search_match")?,
             error_text: theme.get_style("editor.error_text")?,
             ruler: theme.get_style("editor.ruler")?,
+            syntax: {
+                let mut syntax = HashMap::new();
+                for (key, style) in theme.syntax.into_iter() {
+                    syntax.insert(key, raw_style_to_style(&style, &theme.palette)?);
+                }
+                syntax
+            },
         })
+    }
+
+    pub fn get_syntax(&self, name: &str) -> style::Style {
+        if self.syntax.get(name).is_none() {
+            log::debug!("MISSING: {name}");
+        }
+        self.syntax.get(name).copied().unwrap_or(self.text)
     }
 
     pub fn load_theme(path: impl AsRef<Path>) -> Result<Self> {

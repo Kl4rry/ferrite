@@ -1,3 +1,4 @@
+use tree_sitter::Point;
 use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
@@ -50,20 +51,26 @@ impl StatefulWidget for EditorWidget<'_> {
             branch,
         } = self;
         let line_number_max_width = buffer.len_lines().to_string().len();
-        let width = area.width;
-        let height = area.height - 1;
 
-        buffer.set_view_lines(height.into());
         let left_offset = 4 + line_number_max_width;
-        buffer.set_view_columns((width as usize).saturating_sub(left_offset));
 
+        let text_area = Rect {
+            x: area.x + left_offset as u16,
+            y: area.y,
+            width: area.width - left_offset as u16,
+            height: area.height - 1,
+        };
+
+        buffer.set_view_lines(text_area.height.into());
+
+        buffer.set_view_columns((text_area.width as usize).saturating_sub(left_offset));
         buf.set_style(area, theme.background);
 
         let current_line_number = buffer.cursor_line_idx() + 1;
 
         let view = buffer.get_buffer_view();
         {
-            let mut line_buffer = String::with_capacity(width.into());
+            let mut line_buffer = String::with_capacity(text_area.width.into());
 
             for (i, (line, line_number)) in view
                 .lines
@@ -87,7 +94,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     area.x,
                     area.y + i as u16,
                     &line_number_str,
-                    width.into(),
+                    area.width.into(),
                     line_nr_theme,
                 );
 
@@ -116,10 +123,10 @@ impl StatefulWidget for EditorWidget<'_> {
                 line_buffer.push(' ');
 
                 buf.set_stringn(
-                    area.x + left_offset as u16,
-                    area.y + i as u16,
+                    text_area.x,
+                    text_area.y + i as u16,
                     &line_buffer,
-                    width as usize - left_offset,
+                    text_area.width as usize,
                     theme.text,
                 );
 
@@ -142,7 +149,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
             if has_focus {
                 'exit: {
-                    if let Some((_, row)) = buffer.cursor_view_pos(height.into()) {
+                    if let Some((_, row)) = buffer.cursor_view_pos(text_area.height.into()) {
                         let column =
                             buffer.cursor_grapheme_column() as i64 - buffer.col_pos() as i64;
 
@@ -165,6 +172,50 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            {
+                let col_pos = buffer.col_pos() as i64;
+                let line_pos = buffer.line_pos() as i64;
+
+                // syntax highlight
+                let rope = buffer.rope().clone();
+                if let Some(syntax) = buffer.get_syntax() {
+                    let to_visual_point = |point: Point| -> Option<(i64, i64)> {
+                        let Point { row, column } = point;
+                        let row = row as i64 - line_pos;
+                        let column = column as i64 - col_pos;
+                        if row >= 0
+                            && row < text_area.height.into()
+                            && column >= 0
+                            && column < text_area.width.into()
+                        {
+                            return Some((column, row));
+                        }
+                        None
+                    };
+
+                    let spans = syntax.query_highlight(0, rope.len_bytes());
+                    for span in spans {
+                        let start = to_visual_point(span.start);
+                        let end = to_visual_point(span.end);
+                        if start.is_none() || end.is_none() {
+                            continue;
+                        }
+                        let (start_x, start_y) = start.unwrap();
+                        let (end_x, end_y) = end.unwrap();
+
+                        let highlight_area = Rect {
+                            x: start_x as u16 + text_area.x,
+                            y: start_y as u16 + text_area.y,
+                            width: (end_x - start_x) as u16,
+                            height: (end_y - start_y) as u16 + 1,
+                        };
+
+                        let style = theme.get_syntax(span.name());
+                        buf.set_style(highlight_area, style);
+                    }
+                }
+            }
+
             if let Some(bg) = theme.selection.bg {
                 let Selection { start, end } = buffer.get_view_selection();
 
@@ -182,6 +233,13 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            let language = match buffer.get_syntax() {
+                Some(syntax) => syntax
+                    .get_language_name()
+                    .unwrap_or_else(|| String::from("text")),
+                None => String::from("text"),
+            };
+
             let info_line = InfoLine {
                 theme,
                 encoding: buffer.encoding,
@@ -190,8 +248,9 @@ impl StatefulWidget for EditorWidget<'_> {
                 column: buffer.cursor_grapheme_column() + 1,
                 dirty: buffer.is_dirty(),
                 branch: &branch,
+                language,
             };
-            info_line.render(Rect::new(0, height, width, 1), buf);
+            info_line.render(Rect::new(0, text_area.height, area.width, 1), buf);
         }
     }
 }

@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.68"
 atty = "0.2.14"
+cc = "1.0.79"
 chardetng = "0.1.17"
 clap = { version = "4.1.4", features = ["derive"] }
 cli-clipboard = "0.4.0"
@@ -14,6 +15,7 @@ crossterm = "0.26.0"
 detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev = "f645bcc" }
 directories = "5.0.0"
 encoding_rs = "0.8.31"
+ferrite-tree-sitter = { path = "ferrite-tree-sitter" }
 jwalk = "0.8.1"
 lexical-sort = "0.3.1"
 log = "0.4.17"
@@ -26,11 +28,12 @@ simplelog = "0.12.0"
 slab = "0.4.8"
 sublime_fuzzy = "0.7.0"
 toml = "0.7.1"
+tree-sitter = "0.20.10"
 tree_magic_mini = { version = "3.0.3", features = ["with-gpl-data"] }
 tui = "0.19.0"
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
-utility = { path = "./utility" }
+utility = { path = "utility" }
 
 [dev-dependencies]
 tempdir = "0.3.7"
@@ -40,7 +43,8 @@ opt-level = 3
 
 [workspace]
 members = [
-    "utility"
+    "ferrite-tree-sitter",
+    "utility",
 ]
 
 [[bin]]

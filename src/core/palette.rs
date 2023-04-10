@@ -27,7 +27,6 @@ pub enum SelectedPrompt {
     Neither,
 }
 
-#[derive(Debug)]
 pub enum PaletteState {
     Input {
         buffer: Buffer,

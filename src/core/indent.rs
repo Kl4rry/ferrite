@@ -51,7 +51,6 @@ impl Indentation {
 
     pub fn to_next_ident(self, col: usize) -> String {
         match self {
-            // TODO fix this function for tabs
             Indentation::Tabs(_) => "\t".into(),
             Indentation::Spaces(amount) => {
                 let amount = amount.get();

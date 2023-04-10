@@ -12,8 +12,8 @@ use utility::{
 };
 
 use self::error::BufferError;
-use super::indent::Indentation;
-use crate::tui_app::input::LineMoveDir;
+use super::{indent::Indentation, language::syntax::Syntax};
+use crate::tui_app::{event_loop::TuiEventLoopProxy, input::LineMoveDir};
 
 pub mod error;
 mod input;
@@ -49,7 +49,6 @@ pub struct Selection {
     pub end: BufferPos,
 }
 
-#[derive(Debug)]
 pub struct Buffer {
     cursor: Cursor,
     line_pos: usize,
@@ -65,6 +64,8 @@ pub struct Buffer {
     // view stuff
     view_lines: usize,
     view_columns: usize,
+    // syntax highlight
+    syntax: Option<Syntax>,
 }
 
 impl Default for Buffer {
@@ -83,6 +84,7 @@ impl Default for Buffer {
             clamp_distance: 4,
             view_lines: usize::MAX,
             view_columns: usize::MAX,
+            syntax: None,
         }
     }
 }
@@ -114,15 +116,23 @@ impl Buffer {
         }
     }
 
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, io::Error> {
+    pub fn from_file(path: impl AsRef<Path>, proxy: TuiEventLoopProxy) -> Result<Self, io::Error> {
         let path = path.as_ref();
         let (encoding, rope) = read::read(path)?;
+
+        let mut syntax = Syntax::new(proxy);
+        // TODO detect language at runtime
+        if let Err(err) = syntax.set_language("rust") {
+            log::error!("Error setting language: {err}");
+        }
+        syntax.update_text(rope.clone());
 
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             file: Some(path.into()),
             encoding,
+            syntax: Some(syntax),
             ..Default::default()
         })
     }
@@ -183,8 +193,8 @@ impl Buffer {
         BufferView { lines }
     }
 
-    pub fn rope(&self) -> RopeSlice {
-        self.rope.slice(..)
+    pub fn rope(&self) -> &Rope {
+        &self.rope
     }
 
     pub fn file(&self) -> Option<&Path> {
@@ -661,7 +671,7 @@ impl Buffer {
         self.cursor.anchor = self.cursor.position;
 
         self.update_affinity();
-        self.dirty = true;
+        self.mark_dirty();
 
         // Close pairs
         match text {
@@ -722,7 +732,7 @@ impl Buffer {
         self.update_affinity();
 
         if start_char_idx != end_char_idx {
-            self.dirty = true;
+            self.mark_dirty();
         }
 
         if self.clamp_cursor {
@@ -743,7 +753,7 @@ impl Buffer {
             self.update_affinity();
 
             if start_char_idx != end_char_idx {
-                self.dirty = true;
+                self.mark_dirty();
             }
 
             if self.clamp_cursor {
@@ -771,7 +781,7 @@ impl Buffer {
         self.update_affinity();
 
         if start_char_idx != end_char_idx {
-            self.dirty = true;
+            self.mark_dirty();
         }
 
         if self.clamp_cursor {
@@ -790,7 +800,7 @@ impl Buffer {
             self.update_affinity();
 
             if start_char_idx != end_char_idx {
-                self.dirty = true;
+                self.mark_dirty();
             }
 
             if self.clamp_cursor {
@@ -857,7 +867,7 @@ impl Buffer {
         self.cursor.position = self.rope.line_to_byte(new_cursor_line_idx) + cursor_col;
         self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_col;
         self.update_affinity();
-        self.dirty = true;
+        self.mark_dirty();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -872,7 +882,7 @@ impl Buffer {
             self.insert_text(&self.indent.to_next_ident(col));
 
             self.update_affinity();
-            self.dirty = true;
+            self.mark_dirty();
 
             if self.clamp_cursor {
                 self.center_on_cursor();
@@ -953,7 +963,7 @@ impl Buffer {
         }
 
         self.update_affinity();
-        self.dirty = true;
+        self.mark_dirty();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -1037,7 +1047,7 @@ impl Buffer {
         self.update_affinity();
 
         if start != end {
-            self.dirty = true;
+            self.mark_dirty();
         }
 
         if self.clamp_cursor {
@@ -1111,6 +1121,21 @@ impl Buffer {
                 self.horizontal_scroll((cursor_col - end_col + 1) as i64);
             }
         }
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+        self.queue_syntax_update();
+    }
+
+    pub fn queue_syntax_update(&mut self) {
+        if let Some(syntax) = &mut self.syntax {
+            syntax.update_text(self.rope.clone());
+        }
+    }
+
+    pub fn get_syntax(&mut self) -> Option<&mut Syntax> {
+        self.syntax.as_mut()
     }
 }
 
