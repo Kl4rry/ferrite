@@ -12,7 +12,10 @@ use utility::{
 };
 
 use self::error::BufferError;
-use super::{indent::Indentation, language::syntax::Syntax};
+use super::{
+    indent::Indentation,
+    language::{get_language_from_path, syntax::Syntax},
+};
 use crate::tui_app::{event_loop::TuiEventLoopProxy, input::LineMoveDir};
 
 pub mod error;
@@ -122,10 +125,12 @@ impl Buffer {
 
         let mut syntax = Syntax::new(proxy);
         // TODO detect language at runtime
-        if let Err(err) = syntax.set_language("rust") {
-            log::error!("Error setting language: {err}");
+        if let Some(language) = get_language_from_path(path) {
+            if let Err(err) = syntax.set_language(language) {
+                log::error!("Error setting language: {err}");
+            }
+            syntax.update_text(rope.clone());
         }
-        syntax.update_text(rope.clone());
 
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
@@ -334,11 +339,12 @@ impl Buffer {
         }
     }
 
-    pub fn move_down(&mut self, shift: bool) {
+    pub fn move_down(&mut self, shift: bool, distance: usize) {
         let (column_idx, line_idx) = self.cursor_pos();
         if line_idx + 1 >= self.rope.len_lines() {
             return;
         }
+        let new_line_idx = (line_idx + distance).min(self.rope.len_lines());
 
         let before_cursor = self
             .rope
@@ -346,9 +352,9 @@ impl Buffer {
             .byte_slice(..column_idx)
             .width(0)
             .max(self.cursor.affinity);
-        let next_line = self.rope.line_without_line_ending(line_idx + 1);
+        let next_line = self.rope.line_without_line_ending(new_line_idx);
         let next_width = next_line.width(0);
-        let next_line_start = self.rope.line_to_byte(line_idx + 1);
+        let next_line_start = self.rope.line_to_byte(new_line_idx);
 
         if next_width < before_cursor {
             self.cursor.position = next_line_start + next_line.len_bytes();
@@ -366,11 +372,12 @@ impl Buffer {
         }
     }
 
-    pub fn move_up(&mut self, shift: bool) {
+    pub fn move_up(&mut self, shift: bool, distance: usize) {
         let (column_idx, line_idx) = self.cursor_pos();
         if line_idx == 0 {
             return;
         }
+        let new_line_idx = line_idx.saturating_sub(distance);
 
         let before_cursor = self
             .rope
@@ -378,9 +385,9 @@ impl Buffer {
             .byte_slice(..column_idx)
             .width(0)
             .max(self.cursor.affinity);
-        let next_line = self.rope.line_without_line_ending(line_idx - 1);
+        let next_line = self.rope.line_without_line_ending(new_line_idx);
         let next_width = next_line.width(0);
-        let next_line_start = self.rope.line_to_byte(line_idx - 1);
+        let next_line_start = self.rope.line_to_byte(new_line_idx);
 
         if next_width < before_cursor {
             self.cursor.position = next_line_start + next_line.len_bytes();

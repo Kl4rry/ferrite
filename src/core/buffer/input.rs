@@ -7,8 +7,8 @@ impl Buffer {
         match input {
             MoveRight { shift } => self.move_right_char(shift),
             MoveLeft { shift } => self.move_left_char(shift),
-            MoveUp { shift } => self.move_up(shift),
-            MoveDown { shift } => self.move_down(shift),
+            MoveUp { shift, distance } => self.move_up(shift, distance),
+            MoveDown { shift, distance } => self.move_down(shift, distance),
             MoveRightWord { shift } => self.move_right_word(shift),
             MoveLeftWord { shift } => self.move_left_word(shift),
             MoveLine(dir) if !self.read_only => self.move_line(dir),

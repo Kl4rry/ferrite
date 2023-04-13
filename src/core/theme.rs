@@ -125,9 +125,6 @@ impl EditorTheme {
     }
 
     pub fn get_syntax(&self, name: &str) -> style::Style {
-        if self.syntax.get(name).is_none() {
-            log::debug!("MISSING: {name}");
-        }
         self.syntax.get(name).copied().unwrap_or(self.text)
     }
 

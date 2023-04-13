@@ -176,8 +176,12 @@ impl StatefulWidget for EditorWidget<'_> {
                 let col_pos = buffer.col_pos() as i64;
                 let line_pos = buffer.line_pos() as i64;
 
+                let start_byte = buffer.rope().line_to_byte(buffer.line_pos());
+                let end_byte = buffer.rope().line_to_byte(
+                    (buffer.line_pos() + text_area.height as usize).min(buffer.len_lines()),
+                );
+
                 // syntax highlight
-                let rope = buffer.rope().clone();
                 if let Some(syntax) = buffer.get_syntax() {
                     let to_visual_point = |point: Point| -> Option<(i64, i64)> {
                         let Point { row, column } = point;
@@ -193,7 +197,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         None
                     };
 
-                    let spans = syntax.query_highlight(0, rope.len_bytes());
+                    let spans = syntax.query_highlight(start_byte, end_byte);
                     for span in spans {
                         let start = to_visual_point(span.start);
                         let end = to_visual_point(span.end);

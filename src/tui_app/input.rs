@@ -22,8 +22,8 @@ pub enum LineMoveDir {
 pub enum InputCommand {
     MoveRight { shift: bool },
     MoveLeft { shift: bool },
-    MoveUp { shift: bool },
-    MoveDown { shift: bool },
+    MoveUp { shift: bool, distance: usize },
+    MoveDown { shift: bool, distance: usize },
     MoveRightWord { shift: bool },
     MoveLeftWord { shift: bool },
     Insert(String),
@@ -249,12 +249,34 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         ),
         (
             Mapping::new(KeyCode::Up, KeyModifiers::CONTROL),
-            InputCommand::VerticalScroll(-5),
+            InputCommand::MoveUp {
+                shift: false,
+                distance: 10,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::Down, KeyModifiers::CONTROL),
-            InputCommand::VerticalScroll(5),
+            InputCommand::MoveDown {
+                shift: false,
+                distance: 10,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+            InputCommand::MoveUp {
+                shift: true,
+                distance: 10,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+            InputCommand::MoveDown {
+                shift: true,
+                distance: 10,
+            },
             Exclusiveness::Exclusive,
         ),
         (
@@ -269,12 +291,18 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         ),
         (
             Mapping::new(KeyCode::Up, KeyModifiers::NONE),
-            InputCommand::MoveUp { shift: false },
+            InputCommand::MoveUp {
+                shift: false,
+                distance: 1,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::Down, KeyModifiers::NONE),
-            InputCommand::MoveDown { shift: false },
+            InputCommand::MoveDown {
+                shift: false,
+                distance: 1,
+            },
             Exclusiveness::Exclusive,
         ),
         (
@@ -289,12 +317,18 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         ),
         (
             Mapping::new(KeyCode::Up, KeyModifiers::SHIFT),
-            InputCommand::MoveUp { shift: true },
+            InputCommand::MoveUp {
+                shift: true,
+                distance: 1,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::Down, KeyModifiers::SHIFT),
-            InputCommand::MoveDown { shift: true },
+            InputCommand::MoveDown {
+                shift: true,
+                distance: 1,
+            },
             Exclusiveness::Exclusive,
         ),
         (
