@@ -4,6 +4,8 @@ use std::path::PathBuf;
 pub enum Command {
     OpenFile(PathBuf),
     SaveFile(Option<PathBuf>),
+    Language(Option<String>),
+    Encoding(Option<String>),
     Reload,
     Logger,
     ForceQuit,

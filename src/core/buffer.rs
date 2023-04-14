@@ -18,6 +18,7 @@ use super::{
 };
 use crate::tui_app::{event_loop::TuiEventLoopProxy, input::LineMoveDir};
 
+pub mod encoding;
 pub mod error;
 mod input;
 mod read;
@@ -124,7 +125,6 @@ impl Buffer {
         let (encoding, rope) = read::read(path)?;
 
         let mut syntax = Syntax::new(proxy);
-        // TODO detect language at runtime
         if let Some(language) = get_language_from_path(path) {
             if let Err(err) = syntax.set_language(language) {
                 log::error!("Error setting language: {err}");
@@ -171,6 +171,23 @@ impl Buffer {
                 .to_string_lossy()
                 .to_string(),
         )
+    }
+
+    pub fn language_name(&self) -> String {
+        match &self.syntax {
+            Some(syntax) => syntax
+                .get_language_name()
+                .unwrap_or_else(|| String::from("text")),
+            None => String::from("text"),
+        }
+    }
+
+    pub fn set_langauge(&mut self, language: &str) {
+        let syntax = self.syntax.as_mut().unwrap();
+        if let Err(err) = syntax.set_language(language) {
+            log::error!("Error setting language: {err}");
+        }
+        syntax.update_text(self.rope.clone());
     }
 
     pub fn get_buffer_view(&self) -> BufferView {

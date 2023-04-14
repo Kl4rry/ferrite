@@ -22,7 +22,7 @@ use self::{
 };
 use crate::{
     core::{
-        buffer::Buffer,
+        buffer::{encoding::get_encoding, Buffer},
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
@@ -348,6 +348,25 @@ impl TuiApp {
                                     self.palette.set_msg(err.to_string())
                                 }
                             }
+                            Command::Language(language) => match language {
+                                Some(language) => {
+                                    self.buffers[self.current_buffer_id].set_langauge(&language)
+                                }
+                                None => self
+                                    .palette
+                                    .set_msg(self.buffers[self.current_buffer_id].language_name()),
+                            },
+                            Command::Encoding(encoding) => match encoding {
+                                Some(encoding) => {
+                                    match get_encoding(&encoding) {
+                                        Some(encoding) => self.buffers[self.current_buffer_id].encoding = encoding,
+                                        None => self.palette.set_error("unknown encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"),
+                                    }
+                                }
+                                None => self
+                                    .palette
+                                    .set_msg(self.buffers[self.current_buffer_id].encoding.name()),
+                            },
                             Command::Indent => match self.buffers[self.current_buffer_id].indent {
                                 Indentation::Tabs(_) => self.palette.set_msg("tabs"),
                                 Indentation::Spaces(amount) => {

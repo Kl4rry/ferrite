@@ -237,13 +237,6 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            let language = match buffer.get_syntax() {
-                Some(syntax) => syntax
-                    .get_language_name()
-                    .unwrap_or_else(|| String::from("text")),
-                None => String::from("text"),
-            };
-
             let info_line = InfoLine {
                 theme,
                 encoding: buffer.encoding,
@@ -252,7 +245,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 column: buffer.cursor_grapheme_column() + 1,
                 dirty: buffer.is_dirty(),
                 branch: &branch,
-                language,
+                language: buffer.language_name(),
             };
             info_line.render(Rect::new(0, text_area.height, area.width, 1), buf);
         }
