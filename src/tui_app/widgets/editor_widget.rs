@@ -1,4 +1,3 @@
-use tree_sitter::Point;
 use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
@@ -173,8 +172,8 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             {
-                let col_pos = buffer.col_pos() as i64;
-                let line_pos = buffer.line_pos() as i64;
+                let col_pos = buffer.col_pos();
+                let line_pos = buffer.line_pos();
 
                 let start_byte = buffer.rope().line_to_byte(buffer.line_pos());
                 let end_byte = buffer.rope().line_to_byte(
@@ -183,35 +182,38 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 // syntax highlight
                 if let Some(syntax) = buffer.get_syntax() {
-                    let to_visual_point = |point: Point| -> Option<(i64, i64)> {
-                        let Point { row, column } = point;
-                        let row = row as i64 - line_pos;
-                        let column = column as i64 - col_pos;
-                        if row >= 0
-                            && row < text_area.height.into()
-                            && column >= 0
-                            && column < text_area.width.into()
-                        {
-                            return Some((column, row));
-                        }
-                        None
-                    };
-
                     let spans = syntax.query_highlight(start_byte, end_byte);
                     for span in spans {
-                        let start = to_visual_point(span.start);
-                        let end = to_visual_point(span.end);
-                        if start.is_none() || end.is_none() {
-                            continue;
-                        }
-                        let (start_x, start_y) = start.unwrap();
-                        let (end_x, end_y) = end.unwrap();
+                        let start_x = span
+                            .start
+                            .column
+                            .saturating_sub(col_pos)
+                            .clamp(0, text_area.width.into());
+                        let start_y = span
+                            .start
+                            .row
+                            .saturating_sub(line_pos)
+                            .clamp(0, text_area.height.into());
+
+                        let end_x = span
+                            .end
+                            .column
+                            .saturating_sub(col_pos)
+                            .clamp(0, text_area.width.into());
+                        let end_y = span
+                            .end
+                            .row
+                            .saturating_sub(line_pos)
+                            .clamp(0, text_area.height.into());
+
+                        // FIXME This should not be need
+                        let end_x = end_x.max(start_x);
 
                         let highlight_area = Rect {
                             x: start_x as u16 + text_area.x,
                             y: start_y as u16 + text_area.y,
-                            width: (end_x - start_x) as u16,
-                            height: (end_y - start_y) as u16 + 1,
+                            width: (end_x as u16 - start_x as u16),
+                            height: (end_y as u16 - start_y as u16) + 1,
                         };
 
                         let style = theme.get_syntax(span.name());
