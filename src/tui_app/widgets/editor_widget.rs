@@ -146,6 +146,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            // TODO move this below highlight
             if has_focus {
                 'exit: {
                     if let Some((_, row)) = buffer.cursor_view_pos(text_area.height.into()) {
@@ -206,7 +207,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             .saturating_sub(line_pos)
                             .clamp(0, text_area.height.into());
 
-                        // FIXME This should not be need
+                        // FIXME This should not be needed
                         let end_x = end_x.max(start_x);
 
                         let highlight_area = Rect {

@@ -141,6 +141,7 @@ impl TuiApp {
             stdout,
             event::EnableBracketedPaste,
             terminal::EnterAlternateScreen,
+            terminal::Clear(terminal::ClearType::Purge),
             event::EnableMouseCapture,
         )?;
 

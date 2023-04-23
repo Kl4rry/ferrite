@@ -120,8 +120,8 @@ impl Syntax {
             cursor.set_byte_range(start_byte..end_byte);
             let captures = cursor.captures(&query, tree.root_node(), rope);
             let mut spans = Vec::new();
-            for (m, _idk) in captures {
-                let capture = m.captures.first().unwrap();
+            for (m, index) in captures {
+                let capture = m.captures[index];
                 spans.push(NodeSpan {
                     start: capture.node.start_position(),
                     end: capture.node.end_position(),

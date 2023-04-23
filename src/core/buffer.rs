@@ -331,7 +331,11 @@ impl Buffer {
         self.cursor.position = new_idx;
 
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            if self.cursor.anchor > self.cursor.position {
+                self.cursor.position = self.cursor.anchor;
+            } else {
+                self.cursor.anchor = self.cursor.position;
+            }
         }
 
         self.update_affinity();
@@ -346,7 +350,11 @@ impl Buffer {
         self.cursor.position = new_idx;
 
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            if self.cursor.anchor < self.cursor.position {
+                self.cursor.position = self.cursor.anchor;
+            } else {
+                self.cursor.anchor = self.cursor.position;
+            }
         }
 
         self.update_affinity();
@@ -358,10 +366,10 @@ impl Buffer {
 
     pub fn move_down(&mut self, shift: bool, distance: usize) {
         let (column_idx, line_idx) = self.cursor_pos();
-        if line_idx + 1 >= self.rope.len_lines() {
+        let new_line_idx = (line_idx + distance).min(self.rope.len_lines().saturating_sub(1));
+        if line_idx == new_line_idx {
             return;
         }
-        let new_line_idx = (line_idx + distance).min(self.rope.len_lines());
 
         let before_cursor = self
             .rope
@@ -698,7 +706,7 @@ impl Buffer {
         self.mark_dirty();
 
         // Close pairs
-        match text {
+        /*match text {
             "{" => self
                 .rope
                 .insert(self.rope.byte_to_char(self.cursor.position), "}"),
@@ -715,7 +723,7 @@ impl Buffer {
                 .rope
                 .insert(self.rope.byte_to_char(self.cursor.position), "\""),
             _ => (),
-        }
+        }*/
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -727,10 +735,12 @@ impl Buffer {
         let (start_byte_idx, end_byte_idx) = if !self.cursor.has_selection() {
             let start_byte_idx = self.rope.prev_grapheme_boundary_byte(self.cursor.position);
 
-            let start_byte = self.rope.get_byte(start_byte_idx);
-            let end_byte = self.rope.get_byte(start_byte_idx + 1);
+            //let start_byte = self.rope.get_byte(start_byte_idx);
+            //let end_byte = self.rope.get_byte(start_byte_idx + 1);
+            let end_byte_idx = self.cursor.position;
 
             // Remove pair
+            /*
             let end_byte_idx = match (start_byte, end_byte) {
                 (Some(b'{'), Some(b'}')) => self.cursor.position + 1,
                 (Some(b'['), Some(b']')) => self.cursor.position + 1,
@@ -738,7 +748,7 @@ impl Buffer {
                 (Some(b'\''), Some(b'\'')) => self.cursor.position + 1,
                 (Some(b'"'), Some(b'"')) => self.cursor.position + 1,
                 _ => self.cursor.position,
-            };
+            };*/
 
             (start_byte_idx, end_byte_idx)
         } else {
@@ -834,23 +844,30 @@ impl Buffer {
     }
 
     pub fn move_line(&mut self, dir: LineMoveDir) {
+        let len_lines = self.rope.len_lines();
         let (cursor_col, cursor_line_idx) = self.cursor_pos();
         let (anchor_col, anchor_line_idx) = self.anchor_pos();
+
+        let cursor_byte_idx_in_line =
+            self.cursor.position - self.rope.line_to_byte(cursor_line_idx);
+        let anchor_byte_idx_in_line = self.cursor.anchor - self.rope.line_to_byte(anchor_line_idx);
 
         let start_line_idx = cursor_line_idx.min(anchor_line_idx);
         let mut end_line_idx = cursor_line_idx.max(anchor_line_idx);
 
-        if start_line_idx == 0 && dir == LineMoveDir::Up {
-            return;
-        }
-
-        if end_line_idx + 1 >= self.len_lines() && dir == LineMoveDir::Down {
-            return;
-        }
-
-        let end_col = cursor_col.max(anchor_col);
+        let end_col = if self.cursor.position > self.cursor.anchor {
+            cursor_col
+        } else {
+            anchor_col
+        };
         if end_col == 0 && start_line_idx < end_line_idx {
             end_line_idx -= 1;
+        }
+
+        if (end_line_idx + 1 >= self.len_lines() && dir == LineMoveDir::Down)
+            || (start_line_idx == 0 && dir == LineMoveDir::Up)
+        {
+            return;
         }
 
         let old_line_idx = self
@@ -862,34 +879,33 @@ impl Buffer {
         };
         let new_line_idx = (old_line_idx as i64 + offset) as usize;
 
-        let new_line_has_line_ending = self.rope.line(new_line_idx).get_line_ending().is_some();
-
         let start_char_idx = self.rope.line_to_char(start_line_idx);
         let end_char_idx = self.rope.end_of_line_char(end_line_idx);
 
-        let removed = self.rope.slice(start_char_idx..end_char_idx);
-        let removed = if new_line_has_line_ending {
-            removed.to_string()
-        } else {
-            removed
-                .slice(..rope_end_without_line_ending(&removed))
-                .to_string()
-        };
+        let mut removed = self.rope.slice(start_char_idx..end_char_idx).to_string();
+        if Rope::from_str(&removed).get_line_ending().is_none() {
+            removed.push('\n');
+        }
 
         self.rope.remove(start_char_idx..end_char_idx);
+
+        self.rope.append(Rope::from_str("\n"));
 
         let new_line_start_char_idx = self.rope.line_to_char(new_line_idx);
         self.rope.insert(new_line_start_char_idx, &removed);
 
-        if !new_line_has_line_ending {
-            self.rope.insert(new_line_start_char_idx, "\n");
+        while len_lines < self.rope.len_lines() && self.rope.get_line_ending().is_some() {
+            self.rope
+                .remove(rope_end_without_line_ending(&self.rope.slice(..))..);
         }
 
         let new_cursor_line_idx = (cursor_line_idx as i64 + offset) as usize;
         let new_anchor_line_idx = (anchor_line_idx as i64 + offset) as usize;
 
-        self.cursor.position = self.rope.line_to_byte(new_cursor_line_idx) + cursor_col;
-        self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_col;
+        self.cursor.position =
+            self.rope.line_to_byte(new_cursor_line_idx) + cursor_byte_idx_in_line;
+        self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_byte_idx_in_line;
+
         self.update_affinity();
         self.mark_dirty();
 
@@ -1027,6 +1043,11 @@ impl Buffer {
     pub fn select_all(&mut self) {
         self.cursor.anchor = 0;
         self.cursor.position = self.rope.len_bytes();
+
+        self.update_affinity();
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn select_line(&mut self) {

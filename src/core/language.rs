@@ -33,7 +33,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
         LanguageConfig::new(
             "rust",
             ferrite_tree_sitter::tree_sitter_rust::language(),
-            ferrite_tree_sitter::tree_sitter_rust::HIGHLIGHT_QUERY,
+            include_str!("../../queries/rust/highlights.scm"),
         ),
     );
     langs.insert(
@@ -41,7 +41,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
         LanguageConfig::new(
             "json",
             ferrite_tree_sitter::tree_sitter_json::language(),
-            ferrite_tree_sitter::tree_sitter_json::HIGHLIGHT_QUERY,
+            include_str!("../../queries/json/highlights.scm"),
         ),
     );
     langs
