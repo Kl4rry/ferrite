@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{Node, Parser, Point, Query, QueryCursor, TextProvider, Tree};
 
@@ -85,19 +85,19 @@ impl Syntax {
     }
 
     pub fn set_language(&mut self, language: &str) -> Result<()> {
-        self.syntax_provder = None;
-        *self.result.lock().unwrap() = None;
-
-        if let Some(lang) = get_tree_sitter_language(language) {
-            log::debug!("set lang to '{language}'");
-            self.syntax_provder = Some(SyntaxProvider::new(
-                lang,
-                self.proxy.clone(),
-                self.result.clone(),
-            )?);
+        match get_tree_sitter_language(language) {
+            Some(lang) => {
+                log::debug!("set lang to '{language}'");
+                self.syntax_provder = Some(SyntaxProvider::new(
+                    lang,
+                    self.proxy.clone(),
+                    self.result.clone(),
+                )?);
+                *self.result.lock().unwrap() = None;
+                Ok(())
+            }
+            None => bail!("Unknown language: `{language}`"),
         }
-
-        Ok(())
     }
 
     pub fn get_language_name(&self) -> Option<String> {

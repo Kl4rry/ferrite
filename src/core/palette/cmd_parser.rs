@@ -1,4 +1,5 @@
 use once_cell::sync::Lazy;
+use utility::line_ending::LineEnding;
 
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
@@ -29,6 +30,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("theme", [theme]) => Command::Theme(theme.take().map(|theme| theme.unwrap_string())),
         ("language", [language]) => Command::Language(language.take().map(|language| language.unwrap_string())),
         ("encoding", [encoding]) => Command::Encoding(encoding.take().map(|encoding| encoding.unwrap_string())),
+        ("new", []) => Command::New,
         ("indent", []) => Command::Indent,
         ("reload", []) => Command::Reload,
         ("logger", []) => Command::Logger,
@@ -39,6 +41,13 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("config", []) => Command::OpenConfig,
         ("close!", []) => Command::ForceClose,
         ("close", []) => Command::Close,
+        ("line-ending", [line_ending]) => Command::LineEnding(line_ending.take().map(|line_ending| {
+            match line_ending.unwrap_string().as_str() {
+                "lf" => LineEnding::LF,
+                "crlf" => LineEnding::Crlf,
+                _ => unreachable!(),
+            }
+        })),
         _ => return Err(CommandParseError::UnkownCommand(name.to_string())),
     };
 
@@ -54,6 +63,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("theme", vec![("theme", CommandTemplateArg::String)], 1),
         CommandTemplate::new("language", vec![("language", CommandTemplateArg::String)], 1),
         CommandTemplate::new("encoding", vec![("encoding", CommandTemplateArg::String)], 1),
+        CommandTemplate::new("new", vec![], 0),
         CommandTemplate::new("indent", vec![], 0),
         CommandTemplate::new("reload", vec![], 0),
         CommandTemplate::new("logger", vec![], 0),
@@ -64,5 +74,6 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("config", vec![], 0),
         CommandTemplate::new("close!", vec![], 0),
         CommandTemplate::new("close", vec![], 0),
+        CommandTemplate::new("line-ending", vec![("line-ending", CommandTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))], 1),
     ]
 });

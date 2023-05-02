@@ -8,7 +8,7 @@ use encoding_rs::Encoding;
 use ropey::{Rope, RopeSlice};
 use utility::{
     graphemes::{RopeGraphemeExt as _, RopeReplaceExt},
-    line_ending::rope_end_without_line_ending,
+    line_ending::{rope_end_without_line_ending, LineEnding, DEFAULT_LINE_ENDING},
 };
 
 use self::error::BufferError;
@@ -61,6 +61,7 @@ pub struct Buffer {
     file: Option<PathBuf>,
     dirty: bool,
     read_only: bool,
+    pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
     pub clamp_cursor: bool,
@@ -84,6 +85,7 @@ impl Default for Buffer {
             indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
             read_only: false,
+            line_ending: DEFAULT_LINE_ENDING,
             clamp_cursor: true,
             clamp_distance: 4,
             view_lines: usize::MAX,
@@ -182,12 +184,17 @@ impl Buffer {
         }
     }
 
-    pub fn set_langauge(&mut self, language: &str) {
-        let syntax = self.syntax.as_mut().unwrap();
-        if let Err(err) = syntax.set_language(language) {
-            log::error!("Error setting language: {err}");
-        }
+    pub fn set_langauge(&mut self, language: &str, proxy: TuiEventLoopProxy) -> anyhow::Result<()> {
+        let syntax = match self.syntax.as_mut() {
+            Some(syntax) => syntax,
+            None => {
+                self.syntax = Some(Syntax::new(proxy));
+                self.syntax.as_mut().unwrap()
+            }
+        };
+        syntax.set_language(language)?;
         syntax.update_text(self.rope.clone());
+        Ok(())
     }
 
     pub fn get_buffer_view(&self) -> BufferView {
@@ -195,7 +202,9 @@ impl Buffer {
 
         let mut lines = Vec::new();
         for line_idx in self.line_pos..end_line {
-            let line = self.rope.line(line_idx);
+            let Some(line) = self.rope.get_line(line_idx) else {
+                break;
+            };
             let mut idx = 0;
             let mut width = 0;
             for grapheme in line.grapehemes() {
@@ -209,6 +218,7 @@ impl Buffer {
             lines.push(ViewLine {
                 text: line,
                 col_start_offset: width.saturating_sub(self.col_pos),
+                text_start_col: self.rope.get_text_start_col(line_idx),
             });
         }
 
@@ -883,7 +893,10 @@ impl Buffer {
         let end_char_idx = self.rope.end_of_line_char(end_line_idx);
 
         let mut removed = self.rope.slice(start_char_idx..end_char_idx).to_string();
-        if Rope::from_str(&removed).get_line_ending().is_none() {
+        if RopeSlice::from(removed.as_str())
+            .get_line_ending()
+            .is_none()
+        {
             removed.push('\n');
         }
 
@@ -1116,7 +1129,7 @@ impl Buffer {
             return Err(BufferError::NoPathSet)
         };
 
-        write::write(self.encoding, self.rope.clone(), path)?;
+        write::write(self.encoding, self.line_ending, self.rope.clone(), path)?;
 
         self.dirty = false;
 
@@ -1187,6 +1200,7 @@ impl Buffer {
 pub struct ViewLine<'a> {
     pub text: RopeSlice<'a>,
     pub col_start_offset: usize,
+    pub text_start_col: usize,
 }
 
 pub struct BufferView<'a> {

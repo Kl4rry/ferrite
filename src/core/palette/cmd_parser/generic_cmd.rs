@@ -4,7 +4,6 @@ use super::error::CommandParseError;
 
 #[derive(Debug, Clone)]
 pub enum CommandTemplateArg {
-    #[allow(dead_code)]
     Alternatives(Vec<String>),
     Int,
     #[allow(dead_code)]

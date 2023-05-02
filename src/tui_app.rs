@@ -12,6 +12,7 @@ use crossterm::{
 };
 use slab::Slab;
 use tui::layout::{Margin, Rect};
+use utility::line_ending;
 
 use self::{
     event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
@@ -84,6 +85,9 @@ impl TuiApp {
         buffer.set_view_lines(height.saturating_sub(2).into());
         buffer.set_view_columns(width.into());
         buffer.goto(args.line as i64);
+        if let Some(language) = &args.language {
+            buffer.set_langauge(language, proxy.clone())?;
+        }
 
         let mut palette = CommandPalette::new(proxy.clone());
 
@@ -351,11 +355,13 @@ impl TuiApp {
                             }
                             Command::Language(language) => match language {
                                 Some(language) => {
-                                    self.buffers[self.current_buffer_id].set_langauge(&language)
+                                    if let Err(err) = self.buffers[self.current_buffer_id].set_langauge(&language, self.proxy.clone()) {
+                                        self.palette.set_error(err);
+                                    }
                                 }
                                 None => self
-                                    .palette
-                                    .set_msg(self.buffers[self.current_buffer_id].language_name()),
+                                .palette
+                                .set_msg(self.buffers[self.current_buffer_id].language_name()),
                             },
                             Command::Encoding(encoding) => match encoding {
                                 Some(encoding) => {
@@ -365,8 +371,8 @@ impl TuiApp {
                                     }
                                 }
                                 None => self
-                                    .palette
-                                    .set_msg(self.buffers[self.current_buffer_id].encoding.name()),
+                                .palette
+                                .set_msg(self.buffers[self.current_buffer_id].encoding.name()),
                             },
                             Command::Indent => match self.buffers[self.current_buffer_id].indent {
                                 Indentation::Tabs(_) => self.palette.set_msg("tabs"),
@@ -374,6 +380,17 @@ impl TuiApp {
                                     self.palette.set_msg(format!("{} space(s)", amount))
                                 }
                             },
+                            Command::LineEnding(line_ending) => {
+                                match line_ending {
+                                    Some(line_ending) => self.buffers[self.current_buffer_id].line_ending = line_ending,
+                                    None => self.palette.set_msg(match self.buffers[self.current_buffer_id].line_ending {
+                                        line_ending::LineEnding::Crlf => "crlf",
+                                        line_ending::LineEnding::LF => "lf",
+                                        _ => unreachable!(),
+                                    }),
+                                }
+                            }
+                            Command::New => self.current_buffer_id = self.buffers.insert(Buffer::new()),
                             Command::Reload => {
                                 self.palette.set_prompt(
                                     "The buffer is unsaved are you sure you want to reload?",

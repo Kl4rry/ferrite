@@ -1,38 +1,47 @@
 use std::{
-    fs,
     fs::OpenOptions,
     io::{BufWriter, Write},
     path::Path,
 };
 
 use encoding_rs::{CoderResult, Encoding};
-use ropey::Rope;
+use ropey::{Rope, RopeBuilder};
+use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use super::error::BufferError;
 
 pub fn write(
     encoding: &'static Encoding,
+    line_ending: LineEnding,
     rope: Rope,
     path: impl AsRef<Path>,
 ) -> Result<(), BufferError> {
     let path = path.as_ref().to_path_buf();
     const BUFFER_SIZE: usize = 8192;
 
-    let Some(parent) = path.parent() else {
-        return Err(BufferError::InvalidPath(path))
-    };
-
-    let Some(filename) = path.file_name() else {
-        return Err(BufferError::InvalidPath(path))
-    };
-
-    let temp = Path::new(parent).join(format!(".{}.part", filename.to_string_lossy()));
     let mut file = BufWriter::new(
         OpenOptions::new()
-            .create_new(true)
+            .create(true)
+            .truncate(true)
             .write(true)
-            .open(&temp)?,
+            .open(&path)?,
     );
+
+    let mut output_rope = RopeBuilder::new();
+    for line in rope.lines() {
+        if line.get_line_ending().is_some() {
+            for chunk in line.line_without_line_ending(0).chunks() {
+                output_rope.append(chunk);
+            }
+            output_rope.append(line_ending.as_str());
+        } else {
+            for chunk in line.chunks() {
+                output_rope.append(chunk);
+            }
+            break;
+        }
+    }
+    let rope = output_rope.finish();
 
     let mut encoder = encoding.new_encoder();
     let mut buffer = [0u8; BUFFER_SIZE];
@@ -69,7 +78,7 @@ pub fn write(
     write("", true)?;
 
     file.flush()?;
-    fs::rename(temp, path)?;
+    file.get_mut().sync_all()?;
 
     Ok(())
 }

@@ -21,6 +21,9 @@ pub struct Args {
     /// Line to open file on
     #[arg(long, short, default_value = "0")]
     pub line: u32,
+    /// Language
+    #[arg(long = "lang")]
+    pub language: Option<String>,
     /// Tail log file
     #[arg(long, name = "log-file")]
     pub log_file: bool,

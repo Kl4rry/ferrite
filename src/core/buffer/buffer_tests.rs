@@ -1,6 +1,7 @@
 use std::fs;
 
 use tempdir::TempDir;
+use utility::line_ending::DEFAULT_LINE_ENDING;
 
 use super::{read, write};
 
@@ -21,7 +22,7 @@ fn read_write_test_utf8() {
     let (encoding, rope) = read::read(TEST_FILE).unwrap();
     let tmp_dir = TempDir::new("test").unwrap();
     let output_path = tmp_dir.path().join("output.json");
-    write::write(encoding, rope.clone(), &output_path).unwrap();
+    write::write(encoding, DEFAULT_LINE_ENDING, rope.clone(), &output_path).unwrap();
 
     let written = fs::read_to_string(&output_path).unwrap();
     assert_eq!(written, rope.to_string());

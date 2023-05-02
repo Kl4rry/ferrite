@@ -1,3 +1,4 @@
+use ropey::RopeSlice;
 use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
@@ -49,7 +50,7 @@ impl StatefulWidget for EditorWidget<'_> {
             has_focus,
             branch,
         } = self;
-        let line_number_max_width = buffer.len_lines().to_string().len();
+        let line_number_max_width = buffer.len_lines().to_string().len().max(4);
 
         let left_offset = 4 + line_number_max_width;
 
@@ -79,7 +80,7 @@ impl StatefulWidget for EditorWidget<'_> {
             {
                 let line_number_str = line_number.to_string();
                 let line_number_str = format!(
-                    " {}{} │",
+                    " {}{} ",
                     " ".repeat(line_number_max_width - line_number_str.len()),
                     line_number
                 );
@@ -142,6 +143,30 @@ impl StatefulWidget for EditorWidget<'_> {
                             cell.set_symbol("│");
                             cell.set_style(theme.ruler);
                         }
+                    }
+                }
+            }
+
+            if !view.lines.is_empty() {
+                // TODO fix empty line gaps in blocks using tree-sitter indent queries
+                'outer: for line in text_area.top()..text_area.bottom() {
+                    for col in text_area.left()..text_area.right() {
+                        let Some(view_line) = view.lines.get((line - text_area.y) as usize) else {
+                            break 'outer;
+                        };
+                        let text_start = view_line.text_start_col;
+                        let visual_text_start = text_start + text_area.x as usize;
+                        if col as usize > visual_text_start || text_start == 0 {
+                            break;
+                        }
+
+                        let cell = buf.get_mut(col, line);
+                        if !RopeSlice::from(cell.symbol.as_str()).is_whitespace() || col % 4 != 0 {
+                            continue;
+                        }
+
+                        cell.set_char('│');
+                        cell.set_style(self.theme.ruler);
                     }
                 }
             }

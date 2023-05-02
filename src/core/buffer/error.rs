@@ -1,9 +1,8 @@
-use std::{error::Error, fmt, io, path::PathBuf};
+use std::{error::Error, fmt, io};
 
 #[derive(Debug)]
 pub enum BufferError {
     NoPathSet,
-    InvalidPath(PathBuf),
     Io(io::Error),
 }
 
@@ -11,7 +10,6 @@ impl fmt::Display for BufferError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NoPathSet => writeln!(f, "Error no path set"),
-            Self::InvalidPath(path) => writeln!(f, "Invalid path: '{}'", path.to_string_lossy()),
             Self::Io(err) => err.fmt(f),
         }
     }
