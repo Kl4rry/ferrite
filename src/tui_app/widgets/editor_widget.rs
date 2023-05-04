@@ -12,6 +12,13 @@ use crate::core::{
     theme::EditorTheme,
 };
 
+pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
+    let line_number_max_width = lines.to_string().len().max(4);
+    const MAGIC_NUMBER: usize = 4;
+    let left_offset = MAGIC_NUMBER + line_number_max_width;
+    (line_number_max_width, left_offset)
+}
+
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
     config: &'a Config,
@@ -50,9 +57,8 @@ impl StatefulWidget for EditorWidget<'_> {
             has_focus,
             branch,
         } = self;
-        let line_number_max_width = buffer.len_lines().to_string().len().max(4);
 
-        let left_offset = 4 + line_number_max_width;
+        let (line_number_max_width, left_offset) = lines_to_left_offset(buffer.len_lines());
 
         let text_area = Rect {
             x: area.x + left_offset as u16,

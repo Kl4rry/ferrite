@@ -20,12 +20,26 @@ pub enum LineMoveDir {
 
 #[derive(Debug, Clone)]
 pub enum InputCommand {
-    MoveRight { shift: bool },
-    MoveLeft { shift: bool },
-    MoveUp { shift: bool, distance: usize },
-    MoveDown { shift: bool, distance: usize },
-    MoveRightWord { shift: bool },
-    MoveLeftWord { shift: bool },
+    MoveRight {
+        shift: bool,
+    },
+    MoveLeft {
+        shift: bool,
+    },
+    MoveUp {
+        shift: bool,
+        distance: usize,
+    },
+    MoveDown {
+        shift: bool,
+        distance: usize,
+    },
+    MoveRightWord {
+        shift: bool,
+    },
+    MoveLeftWord {
+        shift: bool,
+    },
     Insert(String),
     Char(char),
     MoveLine(LineMoveDir),
@@ -33,18 +47,33 @@ pub enum InputCommand {
     BackspaceWord,
     Delete,
     DeleteWord,
+    SetCursorPos(usize, usize),
+    SelectArea {
+        cursor: (usize, usize),
+        anchor: (usize, usize),
+    },
     PromptGoto,
-    Home { shift: bool },
-    End { shift: bool },
-    Eof { shift: bool },
-    Start { shift: bool },
+    Home {
+        shift: bool,
+    },
+    End {
+        shift: bool,
+    },
+    Eof {
+        shift: bool,
+    },
+    Start {
+        shift: bool,
+    },
     SelectAll,
     SelectLine,
     SelectWord,
     Copy,
     Cut,
     Paste,
-    Tab { back: bool },
+    Tab {
+        back: bool,
+    },
     VerticalScroll(i64),
     FocusPalette,
     FindFile,

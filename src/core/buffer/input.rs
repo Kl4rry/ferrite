@@ -32,6 +32,8 @@ impl Buffer {
             VerticalScroll(distance) => self.vertical_scroll(distance),
             Escape => self.escape(),
             Save => self.save(None)?,
+            SetCursorPos(col, line) => self.set_cursor_pos(col, line),
+            SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
             _ => (),
         }
 

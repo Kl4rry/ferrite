@@ -161,8 +161,16 @@ impl Buffer {
         self.view_lines = lines;
     }
 
+    pub fn get_view_lines(&self) -> usize {
+        self.view_lines
+    }
+
     pub fn set_view_columns(&mut self, cols: usize) {
         self.view_columns = cols;
+    }
+
+    pub fn get_view_columns(&self) -> usize {
+        self.view_columns
     }
 
     pub fn name(&self) -> Option<String> {
@@ -594,35 +602,13 @@ impl Buffer {
         }
     }
 
+    /// Move cursor to line. Line is indexed from 1
     pub fn goto(&mut self, line: i64) {
         let line_idx = (self.rope.len_lines().saturating_sub(1) as i64)
             .min(line)
             .max(0) as usize;
-        let (column_idx, _) = self.cursor_pos();
 
-        let before_cursor = self
-            .rope
-            .line_without_line_ending(line_idx)
-            .byte_slice(..column_idx)
-            .width(0)
-            .max(self.cursor.affinity);
-        let next_line = self
-            .rope
-            .line_without_line_ending(line_idx.saturating_sub(1));
-        let next_width = next_line.width(0);
-        let next_line_start = self.rope.line_to_byte(line_idx.saturating_sub(1));
-
-        if next_width < before_cursor {
-            self.cursor.position = next_line_start + next_line.len_bytes();
-        } else {
-            let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
-            self.cursor.position = next_line_start + idx;
-            self.cursor.anchor = self.cursor.position;
-        }
-
-        if self.clamp_cursor {
-            self.center_on_cursor();
-        }
+        self.set_cursor_pos(line_idx, 0);
     }
 
     pub fn home(&mut self, shift: bool) {
@@ -741,6 +727,18 @@ impl Buffer {
     }
 
     pub fn backspace(&mut self) {
+        // this is a bit hacky but it works
+        {
+            let line_idx = self.cursor_line_idx();
+            let line_byte = self.cursor.position - self.rope.line_to_byte(line_idx);
+            if !self.cursor.has_selection() && line_byte <= self.rope.get_text_start_byte(line_idx)
+            {
+                // FIXME back tab does not move the cursor correctly when standing in the middle of the indentation
+                self.tab(true);
+                return;
+            }
+        }
+
         // TODO add indentation removal when only white space is to the left of cursor
         let (start_byte_idx, end_byte_idx) = if !self.cursor.has_selection() {
             let start_byte_idx = self.rope.prev_grapheme_boundary_byte(self.cursor.position);
@@ -1156,6 +1154,46 @@ impl Buffer {
                 self.center_on_cursor();
             }
         }
+    }
+
+    pub fn set_cursor_pos(&mut self, col: usize, line: usize) {
+        let line_idx: usize = line.min(self.rope.len_lines().saturating_sub(1));
+
+        let next_line = self.rope.line_without_line_ending(line_idx);
+        let next_width = next_line.width(0);
+        let next_line_start = self.rope.line_to_byte(line_idx);
+
+        if next_width < col {
+            self.cursor.position = next_line_start + next_line.len_bytes();
+        } else {
+            let idx = next_line.nth_next_grapheme_boundary_byte(0, col);
+            self.cursor.position = next_line_start + idx;
+        }
+        self.cursor.anchor = self.cursor.position;
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
+    }
+
+    pub fn set_anchor_pos(&mut self, col: usize, line: usize) {
+        let line_idx: usize = line.min(self.rope.len_lines().saturating_sub(1));
+
+        let next_line = self.rope.line_without_line_ending(line_idx);
+        let next_width = next_line.width(0);
+        let next_line_start = self.rope.line_to_byte(line_idx);
+
+        if next_width < col {
+            self.cursor.anchor = next_line_start + next_line.len_bytes();
+        } else {
+            let idx = next_line.nth_next_grapheme_boundary_byte(0, col);
+            self.cursor.anchor = next_line_start + idx;
+        }
+    }
+
+    pub fn select_area(&mut self, cursor: (usize, usize), anchor: (usize, usize)) {
+        self.set_cursor_pos(cursor.0, cursor.1);
+        self.set_anchor_pos(anchor.0, anchor.1);
     }
 
     pub fn center_on_cursor(&mut self) {

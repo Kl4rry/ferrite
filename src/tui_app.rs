@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyEventKind, MouseEventKind},
+    event::{self, Event, KeyEventKind, MouseButton, MouseEventKind},
     execute, terminal,
 };
 use slab::Slab;
@@ -18,7 +18,9 @@ use self::{
     event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
     input::{get_default_mappings, Exclusiveness, Mapping},
     widgets::{
-        editor_widget::EditorWidget, palette_widget::CmdPaletteWidget, search_widget::SearchWidget,
+        editor_widget::{lines_to_left_offset, EditorWidget},
+        palette_widget::CmdPaletteWidget,
+        search_widget::SearchWidget,
     },
 };
 use crate::{
@@ -57,6 +59,7 @@ pub struct TuiApp {
     key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
     branch_watcher: BranchWatcher,
     proxy: TuiEventLoopProxy,
+    drag_start: Option<(usize, usize)>,
 }
 
 impl TuiApp {
@@ -127,6 +130,7 @@ impl TuiApp {
             key_mappings: get_default_mappings(),
             branch_watcher: BranchWatcher::new(proxy.clone())?,
             proxy,
+            drag_start: None,
         })
     }
 
@@ -273,6 +277,52 @@ impl TuiApp {
                 Event::Mouse(event) => match event.kind {
                     MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
                     MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
+                    MouseEventKind::Down(MouseButton::Left) => {
+                        self.drag_start = Some((event.column as usize, event.row as usize));
+
+                        let buffer = &self.buffers[self.current_buffer_id];
+                        if (event.row as usize) < buffer.get_view_lines()
+                            && (event.column as usize) < buffer.get_view_columns()
+                        {
+                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                            let column = (event.column as usize).saturating_sub(left_offset)
+                                + buffer.col_pos();
+                            let line = event.row as usize + buffer.line_pos();
+                            Some(InputCommand::SetCursorPos(column, line))
+                        } else {
+                            // TODO handle other clicks then in current buffer
+                            None
+                        }
+                    }
+                    MouseEventKind::Up(MouseButton::Left) => {
+                        self.drag_start = None;
+                        None
+                    }
+                    MouseEventKind::Drag(MouseButton::Left) => {
+                        // TODO maybe scroll more of the buffer into view when going outside its bounds
+                        log::debug!("DRAG: line: {}, col: {}", event.row, event.column);
+                        if let Some((col, line)) = self.drag_start {
+                            let buffer = &mut self.buffers[self.current_buffer_id];
+                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+
+                            let anchor = {
+                                let column = col.saturating_sub(left_offset) + buffer.col_pos();
+                                let line = line + buffer.line_pos();
+                                (column, line)
+                            };
+
+                            let cursor = {
+                                let column = (event.column as usize).saturating_sub(left_offset)
+                                    + buffer.col_pos();
+                                let line = event.row as usize + buffer.line_pos();
+                                (column, line)
+                            };
+
+                            Some(InputCommand::SelectArea { cursor, anchor })
+                        } else {
+                            None
+                        }
+                    }
                     _ => None,
                 },
                 Event::Paste(text) => {
