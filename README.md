@@ -1,7 +1,8 @@
 ### Basic features
 - [ ] VScode/windows like cursor movement
 - [ ] Multicursor
-- [ ] Search and replace
+- [ ] Search
+- [ ] Replace
 - [ ] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
 - [x] Mouse jumping and selection
 - [x] Command palette
@@ -11,7 +12,7 @@
 - [x] Multiple buffers and buffer selection screen (maybe tabs for the gui version)
 - [x] Quick fuzzy file finding
 - [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
-- [ ] Infinte undo with undo file and non truncating history
+- [ ] Infinte undo with undo file
 - [ ] Configuration
 
 ### Micro features

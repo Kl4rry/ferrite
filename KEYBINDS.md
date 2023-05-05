@@ -13,7 +13,7 @@
 | CTRL + D          | Select word                   | ✔️     |
 | CTRL + P          | Open command palette          | ✔️     |
 | CTRL + O          | Open file browser             | ✔️     |
-| CTRL + B          | Open buffer selector          | ❌     |
+| CTRL + B          | Open buffer selector          | ✔️     |
 | CTRL + S          | Save buffer                   | ✔️     |
 | CTRL + C          | Copy                          | ✔️     |
 | CTRL + X          | Cut                           | ✔️     |
