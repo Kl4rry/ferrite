@@ -300,7 +300,6 @@ impl TuiApp {
                     }
                     MouseEventKind::Drag(MouseButton::Left) => {
                         // TODO maybe scroll more of the buffer into view when going outside its bounds
-                        log::debug!("DRAG: line: {}, col: {}", event.row, event.column);
                         if let Some((col, line)) = self.drag_start {
                             let buffer = &mut self.buffers[self.current_buffer_id];
                             let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
@@ -325,10 +324,7 @@ impl TuiApp {
                     }
                     _ => None,
                 },
-                Event::Paste(text) => {
-                    log::debug!("paste: {text}");
-                    Some(InputCommand::Insert(text))
-                }
+                Event::Paste(text) => Some(InputCommand::Insert(text)),
                 _ => None,
             };
 

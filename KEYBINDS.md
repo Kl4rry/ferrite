@@ -20,8 +20,8 @@
 | CTRL + T          | Open file tree                | ❌     |
 | CTRL + G          | Goto                          | ✔️     |
 | ALT + Arrows      | Move line                     | ✔️     |
-| CTRL + Z          | Undo                          | ❌     |
-| CTRL + Y          | Redo                          | ❌     |
+| CTRL + Z          | Undo                          | ✔️     |
+| CTRL + Y          | Redo                          | ✔️     |
 | CTRL + F          | Enter serch mode              | ❌     |
 | CTRL + R          | Enter search and replace mode | ❌     |
 | CTRL + N          | New buffer                    | ❌     |

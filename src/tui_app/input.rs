@@ -74,6 +74,8 @@ pub enum InputCommand {
     Tab {
         back: bool,
     },
+    Undo,
+    Redo,
     VerticalScroll(i64),
     FocusPalette,
     FindFile,
@@ -189,6 +191,16 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
             InputCommand::FindBuffer,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('z'), KeyModifiers::CONTROL),
+            InputCommand::Undo,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('y'), KeyModifiers::CONTROL),
+            InputCommand::Redo,
             Exclusiveness::Exclusive,
         ),
         (

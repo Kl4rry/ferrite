@@ -34,6 +34,8 @@ impl Buffer {
             Save => self.save(None)?,
             SetCursorPos(col, line) => self.set_cursor_pos(col, line),
             SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
+            Undo => self.undo(),
+            Redo => self.redo(),
             _ => (),
         }
 

@@ -12,6 +12,7 @@
 - [x] Multiple buffers and buffer selection screen (maybe tabs for the gui version)
 - [x] Quick fuzzy file finding
 - [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
+- [x] Undo/redo
 - [ ] Infinte undo with undo file
 - [ ] Configuration
 
@@ -34,7 +35,7 @@
 - [ ] Project wide search using ripgrep that displays matches in multibuffers
 - [ ] File tree
 - [ ] Basic auto complete recommendations based on words in document
-- [ ] Real relative line numbers
+- [ ] Relative line numbers
 - [ ] Softwrapping
 
 ### Big features

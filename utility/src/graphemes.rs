@@ -6,7 +6,7 @@ use std::{
     borrow::Cow,
     fmt::{self, Debug, Display},
     marker::PhantomData,
-    ops::{Deref, RangeBounds},
+    ops::Deref,
     ptr::NonNull,
     slice, str,
 };
@@ -745,21 +745,5 @@ impl RopeGraphemeExt for Rope {
 
     fn get_text_start_byte(&self, line_idx: usize) -> usize {
         self.slice(..).get_text_start_byte(line_idx)
-    }
-}
-
-pub trait RopeReplaceExt {
-    fn replace<R: RangeBounds<usize>>(&mut self, char_range: R, replacement: &str);
-}
-
-impl RopeReplaceExt for Rope {
-    fn replace<R: RangeBounds<usize>>(&mut self, char_range: R, replacement: &str) {
-        let start = match char_range.start_bound() {
-            std::ops::Bound::Included(bounds) => *bounds,
-            std::ops::Bound::Excluded(bounds) => *bounds + 1,
-            std::ops::Bound::Unbounded => 0,
-        };
-        self.remove(char_range);
-        self.insert(start, replacement);
     }
 }
