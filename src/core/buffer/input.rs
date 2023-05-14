@@ -14,6 +14,7 @@ impl Buffer {
             MoveLine(dir) if !self.read_only => self.move_line(dir),
             Insert(text) if !self.read_only => self.insert_text(&text),
             Char(ch) if !self.read_only => self.insert_text(&String::from(ch)),
+            NewLine if !self.read_only => self.new_line(),
             Backspace if !self.read_only => self.backspace(),
             BackspaceWord if !self.read_only => self.backspace_word(),
             Delete if !self.read_only => self.delete(),
@@ -34,9 +35,14 @@ impl Buffer {
             Save => self.save(None)?,
             SetCursorPos(col, line) => self.set_cursor_pos(col, line),
             SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
-            Undo => self.undo(),
-            Redo => self.redo(),
+            NextMatch => self.next_match(),
+            Undo if !self.read_only => self.undo(),
+            Redo if !self.read_only => self.redo(),
             _ => (),
+        }
+
+        if let Some(searcher) = &mut self.searcher {
+            searcher.update_buffer(self.rope.clone());
         }
 
         Ok(())

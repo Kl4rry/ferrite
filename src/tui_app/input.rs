@@ -1,4 +1,5 @@
 use crossterm::event::{KeyCode, KeyModifiers};
+use utility::point::Point;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mapping {
@@ -42,6 +43,7 @@ pub enum InputCommand {
     },
     Insert(String),
     Char(char),
+    NewLine,
     MoveLine(LineMoveDir),
     Backspace,
     BackspaceWord,
@@ -49,8 +51,8 @@ pub enum InputCommand {
     DeleteWord,
     SetCursorPos(usize, usize),
     SelectArea {
-        cursor: (usize, usize),
-        anchor: (usize, usize),
+        cursor: Point<usize>,
+        anchor: Point<usize>,
     },
     PromptGoto,
     Home {
@@ -77,9 +79,11 @@ pub enum InputCommand {
     Undo,
     Redo,
     VerticalScroll(i64),
+    FileSearch,
+    NextMatch,
     FocusPalette,
-    FindFile,
-    FindBuffer,
+    OpenFileBrowser,
+    OpenBufferBrowser,
     Escape,
     Save,
     Quit,
@@ -88,6 +92,7 @@ pub enum InputCommand {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Exclusiveness {
     Exclusive,
+    #[allow(dead_code)]
     NonExclusive,
     Ignores(KeyModifiers),
 }
@@ -185,12 +190,12 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         ),
         (
             Mapping::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
-            InputCommand::FindFile,
+            InputCommand::OpenFileBrowser,
             Exclusiveness::Exclusive,
         ),
         (
             Mapping::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
-            InputCommand::FindBuffer,
+            InputCommand::OpenBufferBrowser,
             Exclusiveness::Exclusive,
         ),
         (
@@ -204,6 +209,16 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Mapping::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            InputCommand::FileSearch,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('n'), KeyModifiers::CONTROL),
+            InputCommand::NextMatch,
+            Exclusiveness::Exclusive,
+        ),
+        (
             Mapping::new(KeyCode::Tab, KeyModifiers::NONE),
             InputCommand::Tab { back: false },
             Exclusiveness::Exclusive,
@@ -214,9 +229,14 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Mapping::new(KeyCode::Enter, KeyModifiers::CONTROL),
+            InputCommand::NewLine,
+            Exclusiveness::Exclusive,
+        ),
+        (
             Mapping::new(KeyCode::Enter, KeyModifiers::NONE),
             InputCommand::Char('\n'),
-            Exclusiveness::NonExclusive,
+            Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
         ),
         (
             Mapping::new(KeyCode::Backspace, KeyModifiers::NONE),

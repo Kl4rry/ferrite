@@ -12,7 +12,7 @@ use crossterm::{
 };
 use slab::Slab;
 use tui::layout::{Margin, Rect};
-use utility::line_ending;
+use utility::{line_ending, point::Point};
 
 use self::{
     event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
@@ -95,7 +95,7 @@ impl TuiApp {
         let mut palette = CommandPalette::new(proxy.clone());
 
         let config_path = Config::get_default_location().ok();
-        let mut config = match Config::load_and_create_default() {
+        let mut config = match Config::load_or_create_default() {
             Ok(config) => config,
             Err(err) => {
                 palette.set_error(err);
@@ -246,7 +246,7 @@ impl TuiApp {
 
                 let palette_size = Rect::new(size.x, size.height - 1, size.width, 1);
                 f.render_stateful_widget(
-                    CmdPaletteWidget::new(theme),
+                    CmdPaletteWidget::new(theme, self.palette.has_focus()),
                     palette_size,
                     &mut self.palette,
                 );
@@ -275,6 +275,7 @@ impl TuiApp {
                     }
                 }
                 Event::Mouse(event) => match event.kind {
+                    // TODO allow scoll when using cmd palette
                     MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
                     MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
                     MouseEventKind::Down(MouseButton::Left) => {
@@ -307,14 +308,14 @@ impl TuiApp {
                             let anchor = {
                                 let column = col.saturating_sub(left_offset) + buffer.col_pos();
                                 let line = line + buffer.line_pos();
-                                (column, line)
+                                Point::new(column, line)
                             };
 
                             let cursor = {
                                 let column = (event.column as usize).saturating_sub(left_offset)
                                     + buffer.col_pos();
                                 let line = event.row as usize + buffer.line_pos();
-                                (column, line)
+                                Point::new(column, line)
                             };
 
                             Some(InputCommand::SelectArea { cursor, anchor })
@@ -346,14 +347,19 @@ impl TuiApp {
                         self.buffer_finder = None;
                         self.palette.focus("goto: ", "goto");
                     }
+                    InputCommand::FileSearch => {
+                        self.file_finder = None;
+                        self.buffer_finder = None;
+                        self.palette.focus("search: ", "search");
+                    }
                     InputCommand::Escape
                         if self.file_finder.is_some() | self.buffer_finder.is_some() =>
                     {
                         self.file_finder = None;
                         self.buffer_finder = None;
                     }
-                    InputCommand::FindFile => self.browse_workspace(),
-                    InputCommand::FindBuffer => self.browse_buffers(),
+                    InputCommand::OpenFileBrowser => self.browse_workspace(),
+                    InputCommand::OpenBufferBrowser => self.browse_buffers(),
                     input => {
                         if self.palette.has_focus() {
                             let _ = self.palette.handle_input(input);
@@ -447,13 +453,9 @@ impl TuiApp {
                                     self.palette.set_error(err)
                                 };
                             }
-                            Command::Goto(line) => {
-                                self.buffers[self.current_buffer_id].goto(line);
-                            }
+                            Command::Goto(line) => self.buffers[self.current_buffer_id].goto(line),
                             Command::Quit => self.quit(control_flow),
-                            Command::ForceQuit => {
-                                *control_flow = TuiEventLoopControlFlow::Exit;
-                            }
+                            Command::ForceQuit => *control_flow = TuiEventLoopControlFlow::Exit,
                             Command::Logger => todo!(),
                             Command::Theme(name) => match name {
                                 Some(name) => {
@@ -481,6 +483,10 @@ impl TuiApp {
                     if let Ok(line) = content.trim().parse::<i64>() {
                         self.buffers[self.current_buffer_id].goto(line);
                     }
+                }
+                "search" => {
+                    self.buffers[self.current_buffer_id].start_search(self.proxy.clone(), content);
+                    self.palette.unfocus();
                 }
                 _ => (),
             },

@@ -32,7 +32,7 @@ pub struct Config {
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");
 
 impl Config {
-    pub fn load_and_create_default() -> Result<Self> {
+    pub fn load_or_create_default() -> Result<Self> {
         let path = Self::get_default_location()?;
 
         let mut config_folder = path.clone();

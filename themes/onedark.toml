@@ -4,16 +4,16 @@
 "editor.text" = { fg = "white" }
 "editor.info_line" = { fg = "white", bg = "light_black" }
 "editor.background" = { bg = "black", fg = "white" }
-"editor.selection" = { bg = "gray"}
+"editor.selection" = { bg = "faint_blue"}
 "editor.border" = { bg = "black", fg = "white" }
 "editor.ruler" = { fg = "faint_gray" }
-"editor.search_match" = { fg = "blue" }
 "editor.error_text" = { fg = "red" }
+"editor.search.match" = { bg = "gray" }
 
 [syntax]
 "attribute" = { fg = "yellow" }
 
-"comment" = { fg = "light-gray", modifiers = ["italic"] }
+"comment" = { fg = "light_gray", modifiers = ["italic"] }
 
 "constant" = { fg = "cyan" }
 "constant.numeric" = { fg = "gold" }
@@ -75,3 +75,4 @@ gray = "#3E4452"
 faint_gray = "#3B4048"
 light_gray = "#5C6370"
 line_nr = "#4B5263"
+faint_blue = "#324971"

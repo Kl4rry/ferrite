@@ -4,11 +4,12 @@ use crate::core::{buffer::Buffer, theme::EditorTheme};
 
 pub struct OneLineInputWidget<'a> {
     theme: &'a EditorTheme,
+    focused: bool,
 }
 
 impl<'a> OneLineInputWidget<'a> {
-    pub fn new(theme: &'a EditorTheme) -> Self {
-        Self { theme }
+    pub fn new(theme: &'a EditorTheme, focused: bool) -> Self {
+        Self { theme, focused }
     }
 }
 
@@ -54,7 +55,7 @@ impl StatefulWidget for OneLineInputWidget<'_> {
             height: 1,
         };
 
-        if cursor_area.intersects(area) {
+        if cursor_area.intersects(area) && self.focused {
             buf.set_style(
                 cursor_area,
                 Style::default().add_modifier(tui::style::Modifier::REVERSED),

@@ -3,6 +3,7 @@ use std::{
     process::Command,
     sync::{Arc, Mutex},
     thread,
+    time::Duration,
 };
 
 use notify::Watcher;
@@ -57,14 +58,27 @@ impl BranchWatcher {
             proxy: proxy.clone(),
         })?;
         let watched = std::env::current_dir()?;
-        watcher.watch(&watched, notify::RecursiveMode::Recursive)?;
+        if let Err(err) = watcher.watch(&watched, notify::RecursiveMode::Recursive) {
+            log::error!("Unable to start branch watcher: {}", err);
+            let thread_proxy = proxy.clone();
+            let current_branch_thread = current_branch.clone();
+            thread::spawn(move || {
+                log::info!("started fallback branch poller");
+                loop {
+                    thread::sleep(Duration::from_secs(20));
+                    if let Some(branch) = get_current_branch() {
+                        *current_branch_thread.lock().unwrap() = Some(branch);
+                        thread_proxy.request_render();
+                    }
+                }
+            });
+        }
 
         let current_branch_thread = current_branch.clone();
-        let thread_proxy = proxy;
         thread::spawn(move || {
             if let Some(branch) = get_current_branch() {
                 *current_branch_thread.lock().unwrap() = Some(branch);
-                thread_proxy.request_render();
+                proxy.request_render();
             }
         });
 

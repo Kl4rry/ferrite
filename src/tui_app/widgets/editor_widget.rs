@@ -3,11 +3,14 @@ use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
 };
-use utility::graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH};
+use utility::{
+    graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH},
+    point::Point,
+};
 
 use super::info_line::InfoLine;
 use crate::core::{
-    buffer::{Buffer, BufferPos, Selection},
+    buffer::{search::SearchMatch, Buffer, Selection},
     config::Config,
     theme::EditorTheme,
 };
@@ -256,17 +259,52 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            let matches = buffer.get_searcher().map(|searcher| searcher.get_matches());
+            if let Some(matches) = matches {
+                let matches = matches.lock().unwrap();
+                let matches = &*matches;
+
+                for SearchMatch { start, end } in matches {
+                    if start.line >= buffer.line_pos()
+                        && end.line + 2 < buffer.line_pos() + buffer.get_view_lines()
+                    {
+                        let highlight_area = Rect {
+                            x: start.column as u16 + text_area.left(),
+                            y: (start.line + text_area.top() as usize - buffer.line_pos()) as u16,
+                            width: ((end.column - start.column).min(
+                                (text_area.right() as usize)
+                                    .saturating_sub(end.column + text_area.left() as usize)
+                                    + 1,
+                            )) as u16,
+                            height: (end.line - start.line + 1) as u16,
+                        };
+
+                        buf.set_style(highlight_area, self.theme.search_match);
+                    }
+                }
+            }
+
             if let Some(bg) = theme.selection.bg {
                 let Selection { start, end } = buffer.get_view_selection();
+                let line_pos = buffer.line_pos();
 
-                for y in 0..buf.area.height - 2 {
-                    for x in 0..(buf.area.width - (left_offset as u16)) {
-                        let current = BufferPos {
+                for y in 0..text_area.height {
+                    let line_idx = y as usize + line_pos;
+                    let width = if line_idx >= buffer.rope().len_lines() {
+                        0
+                    } else {
+                        buffer.rope().line_without_line_ending(line_idx).width(0)
+                    };
+                    for x in 0..text_area.width {
+                        if x as usize > width {
+                            break;
+                        }
+                        let current = Point {
                             column: x.into(),
                             line: y.into(),
                         };
                         if current >= start && current < end {
-                            let cell = buf.get_mut(x + left_offset as u16 + area.x, y + area.y);
+                            let cell = buf.get_mut(x + text_area.left(), y + text_area.top());
                             cell.bg = bg;
                         }
                     }

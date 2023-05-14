@@ -111,9 +111,10 @@ impl EditorTheme {
             background: theme.get_style("editor.background")?,
             selection: theme.get_style("editor.selection")?,
             border: theme.get_style("editor.border")?,
-            search_match: theme.get_style("editor.search_match")?,
+            search_match: theme.get_style("editor.search.match")?,
             error_text: theme.get_style("editor.error_text")?,
             ruler: theme.get_style("editor.ruler")?,
+
             syntax: {
                 let mut syntax = HashMap::new();
                 for (key, style) in theme.syntax.into_iter() {

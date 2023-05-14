@@ -1,6 +1,7 @@
 use std::{
     cmp, io,
     num::NonZeroUsize,
+    ops::Range,
     path::{Path, PathBuf},
 };
 
@@ -9,9 +10,10 @@ use ropey::{Rope, RopeSlice};
 use utility::{
     graphemes::RopeGraphemeExt as _,
     line_ending::{rope_end_without_line_ending, LineEnding, DEFAULT_LINE_ENDING},
+    point::Point,
 };
 
-use self::{error::BufferError, history::History};
+use self::{error::BufferError, history::History, search::BufferSearcher};
 use super::{
     indent::Indentation,
     language::{get_language_from_path, syntax::Syntax},
@@ -23,17 +25,11 @@ pub mod error;
 mod history;
 mod input;
 mod read;
+pub mod search;
 mod write;
 
 #[cfg(test)]
 pub mod buffer_tests;
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BufferPos {
-    // line must be first for the ord derive to work correctly
-    pub line: i64,
-    pub column: i64,
-}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Cursor {
@@ -50,8 +46,8 @@ impl Cursor {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Selection {
-    pub start: BufferPos,
-    pub end: BufferPos,
+    pub start: Point<i64>,
+    pub end: Point<i64>,
 }
 
 pub struct Buffer {
@@ -72,6 +68,8 @@ pub struct Buffer {
     // syntax highlight
     syntax: Option<Syntax>,
     history: History,
+    // file searching
+    searcher: Option<BufferSearcher>,
 }
 
 impl Default for Buffer {
@@ -92,6 +90,7 @@ impl Default for Buffer {
             view_columns: usize::MAX,
             syntax: None,
             history: History::default(),
+            searcher: None,
         }
     }
 }
@@ -268,12 +267,12 @@ impl Buffer {
     }
 
     pub fn get_view_selection(&self) -> Selection {
-        let pos = BufferPos {
+        let pos = Point {
             line: self.cursor_line_idx() as i64,
             column: self.cursor_grapheme_column() as i64,
         };
 
-        let anchor = BufferPos {
+        let anchor = Point {
             line: self.anchor_line_idx() as i64,
             column: self.anchor_grapheme_column() as i64,
         };
@@ -860,6 +859,22 @@ impl Buffer {
         self.history.finish();
     }
 
+    pub fn new_line(&mut self) {
+        self.history.begin(self.cursor, self.dirty);
+        self.end(false);
+        self.history
+            .insert(&mut self.rope, self.cursor.position, "\n");
+        self.cursor.position += 1;
+        self.cursor.anchor = self.cursor.position;
+        self.update_affinity();
+        self.mark_dirty();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
+        self.history.finish();
+    }
+
     pub fn move_line(&mut self, dir: LineMoveDir) {
         self.history.begin(self.cursor, self.dirty);
         let len_lines = self.rope.len_lines();
@@ -1091,12 +1106,18 @@ impl Buffer {
         self.history
             .undo(&mut self.rope, &mut self.cursor, &mut self.dirty);
         self.queue_syntax_update();
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn redo(&mut self) {
         self.history
             .redo(&mut self.rope, &mut self.cursor, &mut self.dirty);
         self.queue_syntax_update();
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
     }
 
     pub fn copy(&mut self) {
@@ -1174,6 +1195,11 @@ impl Buffer {
     }
 
     pub fn escape(&mut self) {
+        if self.searcher.is_some() {
+            self.searcher = None;
+            return;
+        }
+
         if self.cursor.has_selection() {
             self.cursor.anchor = self.cursor.position;
             if self.clamp_cursor {
@@ -1217,9 +1243,9 @@ impl Buffer {
         }
     }
 
-    pub fn select_area(&mut self, cursor: (usize, usize), anchor: (usize, usize)) {
-        self.set_cursor_pos(cursor.0, cursor.1);
-        self.set_anchor_pos(anchor.0, anchor.1);
+    pub fn select_area(&mut self, cursor: Point<usize>, anchor: Point<usize>) {
+        self.set_cursor_pos(cursor.column, cursor.line);
+        self.set_anchor_pos(anchor.column, anchor.line);
     }
 
     pub fn center_on_cursor(&mut self) {
@@ -1258,6 +1284,37 @@ impl Buffer {
 
     pub fn get_syntax(&mut self) -> Option<&mut Syntax> {
         self.syntax.as_mut()
+    }
+
+    #[allow(dead_code)]
+    pub fn view_range(&self) -> Range<usize> {
+        let start = self.rope.line_to_byte(self.line_pos);
+        let end = self
+            .rope
+            .try_line_to_byte(self.line_pos + self.view_lines)
+            .unwrap_or_else(|_| self.rope.len_bytes());
+        start..end
+    }
+
+    pub fn start_search(&mut self, proxy: TuiEventLoopProxy, query: String) {
+        if let Some(searcher) = &mut self.searcher {
+            searcher.update_query(query);
+        } else {
+            let searcher = BufferSearcher::new(proxy, query, self.rope.clone());
+            self.searcher = Some(searcher);
+        }
+    }
+
+    pub fn get_searcher(&self) -> Option<&BufferSearcher> {
+        self.searcher.as_ref()
+    }
+
+    pub fn next_match(&mut self) {
+        if let Some(searcher) = &mut self.searcher {
+            if let Some(search_match) = searcher.get_next_match() {
+                self.select_area(search_match.end, search_match.start);
+            }
+        }
     }
 }
 

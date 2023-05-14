@@ -9,11 +9,12 @@ use crate::core::{
 
 pub struct CmdPaletteWidget<'a> {
     theme: &'a EditorTheme,
+    focused: bool,
 }
 
 impl<'a> CmdPaletteWidget<'a> {
-    pub fn new(theme: &'a EditorTheme) -> Self {
-        Self { theme }
+    pub fn new(theme: &'a EditorTheme, focused: bool) -> Self {
+        Self { theme, focused }
     }
 }
 
@@ -37,7 +38,7 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                     height: 1,
                 };
 
-                OneLineInputWidget::new(self.theme).render(input_area, buf, buffer);
+                OneLineInputWidget::new(self.theme, self.focused).render(input_area, buf, buffer);
             }
             PaletteState::Message(msg) => {
                 buf.set_stringn(area.x, area.y, msg, area.width.into(), self.theme.text);

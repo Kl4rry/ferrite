@@ -15,7 +15,10 @@ use ropey::{iter::Chunks, str_utils::byte_to_char_idx, Rope, RopeSlice};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
-use crate::line_ending::{self, get_line_ending, line_without_line_ending, LineEnding};
+use crate::{
+    line_ending::{self, get_line_ending, line_without_line_ending, LineEnding},
+    point::Point,
+};
 
 pub const TAB_WIDTH: u16 = 4;
 
@@ -526,6 +529,9 @@ pub trait RopeGraphemeExt {
 
     fn get_text_start_col(&self, line_idx: usize) -> usize;
     fn get_text_start_byte(&self, line_idx: usize) -> usize;
+
+    fn byte_to_col(&self, byte_idx: usize) -> usize;
+    fn byte_to_point(&self, byte_idx: usize) -> Point<usize>;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
@@ -664,6 +670,28 @@ impl RopeGraphemeExt for RopeSlice<'_> {
             len
         }
     }
+
+    fn byte_to_col(&self, byte_idx: usize) -> usize {
+        let mut bytes = 0;
+        let mut width = 0;
+        for grapheme in self.grapehemes() {
+            if bytes >= byte_idx {
+                break;
+            }
+
+            width += grapheme.width(width);
+            bytes += grapheme.len_bytes();
+        }
+        width
+    }
+
+    fn byte_to_point(&self, byte_idx: usize) -> Point<usize> {
+        let line = self.byte_to_line(byte_idx);
+        let line_start = self.line_to_byte(line);
+        let line_byte_idx = byte_idx - line_start;
+        let column = self.line(line).byte_to_col(line_byte_idx);
+        Point { line, column }
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -745,5 +773,13 @@ impl RopeGraphemeExt for Rope {
 
     fn get_text_start_byte(&self, line_idx: usize) -> usize {
         self.slice(..).get_text_start_byte(line_idx)
+    }
+
+    fn byte_to_col(&self, byte_idx: usize) -> usize {
+        self.slice(..).byte_to_col(byte_idx)
+    }
+
+    fn byte_to_point(&self, byte_idx: usize) -> Point<usize> {
+        self.slice(..).byte_to_point(byte_idx)
     }
 }

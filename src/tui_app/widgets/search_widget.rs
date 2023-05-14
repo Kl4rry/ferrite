@@ -95,7 +95,7 @@ where
                 height: 1,
             };
 
-            OneLineInputWidget::new(self.theme).render(input_area, buf, state.search_field());
+            OneLineInputWidget::new(self.theme, true).render(input_area, buf, state.search_field());
         }
 
         if inner_area.height < 3 {

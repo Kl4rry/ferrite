@@ -32,6 +32,7 @@ pub enum PaletteState {
         buffer: Buffer,
         prompt: String,
         mode: String,
+        focused: bool,
     },
     Prompt {
         selected: SelectedPrompt,
@@ -74,10 +75,23 @@ impl CommandPalette {
     pub fn focus(&mut self, prompt: impl Into<String>, mode: impl Into<String>) {
         let mut buffer = Buffer::new();
         buffer.set_view_lines(1);
+        let mode = mode.into();
+        if let PaletteState::Input {
+            mode: input_mode,
+            focused,
+            ..
+        } = &mut self.state
+        {
+            if input_mode == &mode {
+                *focused = true;
+                return;
+            }
+        }
         self.state = PaletteState::Input {
             buffer,
             prompt: prompt.into(),
-            mode: mode.into(),
+            mode,
+            focused: true,
         };
     }
 
@@ -105,8 +119,14 @@ impl CommandPalette {
     pub fn has_focus(&self) -> bool {
         matches!(
             self.state,
-            PaletteState::Input { .. } | PaletteState::Prompt { .. }
+            PaletteState::Input { focused: true, .. } | PaletteState::Prompt { .. }
         )
+    }
+
+    pub fn unfocus(&mut self) {
+        if let PaletteState::Input { focused, .. } = &mut self.state {
+            *focused = false;
+        }
     }
 
     pub fn state(&mut self) -> &mut PaletteState {

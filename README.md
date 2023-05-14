@@ -1,7 +1,7 @@
 ### Basic features
-- [ ] VScode/windows like cursor movement
+- [x] VScode/windows like cursor movement
 - [ ] Multicursor
-- [ ] Search
+- [x] Search
 - [ ] Replace
 - [ ] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
 - [x] Mouse jumping and selection
