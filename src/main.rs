@@ -47,11 +47,21 @@ fn main() -> Result<ExitCode> {
     let args = Args::parse();
 
     if args.log_file {
-        let mut child = std::process::Command::new("tail")
-            .args(["-fn", "1000", &log_file_path.to_string_lossy()])
-            .spawn()?;
-        let exit_status = child.wait()?;
-        return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
+        let mut cmd = std::process::Command::new("tail");
+        cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
+
+        #[cfg(not(target_family = "unix"))]
+        {
+            let mut child = cmd.spawn()?;
+            let exit_status = child.wait()?;
+            return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
+        }
+
+        #[cfg(target_family = "unix")]
+        {
+            use std::os::unix::process::CommandExt;
+            Err(cmd.exec())?;
+        }
     }
 
     {
