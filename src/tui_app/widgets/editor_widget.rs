@@ -182,7 +182,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            // TODO move this below highlight
+            let mut cursor_rect = None;
             if has_focus {
                 'exit: {
                     if let Some((_, row)) = buffer.cursor_view_pos(text_area.height.into()) {
@@ -192,15 +192,12 @@ impl StatefulWidget for EditorWidget<'_> {
                         if view.lines.get(row).is_some() {
                             let x = area.x as i64 + column + left_offset as i64;
                             if x < area.width as i64 && column >= 0 {
-                                buf.set_style(
-                                    Rect {
-                                        x: x as u16,
-                                        y: area.y + row as u16,
-                                        width: 1,
-                                        height: 1,
-                                    },
-                                    theme.text.add_modifier(tui::style::Modifier::REVERSED),
-                                );
+                                cursor_rect = Some(Rect {
+                                    x: x as u16,
+                                    y: area.y + row as u16,
+                                    width: 1,
+                                    height: 1,
+                                });
                                 break 'exit;
                             }
                         }
@@ -257,6 +254,13 @@ impl StatefulWidget for EditorWidget<'_> {
                         buf.set_style(highlight_area, style);
                     }
                 }
+            }
+
+            if let Some(rect) = cursor_rect {
+                buf.set_style(
+                    rect,
+                    theme.text.add_modifier(tui::style::Modifier::REVERSED),
+                );
             }
 
             let matches = buffer.get_searcher().map(|searcher| searcher.get_matches());
