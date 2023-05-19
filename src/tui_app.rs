@@ -22,6 +22,7 @@ use self::{
         editor_widget::{lines_to_left_offset, EditorWidget},
         palette_widget::CmdPaletteWidget,
         search_widget::SearchWidget,
+        splash::SplashWidget,
     },
 };
 use crate::{
@@ -60,7 +61,7 @@ pub struct TuiApp {
     key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
     branch_watcher: BranchWatcher,
     proxy: TuiEventLoopProxy,
-    drag_start: Option<(usize, usize)>,
+    drag_start: Option<Point<usize>>,
 }
 
 impl TuiApp {
@@ -222,6 +223,17 @@ impl TuiApp {
                     &mut self.buffers[self.current_buffer_id],
                 );
 
+                {
+                    let buffer = &mut self.buffers[self.current_buffer_id];
+                    if buffer.rope().len_bytes() == 0
+                        && !buffer.is_dirty()
+                        && buffer.file().is_none()
+                        && self.buffers.len() == 1
+                    {
+                        f.render_widget(SplashWidget::new(theme), editor_size);
+                    }
+                }
+
                 if let Some(file_finder) = &mut self.file_finder {
                     let size = size.inner(&Margin {
                         horizontal: 5,
@@ -281,7 +293,8 @@ impl TuiApp {
                     MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
                     MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
                     MouseEventKind::Down(MouseButton::Left) => {
-                        self.drag_start = Some((event.column as usize, event.row as usize));
+                        self.drag_start =
+                            Some(Point::new(event.column as usize, event.row as usize));
 
                         let buffer = &self.buffers[self.current_buffer_id];
                         if (event.row as usize) < buffer.get_view_lines()
@@ -303,12 +316,12 @@ impl TuiApp {
                     }
                     MouseEventKind::Drag(MouseButton::Left) => {
                         // TODO maybe scroll more of the buffer into view when going outside its bounds
-                        if let Some((col, line)) = self.drag_start {
+                        if let Some(Point { line, column }) = self.drag_start {
                             let buffer = &mut self.buffers[self.current_buffer_id];
                             let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
 
                             let anchor = {
-                                let column = col.saturating_sub(left_offset) + buffer.col_pos();
+                                let column = column.saturating_sub(left_offset) + buffer.col_pos();
                                 let line = line + buffer.line_pos();
                                 Point::new(column, line)
                             };
