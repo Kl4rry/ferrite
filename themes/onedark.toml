@@ -19,27 +19,12 @@
 "constant.numeric" = { fg = "gold" }
 "constant.builtin" = { fg = "gold" }
 "constant.character.escape" = { fg = "cyan" }
-"constant.numeric.integer" = { fg = "gold" }
-"constant.builtin.boolean" = { fg = "gold" }
 
 "escape" = { fg = "cyan" }
 "function" = { fg = "blue" }
-"function.builtin" = { fg = "blue" }
-"function.macro" = { fg = "purple" }
-"function.method" = { fg = "blue" }
 "key" = { fg = "red" }
 
 "keyword" = { fg = "purple" }
-"keyword.storage" = { fg = "purple" }
-"keyword.control" = { fg = "purple" }
-"keyword.operator" = { fg = "purple" }
-"keyword.control.import" = { fg = "purple" }
-"keyword.directive" = { fg = "purple" }
-"keyword.control.return" = { fg = "purple" }
-"keyword.storage.modifier.mut" = { fg = "purple" }
-"keyword.function" = { fg = "purple" }
-"keyword.storage.type" = { fg = "purple" }
-"keyword.control.conditional" = { fg = "purple" }
 
 "label" = { fg = "yellow" }
 "namespace" = { fg = "white" }
@@ -51,14 +36,20 @@
 "type.builtin" = { fg = "yellow" }
 
 "variable" = { fg = "red" }
-"variable.builtin" = { fg = "red" }
-"variable.parameter" = { fg = "red" }
-"variable.other.member" = { fg = "red" } 
 
 "constructor" = { fg = "blue" }
 "property" = { fg = "white" }
 "punctuation.bracket" = { fg = "white" }
 "punctuation.delimiter" = { fg = "white" }
+
+"markup.heading" = { fg = "red" }
+"markup.raw.inline" = { fg = "green" }
+"markup.bold" = { fg = "gold" }
+"markup.italic" = { fg = "purple" }
+"markup.list" = { fg = "red" }
+"markup.quote" = { fg = "yellow" }
+"markup.link.url" = { fg = "cyan" }
+"markup.link.text" = { fg = "purple" }
 
 [palette]
 yellow = "#E5C07B"

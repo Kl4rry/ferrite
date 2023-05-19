@@ -157,6 +157,7 @@ dependencies = [
  "anstyle",
  "bitflags",
  "clap_lex",
+ "once_cell",
  "strsim",
 ]
 
@@ -274,22 +275,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c063cd8cc95f5c377ed0d4b49a4b21f632396ff690e8470c29b3359b346984b"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "crossterm"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e64e6c0fbe2c17357405f7c758c1ef960fce08bdfb2c03d88d2a18d7e09c4b67"
-dependencies = [
- "bitflags",
- "crossterm_winapi",
- "libc",
- "mio",
- "parking_lot",
- "signal-hook",
- "signal-hook-mio",
- "winapi",
 ]
 
 [[package]]
@@ -429,7 +414,7 @@ dependencies = [
  "chardetng",
  "clap",
  "cli-clipboard",
- "crossterm 0.26.1",
+ "crossterm",
  "detect-indent",
  "directories",
  "encoding_rs",
@@ -437,8 +422,10 @@ dependencies = [
  "jwalk",
  "lexical-sort",
  "log",
+ "memchr",
  "notify",
  "once_cell",
+ "ratatui",
  "rayon",
  "ropey",
  "serde",
@@ -449,7 +436,6 @@ dependencies = [
  "toml",
  "tree-sitter",
  "tree_magic_mini",
- "tui",
  "unicode-segmentation",
  "unicode-width",
  "utility",
@@ -459,8 +445,21 @@ dependencies = [
 name = "ferrite-tree-sitter"
 version = "0.1.0"
 dependencies = [
+ "tree-sitter-bash",
+ "tree-sitter-c",
+ "tree-sitter-c-sharp",
+ "tree-sitter-cmake",
+ "tree-sitter-cpp",
+ "tree-sitter-css",
+ "tree-sitter-glsl",
+ "tree-sitter-html",
  "tree-sitter-json",
+ "tree-sitter-md",
+ "tree-sitter-python",
  "tree-sitter-rust",
+ "tree-sitter-toml",
+ "tree-sitter-xml",
+ "tree-sitter-yaml",
 ]
 
 [[package]]
@@ -959,6 +958,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
 
 [[package]]
+name = "ratatui"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcc0d032bccba900ee32151ec0265667535c230169f5a011154cdcd984e16829"
+dependencies = [
+ "bitflags",
+ "cassowary",
+ "crossterm",
+ "unicode-segmentation",
+ "unicode-width",
+]
+
+[[package]]
 name = "rayon"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1340,6 +1352,81 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-bash"
+version = "0.19.0"
+source = "git+https://github.com/tree-sitter/tree-sitter-bash?rev=4488aa41406547e478636a4fcfd24f5bbc3f2f74#4488aa41406547e478636a4fcfd24f5bbc3f2f74"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-c"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cca211f4827d4b4dc79f388bf67b6fa3bc8a8cfa642161ef24f99f371ba34c7b"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-c-sharp"
+version = "0.20.0"
+source = "git+https://github.com/tree-sitter/tree-sitter-c-sharp?rev=5b60f99545fea00a33bbfae5be956f684c4c69e2#5b60f99545fea00a33bbfae5be956f684c4c69e2"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-cmake"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba8253ba26ab0adc2ae7cc7802d47cda9bba3fa31d07436f829a4c7f2b2442f3"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-cpp"
+version = "0.20.0"
+source = "git+https://github.com/tree-sitter/tree-sitter-cpp?rev=70aed2e9e83eb7320ab7c454d3084300bf587037#70aed2e9e83eb7320ab7c454d3084300bf587037"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-css"
+version = "0.19.0"
+source = "git+https://github.com/syntacti/tree-sitter-css?rev=397aa132b9982fcdd2d473ed69343762a557f10a#397aa132b9982fcdd2d473ed69343762a557f10a"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-glsl"
+version = "0.1.3"
+source = "git+https://github.com/theHamsta/tree-sitter-glsl?rev=74329feb2605deccd32b1c644af507daa6fb82f1#74329feb2605deccd32b1c644af507daa6fb82f1"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-html"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "184e6b77953a354303dc87bf5fe36558c83569ce92606e7b382a0dc1b7443443"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
 name = "tree-sitter-json"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1350,10 +1437,56 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-md"
+version = "0.1.2"
+source = "git+https://github.com/MDeiml/tree-sitter-markdown.git?rev=272e080bca0efd19a06a7f4252d746417224959e#272e080bca0efd19a06a7f4252d746417224959e"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-python"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dda114f58048f5059dcf158aff691dffb8e113e6d2b50d94263fd68711975287"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
 name = "tree-sitter-rust"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "797842733e252dc11ae5d403a18060bf337b822fc2ae5ddfaa6ff4d9cc20bda6"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-toml"
+version = "0.20.0"
+source = "git+https://github.com/Mathspy/tree-sitter-toml#ae4cdb5d27bf876a432b6c30b6a88f56c9b3e761"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-xml"
+version = "0.0.1"
+source = "git+https://github.com/RenjiSann/tree-sitter-xml?rev=422528a43630db6dcc1e222d1c5ee3babd559473#422528a43630db6dcc1e222d1c5ee3babd559473"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-yaml"
+version = "0.0.1"
+source = "git+https://github.com/panekj/tree-sitter-yaml?rev=80c8d76847f03e772c5c524cf29bafb56858a8d1#80c8d76847f03e772c5c524cf29bafb56858a8d1"
 dependencies = [
  "cc",
  "tree-sitter",
@@ -1378,19 +1511,6 @@ dependencies = [
  "once_cell",
  "petgraph",
  "tree_magic_db",
-]
-
-[[package]]
-name = "tui"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccdd26cbd674007e649a272da4475fb666d3aa0ad0531da7136db6fab0e5bad1"
-dependencies = [
- "bitflags",
- "cassowary",
- "crossterm 0.25.0",
- "unicode-segmentation",
- "unicode-width",
 ]
 
 [[package]]

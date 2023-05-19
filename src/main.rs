@@ -11,8 +11,10 @@ use tui_app::event_loop::TuiEventLoop;
 
 mod core;
 
+mod clipboard;
 mod tui_app;
 
+/// A text editor
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
@@ -27,6 +29,9 @@ pub struct Args {
     /// Tail log file
     #[arg(long, name = "log-file")]
     pub log_file: bool,
+    /// Use process local clipboard
+    #[arg(long, name = "local-clipboard")]
+    pub local_clipboard: bool,
 }
 
 fn main() -> Result<ExitCode> {
@@ -45,6 +50,7 @@ fn main() -> Result<ExitCode> {
     simplelog::WriteLogger::init(log::LevelFilter::Trace, Default::default(), log_file)?;
 
     let args = Args::parse();
+    clipboard::init(args.local_clipboard);
 
     if args.log_file {
         let mut cmd = std::process::Command::new("tail");

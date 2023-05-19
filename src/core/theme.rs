@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Result;
+use memchr::memrchr;
 use serde::Deserialize;
 use tui::style::{self, Color};
 
@@ -126,7 +127,17 @@ impl EditorTheme {
     }
 
     pub fn get_syntax(&self, name: &str) -> style::Style {
-        self.syntax.get(name).copied().unwrap_or(self.text)
+        let mut name = name;
+        loop {
+            match self.syntax.get(name) {
+                Some(style) => return *style,
+                None => match memrchr(b'.', name.as_bytes()) {
+                    Some(i) => name = &name[..i],
+                    None => break,
+                },
+            }
+        }
+        self.text
     }
 
     pub fn load_theme(path: impl AsRef<Path>) -> Result<Self> {

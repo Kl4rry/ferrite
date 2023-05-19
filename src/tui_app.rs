@@ -18,6 +18,7 @@ use self::{
     event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
     input::{get_default_mappings, Exclusiveness, Mapping},
     widgets::{
+        background_widget::BackgroundWidget,
         editor_widget::{lines_to_left_offset, EditorWidget},
         palette_widget::CmdPaletteWidget,
         search_widget::SearchWidget,
@@ -207,6 +208,7 @@ impl TuiApp {
         self.terminal
             .draw(|f| {
                 let theme = &self.themes[&self.config.theme];
+                f.render_widget(BackgroundWidget::new(theme), f.size());
                 let size = f.size();
                 let editor_size = Rect::new(size.x, size.y, size.width, size.height - 1);
                 f.render_stateful_widget(

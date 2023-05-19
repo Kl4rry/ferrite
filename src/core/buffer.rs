@@ -18,7 +18,10 @@ use super::{
     indent::Indentation,
     language::{get_language_from_path, syntax::Syntax},
 };
-use crate::tui_app::{event_loop::TuiEventLoopProxy, input::LineMoveDir};
+use crate::{
+    clipboard,
+    tui_app::{event_loop::TuiEventLoopProxy, input::LineMoveDir},
+};
 
 pub mod encoding;
 pub mod error;
@@ -1128,7 +1131,7 @@ impl Buffer {
         } else {
             self.rope.byte_slice(start..end).to_string()
         };
-        cli_clipboard::set_contents(copied).unwrap();
+        clipboard::set_contents(copied);
     }
 
     pub fn cut(&mut self) {
@@ -1141,7 +1144,7 @@ impl Buffer {
             end = self.rope.end_of_line_byte(self.rope.byte_to_line(end));
         }
         let cut = self.rope.byte_slice(start..end).to_string();
-        cli_clipboard::set_contents(cut).unwrap();
+        clipboard::set_contents(cut);
         self.history.remove(&mut self.rope, start..end);
 
         self.cursor.position = start;
@@ -1159,10 +1162,7 @@ impl Buffer {
     }
 
     pub fn paste(&mut self) {
-        let Ok(text) = cli_clipboard::get_contents() else {
-            return;
-        };
-        self.insert_text(&text);
+        self.insert_text(&clipboard::get_contents());
     }
 
     pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), BufferError> {

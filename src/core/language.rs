@@ -44,14 +44,121 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             include_str!("../../queries/json/highlights.scm"),
         ),
     );
+    langs.insert(
+        "c",
+        LanguageConfig::new(
+            "c",
+            ferrite_tree_sitter::tree_sitter_c::language(),
+            include_str!("../../queries/c/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "c++",
+        LanguageConfig::new(
+            "c++",
+            ferrite_tree_sitter::tree_sitter_cpp::language(),
+            include_str!("../../queries/cpp/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "cmake",
+        LanguageConfig::new(
+            "cmake",
+            ferrite_tree_sitter::tree_sitter_cmake::language(),
+            include_str!("../../queries/cmake/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "css",
+        LanguageConfig::new(
+            "css",
+            ferrite_tree_sitter::tree_sitter_css::language(),
+            include_str!("../../queries/css/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "glsl",
+        LanguageConfig::new(
+            "glsl",
+            ferrite_tree_sitter::tree_sitter_glsl::language(),
+            include_str!("../../queries/glsl/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "html",
+        LanguageConfig::new(
+            "html",
+            ferrite_tree_sitter::tree_sitter_html::language(),
+            include_str!("../../queries/html/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "markdown",
+        LanguageConfig::new(
+            "markdown",
+            ferrite_tree_sitter::tree_sitter_md::language(),
+            include_str!("../../queries/markdown/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "python",
+        LanguageConfig::new(
+            "python",
+            ferrite_tree_sitter::tree_sitter_python::language(),
+            include_str!("../../queries/python/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "toml",
+        LanguageConfig::new(
+            "toml",
+            ferrite_tree_sitter::tree_sitter_toml::language(),
+            include_str!("../../queries/toml/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "xml",
+        LanguageConfig::new(
+            "xml",
+            ferrite_tree_sitter::tree_sitter_xml::language(),
+            include_str!("../../queries/xml/highlights.scm"),
+        ),
+    );
+    langs.insert(
+        "yaml",
+        LanguageConfig::new(
+            "yaml",
+            ferrite_tree_sitter::tree_sitter_yaml::language(),
+            include_str!("../../queries/yaml/highlights.scm"),
+        ),
+    );
     langs
 });
 
+// TODO make this functions use more then extension
 pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
     static LANGUAGES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
         let mut langs = HashMap::new();
         langs.insert("rs", "rust");
         langs.insert("json", "json");
+        langs.insert("c", "c");
+        langs.insert("h", "c");
+        langs.insert("cpp", "c++");
+        langs.insert("cc", "c++");
+        langs.insert("hpp", "c++");
+        langs.insert("cx", "c++");
+        langs.insert("tcc", "c++");
+        langs.insert("css", "css");
+        langs.insert("glsl", "glsl");
+        langs.insert("vert", "glsl");
+        langs.insert("frag", "glsl");
+        langs.insert("html", "html");
+        langs.insert("md", "markdown");
+        langs.insert("py", "python");
+        langs.insert("toml", "toml");
+        langs.insert("xml", "xml");
+        langs.insert("yaml", "yaml");
+        langs.insert("yml", "yaml");
         langs
     });
 
