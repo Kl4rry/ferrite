@@ -29,13 +29,17 @@ impl Widget for InfoLine<'_> {
             file += " *";
         }
 
+        file.insert(0, ' ');
+
         buf.set_stringn(
-            area.x + 1,
+            area.x,
             area.y,
             &file,
             area.width.into(),
             self.theme.info_line,
         );
+
+        let left_width = file.width_cjk();
 
         {
             let output = format!(
@@ -50,16 +54,12 @@ impl Widget for InfoLine<'_> {
                 None => output,
             };
 
-            let len = output.width_cjk();
-            let mut output_area = area;
-            output_area.x = (output_area.x + output_area.width) - len as u16;
-            buf.set_stringn(
-                output_area.x,
-                output_area.y,
-                &output,
-                output_area.width.into(),
-                Default::default(),
-            );
+            let output_width = output.width();
+            if output_width + left_width < area.width.into() {
+                let mut output_area = area;
+                output_area.x = (output_area.x + output_area.width) - output_width as u16;
+                buf.set_string(output_area.x, output_area.y, &output, Default::default());
+            }
         }
 
         buf.set_style(area, self.theme.info_line);
