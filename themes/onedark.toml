@@ -15,7 +15,7 @@
 
 "comment" = { fg = "light_gray", modifiers = ["italic"] }
 
-"constant" = { fg = "cyan" }
+"constant" = { fg = "gold" }
 "constant.numeric" = { fg = "gold" }
 "constant.builtin" = { fg = "gold" }
 "constant.character.escape" = { fg = "cyan" }
@@ -29,11 +29,11 @@
 "label" = { fg = "yellow" }
 "namespace" = { fg = "white" }
 "operator" = { fg = "purple" }
-"special" = { fg = "blue" }
+"special" = { fg = "gold" }
 "string" = { fg = "green" }
 "type" = { fg = "cyan" }
-"type.enum.variant" = { fg = "yellow" }
-"type.builtin" = { fg = "yellow" }
+"type.enum.variant" = { fg = "blue" }
+"type.builtin" = { fg = "purple" }
 
 "variable" = { fg = "red" }
 
@@ -41,6 +41,7 @@
 "property" = { fg = "white" }
 "punctuation.bracket" = { fg = "white" }
 "punctuation.delimiter" = { fg = "white" }
+"punctuation.bracket.closure" = { fg = "purple" }
 
 "markup.heading" = { fg = "red" }
 "markup.raw.inline" = { fg = "green" }
@@ -50,6 +51,9 @@
 "markup.quote" = { fg = "yellow" }
 "markup.link.url" = { fg = "cyan" }
 "markup.link.text" = { fg = "purple" }
+
+# Special case for languages
+"rust.type.builtin" = { fg = "yellow" } 
 
 [palette]
 yellow = "#E5C07B"

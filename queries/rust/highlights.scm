@@ -15,7 +15,7 @@
 ; ---
 
 (escape_sequence) @constant.character.escape
-(primitive_type) @type.builtin
+(primitive_type) @rust.type.builtin
 (boolean_literal) @constant.builtin.boolean
 (integer_literal) @constant.numeric.integer
 (float_literal) @constant.numeric.float
@@ -80,7 +80,7 @@
     ">"
   ] @punctuation.bracket)
 (closure_parameters
-  "|" @punctuation.bracket)
+  "|" @punctuation.bracket.closure)
 
 ; ---
 ; Variables
@@ -373,7 +373,7 @@
 ; Remaining Identifiers
 ; -------
 
-"?" @special
+"?" @operator.control
 
 (type_identifier) @type
 (identifier) @variable
