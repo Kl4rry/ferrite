@@ -18,7 +18,7 @@ use tree_sitter::{
 use utility::graphemes::RopeGraphemeExt;
 
 use super::{get_tree_sitter_language, LanguageConfig};
-use crate::tui_app::event_loop::TuiEventLoopProxy;
+use crate::{core::language::LANGUAGES, tui_app::event_loop::TuiEventLoopProxy};
 
 struct SyntaxProvider {
     pub language: LanguageConfig,
@@ -29,7 +29,7 @@ impl SyntaxProvider {
     pub fn new(
         language: LanguageConfig,
         proxy: TuiEventLoopProxy,
-        result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
+        result: Arc<Mutex<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>>>,
     ) -> Result<Self> {
         let (rope_tx, rope_rx) = mpsc::channel::<Rope>();
 
@@ -50,13 +50,14 @@ impl SyntaxProvider {
                 };
 
                 if let Ok(iterator) = highlighter.highlight(
-                    &*highlight_config.clone().read().unwrap(),
+                    &*highlight_config.clone(),
                     rope.slice(..),
                     None,
-                    |_| None,
+                    |name| LANGUAGES.get(name).map(|lang| &*lang.highlight_config),
                 ) {
                     *result.lock().unwrap() = Some((
                         rope.clone(),
+                        highlight_config.query.capture_names().to_vec(),
                         iterator.filter_map(|event| event.ok()).collect(),
                     ));
                     proxy.request_render();
@@ -76,7 +77,7 @@ impl SyntaxProvider {
 
 pub struct Syntax {
     syntax_provder: Option<SyntaxProvider>,
-    result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
+    result: Arc<Mutex<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>>>,
     proxy: TuiEventLoopProxy,
 }
 
@@ -115,7 +116,9 @@ impl Syntax {
         }
     }
 
-    pub fn get_highlight_events(&self) -> MutexGuard<Option<(Rope, Vec<HighlightEvent>)>> {
+    pub fn get_highlight_events(
+        &self,
+    ) -> MutexGuard<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>> {
         self.result.lock().unwrap()
     }
 }
@@ -190,7 +193,6 @@ pub struct HighlightConfiguration {
     combined_injections_query: Option<Query>,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
-    highlight_indices: Vec<Option<Highlight>>,
     non_local_variable_patterns: Vec<bool>,
     injection_content_capture_index: Option<u32>,
     injection_language_capture_index: Option<u32>,
@@ -398,14 +400,12 @@ impl HighlightConfiguration {
             }
         }
 
-        let highlight_indices = vec![None; query.capture_names().len()];
         Ok(HighlightConfiguration {
             language,
             query,
             combined_injections_query,
             locals_pattern_index,
             highlights_pattern_index,
-            highlight_indices,
             non_local_variable_patterns,
             injection_content_capture_index,
             injection_language_capture_index,
@@ -420,45 +420,6 @@ impl HighlightConfiguration {
     /// Get a slice containing all of the highlight names used in the configuration.
     pub fn names(&self) -> &[String] {
         self.query.capture_names()
-    }
-
-    /// Set the list of recognized highlight names.
-    ///
-    /// Tree-sitter syntax-highlighting queries specify highlights in the form of dot-separated
-    /// highlight names like `punctuation.bracket` and `function.method.builtin`. Consumers of
-    /// these queries can choose to recognize highlights with different levels of specificity.
-    /// For example, the string `function.builtin` will match against `function.method.builtin`
-    /// and `function.builtin.constructor`, but will not match `function.method`.
-    ///
-    /// When highlighting, results are returned as `Highlight` values, which contain the index
-    /// of the matched highlight this list of highlight names.
-    pub fn configure(&mut self, recognized_names: &[impl AsRef<str>]) {
-        let mut capture_parts = Vec::new();
-        self.highlight_indices.clear();
-        self.highlight_indices
-            .extend(self.query.capture_names().iter().map(move |capture_name| {
-                capture_parts.clear();
-                capture_parts.extend(capture_name.split('.'));
-
-                let mut best_index = None;
-                let mut best_match_len = 0;
-                for (i, recognized_name) in recognized_names.into_iter().enumerate() {
-                    let mut len = 0;
-                    let mut matches = true;
-                    for part in recognized_name.as_ref().split('.') {
-                        len += 1;
-                        if !capture_parts.contains(&part) {
-                            matches = false;
-                            break;
-                        }
-                    }
-                    if matches && len > best_match_len {
-                        best_index = Some(i);
-                        best_match_len = len;
-                    }
-                }
-                best_index.map(Highlight)
-            }));
     }
 }
 
@@ -1038,7 +999,7 @@ where
                 }
             }
 
-            let current_highlight = layer.config.highlight_indices[capture.index as usize];
+            let current_highlight = Some(Highlight(capture.index as usize));
 
             // If this node represents a local definition, then store the current
             // highlight value on the local scope entry representing this node.

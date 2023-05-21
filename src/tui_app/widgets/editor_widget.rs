@@ -206,18 +206,12 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            let theme_keys: Vec<_> = self
-                .theme
-                .get_syntax_keys()
-                .into_iter()
-                .map(|key| theme.get_syntax(&key))
-                .collect();
             let range = buffer.view_range();
             let col_pos = buffer.col_pos();
             let line_pos = buffer.line_pos();
             {
                 if let Some(syntax) = buffer.get_syntax() {
-                    if let Some((_rope, events)) = &*syntax.get_highlight_events() {
+                    if let Some((_rope, capture_names, events)) = &*syntax.get_highlight_events() {
                         let mut highlight: Option<Highlight> = None;
                         for event in events {
                             match event {
@@ -257,10 +251,9 @@ impl StatefulWidget for EditorWidget<'_> {
                                         };
 
                                         let mut style = theme.text;
-
                                         if let Some(highlight) = highlight {
-                                            if let Some(s) = theme_keys.get(highlight.0) {
-                                                style = *s;
+                                            if let Some(name) = capture_names.get(highlight.0) {
+                                                style = self.theme.get_syntax(name);
                                             }
                                         }
 

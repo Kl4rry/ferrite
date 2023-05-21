@@ -140,10 +140,6 @@ impl EditorTheme {
         self.text
     }
 
-    pub fn get_syntax_keys(&self) -> Vec<String> {
-        self.syntax.keys().cloned().collect()
-    }
-
     pub fn load_theme(path: impl AsRef<Path>) -> Result<Self> {
         Self::from_str(&fs::read_to_string(path)?)
     }

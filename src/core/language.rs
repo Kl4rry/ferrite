@@ -1,21 +1,16 @@
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use once_cell::sync::Lazy;
 use tree_sitter::Language;
 
 use self::syntax::HighlightConfiguration;
-use super::theme::EditorTheme;
 
 pub mod syntax;
 
 #[derive(Clone)]
 pub struct LanguageConfig {
     pub name: String,
-    pub highlight_config: Arc<RwLock<HighlightConfiguration>>,
+    pub highlight_config: Arc<HighlightConfiguration>,
 }
 
 impl LanguageConfig {
@@ -28,7 +23,7 @@ impl LanguageConfig {
     ) -> Self {
         Self {
             name: name.into(),
-            highlight_config: Arc::new(RwLock::new(
+            highlight_config: Arc::new(
                 HighlightConfiguration::new(
                     grammar,
                     highlight_query,
@@ -36,16 +31,8 @@ impl LanguageConfig {
                     locals_query,
                 )
                 .unwrap(),
-            )),
+            ),
         }
-    }
-}
-
-pub fn update_theme(theme: &EditorTheme) {
-    let keys = theme.get_syntax_keys();
-    for lang in LANGUAGES.values() {
-        let mut guard = lang.highlight_config.write().unwrap();
-        guard.configure(&keys);
     }
 }
 

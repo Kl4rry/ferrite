@@ -31,7 +31,6 @@ use crate::{
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
-        language,
         palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
         search_buffer::{
             buffer_find::{BufferFindProvider, BufferItem},
@@ -86,8 +85,6 @@ impl TuiApp {
         if !themes.contains_key(&config.theme) {
             config.theme = "default".into();
         }
-        // The theme needs to be set before the buffer is created
-        language::update_theme(&themes[&config.theme]);
 
         let mut file_finder = None;
         let mut buffer = match &args.file {
@@ -478,7 +475,6 @@ impl TuiApp {
                                 Some(name) => {
                                     if self.themes.contains_key(&name) {
                                         self.config.theme = name;
-                                        language::update_theme(&self.themes[&self.config.theme]);
                                     } else {
                                         self.palette.set_error("Theme not found");
                                     }
