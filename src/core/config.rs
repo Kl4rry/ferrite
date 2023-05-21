@@ -45,7 +45,7 @@ impl Config {
         match fs::read_to_string(&path) {
             Err(err) if err.kind() == io::ErrorKind::NotFound => {
                 if let Err(err) = fs::write(path, DEFAULT_CONFIG) {
-                    log::debug!("Error creating default config: {err}");
+                    log::error!("Error creating default config: {err}");
                 }
                 Ok(Config::default())
             }

@@ -49,12 +49,11 @@ impl SyntaxProvider {
                     }
                 };
 
-                if let Ok(iterator) = highlighter.highlight(
-                    &*highlight_config.clone(),
-                    rope.slice(..),
-                    None,
-                    |name| LANGUAGES.get(name).map(|lang| &*lang.highlight_config),
-                ) {
+                if let Ok(iterator) =
+                    highlighter.highlight(&highlight_config.clone(), rope.slice(..), None, |name| {
+                        LANGUAGES.get(name).map(|lang| &*lang.highlight_config)
+                    })
+                {
                     *result.lock().unwrap() = Some((
                         rope.clone(),
                         highlight_config.query.capture_names().to_vec(),
@@ -93,7 +92,7 @@ impl Syntax {
     pub fn set_language(&mut self, language: &str) -> Result<()> {
         match get_tree_sitter_language(language) {
             Some(lang) => {
-                log::debug!("set lang to '{language}'");
+                log::info!("set lang to '{language}'");
                 self.syntax_provder = Some(SyntaxProvider::new(
                     lang,
                     self.proxy.clone(),
@@ -295,7 +294,7 @@ impl Highlighter {
             cancellation_flag,
             highlighter: self,
             iter_count: 0,
-            layers: layers,
+            layers,
             next_event: None,
             last_highlight_range: None,
         };
@@ -817,7 +816,7 @@ where
             // If this capture represents an injection, then process the injection.
             if match_.pattern_index < layer.config.locals_pattern_index {
                 let (language_name, content_node, include_children) = injection_for_match(
-                    &layer.config,
+                    layer.config,
                     &layer.config.query,
                     &match_,
                     self.source.slice(..),
@@ -881,12 +880,9 @@ where
                         local_defs: Vec::new(),
                     };
                     for prop in layer.config.query.property_settings(match_.pattern_index) {
-                        match prop.key.as_ref() {
-                            "local.scope-inherits" => {
-                                scope.inherits =
-                                    prop.value.as_ref().map_or(true, |r| r.as_ref() == "true");
-                            }
-                            _ => {}
+                        if prop.key.as_ref() == "local.scope-inherits" {
+                            scope.inherits =
+                                prop.value.as_ref().map_or(true, |r| r.as_ref() == "true");
                         }
                     }
                     layer.scope_stack.push(scope);
@@ -917,26 +913,24 @@ where
                 }
                 // If the node represents a reference, then try to find the corresponding
                 // definition in the scope stack.
-                else if Some(capture.index) == layer.config.local_ref_capture_index {
-                    if definition_highlight.is_none() {
-                        definition_highlight = None;
-                        if let Some(name) = self.source.get_byte_slice(range.clone()) {
-                            for scope in layer.scope_stack.iter().rev() {
-                                if let Some(highlight) =
-                                    scope.local_defs.iter().rev().find_map(|def| {
-                                        if def.name == name && range.start >= def.value_range.end {
-                                            Some(def.highlight)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                {
-                                    reference_highlight = highlight;
-                                    break;
+                else if Some(capture.index) == layer.config.local_ref_capture_index
+                    && definition_highlight.is_none()
+                {
+                    definition_highlight = None;
+                    if let Some(name) = self.source.get_byte_slice(range.clone()) {
+                        for scope in layer.scope_stack.iter().rev() {
+                            if let Some(highlight) = scope.local_defs.iter().rev().find_map(|def| {
+                                if def.name == name && range.start >= def.value_range.end {
+                                    Some(def.highlight)
+                                } else {
+                                    None
                                 }
-                                if !scope.inherits {
-                                    break;
-                                }
+                            }) {
+                                reference_highlight = highlight;
+                                break;
+                            }
+                            if !scope.inherits {
+                                break;
                             }
                         }
                     }

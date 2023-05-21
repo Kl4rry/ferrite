@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use std::{
     fs::{self, OpenOptions},
     io::{self, LineWriter, Read},
