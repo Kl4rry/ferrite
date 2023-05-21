@@ -9,7 +9,7 @@ edition = "2021"
 tree-sitter-bash = { git = "https://github.com/tree-sitter/tree-sitter-bash", rev = "4488aa41406547e478636a4fcfd24f5bbc3f2f74" }
 tree-sitter-c = "0.20.2"
 tree-sitter-c-sharp = { git = "https://github.com/tree-sitter/tree-sitter-c-sharp", rev = "5b60f99545fea00a33bbfae5be956f684c4c69e2" }
-tree-sitter-cmake = { version = "0.1.0" }
+tree-sitter-cmake = { version = "0.2.0" }
 tree-sitter-cpp = { git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "70aed2e9e83eb7320ab7c454d3084300bf587037" }
 tree-sitter-css = { git = "https://github.com/syntacti/tree-sitter-css", rev = "397aa132b9982fcdd2d473ed69343762a557f10a" }
 tree-sitter-glsl = { git = "https://github.com/theHamsta/tree-sitter-glsl", rev = "74329feb2605deccd32b1c644af507daa6fb82f1" }
