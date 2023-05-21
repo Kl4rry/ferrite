@@ -31,6 +31,7 @@ use crate::{
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
+        language,
         palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
         search_buffer::{
             buffer_find::{BufferFindProvider, BufferItem},
@@ -66,6 +67,28 @@ pub struct TuiApp {
 
 impl TuiApp {
     pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
+        let mut palette = CommandPalette::new(proxy.clone());
+        let config_path = Config::get_default_location().ok();
+        let mut config = match Config::load_or_create_default() {
+            Ok(config) => config,
+            Err(err) => {
+                palette.set_error(err);
+                Config::default()
+            }
+        };
+
+        let mut config_watcher = None;
+        if let Some(ref config_path) = config_path {
+            config_watcher = Some(ConfigWatcher::watch(config_path, proxy.clone())?);
+        }
+
+        let themes = EditorTheme::load_themes();
+        if !themes.contains_key(&config.theme) {
+            config.theme = "default".into();
+        }
+        // The theme needs to be set before the buffer is created
+        language::update_theme(&themes[&config.theme]);
+
         let mut file_finder = None;
         let mut buffer = match &args.file {
             Some(file) if file.is_dir() => {
@@ -92,27 +115,6 @@ impl TuiApp {
         buffer.goto(args.line as i64);
         if let Some(language) = &args.language {
             buffer.set_langauge(language, proxy.clone())?;
-        }
-
-        let mut palette = CommandPalette::new(proxy.clone());
-
-        let config_path = Config::get_default_location().ok();
-        let mut config = match Config::load_or_create_default() {
-            Ok(config) => config,
-            Err(err) => {
-                palette.set_error(err);
-                Config::default()
-            }
-        };
-
-        let mut config_watcher = None;
-        if let Some(ref config_path) = config_path {
-            config_watcher = Some(ConfigWatcher::watch(config_path, proxy.clone())?);
-        }
-
-        let themes = EditorTheme::load_themes();
-        if !themes.contains_key(&config.theme) {
-            config.theme = "default".into();
         }
 
         let mut buffers = Slab::new();
@@ -476,6 +478,7 @@ impl TuiApp {
                                 Some(name) => {
                                     if self.themes.contains_key(&name) {
                                         self.config.theme = name;
+                                        language::update_theme(&self.themes[&self.config.theme]);
                                     } else {
                                         self.palette.set_error("Theme not found");
                                     }

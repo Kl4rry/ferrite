@@ -1,4 +1,11 @@
-pub fn tokenize(input: &str) -> (String, Vec<String>) {
+pub struct Token {
+    pub text: String,
+    pub start: usize,
+    pub end: usize,
+}
+
+pub fn tokenize(input: &str) -> (Token, Vec<Token>) {
+    let input = input.trim();
     let idx = input
         .char_indices()
         .find(|(_, ch)| ch.is_whitespace())
@@ -16,6 +23,8 @@ pub fn tokenize(input: &str) -> (String, Vec<String>) {
 
     let mut mode = Mode::Searching;
 
+    let mut start_idx = idx;
+
     loop {
         match mode {
             Mode::Quoted(quote) => {
@@ -32,7 +41,11 @@ pub fn tokenize(input: &str) -> (String, Vec<String>) {
                         arg.push(ch);
                     }
                 }
-                output.push(arg);
+                output.push(Token {
+                    text: arg,
+                    start: start_idx,
+                    end: last_idx + 2,
+                });
                 residual = &residual[last_idx + 2..];
                 mode = Mode::Searching;
             }
@@ -43,12 +56,17 @@ pub fn tokenize(input: &str) -> (String, Vec<String>) {
                     .map(|(idx, _)| idx)
                     .unwrap_or(residual.len());
 
-                output.push(residual[..idx].to_string());
+                output.push(Token {
+                    text: residual[..idx].to_string(),
+                    start: start_idx,
+                    end: idx,
+                });
                 residual = &residual[idx..];
                 mode = Mode::Searching
             }
             Mode::Searching => {
                 residual = residual.trim_start();
+                start_idx = residual.as_ptr() as usize - input.as_ptr() as usize;
                 if !residual.is_empty() {
                     mode = match residual.as_bytes()[0] {
                         b'"' => Mode::Quoted('"'),
@@ -64,5 +82,12 @@ pub fn tokenize(input: &str) -> (String, Vec<String>) {
         }
     }
 
-    (String::from(&input[..idx]), output)
+    (
+        Token {
+            text: String::from(&input[..idx]),
+            start: 0,
+            end: idx,
+        },
+        output,
+    )
 }

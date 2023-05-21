@@ -1286,7 +1286,6 @@ impl Buffer {
         self.syntax.as_mut()
     }
 
-    #[allow(dead_code)]
     pub fn view_range(&self) -> Range<usize> {
         let start = self.rope.line_to_byte(self.line_pos);
         let end = self

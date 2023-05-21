@@ -15,11 +15,11 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
     assert!(!input.is_empty());
     let (name, tokens) = lexer::tokenize(input);
 
-    let Some(cmd) = COMMANDS.iter().find(|cmd| cmd.name == name) else {
-        return Err(CommandParseError::UnkownCommand(name));
+    let Some(cmd) = COMMANDS.iter().find(|cmd| cmd.name == name.text) else {
+        return Err(CommandParseError::UnkownCommand(name.text));
     };
 
-    let GenericCommand { name, mut args } = cmd.parse_cmd(tokens)?;
+    let GenericCommand { name, mut args } = cmd.parse_cmd(tokens.into_iter().map(|t| t.text))?;
     let name = name.as_str();
 
     #[rustfmt::skip]

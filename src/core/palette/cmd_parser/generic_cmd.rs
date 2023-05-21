@@ -6,7 +6,6 @@ use super::error::CommandParseError;
 pub enum CommandTemplateArg {
     Alternatives(Vec<String>),
     Int,
-    #[allow(dead_code)]
     String,
     Path,
 }
@@ -51,7 +50,10 @@ impl CommandTemplate {
         }
     }
 
-    pub fn parse_cmd(&self, tokens: Vec<String>) -> Result<GenericCommand, CommandParseError> {
+    pub fn parse_cmd(
+        &self,
+        tokens: impl ExactSizeIterator<Item = String>,
+    ) -> Result<GenericCommand, CommandParseError> {
         if tokens.len() < self.args.len().saturating_sub(self.optional) {
             return Err(CommandParseError::MissingArgs(self.usage()));
         }

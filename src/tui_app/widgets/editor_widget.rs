@@ -12,6 +12,7 @@ use super::info_line::InfoLine;
 use crate::core::{
     buffer::{search::SearchMatch, Buffer, Selection},
     config::Config,
+    language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
 
@@ -205,53 +206,71 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            let theme_keys: Vec<_> = self
+                .theme
+                .get_syntax_keys()
+                .into_iter()
+                .map(|key| theme.get_syntax(&key))
+                .collect();
+            let range = buffer.view_range();
+            let col_pos = buffer.col_pos();
+            let line_pos = buffer.line_pos();
             {
-                let col_pos = buffer.col_pos();
-                let line_pos = buffer.line_pos();
-
-                let start_byte = buffer.rope().line_to_byte(buffer.line_pos());
-                let end_byte = buffer.rope().line_to_byte(
-                    (buffer.line_pos() + text_area.height as usize).min(buffer.len_lines()),
-                );
-
-                // syntax highlight
                 if let Some(syntax) = buffer.get_syntax() {
-                    let spans = syntax.query_highlight(start_byte, end_byte);
-                    for span in spans {
-                        let start_x = span
-                            .start
-                            .column
-                            .saturating_sub(col_pos)
-                            .clamp(0, text_area.width.into());
-                        let start_y = span
-                            .start
-                            .row
-                            .saturating_sub(line_pos)
-                            .clamp(0, text_area.height.into());
+                    if let Some((_rope, events)) = &*syntax.get_highlight_events() {
+                        let mut highlight: Option<Highlight> = None;
+                        for event in events {
+                            match event {
+                                HighlightEvent::Source {
+                                    start,
+                                    end,
+                                    start_point,
+                                    end_point,
+                                } => {
+                                    if range.contains(start) || range.contains(end) {
+                                        let start_x = start_point
+                                            .column
+                                            .saturating_sub(col_pos)
+                                            .clamp(0, text_area.width.into());
+                                        let start_y = start_point
+                                            .line
+                                            .saturating_sub(line_pos)
+                                            .clamp(0, text_area.height.into());
 
-                        let end_x = span
-                            .end
-                            .column
-                            .saturating_sub(col_pos)
-                            .clamp(0, text_area.width.into());
-                        let end_y = span
-                            .end
-                            .row
-                            .saturating_sub(line_pos)
-                            .clamp(0, text_area.height.into());
+                                        let end_x = end_point
+                                            .column
+                                            .saturating_sub(col_pos)
+                                            .clamp(0, text_area.width.into());
+                                        let end_y = end_point
+                                            .line
+                                            .saturating_sub(line_pos)
+                                            .clamp(0, text_area.height.into());
 
-                        // FIXME This should not be needed
-                        let end_x = end_x.max(start_x);
+                                        // FIXME This should not be needed
+                                        let end_x = end_x.max(start_x);
 
-                        let highlight_area = Rect {
-                            x: start_x as u16 + text_area.x,
-                            y: start_y as u16 + text_area.y,
-                            width: (end_x as u16 - start_x as u16),
-                            height: (end_y as u16 - start_y as u16) + 1,
-                        };
+                                        let highlight_area = Rect {
+                                            x: start_x as u16 + text_area.x,
+                                            y: start_y as u16 + text_area.y,
+                                            width: (end_x as u16 - start_x as u16),
+                                            height: (end_y as u16 - start_y as u16) + 1,
+                                        };
 
-                        let style = theme.get_syntax(span.name());
-                        buf.set_style(highlight_area, style);
+                                        let mut style = theme.text;
+
+                                        if let Some(highlight) = highlight {
+                                            if let Some(s) = theme_keys.get(highlight.0) {
+                                                style = *s;
+                                            }
+                                        }
+
+                                        buf.set_style(highlight_area, style);
+                                    }
+                                }
+                                HighlightEvent::HighlightStart(h) => highlight = Some(*h),
+                                HighlightEvent::HighlightEnd => highlight = None,
+                            }
+                        }
                     }
                 }
             }

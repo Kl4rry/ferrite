@@ -1,28 +1,51 @@
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 use once_cell::sync::Lazy;
-use tree_sitter::{Language, Query};
+use tree_sitter::Language;
+
+use self::syntax::HighlightConfiguration;
+use super::theme::EditorTheme;
 
 pub mod syntax;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct LanguageConfig {
     pub name: String,
-    pub grammar: Language,
-    pub highlight_query: Arc<Query>,
+    pub highlight_config: Arc<RwLock<HighlightConfiguration>>,
 }
 
 impl LanguageConfig {
     pub fn new(
         name: impl Into<String>,
         grammar: Language,
-        highlight_query: impl Into<String>,
+        highlight_query: &str,
+        injection_query: &str,
+        locals_query: &str,
     ) -> Self {
         Self {
             name: name.into(),
-            highlight_query: Arc::new(Query::new(grammar, &highlight_query.into()).unwrap()),
-            grammar,
+            highlight_config: Arc::new(RwLock::new(
+                HighlightConfiguration::new(
+                    grammar,
+                    highlight_query,
+                    injection_query,
+                    locals_query,
+                )
+                .unwrap(),
+            )),
         }
+    }
+}
+
+pub fn update_theme(theme: &EditorTheme) {
+    let keys = theme.get_syntax_keys();
+    for lang in LANGUAGES.values() {
+        let mut guard = lang.highlight_config.write().unwrap();
+        guard.configure(&keys);
     }
 }
 
@@ -34,6 +57,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "rust",
             ferrite_tree_sitter::tree_sitter_rust::language(),
             include_str!("../../queries/rust/highlights.scm"),
+            include_str!("../../queries/rust/injections.scm"),
+            include_str!("../../queries/rust/locals.scm"),
         ),
     );
     langs.insert(
@@ -42,6 +67,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "json",
             ferrite_tree_sitter::tree_sitter_json::language(),
             include_str!("../../queries/json/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -50,14 +77,18 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "c",
             ferrite_tree_sitter::tree_sitter_c::language(),
             include_str!("../../queries/c/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
-        "c++",
+        "cpp",
         LanguageConfig::new(
-            "c++",
+            "cpp",
             ferrite_tree_sitter::tree_sitter_cpp::language(),
             include_str!("../../queries/cpp/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -66,6 +97,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "cmake",
             ferrite_tree_sitter::tree_sitter_cmake::language(),
             include_str!("../../queries/cmake/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -74,6 +107,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "css",
             ferrite_tree_sitter::tree_sitter_css::language(),
             include_str!("../../queries/css/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -82,6 +117,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "glsl",
             ferrite_tree_sitter::tree_sitter_glsl::language(),
             include_str!("../../queries/glsl/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -90,6 +127,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "html",
             ferrite_tree_sitter::tree_sitter_html::language(),
             include_str!("../../queries/html/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -98,6 +137,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "markdown",
             ferrite_tree_sitter::tree_sitter_md::language(),
             include_str!("../../queries/markdown/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -106,6 +147,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "python",
             ferrite_tree_sitter::tree_sitter_python::language(),
             include_str!("../../queries/python/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -114,6 +157,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "toml",
             ferrite_tree_sitter::tree_sitter_toml::language(),
             include_str!("../../queries/toml/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -122,6 +167,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "xml",
             ferrite_tree_sitter::tree_sitter_xml::language(),
             include_str!("../../queries/xml/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs.insert(
@@ -130,6 +177,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "yaml",
             ferrite_tree_sitter::tree_sitter_yaml::language(),
             include_str!("../../queries/yaml/highlights.scm"),
+            "",
+            "",
         ),
     );
     langs
@@ -143,11 +192,11 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         langs.insert("json", "json");
         langs.insert("c", "c");
         langs.insert("h", "c");
-        langs.insert("cpp", "c++");
-        langs.insert("cc", "c++");
-        langs.insert("hpp", "c++");
-        langs.insert("cx", "c++");
-        langs.insert("tcc", "c++");
+        langs.insert("cpp", "cpp");
+        langs.insert("cc", "cpp");
+        langs.insert("hpp", "cpp");
+        langs.insert("cx", "cpp");
+        langs.insert("tcc", "cpp");
         langs.insert("css", "css");
         langs.insert("glsl", "glsl");
         langs.insert("vert", "glsl");
