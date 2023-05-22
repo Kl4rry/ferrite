@@ -124,7 +124,7 @@ impl History {
     }
 
     pub fn undo(&mut self, rope: &mut Rope, cursor: &mut Cursor, dirty: &mut bool) {
-        if self.current_frame == -1 {
+        if self.current_frame.is_negative() {
             return;
         }
 
@@ -155,5 +155,15 @@ impl History {
         mem::swap(&mut frame.dirty, dirty);
         cursor.position = ensure_grapheme_boundary_next_byte(rope.slice(..), cursor.position);
         cursor.anchor = ensure_grapheme_boundary_next_byte(rope.slice(..), cursor.anchor);
+    }
+
+    pub fn save(&mut self) {
+        if self.current_frame.is_negative() {
+            return;
+        }
+        for frame in &mut self.stack {
+            frame.dirty = true;
+        }
+        self.stack[self.current_frame as usize].dirty = false;
     }
 }

@@ -735,7 +735,7 @@ impl Buffer {
         {
             let line_idx = self.cursor_line_idx();
             let line_byte = self.cursor.position - self.rope.line_to_byte(line_idx);
-            if !self.cursor.has_selection() && line_byte <= self.rope.get_text_start_byte(line_idx)
+            if !self.cursor.has_selection() && line_byte <= self.rope.get_text_start_byte(line_idx) && line_byte != 0
             {
                 // FIXME back tab does not move the cursor correctly when standing in the middle of the indentation
                 self.tab(true);
@@ -1177,6 +1177,7 @@ impl Buffer {
         write::write(self.encoding, self.line_ending, self.rope.clone(), path)?;
 
         self.dirty = false;
+        self.history.save();
 
         Ok(())
     }
