@@ -6,7 +6,7 @@ pub use tree_sitter_css;
 pub use tree_sitter_glsl;
 pub use tree_sitter_html;
 pub use tree_sitter_json;
-pub use tree_sitter_md;
+//pub use tree_sitter_md;
 pub use tree_sitter_python;
 pub use tree_sitter_rust;
 pub use tree_sitter_toml;
