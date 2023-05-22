@@ -38,6 +38,7 @@ impl LanguageConfig {
 
 static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
     let mut langs = HashMap::new();
+    #[cfg(feature = "lang-rust")]
     langs.insert(
         "rust",
         LanguageConfig::new(
@@ -48,6 +49,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             include_str!("../../queries/rust/locals.scm"),
         ),
     );
+    #[cfg(feature = "lang-json")]
     langs.insert(
         "json",
         LanguageConfig::new(
@@ -58,6 +60,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-c")]
     langs.insert(
         "c",
         LanguageConfig::new(
@@ -68,6 +71,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-cpp")]
     langs.insert(
         "cpp",
         LanguageConfig::new(
@@ -78,6 +82,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-cmake")]
     langs.insert(
         "cmake",
         LanguageConfig::new(
@@ -88,6 +93,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-css")]
     langs.insert(
         "css",
         LanguageConfig::new(
@@ -98,6 +104,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-glsl")]
     langs.insert(
         "glsl",
         LanguageConfig::new(
@@ -108,6 +115,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-html")]
     langs.insert(
         "html",
         LanguageConfig::new(
@@ -118,6 +126,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-md")]
     langs.insert(
         "markdown",
         LanguageConfig::new(
@@ -128,6 +137,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-python")]
     langs.insert(
         "python",
         LanguageConfig::new(
@@ -138,6 +148,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-toml")]
     langs.insert(
         "toml",
         LanguageConfig::new(
@@ -148,6 +159,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-xml")]
     langs.insert(
         "xml",
         LanguageConfig::new(
@@ -158,12 +170,24 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
+    #[cfg(feature = "lang-yaml")]
     langs.insert(
         "yaml",
         LanguageConfig::new(
             "yaml",
             ferrite_tree_sitter::tree_sitter_yaml::language(),
             include_str!("../../queries/yaml/highlights.scm"),
+            "",
+            "",
+        ),
+    );
+    #[cfg(feature = "lang-c-sharp")]
+    langs.insert(
+        "c-sharp",
+        LanguageConfig::new(
+            "c-sharp",
+            ferrite_tree_sitter::tree_sitter_c_sharp::language(),
+            include_str!("../../queries/c-sharp/highlights.scm"),
             "",
             "",
         ),
@@ -195,6 +219,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         langs.insert("xml", "xml");
         langs.insert("yaml", "yaml");
         langs.insert("yml", "yaml");
+        langs.insert("cs", "c-sharp");
         langs
     });
 
