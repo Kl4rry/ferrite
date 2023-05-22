@@ -49,7 +49,7 @@ jobs:
           name: ubuntu-build-artifacts
           path: target/release/fe
 
-  build-linux:
+  build-linux-musl:
     runs-on: ubuntu-latest
 
     steps:
