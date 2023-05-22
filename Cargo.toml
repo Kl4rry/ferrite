@@ -43,6 +43,41 @@ tempdir = "0.3.7"
 [profile.dev.package."*"]
 opt-level = 3
 
+[features]
+lang-bash = ["ferrite-tree-sitter/lang-bash"]
+lang-c = ["ferrite-tree-sitter/lang-c"]
+lang-c-sharp = ["ferrite-tree-sitter/lang-c-sharp"]
+lang-cmake = ["ferrite-tree-sitter/lang-cmake"]
+lang-cpp = ["ferrite-tree-sitter/lang-cpp"]
+lang-css = ["ferrite-tree-sitter/lang-css"]
+lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
+lang-html = ["ferrite-tree-sitter/lang-html"]
+lang-json = ["ferrite-tree-sitter/lang-json"]
+lang-md = ["ferrite-tree-sitter/lang-md"]
+lang-python = ["ferrite-tree-sitter/lang-python"]
+lang-rust = ["ferrite-tree-sitter/lang-rust"]
+lang-toml = ["ferrite-tree-sitter/lang-toml"]
+lang-xml = ["ferrite-tree-sitter/lang-xml"]
+lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
+
+default = [
+    "lang-bash",
+    "lang-c",
+    "lang-c-sharp",
+    "lang-cmake",
+    "lang-cpp",
+    "lang-css",
+    "lang-glsl",
+    "lang-html",
+    "lang-json",
+    "lang-md",
+    "lang-python",
+    "lang-rust",
+    "lang-toml",
+    "lang-xml",
+    "lang-yaml",
+]
+
 [workspace]
 members = [
     "ferrite-tree-sitter",
