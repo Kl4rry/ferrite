@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 use lexical_sort::StringSort;
 use rayon::prelude::*;
@@ -10,6 +10,7 @@ pub struct FileFindProvider(pub PathBuf);
 impl SearchOptionProvider for FileFindProvider {
     type Matchable = String;
     fn get_options(&self) -> Vec<Self::Matchable> {
+        let start_time = Instant::now();
         let path: PathBuf = self.0.clone();
         let path_str = path.to_string_lossy().into_owned();
 
@@ -39,6 +40,10 @@ impl SearchOptionProvider for FileFindProvider {
                 }),
         );
         files.string_sort(lexical_sort::natural_lexical_cmp);
+        log::info!(
+            "Finding files took: {}ms",
+            Instant::now().duration_since(start_time).as_millis()
+        );
         files
     }
 }
