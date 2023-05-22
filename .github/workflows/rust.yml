@@ -94,6 +94,52 @@ jobs:
           name: ubuntu-musl-build-artifacts
           path: target/x86_64-unknown-linux-musl/release/fe
 
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-stable-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-registry-
+
+      - name: Cache Cargo index
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-stable-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-cargo-index-
+
+      - name: Cache Cargo build
+        uses: actions/cache@v1
+        with:
+          path: target/debug
+          key: ${{ runner.os }}-stable-debug-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-stable-debug-target-
+
+      - name: Install system deps
+        run: cargo install cross
+
+      - name: Install Rust
+        run: |
+          rustup update ${{ matrix.rust }} --no-self-update 
+          rustup default ${{ matrix.rust }}
+      - name: Build
+        run: cross build --target=x86_64-unknown-linux-musl --release
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: ubuntu-build-artifacts
+          path: target/x86_64-unknown-linux-musl/release/fe
+
   build-win:
     runs-on: windows-latest
 
