@@ -118,7 +118,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
         ),
     );
-    langs.insert(
+    /*langs.insert(
         "markdown",
         LanguageConfig::new(
             "markdown",
@@ -127,7 +127,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
             "",
             "",
         ),
-    );
+    );*/
     langs.insert(
         "python",
         LanguageConfig::new(
@@ -189,7 +189,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         langs.insert("vert", "glsl");
         langs.insert("frag", "glsl");
         langs.insert("html", "html");
-        langs.insert("md", "markdown");
+        //langs.insert("md", "markdown");
         langs.insert("py", "python");
         langs.insert("toml", "toml");
         langs.insert("xml", "xml");
