@@ -22,4 +22,6 @@ pub enum Command {
     OpenConfig,
     ForceClose,
     Close,
+    Paste,
+    Copy,
 }

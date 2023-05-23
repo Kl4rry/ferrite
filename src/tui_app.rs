@@ -493,6 +493,16 @@ impl TuiApp {
                             Command::OpenConfig => self.open_config(),
                             Command::ForceClose => self.force_close_current_buffer(),
                             Command::Close => self.close_current_buffer(),
+                            Command::Paste => {
+                                if let Err(err) = self.buffers[self.current_buffer_id].handle_input(InputCommand::Paste) {
+                                    self.palette.set_error(err);
+                                }
+                            }
+                            Command::Copy => {
+                                if let Err(err) = self.buffers[self.current_buffer_id].handle_input(InputCommand::Copy) {
+                                    self.palette.set_error(err);
+                                }
+                            }
                         },
                         Err(err) => self.palette.set_error(err),
                     }
