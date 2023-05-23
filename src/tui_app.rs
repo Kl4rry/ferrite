@@ -26,6 +26,7 @@ use self::{
     },
 };
 use crate::{
+    clipboard,
     core::{
         buffer::{encoding::get_encoding, Buffer},
         config::{Config, ConfigWatcher},
@@ -79,6 +80,10 @@ impl TuiApp {
         let mut config_watcher = None;
         if let Some(ref config_path) = config_path {
             config_watcher = Some(ConfigWatcher::watch(config_path, proxy.clone())?);
+        }
+
+        if config.local_clipboard {
+            clipboard::set_local_clipboard(true);
         }
 
         let themes = EditorTheme::load_themes();

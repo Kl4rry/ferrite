@@ -35,3 +35,7 @@ pub fn get_contents() -> String {
         Err(_) => CLIPBOARD.get().unwrap().lock().unwrap().clone(),
     }
 }
+
+pub fn set_local_clipboard(local_clipboard: bool) {
+    LOCAL_CLIPBOARD.store(local_clipboard, Ordering::SeqCst);
+}

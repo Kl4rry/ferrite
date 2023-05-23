@@ -21,12 +21,18 @@ pub fn default_rulers() -> Vec<u16> {
     vec![80]
 }
 
+pub fn get_false() -> bool {
+    false
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,
     #[serde(default = "default_rulers")]
     pub rulers: Vec<u16>,
+    #[serde(default = "get_false")]
+    pub local_clipboard: bool,
 }
 
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");
