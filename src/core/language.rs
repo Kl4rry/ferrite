@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use tree_sitter::Language;
 
 use self::syntax::HighlightConfiguration;
@@ -36,164 +36,155 @@ impl LanguageConfig {
     }
 }
 
-static LANGUAGES: Lazy<HashMap<&'static str, LanguageConfig>> = Lazy::new(|| {
+static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::new(|| {
     let mut langs = HashMap::new();
     #[cfg(feature = "lang-rust")]
-    langs.insert(
-        "rust",
-        LanguageConfig::new(
+    langs.insert("rust", OnceCell::new());
+    #[cfg(feature = "lang-json")]
+    langs.insert("json", OnceCell::new());
+    #[cfg(feature = "lang-c")]
+    langs.insert("c", OnceCell::new());
+    #[cfg(feature = "lang-cpp")]
+    langs.insert("cpp", OnceCell::new());
+    #[cfg(feature = "lang-cmake")]
+    langs.insert("cmake", OnceCell::new());
+    #[cfg(feature = "lang-css")]
+    langs.insert("css", OnceCell::new());
+    #[cfg(feature = "lang-glsl")]
+    langs.insert("glsl", OnceCell::new());
+    #[cfg(feature = "lang-html")]
+    langs.insert("html", OnceCell::new());
+    #[cfg(feature = "lang-md")]
+    langs.insert("markdown", OnceCell::new());
+    #[cfg(feature = "lang-python")]
+    langs.insert("python", OnceCell::new());
+    #[cfg(feature = "lang-toml")]
+    langs.insert("toml", OnceCell::new());
+    #[cfg(feature = "lang-xml")]
+    langs.insert("xml", OnceCell::new());
+    #[cfg(feature = "lang-yaml")]
+    langs.insert("yaml", OnceCell::new());
+    #[cfg(feature = "lang-c-sharp")]
+    langs.insert("c-sharp", OnceCell::new());
+    langs
+});
+
+fn get_lang_config(name: &str) -> Option<LanguageConfig> {
+    Some(match name {
+        #[cfg(feature = "lang-rust")]
+        "rust" => LanguageConfig::new(
             "rust",
             ferrite_tree_sitter::tree_sitter_rust::language(),
             include_str!("../../queries/rust/highlights.scm"),
             include_str!("../../queries/rust/injections.scm"),
             include_str!("../../queries/rust/locals.scm"),
         ),
-    );
-    #[cfg(feature = "lang-json")]
-    langs.insert(
-        "json",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-json")]
+        "json" => LanguageConfig::new(
             "json",
             ferrite_tree_sitter::tree_sitter_json::language(),
             include_str!("../../queries/json/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-c")]
-    langs.insert(
-        "c",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-c")]
+        "c" => LanguageConfig::new(
             "c",
             ferrite_tree_sitter::tree_sitter_c::language(),
             include_str!("../../queries/c/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-cpp")]
-    langs.insert(
-        "cpp",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-cpp")]
+        "cpp" => LanguageConfig::new(
             "cpp",
             ferrite_tree_sitter::tree_sitter_cpp::language(),
             include_str!("../../queries/cpp/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-cmake")]
-    langs.insert(
-        "cmake",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-cmake")]
+        "cmake" => LanguageConfig::new(
             "cmake",
             ferrite_tree_sitter::tree_sitter_cmake::language(),
             include_str!("../../queries/cmake/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-css")]
-    langs.insert(
-        "css",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-css")]
+        "css" => LanguageConfig::new(
             "css",
             ferrite_tree_sitter::tree_sitter_css::language(),
             include_str!("../../queries/css/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-glsl")]
-    langs.insert(
-        "glsl",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-glsl")]
+        "glsl" => LanguageConfig::new(
             "glsl",
             ferrite_tree_sitter::tree_sitter_glsl::language(),
             include_str!("../../queries/glsl/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-html")]
-    langs.insert(
-        "html",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-html")]
+        "html" => LanguageConfig::new(
             "html",
             ferrite_tree_sitter::tree_sitter_html::language(),
             include_str!("../../queries/html/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-md")]
-    langs.insert(
-        "markdown",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-md")]
+        "markdown" => LanguageConfig::new(
             "markdown",
             ferrite_tree_sitter::tree_sitter_md::language(),
             include_str!("../../queries/markdown/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-python")]
-    langs.insert(
-        "python",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-python")]
+        "python" => LanguageConfig::new(
             "python",
             ferrite_tree_sitter::tree_sitter_python::language(),
             include_str!("../../queries/python/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-toml")]
-    langs.insert(
-        "toml",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-toml")]
+        "toml" => LanguageConfig::new(
             "toml",
             ferrite_tree_sitter::tree_sitter_toml::language(),
             include_str!("../../queries/toml/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-xml")]
-    langs.insert(
-        "xml",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-xml")]
+        "xml" => LanguageConfig::new(
             "xml",
             ferrite_tree_sitter::tree_sitter_xml::language(),
             include_str!("../../queries/xml/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-yaml")]
-    langs.insert(
-        "yaml",
-        LanguageConfig::new(
+        #[cfg(feature = "lang-yaml")]
+        "yaml" => LanguageConfig::new(
             "yaml",
             ferrite_tree_sitter::tree_sitter_yaml::language(),
             include_str!("../../queries/yaml/highlights.scm"),
             "",
             "",
         ),
-    );
-    #[cfg(feature = "lang-c-sharp")]
-    langs.insert(
-        "c-sharp",
-        LanguageConfig::new(
+        "c-sharp" => LanguageConfig::new(
             "c-sharp",
             ferrite_tree_sitter::tree_sitter_c_sharp::language(),
             include_str!("../../queries/c-sharp/highlights.scm"),
             "",
             "",
         ),
-    );
-    langs
-});
+        _ => return None,
+    })
+}
 
 // TODO make this functions use more then extension
 pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
@@ -227,6 +218,8 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
     LANGUAGES.get(ext.as_ref()).copied()
 }
 
-pub fn get_tree_sitter_language(language: &str) -> Option<LanguageConfig> {
-    LANGUAGES.get(&language).cloned()
+pub fn get_tree_sitter_language(language: &str) -> Option<&'static LanguageConfig> {
+    LANGUAGES
+        .get(language)
+        .map(|cell| cell.get_or_init(|| get_lang_config(language).unwrap()))
 }

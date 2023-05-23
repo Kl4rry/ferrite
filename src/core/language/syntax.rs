@@ -18,16 +18,16 @@ use tree_sitter::{
 use utility::graphemes::RopeGraphemeExt;
 
 use super::{get_tree_sitter_language, LanguageConfig};
-use crate::{core::language::LANGUAGES, tui_app::event_loop::TuiEventLoopProxy};
+use crate::tui_app::event_loop::TuiEventLoopProxy;
 
 struct SyntaxProvider {
-    pub language: LanguageConfig,
+    pub language: &'static LanguageConfig,
     pub rope_tx: Sender<Rope>,
 }
 
 impl SyntaxProvider {
     pub fn new(
-        language: LanguageConfig,
+        language: &'static LanguageConfig,
         proxy: TuiEventLoopProxy,
         result: Arc<Mutex<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>>>,
     ) -> Result<Self> {
@@ -51,7 +51,7 @@ impl SyntaxProvider {
 
                 if let Ok(iterator) =
                     highlighter.highlight(&highlight_config.clone(), rope.slice(..), None, |name| {
-                        LANGUAGES.get(name).map(|lang| &*lang.highlight_config)
+                        get_tree_sitter_language(name).map(|language| &*language.highlight_config)
                     })
                 {
                     *result.lock().unwrap() = Some((
