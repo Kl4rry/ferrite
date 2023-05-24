@@ -130,7 +130,6 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup_init.sh
           sh rustup_init.sh -y
-          source "$HOME/.cargo/env"
 
       - name: Build
         run: |
