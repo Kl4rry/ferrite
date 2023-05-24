@@ -96,7 +96,7 @@ jobs:
           path: target/x86_64-unknown-linux-musl/release/fe
 
   build-linux-old-glibc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     container: quay.io/pypa/manylinux2010_x86_64
 
     steps:
