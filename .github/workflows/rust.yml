@@ -129,6 +129,7 @@ jobs:
 
       - name: Install Rust
         run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
           rustup update ${{ matrix.rust }} --no-self-update 
           rustup default ${{ matrix.rust }}
       - name: Build
