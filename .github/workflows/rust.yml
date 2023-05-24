@@ -97,6 +97,7 @@ jobs:
 
   build-linux-old-glibc:
     runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2010_x86_64
 
     steps:
       - uses: actions/checkout@v1
