@@ -128,8 +128,8 @@ jobs:
 
       - name: Install Rust
         run: |
-          rustup update ${{ matrix.rust }} --no-self-update 
-          rustup default ${{ matrix.rust }}
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust_init.sh
+          sh rust_init.sh -y
       - name: Build
         run: cargo build --release
 
