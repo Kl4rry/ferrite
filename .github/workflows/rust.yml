@@ -128,9 +128,11 @@ jobs:
 
       - name: Install Rust
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rust_init.sh
-          sh rust_init.sh -y
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+          rustup update ${{ matrix.rust }} --no-self-update 
+          rustup default ${{ matrix.rust }}
           source "$HOME/.cargo/env"
+          
       - name: Build
         run: cargo build --release
 
