@@ -97,6 +97,7 @@ jobs:
 
   build-linux-old-glibc:
     runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
 
     steps:
       - uses: actions/checkout@v1
@@ -125,21 +126,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-stable-debug-target-
 
-      - name: Install system deps
-        run: cargo install cross
-
       - name: Install Rust
         run: |
-          rustup update ${{ matrix.rust }} --no-self-update 
-          rustup default ${{ matrix.rust }}
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup_init.sh
+          sh rustup_init.sh -y
+
       - name: Build
-        run: cross build --target x86_64-unknown-linux-gnu --release
+        run: |
+          source "$HOME/.cargo/env"
+          cargo build --release
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v1
         with:
           name: ubuntu-old-glibc-build-artifacts
-          path: target/x86_64-unknown-linux-gnu/release/fe
+          path: target/release/fe
 
   build-win:
     runs-on: windows-latest
