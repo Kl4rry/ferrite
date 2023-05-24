@@ -130,12 +130,9 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup_init.sh
           sh rustup_init.sh -y
-          rustup update ${{ matrix.rust }} --no-self-update 
-          rustup default ${{ matrix.rust }}
           source "$HOME/.cargo/env"
 
       - name: Build
-        
         run: |
           source "$HOME/.cargo/env"
           cargo build --release
