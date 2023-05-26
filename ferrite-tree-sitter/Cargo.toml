@@ -14,7 +14,7 @@ tree-sitter-css = { git = "https://github.com/syntacti/tree-sitter-css", rev = "
 tree-sitter-glsl = { git = "https://github.com/theHamsta/tree-sitter-glsl", rev = "74329feb2605deccd32b1c644af507daa6fb82f1", optional = true }
 tree-sitter-html = { version = "0.19.0", optional = true }
 tree-sitter-json = { version = "0.19.0", optional = true }
-tree-sitter-md = { git = "https://github.com/MDeiml/tree-sitter-markdown.git", rev = "272e080bca0efd19a06a7f4252d746417224959e", optional = true }
+tree-sitter-md = { git = "https://github.com/MDeiml/tree-sitter-markdown", rev = "272e080bca0efd19a06a7f4252d746417224959e", optional = true }
 tree-sitter-python = { version = "0.20.2", optional = true }
 tree-sitter-rust = { version = "0.20.3", optional = true }
 tree-sitter-toml = { git = "https://github.com/Mathspy/tree-sitter-toml", optional = true }

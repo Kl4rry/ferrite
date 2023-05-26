@@ -11,7 +11,8 @@
 "editor.search.match" = { bg = "gray" }
 
 [syntax]
-"attribute" = { fg = "yellow" }
+"tag" = { fg = "red" }
+"attribute" = { fg = "gold" }
 
 "comment" = { fg = "light_gray", modifiers = ["italic"] }
 

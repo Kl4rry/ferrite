@@ -137,6 +137,7 @@ impl EditorTheme {
                 },
             }
         }
+        log::warn!("missing in theme: {}", name);
         self.text
     }
 
