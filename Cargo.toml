@@ -8,6 +8,7 @@ authors = ["Axel Kappel"]
 [dependencies]
 anyhow = "1.0.68"
 atty = "0.2.14"
+cb = { package = "crossbeam-channel", version = "0.5.8" }
 cc = "1.0.79"
 chardetng = "0.1.17"
 clap = { version = "4.1.4", features = ["derive", "cargo"] }
@@ -17,6 +18,7 @@ detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev 
 directories = "5.0.0"
 encoding_rs = "0.8.31"
 ferrite-tree-sitter = { path = "ferrite-tree-sitter" }
+flume = { version = "0.10.14", default-features = false }
 jwalk = "0.8.1"
 lexical-sort = "0.3.1"
 log = "0.4.17"
@@ -60,23 +62,7 @@ lang-toml = ["ferrite-tree-sitter/lang-toml"]
 lang-xml = ["ferrite-tree-sitter/lang-xml"]
 lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
 
-default = [
-    "lang-bash",
-    "lang-c",
-    "lang-c-sharp",
-    "lang-cmake",
-    "lang-cpp",
-    "lang-css",
-    "lang-glsl",
-    "lang-html",
-    "lang-json",
-    "lang-md",
-    "lang-python",
-    "lang-rust",
-    "lang-toml",
-    "lang-xml",
-    "lang-yaml",
-]
+default = ["lang-bash", "lang-c", "lang-c-sharp", "lang-cmake", "lang-cpp", "lang-css", "lang-glsl", "lang-html", "lang-json", "lang-md", "lang-python", "lang-rust", "lang-toml", "lang-xml", "lang-yaml"]
 
 [workspace]
 members = [

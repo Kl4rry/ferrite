@@ -35,6 +35,7 @@ use crate::{
         palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
         search_buffer::{
             buffer_find::{BufferFindProvider, BufferItem},
+            file_daemon::FileDaemon,
             file_find::FileFindProvider,
             SearchBuffer,
         },
@@ -63,6 +64,7 @@ pub struct TuiApp {
     branch_watcher: BranchWatcher,
     proxy: TuiEventLoopProxy,
     drag_start: Option<Point<usize>>,
+    file_daemon: FileDaemon,
 }
 
 impl TuiApp {
@@ -91,12 +93,14 @@ impl TuiApp {
             config.theme = "default".into();
         }
 
+        let file_daemon = FileDaemon::new(std::env::current_dir()?);
+
         let mut file_finder = None;
         let mut buffer = match &args.file {
             Some(file) if file.is_dir() => {
                 std::env::set_current_dir(file)?;
                 file_finder = Some(SearchBuffer::new(
-                    FileFindProvider(std::env::current_dir().unwrap_or(PathBuf::from("/"))),
+                    FileFindProvider(file_daemon.subscribe()),
                     proxy.clone(),
                 ));
                 Buffer::new()
@@ -137,6 +141,7 @@ impl TuiApp {
             branch_watcher: BranchWatcher::new(proxy.clone())?,
             proxy,
             drag_start: None,
+            file_daemon,
         })
     }
 
@@ -612,7 +617,7 @@ impl TuiApp {
             .collect();
 
         self.buffer_finder = Some(SearchBuffer::new(
-            BufferFindProvider(buffers),
+            BufferFindProvider(buffers.into()),
             self.proxy.clone(),
         ));
     }
@@ -621,7 +626,7 @@ impl TuiApp {
         self.palette.reset();
         self.buffer_finder = None;
         self.file_finder = Some(SearchBuffer::new(
-            FileFindProvider(std::env::current_dir().unwrap_or(PathBuf::from("/"))),
+            FileFindProvider(self.file_daemon.subscribe()),
             self.proxy.clone(),
         ));
     }
