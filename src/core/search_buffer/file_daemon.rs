@@ -40,7 +40,7 @@ pub struct FileDaemon {
 }
 
 impl FileDaemon {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: PathBuf) -> anyhow::Result<Self> {
         let (publisher, subscriber) = pubsub::create(Vec::new());
 
         let (update_tx, update_rx) = cb::unbounded();
@@ -50,9 +50,8 @@ impl FileDaemon {
                     let _ = update_tx.send(event);
                 }
             },
-        )
-        .unwrap();
-        watcher.watch(&path, RecursiveMode::Recursive).unwrap();
+        )?;
+        let _ = watcher.watch(&path, RecursiveMode::Recursive);
 
         let path_to_search = path.clone();
         thread::spawn(move || {
@@ -124,10 +123,10 @@ impl FileDaemon {
             }
         });
 
-        Self {
+        Ok(Self {
             _watcher: watcher,
             subscriber,
-        }
+        })
     }
 
     pub fn subscribe(&self) -> Subscriber<Vec<String>> {

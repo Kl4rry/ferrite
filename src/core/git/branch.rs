@@ -1,9 +1,7 @@
 use std::{
-    path::PathBuf,
     process::Command,
     sync::{Arc, Mutex},
     thread,
-    time::Duration,
 };
 
 use notify::Watcher;
@@ -46,8 +44,7 @@ impl notify::EventHandler for FileNotificationEventHandler {
 
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
-    watcher: notify::RecommendedWatcher,
-    watched: PathBuf,
+    _watcher: notify::RecommendedWatcher,
 }
 
 impl BranchWatcher {
@@ -57,22 +54,7 @@ impl BranchWatcher {
             current_branch: current_branch.clone(),
             proxy: proxy.clone(),
         })?;
-        let watched = std::env::current_dir()?;
-        if let Err(err) = watcher.watch(&watched, notify::RecursiveMode::Recursive) {
-            log::error!("Unable to start branch watcher: {}", err);
-            let thread_proxy = proxy.clone();
-            let current_branch_thread = current_branch.clone();
-            thread::spawn(move || {
-                log::info!("started fallback branch poller");
-                loop {
-                    thread::sleep(Duration::from_secs(20));
-                    if let Some(branch) = get_current_branch() {
-                        *current_branch_thread.lock().unwrap() = Some(branch);
-                        thread_proxy.request_render();
-                    }
-                }
-            });
-        }
+        let _ = watcher.watch(&std::env::current_dir()?, notify::RecursiveMode::Recursive);
 
         let current_branch_thread = current_branch.clone();
         thread::spawn(move || {
@@ -84,20 +66,11 @@ impl BranchWatcher {
 
         Ok(Self {
             current_branch,
-            watcher,
-            watched,
+            _watcher: watcher,
         })
     }
 
     pub fn current_branch(&self) -> Option<String> {
         self.current_branch.lock().unwrap().clone()
-    }
-}
-
-impl Drop for BranchWatcher {
-    fn drop(&mut self) {
-        if let Err(err) = self.watcher.unwatch(&self.watched) {
-            log::error!("{err}");
-        }
     }
 }

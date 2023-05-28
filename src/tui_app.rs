@@ -93,7 +93,7 @@ impl TuiApp {
             config.theme = "default".into();
         }
 
-        let file_daemon = FileDaemon::new(std::env::current_dir()?);
+        let file_daemon = FileDaemon::new(std::env::current_dir()?)?;
 
         let mut file_finder = None;
         let mut buffer = match &args.file {
