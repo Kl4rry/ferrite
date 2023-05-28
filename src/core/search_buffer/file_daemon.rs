@@ -55,40 +55,48 @@ impl FileDaemon {
 
         let path_to_search = path.clone();
         thread::spawn(move || {
-            let start = Instant::now();
             let mut tracked_files = HashSet::new();
 
             let path: PathBuf = path_to_search;
             let path_str = path.to_string_lossy().into_owned();
 
-            let entries: Vec<_> = jwalk::WalkDir::new(&path)
+            let mut iterator = jwalk::WalkDir::new(&path)
                 .follow_links(true)
                 .into_iter()
-                .filter_map(|result| result.ok())
-                .collect();
-            tracked_files.par_extend(
-                entries
-                    .par_iter()
-                    .filter(|entry| entry.file_type().is_file())
-                    .filter_map(|entry| get_text_file_path(entry.path())),
-            );
+                .filter_map(|result| result.ok());
 
             {
-                let mut files: Vec<_> = tracked_files
-                    .iter()
-                    .map(|path| trim_path(&path_str, path))
-                    .collect();
-                files.string_sort(lexical_sort::natural_lexical_cmp);
-                if publisher.publish(files).is_err() {
-                    return;
+                loop {
+                    let start = Instant::now();
+                    let entries: Vec<_> = iterator.by_ref().take(1000).collect();
+
+                    if entries.is_empty() {
+                        break;
+                    }
+
+                    tracked_files.par_extend(
+                        entries
+                            .par_iter()
+                            .filter(|entry| entry.file_type().is_file())
+                            .filter_map(|entry| get_text_file_path(entry.path())),
+                    );
+
+                    let mut files: Vec<_> = tracked_files
+                        .iter()
+                        .map(|path| trim_path(&path_str, path))
+                        .collect();
+                    files.string_sort(lexical_sort::natural_lexical_cmp);
+                    if publisher.publish(files).is_err() {
+                        return;
+                    }
+
+                    log::info!(
+                        "Found {} files in {}ms",
+                        tracked_files.len(),
+                        start.elapsed().as_millis()
+                    );
                 }
             }
-
-            log::info!(
-                "Found {} files in {}ms",
-                tracked_files.len(),
-                start.elapsed().as_millis()
-            );
 
             let mut updated = false;
             loop {
