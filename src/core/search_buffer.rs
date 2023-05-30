@@ -58,6 +58,10 @@ where
                     }
                 }
 
+                if !search_rx.is_empty() || !options_recv.is_empty() {
+                    continue;
+                }
+
                 let output = fuzzy_match::fuzzy_match(&query, (*options).clone());
                 if result_tx.send(output).is_err() {
                     break;
@@ -97,7 +101,6 @@ where
     pub fn get_result(&mut self) -> &[FuzzyMatch<M>] {
         if let Ok(result) = self.rx.try_recv() {
             self.result = result;
-            self.selected = 0;
         }
         &self.result
     }
