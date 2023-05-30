@@ -4,29 +4,43 @@ use std::{
     fmt::{self},
     fs,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use anyhow::Result;
 use memchr::memrchr;
 use serde::Deserialize;
-use tui::style::{self, Color};
+use tui::style::{self, Color, ParseColorError};
 
 #[derive(Debug)]
 pub enum StyleLoadError {
-    InvalidColor,
+    InvalidColor(ParseColorError),
     StyleNotFound(String),
 }
 
 impl fmt::Display for StyleLoadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StyleLoadError::InvalidColor => "invalid color".fmt(f),
+            StyleLoadError::InvalidColor(err) => err.fmt(f),
             StyleLoadError::StyleNotFound(s) => write!(f, "style not found: {s}"),
         }
     }
 }
 
-impl Error for StyleLoadError {}
+impl From<ParseColorError> for StyleLoadError {
+    fn from(value: ParseColorError) -> Self {
+        Self::InvalidColor(value)
+    }
+}
+
+impl Error for StyleLoadError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::InvalidColor(e) => Some(e),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct Style {
@@ -40,22 +54,6 @@ struct Theme {
     #[serde(flatten)]
     items: HashMap<String, Style>,
     syntax: HashMap<String, Style>,
-}
-
-pub fn hex_str_to_color(string: &str) -> Result<Color> {
-    if string.len() != 7 {
-        return Err(StyleLoadError::InvalidColor)?;
-    }
-
-    if string.as_bytes()[0] != b'#' {
-        return Err(StyleLoadError::InvalidColor)?;
-    }
-
-    let r = u8::from_str_radix(&string[1..3], 16)?;
-    let g = u8::from_str_radix(&string[3..5], 16)?;
-    let b = u8::from_str_radix(&string[5..7], 16)?;
-
-    Ok(Color::Rgb(r, g, b))
 }
 
 impl Theme {
@@ -72,13 +70,13 @@ fn raw_style_to_style(s: &Style, palette: &HashMap<String, String>) -> Result<st
 
     if let Some(fg) = &s.fg {
         if let Some(color) = palette.get(fg) {
-            style.fg = Some(hex_str_to_color(color)?);
+            style.fg = Some(Color::from_str(color)?);
         }
     }
 
     if let Some(bg) = &s.bg {
         if let Some(color) = palette.get(bg) {
-            style.bg = Some(hex_str_to_color(color)?);
+            style.bg = Some(Color::from_str(color)?);
         }
     }
 

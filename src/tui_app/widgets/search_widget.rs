@@ -3,7 +3,7 @@ use std::{borrow::Cow, marker::PhantomData};
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
-    text::{Span, Spans},
+    text::{Line, Span},
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
@@ -190,10 +190,10 @@ where
                     });
                 }
 
-                buf.set_spans(
+                buf.set_line(
                     result_area.x + prompt.width() as u16,
                     result_area.y + i as u16,
-                    &Spans::from(spans),
+                    &Line::from(spans),
                     (width - prompt.width()) as u16,
                 );
 

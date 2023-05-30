@@ -34,7 +34,7 @@ sublime_fuzzy = "0.7.0"
 toml = "0.7.1"
 tree-sitter = "0.20.10"
 tree_magic_mini = { version = "3.0.3", features = ["with-gpl-data"] }
-tui = { package = "ratatui", version = "0.20.1" }
+tui = { package = "ratatui", version = "0.21.0" }
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
 utility = { path = "utility" }
