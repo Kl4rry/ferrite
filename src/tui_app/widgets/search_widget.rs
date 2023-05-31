@@ -177,7 +177,7 @@ where
                     let s: String = chars[current_idx..end].iter().collect();
                     spans.push(Span {
                         content: s.into(),
-                        style: self.theme.search_match,
+                        style: self.theme.fuzzy_match,
                     });
                     current_idx = end;
                 }

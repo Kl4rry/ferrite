@@ -35,26 +35,34 @@ fn trim_path(start: &str, path: &Path) -> String {
 }
 
 pub struct FileDaemon {
-    _watcher: notify::RecommendedWatcher,
     subscriber: Subscriber<Vec<String>>,
 }
 
 impl FileDaemon {
     pub fn new(path: PathBuf) -> anyhow::Result<Self> {
         let (publisher, subscriber) = pubsub::create(Vec::new());
-
-        let (update_tx, update_rx) = cb::unbounded();
-        let mut watcher = notify::recommended_watcher(
-            move |event: std::result::Result<notify::event::Event, notify::Error>| {
-                if let Ok(event) = event {
-                    let _ = update_tx.send(event);
-                }
-            },
-        )?;
-        let _ = watcher.watch(&path, RecursiveMode::Recursive);
-
         let path_to_search = path.clone();
+
         thread::spawn(move || {
+            let (update_tx, update_rx) = cb::unbounded();
+            let mut watcher = match notify::recommended_watcher(
+                move |event: std::result::Result<notify::event::Event, notify::Error>| {
+                    if let Ok(event) = event {
+                        let _ = update_tx.send(event);
+                    }
+                },
+            ) {
+                Ok(watcher) => watcher,
+                Err(err) => {
+                    log::error!("Error starting file watcher {err}");
+                    return;
+                }
+            };
+
+            if let Err(err) = watcher.watch(&path, RecursiveMode::Recursive) {
+                log::error!("Error starting file watcher {err}");
+            };
+
             let mut tracked_files = HashSet::new();
 
             let path: PathBuf = path_to_search;
@@ -131,10 +139,7 @@ impl FileDaemon {
             }
         });
 
-        Ok(Self {
-            _watcher: watcher,
-            subscriber,
-        })
+        Ok(Self { subscriber })
     }
 
     pub fn subscribe(&self) -> Subscriber<Vec<String>> {

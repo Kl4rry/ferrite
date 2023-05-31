@@ -9,6 +9,7 @@
 "editor.ruler" = { fg = "faint_gray" }
 "editor.error_text" = { fg = "red" }
 "editor.search.match" = { bg = "gray" }
+"editor.fuzzy.match" = { fg = "red" }
 
 [syntax]
 "tag" = { fg = "red" }
