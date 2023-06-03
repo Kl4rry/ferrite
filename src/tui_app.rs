@@ -125,18 +125,26 @@ impl TuiApp {
             }
         }
 
-        let file_daemon = FileDaemon::new(std::env::current_dir()?)?;
+        let mut file_daemon = None;
         let mut file_finder = None;
 
         if let Some(path) = args.files.first() {
             if path.is_dir() {
                 std::env::set_current_dir(path)?;
+                let daemon = FileDaemon::new(std::env::current_dir()?)?;
                 file_finder = Some(SearchBuffer::new(
-                    FileFindProvider(file_daemon.subscribe()),
+                    FileFindProvider(daemon.subscribe()),
                     proxy.clone(),
                 ));
+                file_daemon = Some(daemon);
             }
         }
+
+        let file_daemon = if let Some(daemon) = file_daemon {
+            daemon
+        } else {
+            FileDaemon::new(std::env::current_dir()?)?
+        };
 
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
