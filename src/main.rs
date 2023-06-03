@@ -19,8 +19,8 @@ mod tui_app;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    /// Path to file that will be opened
-    pub file: Option<PathBuf>,
+    /// Path to files that will be opened
+    pub files: Vec<PathBuf>,
     /// Line to open file on
     #[arg(long, short, default_value = "0")]
     pub line: u32,

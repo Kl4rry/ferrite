@@ -1,3 +1,3 @@
-theme = "onedark"
+theme = "default"
 rulers = [80]
 local_clipboard = false

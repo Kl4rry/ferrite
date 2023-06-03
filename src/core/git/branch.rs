@@ -1,4 +1,5 @@
 use std::{
+    path::Path,
     process::Command,
     sync::{Arc, Mutex},
     thread,
@@ -54,7 +55,7 @@ impl BranchWatcher {
             current_branch: current_branch.clone(),
             proxy: proxy.clone(),
         })?;
-        let _ = watcher.watch(&std::env::current_dir()?, notify::RecursiveMode::Recursive);
+        let _ = watcher.watch(Path::new("./"), notify::RecursiveMode::Recursive);
 
         let current_branch_thread = current_branch.clone();
         thread::spawn(move || {

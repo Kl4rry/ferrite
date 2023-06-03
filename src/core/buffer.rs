@@ -118,9 +118,19 @@ impl Buffer {
         }
     }
 
-    pub fn with_path(path: impl Into<PathBuf>) -> Self {
+    pub fn with_path(path: impl Into<PathBuf>, proxy: TuiEventLoopProxy) -> Self {
+        let path = path.into();
+        let mut syntax = Syntax::new(proxy);
+        if let Some(language) = get_language_from_path(&path) {
+            if let Err(err) = syntax.set_language(language) {
+                log::error!("Error setting language: {err}");
+            }
+            syntax.update_text(Rope::new());
+        }
+
         Self {
-            file: Some(path.into()),
+            file: Some(path),
+            syntax: Some(syntax),
             ..Default::default()
         }
     }

@@ -93,38 +93,50 @@ impl TuiApp {
             config.theme = "default".into();
         }
 
-        let file_daemon = FileDaemon::new(std::env::current_dir()?)?;
+        let mut buffers = Slab::new();
+        let mut current_buffer_id = 0;
 
+        for (i, file) in args.files.iter().enumerate() {
+            if i == 0 && file.is_dir() {
+                continue;
+            }
+
+            let buffer = match Buffer::from_file(file, proxy.clone()) {
+                Ok(buffer) => buffer,
+                Err(err) => match err.kind() {
+                    io::ErrorKind::NotFound => Buffer::with_path(file, proxy.clone()),
+                    _ => Err(err)?,
+                },
+            };
+            current_buffer_id = buffers.insert(buffer);
+        }
+
+        if buffers.is_empty() {
+            current_buffer_id = buffers.insert(Buffer::new());
+        }
+
+        for (_, buffer) in &mut buffers {
+            let (width, height) = crossterm::terminal::size()?;
+            buffer.set_view_lines(height.saturating_sub(2).into());
+            buffer.set_view_columns(width.into());
+            buffer.goto(args.line as i64);
+            if let Some(language) = &args.language {
+                buffer.set_langauge(language, proxy.clone())?;
+            }
+        }
+
+        let file_daemon = FileDaemon::new(std::env::current_dir()?)?;
         let mut file_finder = None;
-        let mut buffer = match &args.file {
-            Some(file) if file.is_dir() => {
-                std::env::set_current_dir(file)?;
+
+        if let Some(path) = args.files.first() {
+            if path.is_dir() {
+                std::env::set_current_dir(path)?;
                 file_finder = Some(SearchBuffer::new(
                     FileFindProvider(file_daemon.subscribe()),
                     proxy.clone(),
                 ));
-                Buffer::new()
             }
-            Some(file) => match Buffer::from_file(file, proxy.clone()) {
-                Ok(buffer) => buffer,
-                Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound => Buffer::with_path(file),
-                    _ => Buffer::new(),
-                },
-            },
-            None => Buffer::new(),
-        };
-
-        let (width, height) = crossterm::terminal::size()?;
-        buffer.set_view_lines(height.saturating_sub(2).into());
-        buffer.set_view_columns(width.into());
-        buffer.goto(args.line as i64);
-        if let Some(language) = &args.language {
-            buffer.set_langauge(language, proxy.clone())?;
         }
-
-        let mut buffers = Slab::new();
-        let current_buffer_id = buffers.insert(buffer);
 
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
@@ -205,6 +217,9 @@ impl TuiApp {
                     match Config::load(path) {
                         Ok(config) => {
                             self.config = config;
+                            if !self.themes.contains_key(&self.config.theme) {
+                                self.config.theme = "default".into();
+                            }
                             self.palette.set_msg("Reloaded config");
                         }
                         Err(err) => self.palette.set_error(err),
