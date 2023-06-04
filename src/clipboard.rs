@@ -26,9 +26,10 @@ pub fn init(local_clipboard: bool) {
 
     #[cfg(target_os = "linux")]
     {
-        if let Ok(mut clipboard) = Clipboard::new() {
-            use arboard::{LinuxClipboardKind, SetExtLinux};
-            clipboard.clipboard(LinuxClipboardKind::Primary);
+        if let Ok(clipboard) = Clipboard::new() {
+            use arboard::{LinuxClipboardKind, SetExtLinux, GetExtLinux};
+            let clipboard = SetExtLinux::clipboard(clipboard, LinuxClipboardKind::Primary);
+            let clipboard = GetExtLinux::clipboard(clipboard, LinuxClipboardKind::Primary);
             let _ = PRIMARY_CLIPBOARD.set(Mutex::new(Some(clipboard)));
         }
     }
