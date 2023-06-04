@@ -1177,6 +1177,11 @@ impl Buffer {
         self.insert_text(&clipboard::get_contents());
     }
 
+    pub fn paste_primary(&mut self, col: usize, line: usize) {
+        self.set_cursor_pos(col, line);
+        self.insert_text(&clipboard::get_primary());
+    }
+
     pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), BufferError> {
         if let Some(path) = path {
             self.file = Some(path);
@@ -1259,6 +1264,13 @@ impl Buffer {
     pub fn select_area(&mut self, cursor: Point<usize>, anchor: Point<usize>) {
         self.set_cursor_pos(cursor.column, cursor.line);
         self.set_anchor_pos(anchor.column, anchor.line);
+
+        #[cfg(target_os = "linux")]
+        {
+            let start = self.cursor.position.min(self.cursor.anchor);
+            let end = self.cursor.position.max(self.cursor.anchor);
+            clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
+        }
     }
 
     pub fn center_on_cursor(&mut self) {
