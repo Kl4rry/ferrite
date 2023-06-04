@@ -186,14 +186,10 @@ impl TuiApp {
 
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
 
-        terminal::disable_raw_mode()?;
         execute!(
             self.terminal.backend_mut(),
             terminal::LeaveAlternateScreen,
-            event::DisableMouseCapture,
-            event::DisableBracketedPaste,
         )?;
-        self.terminal.show_cursor()?;
 
         Ok(())
     }
@@ -677,5 +673,17 @@ impl TuiApp {
             Some((id, _)) => id,
             None => self.buffers.insert(Buffer::new()),
         }
+    }
+}
+
+impl Drop for TuiApp {
+    fn drop(&mut self) {
+        let _ = terminal::disable_raw_mode();
+        let _ = execute!(
+            self.terminal.backend_mut(),
+            event::DisableMouseCapture,
+            event::DisableBracketedPaste,
+        );
+        let _ = self.terminal.show_cursor();
     }
 }
