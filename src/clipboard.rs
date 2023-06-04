@@ -57,20 +57,20 @@ pub fn get_contents() -> String {
 
 #[cfg(target_os = "linux")]
 pub fn set_primary(text: impl Into<String>) {
-    use arboard::{SetExtLinux, LinuxClipboardKind, Set};
+    use arboard::{SetExtLinux, LinuxClipboardKind};
     if let Some(clipboard) = CLIPBOARD.get() {
         let mut clipboard = clipboard.lock().unwrap();
-        let _ = clipboard.as_mut().unwrap().set().clipboard(LinuxClipboardKind::Primary).set_text(&text.into());
+        let _ = clipboard.as_mut().unwrap().set().clipboard(LinuxClipboardKind::Primary).text(&text.into());
     }
 }
 
 pub fn get_primary() -> String {
     #[cfg(target_os = "linux")]
     {
-        use arboard::{GetExtLinux, LinuxClipboardKind, Get};
+        use arboard::{GetExtLinux, LinuxClipboardKind};
         if let Some(clipboard) = CLIPBOARD.get() {
             let mut clipboard = clipboard.lock().unwrap();
-            clipboard.as_mut().unwrap().get().clipboard(LinuxClipboardKind::Primary).get_text().unwrap_or_default()
+            clipboard.as_mut().unwrap().get().clipboard(LinuxClipboardKind::Primary).text().unwrap_or_default()
         }
     }
     #[cfg(not(target_os = "linux"))]
