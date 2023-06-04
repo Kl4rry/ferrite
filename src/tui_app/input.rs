@@ -73,6 +73,7 @@ pub enum InputCommand {
     Copy,
     Cut,
     Paste,
+    PastePrimary(usize, usize),
     Tab {
         back: bool,
     },

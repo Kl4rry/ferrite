@@ -12,7 +12,7 @@ cb = { package = "crossbeam-channel", version = "0.5.8" }
 cc = "1.0.79"
 chardetng = "0.1.17"
 clap = { version = "4.1.4", features = ["derive", "cargo"] }
-cli-clipboard = "0.4.0"
+arboard = "3.2.0"
 crossterm = "0.26.0"
 detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev = "f645bcc" }
 directories = "5.0.0"

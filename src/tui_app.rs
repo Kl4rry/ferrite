@@ -186,10 +186,7 @@ impl TuiApp {
 
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
 
-        execute!(
-            self.terminal.backend_mut(),
-            terminal::LeaveAlternateScreen,
-        )?;
+        execute!(self.terminal.backend_mut(), terminal::LeaveAlternateScreen,)?;
 
         Ok(())
     }
@@ -320,6 +317,21 @@ impl TuiApp {
                     // TODO allow scoll when using cmd palette
                     MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
                     MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
+                    MouseEventKind::Down(MouseButton::Middle) => {
+                        let buffer = &self.buffers[self.current_buffer_id];
+                        if (event.row as usize) < buffer.get_view_lines()
+                            && (event.column as usize) < buffer.get_view_columns()
+                        {
+                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                            let column = (event.column as usize).saturating_sub(left_offset)
+                                + buffer.col_pos();
+                            let line = event.row as usize + buffer.line_pos();
+                            Some(InputCommand::PastePrimary(column, line))
+                        } else {
+                            // TODO handle other clicks then in current buffer
+                            None
+                        }
+                    }
                     MouseEventKind::Down(MouseButton::Left) => {
                         self.drag_start =
                             Some(Point::new(event.column as usize, event.row as usize));
@@ -685,5 +697,6 @@ impl Drop for TuiApp {
             event::DisableBracketedPaste,
         );
         let _ = self.terminal.show_cursor();
+        clipboard::uninit();
     }
 }

@@ -29,6 +29,7 @@ impl Buffer {
             Copy => self.copy(),
             Cut if !self.read_only => self.cut(),
             Paste if !self.read_only => self.paste(),
+            PastePrimary(column, line) if !self.read_only => self.paste_primary(column, line),
             Tab { back } if !self.read_only => self.tab(back),
             VerticalScroll(distance) => self.vertical_scroll(distance),
             Escape => self.escape(),
