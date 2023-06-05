@@ -514,10 +514,13 @@ dependencies = [
  "tree-sitter-c",
  "tree-sitter-c-sharp",
  "tree-sitter-cmake",
+ "tree-sitter-comment",
  "tree-sitter-cpp",
  "tree-sitter-css",
+ "tree-sitter-fish",
  "tree-sitter-glsl",
  "tree-sitter-html",
+ "tree-sitter-javascript",
  "tree-sitter-json",
  "tree-sitter-md",
  "tree-sitter-python",
@@ -1519,6 +1522,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-comment"
+version = "0.1.0"
+source = "git+https://github.com/stsewd/tree-sitter-comment?rev=94c99a66bb5051d8321b5900aee92b76450c50ce#94c99a66bb5051d8321b5900aee92b76450c50ce"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
 name = "tree-sitter-cpp"
 version = "0.20.0"
 source = "git+https://github.com/tree-sitter/tree-sitter-cpp?rev=70aed2e9e83eb7320ab7c454d3084300bf587037#70aed2e9e83eb7320ab7c454d3084300bf587037"
@@ -1531,6 +1543,15 @@ dependencies = [
 name = "tree-sitter-css"
 version = "0.19.0"
 source = "git+https://github.com/syntacti/tree-sitter-css?rev=397aa132b9982fcdd2d473ed69343762a557f10a#397aa132b9982fcdd2d473ed69343762a557f10a"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-fish"
+version = "3.5.1"
+source = "git+https://github.com/ram02z/tree-sitter-fish?rev=f9176908c9eb2e11eb684d79e1d00f3b29bd65c9#f9176908c9eb2e11eb684d79e1d00f3b29bd65c9"
 dependencies = [
  "cc",
  "tree-sitter",
@@ -1550,6 +1571,16 @@ name = "tree-sitter-html"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "184e6b77953a354303dc87bf5fe36558c83569ce92606e7b382a0dc1b7443443"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-javascript"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2490fab08630b2c8943c320f7b63473cbf65511c8d83aec551beb9b4375906ed"
 dependencies = [
  "cc",
  "tree-sitter",

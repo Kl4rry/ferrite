@@ -66,10 +66,17 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("yaml", OnceCell::new());
     #[cfg(feature = "lang-c-sharp")]
     langs.insert("c-sharp", OnceCell::new());
+    #[cfg(feature = "lang-fish")]
+    langs.insert("fish", OnceCell::new());
+    #[cfg(feature = "lang-comment")]
+    langs.insert("comment", OnceCell::new());
+    #[cfg(feature = "lang-javascript")]
+    langs.insert("javascript", OnceCell::new());
     langs
 });
 
 fn get_lang_config(name: &str) -> Option<LanguageConfig> {
+    log::info!("Loading tree-sitter syntax for: `{name}`");
     Some(match name {
         #[cfg(feature = "lang-rust")]
         "rust" => LanguageConfig::new(
@@ -92,7 +99,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "c",
             ferrite_tree_sitter::tree_sitter_c::language(),
             include_str!("../../queries/c/highlights.scm"),
-            "",
+            include_str!("../../queries/c/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-cpp")]
@@ -100,7 +107,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "cpp",
             ferrite_tree_sitter::tree_sitter_cpp::language(),
             include_str!("../../queries/cpp/highlights.scm"),
-            "",
+            include_str!("../../queries/cpp/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-cmake")]
@@ -108,7 +115,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "cmake",
             ferrite_tree_sitter::tree_sitter_cmake::language(),
             include_str!("../../queries/cmake/highlights.scm"),
-            "",
+            include_str!("../../queries/cmake/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-css")]
@@ -116,7 +123,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "css",
             ferrite_tree_sitter::tree_sitter_css::language(),
             include_str!("../../queries/css/highlights.scm"),
-            "",
+            include_str!("../../queries/css/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-glsl")]
@@ -132,7 +139,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "html",
             ferrite_tree_sitter::tree_sitter_html::language(),
             include_str!("../../queries/html/highlights.scm"),
-            "",
+            include_str!("../../queries/html/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-md")]
@@ -140,7 +147,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "markdown",
             ferrite_tree_sitter::tree_sitter_md::language(),
             include_str!("../../queries/markdown/highlights.scm"),
-            "",
+            include_str!("../../queries/markdown/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-python")]
@@ -148,15 +155,15 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "python",
             ferrite_tree_sitter::tree_sitter_python::language(),
             include_str!("../../queries/python/highlights.scm"),
-            "",
-            "",
+            include_str!("../../queries/python/injections.scm"),
+            include_str!("../../queries/python/locals.scm"),
         ),
         #[cfg(feature = "lang-toml")]
         "toml" => LanguageConfig::new(
             "toml",
             ferrite_tree_sitter::tree_sitter_toml::language(),
             include_str!("../../queries/toml/highlights.scm"),
-            "",
+            include_str!("../../queries/toml/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-xml")]
@@ -164,7 +171,7 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "xml",
             ferrite_tree_sitter::tree_sitter_xml::language(),
             include_str!("../../queries/xml/highlights.scm"),
-            "",
+            include_str!("../../queries/xml/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-yaml")]
@@ -172,15 +179,48 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "yaml",
             ferrite_tree_sitter::tree_sitter_yaml::language(),
             include_str!("../../queries/yaml/highlights.scm"),
-            "",
+            include_str!("../../queries/yaml/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-c-sharp")]
         "c-sharp" => LanguageConfig::new(
             "c-sharp",
             ferrite_tree_sitter::tree_sitter_c_sharp::language(),
             include_str!("../../queries/c-sharp/highlights.scm"),
+            include_str!("../../queries/c-sharp/injections.scm"),
+            "",
+        ),
+        #[cfg(feature = "lang-bash")]
+        "bash" => LanguageConfig::new(
+            "bash",
+            ferrite_tree_sitter::tree_sitter_bash::language(),
+            include_str!("../../queries/bash/highlights.scm"),
+            include_str!("../../queries/bash/injections.scm"),
+            "",
+        ),
+        #[cfg(feature = "lang-fish")]
+        "fish" => LanguageConfig::new(
+            "fish",
+            ferrite_tree_sitter::tree_sitter_fish::language(),
+            include_str!("../../queries/fish/highlights.scm"),
+            include_str!("../../queries/fish/injections.scm"),
+            "",
+        ),
+        #[cfg(feature = "lang-comment")]
+        "comment" => LanguageConfig::new(
+            "comment",
+            ferrite_tree_sitter::tree_sitter_comment::language(),
+            include_str!("../../queries/comment/highlights.scm"),
             "",
             "",
+        ),
+        #[cfg(feature = "lang-javascript")]
+        "javascript" => LanguageConfig::new(
+            "javascript",
+            ferrite_tree_sitter::tree_sitter_javascript::language(),
+            include_str!("../../queries/javascript/highlights.scm"),
+            include_str!("../../queries/javascript/injections.scm"),
+            include_str!("../../queries/javascript/locals.scm"),
         ),
         _ => return None,
     })
@@ -211,6 +251,10 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         langs.insert("yaml", "yaml");
         langs.insert("yml", "yaml");
         langs.insert("cs", "c-sharp");
+        langs.insert("sh", "bash");
+        langs.insert("bash", "bash");
+        langs.insert("fish", "fish");
+        langs.insert("js", "javascript");
         langs
     });
 
