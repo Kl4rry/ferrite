@@ -248,7 +248,7 @@ impl TuiApp {
                     &mut self.buffers[self.current_buffer_id],
                 );
 
-                {
+                if self.config.show_splash {
                     let buffer = &mut self.buffers[self.current_buffer_id];
                     if buffer.rope().len_bytes() == 0
                         && !buffer.is_dirty()
@@ -676,6 +676,8 @@ impl TuiApp {
                 ('y', PalettePromptEvent::CloseCurrent),
                 ('n', PalettePromptEvent::Nop),
             );
+        } else {
+            self.force_close_current_buffer();
         }
     }
 

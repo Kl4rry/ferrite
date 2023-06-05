@@ -25,6 +25,10 @@ pub fn get_false() -> bool {
     false
 }
 
+pub fn get_true() -> bool {
+    false
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_theme")]
@@ -33,6 +37,8 @@ pub struct Config {
     pub rulers: Vec<u16>,
     #[serde(default = "get_false")]
     pub local_clipboard: bool,
+    #[serde(default = "get_true")]
+    pub show_splash: bool,
 }
 
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");
