@@ -69,7 +69,7 @@ impl FileDaemon {
             let path_str = path.to_string_lossy().into_owned();
 
             let mut iterator = jwalk::WalkDir::new(&path)
-                .follow_links(true)
+                .follow_links(false)
                 .into_iter()
                 .filter_map(|result| result.ok());
 
