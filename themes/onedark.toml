@@ -4,16 +4,19 @@
 "editor.text" = { fg = "white" }
 "editor.info_line" = { fg = "white", bg = "light_black" }
 "editor.background" = { bg = "black", fg = "white" }
-"editor.selection" = { bg = "faint_blue"}
+"editor.selection" = { bg = "gray"}
 "editor.border" = { bg = "black", fg = "white" }
 "editor.ruler" = { fg = "faint_gray" }
 "editor.error_text" = { fg = "red" }
-"editor.search.match" = { bg = "gray" }
+"editor.search.match" = { bg = "faint_blue" }
 "editor.fuzzy.match" = { fg = "red" }
 
 [syntax]
 "tag" = { fg = "red" }
 "attribute" = { fg = "gold" }
+
+"warning" = { fg = "yellow" }
+"error" = { fg = "red" }
 
 "comment" = { fg = "light_gray", modifiers = ["italic"] }
 

@@ -68,6 +68,7 @@ impl FileDaemon {
             let path: PathBuf = path_to_search;
             let path_str = path.to_string_lossy().into_owned();
 
+            // TODO Make filtering smarted
             let mut iterator = jwalk::WalkDir::new(&path)
                 .follow_links(false)
                 .into_iter()
@@ -98,7 +99,7 @@ impl FileDaemon {
                         return;
                     }
 
-                    log::info!(
+                    log::trace!(
                         "Found {} files in {}ms",
                         tracked_files.len(),
                         start.elapsed().as_millis()

@@ -18,7 +18,7 @@
  (match? @error "^(FIXME|XXX|BUG)$"))
 
 (tag
- (name) @ui.text
+ (name) @comment
  (user)? @constant)
 
 ; Issue number (#123)

@@ -28,11 +28,14 @@ pub struct Args {
     #[arg(long = "lang")]
     pub language: Option<String>,
     /// Tail log file
-    #[arg(long, name = "log-file")]
+    #[arg(long)]
     pub log_file: bool,
     /// Use process local clipboard
-    #[arg(long, name = "local-clipboard")]
+    #[arg(long)]
     pub local_clipboard: bool,
+    /// Options `off`, `error`, `warn`, `info`, `debug` or `trace`
+    #[arg(long)]
+    pub log_level: Option<String>,
 }
 
 fn main() -> Result<ExitCode> {
@@ -48,9 +51,27 @@ fn main() -> Result<ExitCode> {
             .create(true)
             .open(&log_file_path)?,
     );
-    simplelog::WriteLogger::init(log::LevelFilter::Trace, Default::default(), log_file)?;
-
     let args = Args::parse();
+
+    let var = args
+        .log_level
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| std::env::var("FERRITE_LOG").unwrap_or_default());
+    let log_level = match var.to_ascii_lowercase().as_str() {
+        "off" => log::LevelFilter::Off,
+        "error" => log::LevelFilter::Error,
+        "warn" => log::LevelFilter::Warn,
+        "info" => log::LevelFilter::Info,
+        "debug" => log::LevelFilter::Debug,
+        "trace" => log::LevelFilter::Trace,
+        #[cfg(debug_assertions)]
+        _ => log::LevelFilter::Trace,
+        #[cfg(not(debug_assertions))]
+        _ => log::LevelFilter::Info,
+    };
+
+    simplelog::WriteLogger::init(log_level, Default::default(), log_file)?;
     clipboard::init(args.local_clipboard);
 
     if args.log_file {

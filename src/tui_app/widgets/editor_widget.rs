@@ -211,7 +211,7 @@ impl StatefulWidget for EditorWidget<'_> {
             let line_pos = buffer.line_pos();
             {
                 if let Some(syntax) = buffer.get_syntax() {
-                    if let Some((_rope, capture_names, events)) = &*syntax.get_highlight_events() {
+                    if let Some((_rope, events)) = &*syntax.get_highlight_events() {
                         let mut highlight: Option<Highlight> = None;
                         for event in events {
                             match event {
@@ -251,8 +251,12 @@ impl StatefulWidget for EditorWidget<'_> {
                                         };
 
                                         let mut style = theme.text;
-                                        if let Some(highlight) = highlight {
-                                            if let Some(name) = capture_names.get(highlight.0) {
+                                        if let Some(highlight) = &highlight {
+                                            if let Some(name) = highlight
+                                                .query
+                                                .capture_names()
+                                                .get(highlight.capture_index)
+                                            {
                                                 style = self.theme.get_syntax(name);
                                             }
                                         }

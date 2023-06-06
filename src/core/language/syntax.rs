@@ -7,6 +7,7 @@ use std::{
         Arc, Mutex, MutexGuard,
     },
     thread,
+    time::Instant,
 };
 
 use anyhow::{bail, Result};
@@ -29,7 +30,7 @@ impl SyntaxProvider {
     pub fn new(
         language: &'static LanguageConfig,
         proxy: TuiEventLoopProxy,
-        result: Arc<Mutex<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>>>,
+        result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
     ) -> Result<Self> {
         let (rope_tx, rope_rx) = mpsc::channel::<Rope>();
 
@@ -49,6 +50,7 @@ impl SyntaxProvider {
                     }
                 };
 
+                let time = Instant::now();
                 if let Ok(iterator) =
                     highlighter.highlight(&highlight_config.clone(), rope.slice(..), None, |name| {
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
@@ -56,11 +58,11 @@ impl SyntaxProvider {
                 {
                     *result.lock().unwrap() = Some((
                         rope.clone(),
-                        highlight_config.query.capture_names().to_vec(),
                         iterator.filter_map(|event| event.ok()).collect(),
                     ));
                     proxy.request_render();
                 }
+                log::trace!("highlight took: {}ms", time.elapsed().as_millis());
             }
 
             log::info!("Syntax provider thread exit");
@@ -76,7 +78,7 @@ impl SyntaxProvider {
 
 pub struct Syntax {
     syntax_provder: Option<SyntaxProvider>,
-    result: Arc<Mutex<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>>>,
+    result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
     proxy: TuiEventLoopProxy,
 }
 
@@ -115,9 +117,7 @@ impl Syntax {
         }
     }
 
-    pub fn get_highlight_events(
-        &self,
-    ) -> MutexGuard<Option<(Rope, Vec<String>, Vec<HighlightEvent>)>> {
+    pub fn get_highlight_events(&self) -> MutexGuard<Option<(Rope, Vec<HighlightEvent>)>> {
         self.result.lock().unwrap()
     }
 }
@@ -149,8 +149,11 @@ impl<'a> TextProvider<'a> for RopeProvider<'a> {
 const CANCELLATION_CHECK_INTERVAL: usize = 100;
 
 /// Indicates which highlight should be applied to a region of source code.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct Highlight(pub usize);
+#[derive(Copy, Clone, Debug)]
+pub struct Highlight {
+    pub capture_index: usize,
+    pub query: &'static Query,
+}
 
 /// Represents the reason why syntax highlighting failed.
 #[derive(Debug, PartialEq, Eq)]
@@ -188,8 +191,8 @@ pub enum HighlightEvent {
 /// This struct is immutable and can be shared between threads.
 pub struct HighlightConfiguration {
     pub language: Language,
-    pub query: Query,
-    combined_injections_query: Option<Query>,
+    pub query: &'static Query,
+    combined_injections_query: &'static Option<Query>,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
     non_local_variable_patterns: Vec<bool>,
@@ -401,8 +404,8 @@ impl HighlightConfiguration {
 
         Ok(HighlightConfiguration {
             language,
-            query,
-            combined_injections_query,
+            query: Box::leak(Box::new(query)),
+            combined_injections_query: Box::leak(Box::new(combined_injections_query)),
             locals_pattern_index,
             highlights_pattern_index,
             non_local_variable_patterns,
@@ -520,7 +523,7 @@ impl<'a> HighlightIterLayer<'a> {
 
                 let captures = cursor_ref
                     .captures(
-                        &config.query,
+                        config.query,
                         tree_ref.root_node(),
                         RopeProvider(source.clone().slice(..)),
                     )
@@ -817,7 +820,7 @@ where
             if match_.pattern_index < layer.config.locals_pattern_index {
                 let (language_name, content_node, include_children) = injection_for_match(
                     layer.config,
-                    &layer.config.query,
+                    layer.config.query,
                     &match_,
                     self.source.slice(..),
                 );
@@ -993,7 +996,10 @@ where
                 }
             }
 
-            let current_highlight = Some(Highlight(capture.index as usize));
+            let current_highlight = Some(Highlight {
+                capture_index: capture.index as usize,
+                query: layer.config.query,
+            });
 
             // If this node represents a local definition, then store the current
             // highlight value on the local scope entry representing this node.
