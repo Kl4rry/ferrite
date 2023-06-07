@@ -621,7 +621,7 @@ impl Buffer {
             .min(line)
             .max(0) as usize;
 
-        self.set_cursor_pos(line_idx, 0);
+        self.set_cursor_pos(0, line_idx);
     }
 
     pub fn home(&mut self, shift: bool) {

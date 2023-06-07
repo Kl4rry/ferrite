@@ -3,7 +3,6 @@ use std::{
     fmt, iter, mem, ops,
     sync::{
         atomic::{AtomicUsize, Ordering},
-        mpsc::{self, Sender},
         Arc, Mutex, MutexGuard,
     },
     thread,
@@ -11,6 +10,7 @@ use std::{
 };
 
 use anyhow::{bail, Result};
+use cb::Sender;
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
@@ -32,7 +32,7 @@ impl SyntaxProvider {
         proxy: TuiEventLoopProxy,
         result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
     ) -> Result<Self> {
-        let (rope_tx, rope_rx) = mpsc::channel::<Rope>();
+        let (rope_tx, rope_rx) = cb::unbounded::<Rope>();
 
         let highlight_config = language.highlight_config.clone();
         let name = language.name.clone();
@@ -49,6 +49,10 @@ impl SyntaxProvider {
                         break;
                     }
                 };
+
+                if !rope_rx.is_empty() {
+                    continue;
+                }
 
                 let time = Instant::now();
                 if let Ok(iterator) =
