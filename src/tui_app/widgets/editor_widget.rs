@@ -166,13 +166,14 @@ impl StatefulWidget for EditorWidget<'_> {
                         };
                         let text_start = view_line.text_start_col;
                         let visual_text_start = text_start + text_area.x as usize;
-                        if col as usize > visual_text_start || text_start == 0 {
+                        if col as usize + buffer.col_pos() > visual_text_start || text_start == 0 {
                             break;
                         }
 
                         let cell = buf.get_mut(col, line);
                         if !RopeSlice::from(cell.symbol.as_str()).is_whitespace()
-                            || (col - text_area.left()) % 4 != 0
+                            || (col as usize - text_area.left() as usize + buffer.col_pos()) % 4
+                                != 0
                         {
                             continue;
                         }
