@@ -13,13 +13,18 @@ pub mod file_daemon;
 pub mod file_find;
 pub mod fuzzy_match;
 
+pub struct SearchResult<M: Matchable> {
+    matches: Vec<FuzzyMatch<M>>,
+    total: usize,
+}
+
 pub struct SearchBuffer<M: Matchable> {
     search_field: Buffer,
     selected: usize,
-    result: Vec<FuzzyMatch<M>>,
+    result: SearchResult<M>,
     choice: Option<M>,
     tx: cb::Sender<String>,
-    rx: cb::Receiver<Vec<FuzzyMatch<M>>>,
+    rx: cb::Receiver<SearchResult<M>>,
 }
 
 impl<M> SearchBuffer<M>
@@ -34,7 +39,7 @@ where
         search_field.set_view_lines(1);
 
         let (search_tx, search_rx): (_, cb::Receiver<String>) = cb::unbounded();
-        let (result_tx, result_rx): (_, cb::Receiver<Vec<FuzzyMatch<_>>>) = cb::unbounded();
+        let (result_tx, result_rx): (_, cb::Receiver<SearchResult<_>>) = cb::unbounded();
 
         thread::spawn(move || {
             let mut options = Arc::new(Vec::new());
@@ -63,7 +68,11 @@ where
                 }
 
                 let output = fuzzy_match::fuzzy_match(&query, (*options).clone());
-                if result_tx.send(output).is_err() {
+                let result = SearchResult {
+                    matches: output,
+                    total: options.len(),
+                };
+                if result_tx.send(result).is_err() {
                     break;
                 }
 
@@ -77,7 +86,10 @@ where
             choice: None,
             tx: search_tx,
             rx: result_rx,
-            result: Vec::new(),
+            result: SearchResult {
+                matches: Vec::new(),
+                total: 0,
+            },
         }
     }
 }
@@ -98,11 +110,18 @@ where
         self.choice.take()
     }
 
-    pub fn get_result(&mut self) -> &[FuzzyMatch<M>] {
+    pub fn get_matches(&mut self) -> &[FuzzyMatch<M>] {
         if let Ok(result) = self.rx.try_recv() {
             self.result = result;
         }
-        &self.result
+        &self.result.matches
+    }
+
+    pub fn get_total(&mut self) -> usize {
+        if let Ok(result) = self.rx.try_recv() {
+            self.result = result;
+        }
+        self.result.total
     }
 
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
@@ -130,14 +149,14 @@ where
             }
         }
 
-        if self.selected >= self.get_result().len() {
+        if self.selected >= self.get_matches().len() {
             self.selected = 0;
         }
 
         if enter {
             let selected = self.selected;
             self.choice = self
-                .get_result()
+                .get_matches()
                 .get(selected)
                 .map(|FuzzyMatch { item, .. }| item)
                 .cloned();

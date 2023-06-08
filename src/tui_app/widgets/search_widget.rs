@@ -96,6 +96,19 @@ where
             };
 
             OneLineInputWidget::new(self.theme, true).render(input_area, buf, state.search_field());
+
+            let count = format!("{}/{}", state.get_matches().len(), state.get_total());
+            let count_width = count.width();
+
+            if input_area.width as usize > (count_width * 2 + 2) {
+                buf.set_stringn(
+                    input_area.x + input_area.width - count_width as u16 - 1,
+                    input_area.y,
+                    count,
+                    input_area.width.into(),
+                    self.theme.text,
+                );
+            }
         }
 
         if inner_area.height < 3 {
@@ -108,7 +121,7 @@ where
             result_area.height -= 2;
 
             let selected = state.selected();
-            let result = state.get_result();
+            let result = state.get_matches();
 
             let start = selected / result_area.height as usize;
             let cursor_pos = selected % result_area.height as usize;
