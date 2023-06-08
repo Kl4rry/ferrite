@@ -84,9 +84,8 @@ impl Default for Config {
 }
 
 pub struct ConfigWatcher {
-    path: PathBuf,
     changed: Arc<AtomicBool>,
-    watcher: RecommendedWatcher,
+    _watcher: RecommendedWatcher,
 }
 
 impl ConfigWatcher {
@@ -110,25 +109,16 @@ impl ConfigWatcher {
             },
         )?;
 
-        watcher.watch(path, RecursiveMode::NonRecursive)?;
+        let _ = watcher.watch(path, RecursiveMode::NonRecursive);
 
         Ok(Self {
-            path: path.to_path_buf(),
-            watcher,
+            _watcher: watcher,
             changed,
         })
     }
 
     pub fn has_changed(&self) -> bool {
         self.changed.swap(false, Ordering::SeqCst)
-    }
-}
-
-impl Drop for ConfigWatcher {
-    fn drop(&mut self) {
-        if let Err(err) = self.watcher.unwatch(&self.path) {
-            log::error!("{err}");
-        }
     }
 }
 
