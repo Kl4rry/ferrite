@@ -58,6 +58,9 @@ impl BufferSearcher {
                         query_idx += 1;
                     } else {
                         query_idx = 0;
+                        if ch == chars[query_idx] {
+                            query_idx += 1;
+                        }
                     }
 
                     if query_idx >= chars.len() {

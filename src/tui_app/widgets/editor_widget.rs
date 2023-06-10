@@ -9,11 +9,14 @@ use utility::{
 };
 
 use super::info_line::InfoLine;
-use crate::core::{
-    buffer::{search::SearchMatch, Buffer, Selection},
-    config::Config,
-    language::syntax::{Highlight, HighlightEvent},
-    theme::EditorTheme,
+use crate::{
+    core::{
+        buffer::{search::SearchMatch, Buffer, Selection},
+        config::Config,
+        language::syntax::{Highlight, HighlightEvent},
+        theme::EditorTheme,
+    },
+    tui_app::rect_ext::RectExt,
 };
 
 pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
@@ -290,17 +293,16 @@ impl StatefulWidget for EditorWidget<'_> {
                         && end.line + 2 < buffer.line_pos() + buffer.get_view_lines()
                     {
                         let highlight_area = Rect {
-                            x: start.column as u16 + text_area.left(),
+                            x: (start.column + text_area.left() as usize - buffer.col_pos()) as u16,
                             y: (start.line + text_area.top() as usize - buffer.line_pos()) as u16,
-                            width: ((end.column - start.column).min(
-                                (text_area.right() as usize)
-                                    .saturating_sub(end.column + text_area.left() as usize)
-                                    + 1,
-                            )) as u16,
+                            width: (end.column - start.column) as u16,
                             height: (end.line - start.line + 1) as u16,
                         };
 
-                        buf.set_style(highlight_area, self.theme.search_match);
+                        buf.set_style(
+                            highlight_area.clamp_within(text_area),
+                            self.theme.search_match,
+                        );
                     }
                 }
             }

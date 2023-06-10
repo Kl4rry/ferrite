@@ -47,6 +47,7 @@ use crate::{
 
 pub mod event_loop;
 pub mod input;
+pub mod rect_ext;
 mod widgets;
 
 pub struct TuiApp {
