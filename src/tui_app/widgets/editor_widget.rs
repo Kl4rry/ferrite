@@ -175,7 +175,8 @@ impl StatefulWidget for EditorWidget<'_> {
 
                         let cell = buf.get_mut(col, line);
                         if !RopeSlice::from(cell.symbol.as_str()).is_whitespace()
-                            || (col as usize - text_area.left() as usize + buffer.col_pos()) % 4
+                            || (col as usize - text_area.left() as usize + buffer.col_pos())
+                                % buffer.indent.width()
                                 != 0
                         {
                             continue;
