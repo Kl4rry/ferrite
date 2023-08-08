@@ -79,6 +79,16 @@ impl StatefulWidget for EditorWidget<'_> {
         buffer.set_view_columns((text_area.width as usize).saturating_sub(left_offset));
         buf.set_style(area, theme.background);
 
+        buf.set_style(
+            Rect {
+                x: area.left(),
+                y: area.top(),
+                width: (line_number_max_width as u16 + 2).min(area.width),
+                height: area.height,
+            },
+            theme.line_nr,
+        );
+
         let current_line_number = buffer.cursor_line_idx() + 1;
 
         let view = buffer.get_buffer_view();

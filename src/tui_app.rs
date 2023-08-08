@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     io::{self, Stdout},
+    num::NonZeroUsize,
     path::{Path, PathBuf},
 };
 
@@ -185,6 +186,16 @@ impl TuiApp {
             event::EnableMouseCapture,
         )?;
 
+        // Reset terminal to non raw mode on panic
+        {
+            let default_panic = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                _ = terminal::disable_raw_mode();
+                println!();
+                default_panic(info);
+            }));
+        }
+
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
 
         execute!(self.terminal.backend_mut(), terminal::LeaveAlternateScreen,)?;
@@ -284,9 +295,9 @@ impl TuiApp {
                     );
                 }
 
-                let palette_size = Rect::new(size.x, size.height - 1, size.width, 1);
+                let palette_size = Rect::new(size.left(), size.bottom() - 1, size.width, 1);
                 f.render_stateful_widget(
-                    CmdPaletteWidget::new(theme, self.palette.has_focus()),
+                    CmdPaletteWidget::new(theme, self.palette.has_focus(), size),
                     palette_size,
                     &mut self.palette,
                 );
@@ -482,10 +493,25 @@ impl TuiApp {
                                 .palette
                                 .set_msg(self.buffers[self.current_buffer_id].encoding.name()),
                             },
-                            Command::Indent => match self.buffers[self.current_buffer_id].indent {
-                                Indentation::Tabs(_) => self.palette.set_msg("tabs"),
-                                Indentation::Spaces(amount) => {
-                                    self.palette.set_msg(format!("{} space(s)", amount))
+                            Command::Indent(indent) => {
+                                match indent {
+                                    Some(indent) => {
+                                        if let Ok(spaces) = indent.parse::<NonZeroUsize>() {
+                                            self.buffers[self.current_buffer_id].indent = Indentation::Spaces(spaces);
+                                        } else if indent == "tabs" {
+                                            self.buffers[self.current_buffer_id].indent = Indentation::Tabs(NonZeroUsize::new(1).unwrap());
+                                        } else {
+                                            self.palette.set_error("Indentation must be a number or `tabs`");
+                                        }
+                                    },
+                                    None => {
+                                        match self.buffers[self.current_buffer_id].indent {
+                                            Indentation::Tabs(_) => self.palette.set_msg("tabs"),
+                                            Indentation::Spaces(amount) => {
+                                                self.palette.set_msg(format!("{} space(s)", amount))
+                                            }
+                                        }
+                                    },
                                 }
                             },
                             Command::LineEnding(line_ending) => {

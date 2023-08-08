@@ -1,6 +1,6 @@
 
-"editor.line_nr" = { fg = "line_nr" }
-"editor.current_line_nr" = { fg = "white" }
+"editor.line_nr" = { fg = "line_nr", bg = "light_black" }
+"editor.current_line_nr" = { fg = "white", bg = "light_black" }
 "editor.text" = { fg = "white" }
 "editor.info_line" = { fg = "white", bg = "light_black" }
 "editor.background" = { bg = "black", fg = "white" }
@@ -10,6 +10,8 @@
 "editor.error_text" = { fg = "red" }
 "editor.search.match" = { bg = "faint_blue" }
 "editor.fuzzy.match" = { fg = "red" }
+"editor.completer" = { bg = "gray", fg = "white" }
+"editor.completer.selected" = { bg = "blue", fg = "black" }
 
 [syntax]
 "tag" = { fg = "red" }

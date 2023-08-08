@@ -15,7 +15,7 @@ pub enum Command {
     ForceQuit,
     Quit,
     Goto(i64),
-    Indent,
+    Indent(Option<String>),
     Theme(Option<String>),
     BrowseBuffers,
     BrowseWorkspace,

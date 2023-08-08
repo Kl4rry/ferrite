@@ -1182,6 +1182,29 @@ impl Buffer {
         self.insert_text(&clipboard::get_primary());
     }
 
+    // TODO make this not use eof
+    pub fn trim_start(&mut self) {
+        let mut start_white_spaces = 0;
+        for ch in self.rope.chars() {
+            if ch.is_whitespace() {
+                start_white_spaces += 1;
+            } else {
+                break;
+            }
+        }
+        let byte_end = self.rope.char_to_byte(start_white_spaces);
+        self.history.remove(&mut self.rope, 0..byte_end);
+        self.eof(false);
+    }
+
+    // TODO make this not use eof
+    pub fn replace(&mut self, byte_range: Range<usize>, text: &str) {
+        self.history.begin(self.cursor, self.dirty);
+        self.history.replace(&mut self.rope, byte_range, text);
+        self.eof(false);
+        self.history.finish();
+    }
+
     pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), BufferError> {
         if let Some(path) = path {
             self.file = Some(path);
@@ -1301,6 +1324,10 @@ impl Buffer {
         self.queue_syntax_update();
     }
 
+    pub fn mark_clean(&mut self) {
+        self.dirty = false;
+    }
+
     pub fn queue_syntax_update(&mut self) {
         if let Some(syntax) = &mut self.syntax {
             syntax.update_text(self.rope.clone());
@@ -1339,6 +1366,10 @@ impl Buffer {
                 self.select_area(search_match.end, search_match.start);
             }
         }
+    }
+
+    pub fn cursor_is_eof(&self) -> bool {
+        self.cursor.position == self.rope.len_bytes()
     }
 }
 

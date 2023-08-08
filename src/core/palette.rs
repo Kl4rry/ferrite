@@ -3,6 +3,7 @@ use std::fmt;
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
+use self::completer::Completer;
 use super::buffer::{error::BufferError, Buffer};
 use crate::tui_app::{
     event_loop::{TuiAppEvent, TuiEventLoopProxy},
@@ -11,6 +12,7 @@ use crate::tui_app::{
 
 pub mod cmd;
 pub mod cmd_parser;
+pub mod completer;
 
 #[derive(Debug, Clone)]
 pub enum PalettePromptEvent {
@@ -33,6 +35,7 @@ pub enum PaletteState {
         prompt: String,
         mode: String,
         focused: bool,
+        completer: Completer,
     },
     Prompt {
         selected: SelectedPrompt,
@@ -88,10 +91,11 @@ impl CommandPalette {
             }
         }
         self.state = PaletteState::Input {
-            buffer,
             prompt: prompt.into(),
             mode,
             focused: true,
+            completer: Completer::new(&buffer),
+            buffer,
         };
     }
 
@@ -137,8 +141,14 @@ impl CommandPalette {
 impl CommandPalette {
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
         match &mut self.state {
-            PaletteState::Input { buffer, mode, .. } => {
+            PaletteState::Input {
+                buffer,
+                mode,
+                completer,
+                ..
+            } => {
                 let mut enter = false;
+                buffer.mark_clean();
                 match input {
                     InputCommand::Insert(string) => {
                         let rope = RopeSlice::from(string.as_str());
@@ -151,6 +161,22 @@ impl CommandPalette {
                     InputCommand::Char(ch) if LineEnding::from_char(ch).is_some() => {
                         enter = true;
                     }
+                    InputCommand::Tab { back } if mode == "command" => {
+                        if back {
+                            completer.backward(buffer)
+                        } else {
+                            completer.forward(buffer)
+                        }
+                        if completer.options().len() == 1 {
+                            buffer.mark_dirty();
+                        }
+                    }
+                    InputCommand::MoveRight { .. } => {
+                        buffer.handle_input(input)?;
+                        if buffer.cursor_is_eof() {
+                            buffer.mark_dirty();
+                        }
+                    }
                     input => buffer.handle_input(input)?,
                 }
 
@@ -159,6 +185,8 @@ impl CommandPalette {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),
                     });
+                } else if buffer.is_dirty() && mode == "command" {
+                    completer.update_text(buffer);
                 }
             }
             PaletteState::Prompt {

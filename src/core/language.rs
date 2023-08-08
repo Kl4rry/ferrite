@@ -267,3 +267,7 @@ pub fn get_tree_sitter_language(language: &str) -> Option<&'static LanguageConfi
         .get(language)
         .map(|cell| cell.get_or_init(|| get_lang_config(language).unwrap()))
 }
+
+pub fn get_available_languages() -> Vec<&'static str> {
+    LANGUAGES.keys().copied().collect()
+}

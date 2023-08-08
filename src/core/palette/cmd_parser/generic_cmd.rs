@@ -30,31 +30,55 @@ impl CommandTemplateArg {
 #[derive(Debug, Clone)]
 pub struct CommandTemplate {
     pub name: String,
-    pub args: Vec<(String, CommandTemplateArg)>,
-    pub optional: usize,
+    pub aliases: Vec<String>,
+    pub args: Option<(String, CommandTemplateArg)>,
+    pub optional: bool,
 }
 
 impl CommandTemplate {
     pub fn new(
         name: impl Into<String>,
-        args: Vec<(&str, CommandTemplateArg)>,
-        optional: usize,
+        args: Option<(&str, CommandTemplateArg)>,
+        optional: bool,
     ) -> Self {
         Self {
             name: name.into(),
-            args: args
-                .into_iter()
-                .map(|(name, arg)| (name.to_string(), arg))
-                .collect(),
+            aliases: Vec::new(),
+            args: args.map(|(name, template)| (name.to_string(), template)),
             optional,
         }
+    }
+
+    pub fn add_alias(mut self, arg: impl ToString) -> Self {
+        self.aliases.push(arg.to_string());
+        self
+    }
+
+    pub fn _add_aliases(mut self, args: &[impl ToString]) -> Self {
+        self.aliases.extend(args.iter().map(|a| a.to_string()));
+        self
+    }
+
+    pub fn matches(&self, query: impl AsRef<str>) -> bool {
+        let query = query.as_ref();
+        if self.name == query {
+            return true;
+        }
+
+        for alias in &self.aliases {
+            if alias == query {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn parse_cmd(
         &self,
         tokens: impl ExactSizeIterator<Item = String>,
     ) -> Result<GenericCommand, CommandParseError> {
-        if tokens.len() < self.args.len().saturating_sub(self.optional) {
+        if !self.optional && tokens.len() == 0 {
             return Err(CommandParseError::MissingArgs(self.usage()));
         }
 
@@ -68,7 +92,7 @@ impl CommandTemplate {
             generic.args.push(Some(arg));
         }
 
-        while generic.args.len() < self.args.len() {
+        if self.optional && generic.args.is_empty() {
             generic.args.push(None);
         }
 

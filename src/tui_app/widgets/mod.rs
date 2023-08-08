@@ -1,4 +1,5 @@
 pub mod background_widget;
+pub mod completer_widget;
 pub mod editor_widget;
 pub mod info_line;
 pub mod one_line_input_widget;

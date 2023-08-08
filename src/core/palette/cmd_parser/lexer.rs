@@ -1,11 +1,26 @@
+#[derive(Debug)]
 pub struct Token {
     pub text: String,
     pub start: usize,
-    pub end: usize,
+    pub len: usize,
+    pub quote: Option<char>,
 }
 
 pub fn tokenize(input: &str) -> (Token, Vec<Token>) {
     let input = input.trim();
+
+    if input.is_empty() {
+        return (
+            Token {
+                text: "".into(),
+                start: 0,
+                len: 0,
+                quote: None,
+            },
+            Vec::new(),
+        );
+    }
+
     let idx = input
         .char_indices()
         .find(|(_, ch)| ch.is_whitespace())
@@ -36,6 +51,9 @@ pub fn tokenize(input: &str) -> (Token, Vec<Token>) {
                     last_idx = idx;
                     if ch == quote && last != '\\' {
                         break;
+                    } else if ch == 'n' && last != '\\' {
+                        last = ch;
+                        arg.push('\n');
                     } else {
                         last = ch;
                         arg.push(ch);
@@ -44,10 +62,16 @@ pub fn tokenize(input: &str) -> (Token, Vec<Token>) {
                 output.push(Token {
                     text: arg,
                     start: start_idx,
-                    end: last_idx + 2,
+                    len: last_idx + 2,
+                    quote: Some(quote),
                 });
-                residual = &residual[last_idx + 2..];
-                mode = Mode::Searching;
+
+                if last_idx + 2 < residual.len() {
+                    residual = &residual[last_idx + 2..];
+                    mode = Mode::Searching;
+                } else {
+                    break;
+                }
             }
             Mode::Bare => {
                 let idx = residual
@@ -59,7 +83,8 @@ pub fn tokenize(input: &str) -> (Token, Vec<Token>) {
                 output.push(Token {
                     text: residual[..idx].to_string(),
                     start: start_idx,
-                    end: idx,
+                    len: idx,
+                    quote: None,
                 });
                 residual = &residual[idx..];
                 mode = Mode::Searching
@@ -82,11 +107,17 @@ pub fn tokenize(input: &str) -> (Token, Vec<Token>) {
         }
     }
 
+    let quote = match mode {
+        Mode::Quoted(ch) => Some(ch),
+        _ => None,
+    };
+
     (
         Token {
             text: String::from(&input[..idx]),
             start: 0,
-            end: idx,
+            len: idx,
+            quote,
         },
         output,
     )

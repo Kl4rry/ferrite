@@ -39,7 +39,7 @@ impl Widget for InfoLine<'_> {
             self.theme.info_line,
         );
 
-        let left_width = file.width_cjk();
+        let left_width = file.width();
 
         {
             let output = format!(

@@ -95,6 +95,8 @@ pub struct EditorTheme {
     pub error_text: style::Style,
     pub ruler: style::Style,
     pub fuzzy_match: style::Style,
+    pub completer: style::Style,
+    pub completer_selected: style::Style,
     // syntax styles
     syntax: HashMap<String, style::Style>,
 }
@@ -115,6 +117,8 @@ impl EditorTheme {
             error_text: theme.get_style("editor.error_text")?,
             ruler: theme.get_style("editor.ruler")?,
             fuzzy_match: theme.get_style("editor.fuzzy.match")?,
+            completer: theme.get_style("editor.completer")?,
+            completer_selected: theme.get_style("editor.completer.selected")?,
 
             syntax: {
                 let mut syntax = HashMap::new();
