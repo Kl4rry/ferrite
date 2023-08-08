@@ -79,6 +79,7 @@ pub enum InputCommand {
     },
     Undo,
     Redo,
+    RevertBuffer,
     VerticalScroll(i64),
     FileSearch,
     NextMatch,

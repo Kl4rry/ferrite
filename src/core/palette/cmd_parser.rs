@@ -45,6 +45,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("close", [..]) => Command::Close,
         ("paste", [..]) => Command::Paste,
         ("copy", [..]) => Command::Copy,
+        ("revert-buffer", [..]) => Command::RevertBuffer,
         ("line-ending", [line_ending, ..]) => Command::LineEnding(line_ending.take().map(|line_ending| {
             match line_ending.unwrap_string().as_str() {
                 "lf" => LineEnding::LF,
@@ -91,6 +92,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("close", None, true),
         CommandTemplate::new("paste", None, true),
         CommandTemplate::new("copy", None, true),
+        CommandTemplate::new("revert-buffer", None, true),
         CommandTemplate::new("language", Some(("language", CommandTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true).add_alias("lang"),
         CommandTemplate::new("line-ending", Some(("line-ending", CommandTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))), true),
     ];

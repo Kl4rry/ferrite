@@ -24,4 +24,5 @@ pub enum Command {
     Close,
     Paste,
     Copy,
+    RevertBuffer,
 }

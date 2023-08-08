@@ -41,6 +41,8 @@ pub struct Config {
     pub show_splash: bool,
     #[serde(default = "get_true")]
     pub watch_recursive: bool,
+    #[serde(default = "get_true")]
+    pub show_indent_rulers: bool,
 }
 
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");

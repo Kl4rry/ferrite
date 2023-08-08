@@ -39,6 +39,7 @@ impl Buffer {
             NextMatch => self.next_match(),
             Undo if !self.read_only => self.undo(),
             Redo if !self.read_only => self.redo(),
+            RevertBuffer if !self.read_only => self.revert_buffer(),
             _ => (),
         }
 

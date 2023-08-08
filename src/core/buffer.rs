@@ -1371,6 +1371,12 @@ impl Buffer {
     pub fn cursor_is_eof(&self) -> bool {
         self.cursor.position == self.rope.len_bytes()
     }
+
+    pub fn revert_buffer(&mut self) {
+        while self.dirty {
+            self.undo();
+        }
+    }
 }
 
 pub struct ViewLine<'a> {

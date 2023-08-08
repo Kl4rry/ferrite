@@ -566,6 +566,9 @@ impl TuiApp {
                                     self.palette.set_error(err);
                                 }
                             }
+                            Command::RevertBuffer => {
+                                let _ = self.buffers[self.current_buffer_id].handle_input(InputCommand::RevertBuffer);
+                            }
                         },
                         Err(err) => self.palette.set_error(err),
                     }

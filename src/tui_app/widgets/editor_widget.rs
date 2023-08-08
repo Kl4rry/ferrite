@@ -170,7 +170,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            if !view.lines.is_empty() {
+            if !view.lines.is_empty() && config.show_indent_rulers {
                 // TODO fix empty line gaps in blocks using tree-sitter indent queries
                 'outer: for line in text_area.top()..text_area.bottom() {
                     for col in text_area.left()..text_area.right() {

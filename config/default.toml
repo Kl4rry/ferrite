@@ -3,3 +3,4 @@ rulers = [80]
 local_clipboard = false
 show_splash = true
 watch_recursive = true
+show_indent_rulers = true
