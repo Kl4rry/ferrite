@@ -176,6 +176,8 @@ impl Completer {
                 }
             }
         }
+
+        self.options.sort_by(|a, b| a.display().cmp(&b.display()));
     }
 }
 

@@ -39,6 +39,8 @@ pub struct Config {
     pub local_clipboard: bool,
     #[serde(default = "get_true")]
     pub show_splash: bool,
+    #[serde(default = "get_true")]
+    pub watch_recursive: bool,
 }
 
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");

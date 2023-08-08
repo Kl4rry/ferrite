@@ -2,3 +2,4 @@ theme = "default"
 rulers = [80]
 local_clipboard = false
 show_splash = true
+watch_recursive = true

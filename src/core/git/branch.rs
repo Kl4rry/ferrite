@@ -5,7 +5,7 @@ use std::{
     thread,
 };
 
-use notify::Watcher;
+use notify::{RecursiveMode, Watcher};
 
 use crate::tui_app::event_loop::TuiEventLoopProxy;
 
@@ -45,20 +45,27 @@ impl notify::EventHandler for FileNotificationEventHandler {
 
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
-    _watcher: notify::RecommendedWatcher,
+    _watcher: Arc<Mutex<notify::RecommendedWatcher>>,
 }
 
 impl BranchWatcher {
-    pub fn new(proxy: TuiEventLoopProxy) -> Result<Self, notify::Error> {
+    pub fn new(proxy: TuiEventLoopProxy, recursive: bool) -> Result<Self, notify::Error> {
         let current_branch = Arc::new(Mutex::new(None));
-        let mut watcher = notify::recommended_watcher(FileNotificationEventHandler {
+        let watcher = notify::recommended_watcher(FileNotificationEventHandler {
             current_branch: current_branch.clone(),
             proxy: proxy.clone(),
         })?;
-        let _ = watcher.watch(Path::new("./"), notify::RecursiveMode::Recursive);
+        let watcher = Arc::new(Mutex::new(watcher));
 
+        let mode = match recursive {
+            true => RecursiveMode::Recursive,
+            false => RecursiveMode::NonRecursive,
+        };
+
+        let thread_watcher = watcher.clone();
         let current_branch_thread = current_branch.clone();
         thread::spawn(move || {
+            let _ = thread_watcher.lock().unwrap().watch(Path::new("./"), mode);
             if let Some(branch) = get_current_branch() {
                 *current_branch_thread.lock().unwrap() = Some(branch);
                 proxy.request_render();

@@ -39,7 +39,7 @@ pub struct FileDaemon {
 }
 
 impl FileDaemon {
-    pub fn new(path: PathBuf) -> anyhow::Result<Self> {
+    pub fn new(path: PathBuf, recursive: bool) -> anyhow::Result<Self> {
         let (publisher, subscriber) = pubsub::create(Vec::new());
         let path_to_search = path.clone();
 
@@ -59,7 +59,12 @@ impl FileDaemon {
                 }
             };
 
-            if let Err(err) = watcher.watch(&path, RecursiveMode::Recursive) {
+            let mode = match recursive {
+                true => RecursiveMode::Recursive,
+                false => RecursiveMode::NonRecursive,
+            };
+
+            if let Err(err) = watcher.watch(&path, mode) {
                 log::error!("Error starting file watcher {err}");
             };
 
