@@ -157,7 +157,7 @@ impl TuiApp {
             file_finder,
             buffer_finder: None,
             key_mappings: get_default_mappings(),
-            branch_watcher: BranchWatcher::new(proxy.clone(), config.watch_recursive)?,
+            branch_watcher: BranchWatcher::new(proxy.clone(), file_daemon.change_detector())?,
             proxy,
             drag_start: None,
             file_daemon,
@@ -569,6 +569,7 @@ impl TuiApp {
                             Command::RevertBuffer => {
                                 let _ = self.buffers[self.current_buffer_id].handle_input(InputCommand::RevertBuffer);
                             }
+                            Command::GitReload => self.branch_watcher.force_reload(),
                         },
                         Err(err) => self.palette.set_error(err),
                     }

@@ -33,6 +33,7 @@ pub struct CommandTemplate {
     pub aliases: Vec<String>,
     pub args: Option<(String, CommandTemplateArg)>,
     pub optional: bool,
+    custom_alternative_error: Option<fn(&str, &[String]) -> String>,
 }
 
 impl CommandTemplate {
@@ -46,6 +47,7 @@ impl CommandTemplate {
             aliases: Vec::new(),
             args: args.map(|(name, template)| (name.to_string(), template)),
             optional,
+            custom_alternative_error: None,
         }
     }
 
@@ -87,9 +89,29 @@ impl CommandTemplate {
             args: Vec::new(),
         };
 
-        for ((_, arg), token) in self.args.iter().zip(tokens) {
-            let arg = arg.parse_arg(token)?;
-            generic.args.push(Some(arg));
+        if let Some((_, template)) = &self.args {
+            for token in tokens {
+                let arg = match template.parse_arg(token) {
+                    Ok(arg) => arg,
+                    Err(CommandParseError::UnknownArg(arg))
+                        if self.custom_alternative_error.is_some()
+                            && matches!(template, CommandTemplateArg::Alternatives(_)) =>
+                    {
+                        match template {
+                            CommandTemplateArg::Alternatives(alts) => {
+                                let error_creator = self.custom_alternative_error.as_ref().unwrap();
+                                return Err(CommandParseError::Custom(error_creator(
+                                    arg.as_str(),
+                                    alts,
+                                )));
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    Err(err) => return Err(err),
+                };
+                generic.args.push(Some(arg));
+            }
         }
 
         if self.optional && generic.args.is_empty() {
@@ -107,6 +129,11 @@ impl CommandTemplate {
         }
 
         usage
+    }
+
+    pub fn set_custom_alternative_error(mut self, f: fn(&str, &[String]) -> String) -> Self {
+        self.custom_alternative_error = Some(f);
+        self
     }
 }
 

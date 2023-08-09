@@ -1,13 +1,10 @@
 use std::{
-    path::Path,
     process::Command,
     sync::{Arc, Mutex},
     thread,
 };
 
-use notify::{RecursiveMode, Watcher};
-
-use crate::tui_app::event_loop::TuiEventLoopProxy;
+use crate::{core::pubsub::Subscriber, tui_app::event_loop::TuiEventLoopProxy};
 
 fn get_current_branch() -> Option<String> {
     match Command::new("git")
@@ -16,7 +13,7 @@ fn get_current_branch() -> Option<String> {
     {
         Ok(output) => {
             if output.status.success() {
-                Some(String::from_utf8_lossy(&output.stdout).to_string())
+                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
             } else {
                 None
             }
@@ -28,57 +25,62 @@ fn get_current_branch() -> Option<String> {
     }
 }
 
-struct FileNotificationEventHandler {
+pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
     proxy: TuiEventLoopProxy,
 }
 
-impl notify::EventHandler for FileNotificationEventHandler {
-    fn handle_event(&mut self, event: notify::Result<notify::Event>) {
-        if event.is_ok() {
-            let mut guard = self.current_branch.lock().unwrap();
-            *guard = get_current_branch();
-            self.proxy.request_render();
-        }
-    }
-}
-
-pub struct BranchWatcher {
-    current_branch: Arc<Mutex<Option<String>>>,
-    _watcher: Arc<Mutex<notify::RecommendedWatcher>>,
-}
-
 impl BranchWatcher {
-    pub fn new(proxy: TuiEventLoopProxy, recursive: bool) -> Result<Self, notify::Error> {
+    pub fn new(
+        proxy: TuiEventLoopProxy,
+        mut change_detector: Subscriber<()>,
+    ) -> Result<Self, notify::Error> {
         let current_branch = Arc::new(Mutex::new(None));
-        let watcher = notify::recommended_watcher(FileNotificationEventHandler {
-            current_branch: current_branch.clone(),
-            proxy: proxy.clone(),
-        })?;
-        let watcher = Arc::new(Mutex::new(watcher));
 
-        let mode = match recursive {
-            true => RecursiveMode::Recursive,
-            false => RecursiveMode::NonRecursive,
-        };
+        {
+            let current_branch_thread = current_branch.clone();
+            let thread_proxy = proxy.clone();
+            thread::spawn(move || {
+                if let Some(branch) = get_current_branch() {
+                    *current_branch_thread.lock().unwrap() = Some(branch);
+                    thread_proxy.request_render();
+                }
 
-        let thread_watcher = watcher.clone();
-        let current_branch_thread = current_branch.clone();
-        thread::spawn(move || {
-            let _ = thread_watcher.lock().unwrap().watch(Path::new("./"), mode);
-            if let Some(branch) = get_current_branch() {
-                *current_branch_thread.lock().unwrap() = Some(branch);
-                proxy.request_render();
-            }
-        });
+                while change_detector.recive().is_ok() {
+                    if let Some(branch) = get_current_branch() {
+                        {
+                            let mut guard = current_branch_thread.lock().unwrap();
+                            if let Some(current) = &*guard {
+                                if current != &branch {
+                                    log::info!("Git branch changed from `{current}` to `{branch}`");
+                                }
+                            }
+                            *guard = Some(branch);
+                        }
+                        thread_proxy.request_render();
+                    }
+                }
+            });
+        }
 
         Ok(Self {
+            proxy,
             current_branch,
-            _watcher: watcher,
         })
     }
 
     pub fn current_branch(&self) -> Option<String> {
         self.current_branch.lock().unwrap().clone()
+    }
+
+    pub fn force_reload(&self) {
+        let proxy = self.proxy.clone();
+        let current_branch_thread = self.current_branch.clone();
+        thread::spawn(move || {
+            if let Some(branch) = get_current_branch() {
+                *current_branch_thread.lock().unwrap() = Some(branch);
+                proxy.request_render();
+            }
+        });
     }
 }

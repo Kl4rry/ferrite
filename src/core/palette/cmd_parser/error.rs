@@ -6,6 +6,7 @@ pub enum CommandParseError {
     MissingArgs(String),
     UnknownArg(String),
     IntParse(num::ParseIntError),
+    Custom(String),
 }
 
 impl fmt::Display for CommandParseError {
@@ -14,6 +15,7 @@ impl fmt::Display for CommandParseError {
             Self::UnkownCommand(cmd) => writeln!(f, "Unknown command: '{cmd}'"),
             Self::MissingArgs(usage) => writeln!(f, "Missing args usage: '{usage}'"),
             Self::UnknownArg(arg) => writeln!(f, "Unknown argument: '{arg}'"),
+            Self::Custom(msg) => msg.fmt(f),
             Self::IntParse(err) => err.fmt(f),
         }
     }

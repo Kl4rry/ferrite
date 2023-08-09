@@ -36,11 +36,13 @@ fn trim_path(start: &str, path: &Path) -> String {
 
 pub struct FileDaemon {
     subscriber: Subscriber<Vec<String>>,
+    change_detector: Subscriber<()>,
 }
 
 impl FileDaemon {
     pub fn new(path: PathBuf, recursive: bool) -> anyhow::Result<Self> {
         let (publisher, subscriber) = pubsub::create(Vec::new());
+        let (change_broadcaster, change_detector) = pubsub::create(());
         let path_to_search = path.clone();
 
         thread::spawn(move || {
@@ -141,14 +143,24 @@ impl FileDaemon {
                     if publisher.publish(files).is_err() {
                         return;
                     }
+                    if change_broadcaster.publish(()).is_err() {
+                        return;
+                    }
                 }
             }
         });
 
-        Ok(Self { subscriber })
+        Ok(Self {
+            subscriber,
+            change_detector,
+        })
     }
 
     pub fn subscribe(&self) -> Subscriber<Vec<String>> {
         self.subscriber.clone()
+    }
+
+    pub fn change_detector(&self) -> Subscriber<()> {
+        self.change_detector.clone()
     }
 }

@@ -34,6 +34,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("language", [language, ..]) => Command::Language(language.take().map(|language| language.unwrap_string())),
         ("encoding", [encoding, ..]) => Command::Encoding(encoding.take().map(|encoding| encoding.unwrap_string())),
         ("indent", [indent, ..]) => Command::Indent(indent.take().map(|indent| indent.unwrap_string())),
+        ("git-reload", [..]) =>  Command::GitReload,
         ("new", [..]) => Command::New,
         ("reload", [..]) => Command::Reload,
         ("logger", [..]) => Command::Logger,
@@ -81,6 +82,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("theme", Some(("theme", CommandTemplateArg::String)), true),
         CommandTemplate::new("new", None, true).add_alias("n"),
         CommandTemplate::new("indent", Some(("indent", CommandTemplateArg::String)), true),
+        CommandTemplate::new("git-reload", None, true),
         CommandTemplate::new("reload", None, true).add_alias("r"),
         CommandTemplate::new("logger", None, true).add_alias("log"),
         CommandTemplate::new("quit!", None, true).add_alias("q!"),
@@ -93,7 +95,8 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("paste", None, true),
         CommandTemplate::new("copy", None, true),
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
-        CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true),
+        CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
+            .set_custom_alternative_error(|encoding, _| format!("`{encoding}` is unknown an encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs")),
         CommandTemplate::new("language", Some(("language", CommandTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true).add_alias("lang"),
         CommandTemplate::new("line-ending", Some(("line-ending", CommandTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))), true),
     ];
