@@ -4,7 +4,8 @@ use utility::line_ending::LineEnding;
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
 use crate::core::{
-    language::get_available_languages, palette::cmd_parser::generic_cmd::GenericCommand,
+    buffer::encoding::get_encoding_names, language::get_available_languages,
+    palette::cmd_parser::generic_cmd::GenericCommand,
 };
 
 pub mod lexer;
@@ -78,7 +79,6 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("save", Some(("path", CommandTemplateArg::Path)), true).add_alias("s"),
         CommandTemplate::new("goto", Some(("line", CommandTemplateArg::Int)), false).add_alias("g"),
         CommandTemplate::new("theme", Some(("theme", CommandTemplateArg::String)), true),
-        CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::String)), true),
         CommandTemplate::new("new", None, true).add_alias("n"),
         CommandTemplate::new("indent", Some(("indent", CommandTemplateArg::String)), true),
         CommandTemplate::new("reload", None, true).add_alias("r"),
@@ -92,7 +92,8 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("close", None, true),
         CommandTemplate::new("paste", None, true),
         CommandTemplate::new("copy", None, true),
-        CommandTemplate::new("revert-buffer", None, true),
+        CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
+        CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true),
         CommandTemplate::new("language", Some(("language", CommandTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true).add_alias("lang"),
         CommandTemplate::new("line-ending", Some(("line-ending", CommandTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))), true),
     ];

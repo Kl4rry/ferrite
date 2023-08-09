@@ -72,6 +72,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("comment", OnceCell::new());
     #[cfg(feature = "lang-javascript")]
     langs.insert("javascript", OnceCell::new());
+    #[cfg(feature = "lang-bash")]
+    langs.insert("bash", OnceCell::new());
     langs
 });
 
@@ -253,6 +255,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         langs.insert("cs", "c-sharp");
         langs.insert("sh", "bash");
         langs.insert("bash", "bash");
+        langs.insert("bashrc", "bash");
         langs.insert("fish", "fish");
         langs.insert("js", "javascript");
         langs

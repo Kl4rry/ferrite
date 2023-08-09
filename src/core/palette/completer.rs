@@ -147,13 +147,13 @@ impl Completer {
             CompletionType::Arg | CompletionType::NewArg => {
                 self.options.clear();
                 if let Some(input_type) = get_command_input_type(&cmd.text) {
+                    let text = match tokens.last() {
+                        Some(token) => &token.text,
+                        None => "",
+                    };
+
                     match input_type {
                         CommandTemplateArg::Path => {
-                            let text = match tokens.last() {
-                                Some(token) => &token.text,
-                                None => "",
-                            };
-
                             self.options.extend(
                                 complete_file_path(text)
                                     .into_iter()
@@ -164,6 +164,7 @@ impl Completer {
                             self.options.extend(
                                 alternatives
                                     .iter()
+                                    .filter(|alternative| alternative.starts_with(text))
                                     .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                             );
                         }
