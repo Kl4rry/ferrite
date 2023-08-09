@@ -8,6 +8,7 @@ pub enum CommandTemplateArg {
     Int,
     String,
     Path,
+    Theme,
 }
 
 impl CommandTemplateArg {
@@ -22,6 +23,7 @@ impl CommandTemplateArg {
             }
             CommandTemplateArg::Int => Ok(CommandArg::Int(token.parse()?)),
             CommandTemplateArg::String => Ok(CommandArg::String(token)),
+            CommandTemplateArg::Theme => Ok(CommandArg::String(token)),
             CommandTemplateArg::Path => Ok(CommandArg::Path(token.into())),
         }
     }

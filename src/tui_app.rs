@@ -33,7 +33,9 @@ use crate::{
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
-        palette::{cmd, cmd_parser, CommandPalette, PalettePromptEvent},
+        palette::{
+            cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent,
+        },
         search_buffer::{
             buffer_find::{BufferFindProvider, BufferItem},
             file_daemon::FileDaemon,
@@ -407,17 +409,23 @@ impl TuiApp {
                     InputCommand::FocusPalette if !self.palette.has_focus() => {
                         self.file_finder = None;
                         self.buffer_finder = None;
-                        self.palette.focus("> ", "command");
+                        self.palette
+                            .focus("> ", "command", CompleterContext::new(&self.themes));
                     }
                     InputCommand::PromptGoto => {
                         self.file_finder = None;
                         self.buffer_finder = None;
-                        self.palette.focus("goto: ", "goto");
+                        self.palette
+                            .focus("goto: ", "goto", CompleterContext::new(&self.themes));
                     }
                     InputCommand::FileSearch => {
                         self.file_finder = None;
                         self.buffer_finder = None;
-                        self.palette.focus("search: ", "search");
+                        self.palette.focus(
+                            "search: ",
+                            "search",
+                            CompleterContext::new(&self.themes),
+                        );
                     }
                     InputCommand::Escape
                         if self.file_finder.is_some() | self.buffer_finder.is_some() =>
@@ -429,7 +437,9 @@ impl TuiApp {
                     InputCommand::OpenBufferBrowser => self.browse_buffers(),
                     input => {
                         if self.palette.has_focus() {
-                            let _ = self.palette.handle_input(input);
+                            let _ = self
+                                .palette
+                                .handle_input(input, CompleterContext::new(&self.themes));
                         } else if let Some(finder) = &mut self.file_finder {
                             let _ = finder.handle_input(input);
                             if let Some(path) = finder.get_choice() {

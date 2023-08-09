@@ -3,7 +3,7 @@ use std::fmt;
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
-use self::completer::Completer;
+use self::completer::{Completer, CompleterContext};
 use super::buffer::{error::BufferError, Buffer};
 use crate::tui_app::{
     event_loop::{TuiAppEvent, TuiEventLoopProxy},
@@ -75,7 +75,12 @@ impl CommandPalette {
         self.state = PaletteState::Nothing;
     }
 
-    pub fn focus(&mut self, prompt: impl Into<String>, mode: impl Into<String>) {
+    pub fn focus(
+        &mut self,
+        prompt: impl Into<String>,
+        mode: impl Into<String>,
+        ctx: CompleterContext,
+    ) {
         let mut buffer = Buffer::new();
         buffer.set_view_lines(1);
         let mode = mode.into();
@@ -94,7 +99,7 @@ impl CommandPalette {
             prompt: prompt.into(),
             mode,
             focused: true,
-            completer: Completer::new(&buffer),
+            completer: Completer::new(&buffer, ctx),
             buffer,
         };
     }
@@ -139,7 +144,11 @@ impl CommandPalette {
 }
 
 impl CommandPalette {
-    pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
+    pub fn handle_input(
+        &mut self,
+        input: InputCommand,
+        ctx: CompleterContext,
+    ) -> Result<(), BufferError> {
         match &mut self.state {
             PaletteState::Input {
                 buffer,
@@ -186,7 +195,7 @@ impl CommandPalette {
                         content: buffer.rope().to_string(),
                     });
                 } else if buffer.is_dirty() && mode == "command" {
-                    completer.update_text(buffer);
+                    completer.update_text(buffer, ctx);
                 }
             }
             PaletteState::Prompt {

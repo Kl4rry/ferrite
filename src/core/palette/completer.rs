@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use utility::line_ending::LineEnding;
 
@@ -8,7 +8,7 @@ use super::cmd_parser::{
     get_command_input_type,
     lexer::{self, Token},
 };
-use crate::core::buffer::Buffer;
+use crate::core::{buffer::Buffer, theme::EditorTheme};
 
 mod path_completer;
 
@@ -18,13 +18,13 @@ pub struct Completer {
 }
 
 impl Completer {
-    pub fn new(buffer: &Buffer) -> Self {
+    pub fn new(buffer: &Buffer, ctx: CompleterContext) -> Self {
         let mut new = Self {
             options: Vec::new(),
             index: None,
         };
 
-        new.update_text(buffer);
+        new.update_text(buffer, ctx);
         new
     }
 
@@ -114,7 +114,7 @@ impl Completer {
         self.index
     }
 
-    pub fn update_text(&mut self, buffer: &Buffer) {
+    pub fn update_text(&mut self, buffer: &Buffer, ctx: CompleterContext) {
         self.index = None;
         let text = buffer.to_string();
         if text.is_empty() {
@@ -168,6 +168,14 @@ impl Completer {
                                     .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                             );
                         }
+                        CommandTemplateArg::Theme => {
+                            self.options.extend(
+                                ctx.themes
+                                    .keys()
+                                    .filter(|theme| theme.starts_with(text))
+                                    .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
+                            );
+                        }
                         _ => (),
                     }
                 }
@@ -179,6 +187,16 @@ impl Completer {
         }
 
         self.options.sort_by(|a, b| a.display().cmp(&b.display()));
+    }
+}
+
+pub struct CompleterContext<'a> {
+    themes: &'a HashMap<String, EditorTheme>,
+}
+
+impl<'a> CompleterContext<'a> {
+    pub fn new(themes: &'a HashMap<String, EditorTheme>) -> Self {
+        Self { themes }
     }
 }
 

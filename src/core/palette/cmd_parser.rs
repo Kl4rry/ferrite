@@ -79,7 +79,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("open", Some(("path", CommandTemplateArg::Path)), false).add_alias("o"),
         CommandTemplate::new("save", Some(("path", CommandTemplateArg::Path)), true).add_alias("s"),
         CommandTemplate::new("goto", Some(("line", CommandTemplateArg::Int)), false).add_alias("g"),
-        CommandTemplate::new("theme", Some(("theme", CommandTemplateArg::String)), true),
+        CommandTemplate::new("theme", Some(("theme", CommandTemplateArg::Theme)), true),
         CommandTemplate::new("new", None, true).add_alias("n"),
         CommandTemplate::new("indent", Some(("indent", CommandTemplateArg::String)), true),
         CommandTemplate::new("git-reload", None, true),
