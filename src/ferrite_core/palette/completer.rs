@@ -8,7 +8,7 @@ use super::cmd_parser::{
     get_command_input_type,
     lexer::{self, Token},
 };
-use crate::core::{buffer::Buffer, theme::EditorTheme};
+use crate::ferrite_core::{buffer::Buffer, theme::EditorTheme};
 
 mod path_completer;
 

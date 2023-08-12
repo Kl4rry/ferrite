@@ -10,7 +10,7 @@ use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use super::one_line_input_widget::OneLineInputWidget;
-use crate::core::{
+use crate::ferrite_core::{
     search_buffer::{Matchable, SearchBuffer},
     theme::EditorTheme,
 };

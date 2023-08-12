@@ -1,7 +1,7 @@
 use tui::widgets::StatefulWidget;
 use unicode_width::UnicodeWidthStr;
 
-use crate::core::{palette::completer::Completer, theme::EditorTheme};
+use crate::ferrite_core::{palette::completer::Completer, theme::EditorTheme};
 
 pub struct CompleterWidget<'a> {
     theme: &'a EditorTheme,

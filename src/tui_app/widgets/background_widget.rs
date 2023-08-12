@@ -1,6 +1,6 @@
 use tui::widgets::Widget;
 
-use crate::core::theme::EditorTheme;
+use crate::ferrite_core::theme::EditorTheme;
 
 pub struct BackgroundWidget<'a> {
     theme: &'a EditorTheme,

@@ -1,5 +1,5 @@
 use std::{
-    fs, io,
+    fs,
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -97,7 +97,24 @@ impl Default for PickerConfig {
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");
 
 impl Config {
-    pub fn load_or_create_default() -> Result<Self> {
+    pub fn create_default_config() -> Result<()> {
+        let config = Self::get_default_location()?;
+
+        let mut config_folder = config.clone();
+        config_folder.pop();
+
+        if !config_folder.exists() {
+            fs::create_dir_all(config_folder)?;
+        }
+
+        if !config.exists() {
+            fs::write(config, DEFAULT_CONFIG)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn load_from_default_location() -> Result<Self> {
         let path = Self::get_default_location()?;
 
         let mut config_folder = path.clone();
@@ -107,15 +124,7 @@ impl Config {
             fs::create_dir_all(config_folder)?;
         }
 
-        match fs::read_to_string(&path) {
-            Err(err) if err.kind() == io::ErrorKind::NotFound => {
-                if let Err(err) = fs::write(path, DEFAULT_CONFIG) {
-                    log::error!("Error creating default config: {err}");
-                }
-                Ok(Config::default())
-            }
-            err => Ok(toml::from_str(&err?)?),
-        }
+        Ok(toml::from_str(&fs::read_to_string(&path)?)?)
     }
 
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {

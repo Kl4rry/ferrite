@@ -10,7 +10,7 @@ use utility::{
 
 use super::info_line::InfoLine;
 use crate::{
-    core::{
+    ferrite_core::{
         buffer::{search::SearchMatch, Buffer, Selection},
         config::Config,
         language::syntax::{Highlight, HighlightEvent},

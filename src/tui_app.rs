@@ -29,7 +29,7 @@ use self::{
 };
 use crate::{
     clipboard,
-    core::{
+    ferrite_core::{
         buffer::{encoding::get_encoding, Buffer},
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
@@ -76,7 +76,7 @@ impl TuiApp {
     pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
         let mut palette = CommandPalette::new(proxy.clone());
         let config_path = Config::get_default_location().ok();
-        let mut config = match Config::load_or_create_default() {
+        let mut config = match Config::load_from_default_location() {
             Ok(config) => config,
             Err(err) => {
                 palette.set_error(err);
@@ -462,7 +462,7 @@ impl TuiApp {
                                 self.current_buffer_id = choice.id;
                             }
                         } else {
-                            use crate::core::buffer::input::Response;
+                            use crate::ferrite_core::buffer::input::Response;
                             match self.buffers[self.current_buffer_id].handle_input(input) {
                                 Ok(response) => match response {
                                     Response::Written(name, bytes_written) => {

@@ -1,7 +1,7 @@
 use tui::widgets::Widget;
 use unicode_width::UnicodeWidthStr;
 
-use crate::core::theme::EditorTheme;
+use crate::ferrite_core::theme::EditorTheme;
 
 pub struct SplashWidget<'a> {
     theme: &'a EditorTheme,

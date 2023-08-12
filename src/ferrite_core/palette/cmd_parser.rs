@@ -3,7 +3,7 @@ use utility::line_ending::LineEnding;
 
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
-use crate::core::{
+use crate::ferrite_core::{
     buffer::encoding::get_encoding_names, language::get_available_languages,
     palette::cmd_parser::generic_cmd::GenericCommand,
 };

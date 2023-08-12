@@ -4,7 +4,7 @@ use encoding_rs::Encoding;
 use tui::widgets::Widget;
 use unicode_width::UnicodeWidthStr;
 
-use crate::core::{config::InfoLineConfig, theme::EditorTheme};
+use crate::ferrite_core::{config::InfoLineConfig, theme::EditorTheme};
 
 pub struct InfoLine<'a> {
     pub theme: &'a EditorTheme,

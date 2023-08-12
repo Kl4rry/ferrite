@@ -1,6 +1,6 @@
 use tui::{layout::Rect, style::Style, widgets::StatefulWidget};
 
-use crate::core::{buffer::Buffer, theme::EditorTheme};
+use crate::ferrite_core::{buffer::Buffer, theme::EditorTheme};
 
 pub struct OneLineInputWidget<'a> {
     theme: &'a EditorTheme,

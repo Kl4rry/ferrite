@@ -9,7 +9,7 @@ use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
 
-use crate::core::{
+use crate::ferrite_core::{
     config::PickerConfig,
     pubsub::{self, Subscriber},
 };

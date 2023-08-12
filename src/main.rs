@@ -8,9 +8,10 @@ use std::{
 
 use anyhow::Result;
 use clap::Parser;
+use ferrite_core::config::Config;
 use tui_app::event_loop::TuiEventLoop;
 
-mod core;
+mod ferrite_core;
 
 mod clipboard;
 mod tui_app;
@@ -36,9 +37,22 @@ pub struct Args {
     /// Options `off`, `error`, `warn`, `info`, `debug` or `trace`
     #[arg(long)]
     pub log_level: Option<String>,
+    /// Initialize default config
+    #[arg(long)]
+    pub init: bool,
 }
 
 fn main() -> Result<ExitCode> {
+    let args = Args::parse();
+    if args.init {
+        Config::create_default_config()?;
+        println!(
+            "Created default config at: `{}`",
+            Config::get_default_location()?.to_string_lossy()
+        );
+        return Ok(ExitCode::SUCCESS);
+    }
+
     let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
         eprintln!("Unable to get project directory");
         return Ok(ExitCode::from(1));
@@ -51,7 +65,6 @@ fn main() -> Result<ExitCode> {
             .create(true)
             .open(&log_file_path)?,
     );
-    let args = Args::parse();
 
     let var = args
         .log_level

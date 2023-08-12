@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::core::palette::PalettePromptEvent;
+use crate::ferrite_core::palette::PalettePromptEvent;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

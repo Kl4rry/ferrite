@@ -2,7 +2,7 @@ use tui::{layout::Rect, widgets::StatefulWidget};
 use unicode_width::UnicodeWidthStr;
 
 use super::{completer_widget::CompleterWidget, one_line_input_widget::OneLineInputWidget};
-use crate::core::{
+use crate::ferrite_core::{
     palette::{CommandPalette, PaletteState, SelectedPrompt},
     theme::EditorTheme,
 };
