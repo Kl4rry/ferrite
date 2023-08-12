@@ -135,7 +135,11 @@ impl TuiApp {
         if let Some(path) = args.files.first() {
             if path.is_dir() {
                 std::env::set_current_dir(path)?;
-                let daemon = FileDaemon::new(std::env::current_dir()?, config.watch_recursive)?;
+                let daemon = FileDaemon::new(
+                    std::env::current_dir()?,
+                    config.watch_recursive,
+                    config.picker,
+                )?;
                 file_finder = Some(SearchBuffer::new(
                     FileFindProvider(daemon.subscribe()),
                     proxy.clone(),
@@ -147,7 +151,11 @@ impl TuiApp {
         let file_daemon = if let Some(daemon) = file_daemon {
             daemon
         } else {
-            FileDaemon::new(std::env::current_dir()?, config.watch_recursive)?
+            FileDaemon::new(
+                std::env::current_dir()?,
+                config.watch_recursive,
+                config.picker,
+            )?
         };
 
         Ok(Self {

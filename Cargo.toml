@@ -19,7 +19,6 @@ directories = "5.0.0"
 encoding_rs = "0.8.31"
 ferrite-tree-sitter = { path = "ferrite-tree-sitter" }
 flume = { version = "0.10.14", default-features = false }
-jwalk = "0.8.1"
 lexical-sort = "0.3.1"
 log = "0.4.17"
 memchr = "2.5.0"
@@ -38,6 +37,7 @@ tui = { package = "ratatui", version = "0.21.0" }
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
 utility = { path = "utility" }
+ignore = "0.4.20"
 
 [dev-dependencies]
 tempdir = "0.3.7"

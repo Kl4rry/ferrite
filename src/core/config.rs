@@ -43,6 +43,31 @@ pub struct Config {
     pub watch_recursive: bool,
     #[serde(default = "get_true")]
     pub show_indent_rulers: bool,
+    #[serde(default)]
+    pub picker: PickerConfig,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct PickerConfig {
+    pub show_hidden: bool,
+    pub follow_gitignore: bool,
+    pub follow_git_exclude: bool,
+    pub follow_ignore: bool,
+    pub follow_parent_ignore: bool,
+    pub follow_git_global: bool,
+}
+
+impl Default for PickerConfig {
+    fn default() -> Self {
+        Self {
+            show_hidden: false,
+            follow_gitignore: true,
+            follow_git_exclude: true,
+            follow_ignore: true,
+            follow_parent_ignore: true,
+            follow_git_global: true,
+        }
+    }
 }
 
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");

@@ -9,7 +9,10 @@ use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
 
-use crate::core::pubsub::{self, Subscriber};
+use crate::core::{
+    config::PickerConfig,
+    pubsub::{self, Subscriber},
+};
 
 fn get_text_file_path(path: PathBuf) -> Option<PathBuf> {
     if is_text_file(&path) {
@@ -40,7 +43,11 @@ pub struct FileDaemon {
 }
 
 impl FileDaemon {
-    pub fn new(path: PathBuf, recursive: bool) -> anyhow::Result<Self> {
+    pub fn new(
+        path: PathBuf,
+        recursive: bool,
+        picker_config: PickerConfig,
+    ) -> anyhow::Result<Self> {
         let (publisher, subscriber) = pubsub::create(Vec::new());
         let (change_broadcaster, change_detector) = pubsub::create(());
         let path_to_search = path.clone();
@@ -75,10 +82,14 @@ impl FileDaemon {
             let path: PathBuf = path_to_search;
             let path_str = path.to_string_lossy().into_owned();
 
-            // TODO Make filtering smarted
-            let mut iterator = jwalk::WalkDir::new(&path)
+            let mut iterator = ignore::WalkBuilder::new(&path)
                 .follow_links(false)
-                .into_iter()
+                .parents(picker_config.follow_parent_ignore)
+                .ignore(picker_config.follow_ignore)
+                .git_global(picker_config.follow_git_global)
+                .git_ignore(picker_config.follow_gitignore)
+                .git_exclude(picker_config.follow_git_exclude)
+                .build()
                 .filter_map(|result| result.ok());
 
             {
@@ -93,8 +104,8 @@ impl FileDaemon {
                     tracked_files.par_extend(
                         entries
                             .par_iter()
-                            .filter(|entry| entry.file_type().is_file())
-                            .filter_map(|entry| get_text_file_path(entry.path())),
+                            .filter(|entry| entry.file_type().map(|f| f.is_file()).unwrap_or(false))
+                            .filter_map(|entry| get_text_file_path(entry.path().to_path_buf())),
                     );
 
                     let mut files: Vec<_> = tracked_files

@@ -4,3 +4,11 @@ local_clipboard = false
 show_splash = true
 watch_recursive = true
 show_indent_rulers = true
+
+[picker]
+show_hidden = false
+follow_gitignore = true
+follow_git_exclude = true
+follow_ignore = true
+follow_parent_ignore = true
+follow_git_global = true
