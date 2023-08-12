@@ -5,13 +5,6 @@
  "||"
  "|"
  "&"
- "="
- "!="
- ".."
- "!"
- (direction)
- (stream_redirect)
- (test_option)
 ] @operator
 
 [
@@ -112,8 +105,6 @@
         ]
 )
 
-(test_command "test" @function.builtin)
-
 ;; Functions
 
 (function_definition ["function" "end"] @keyword.function)
@@ -146,7 +137,6 @@
 (integer) @constant.numeric.integer
 (float) @constant.numeric.float
 (comment) @comment
-(test_option) @string
 
 ((word) @constant.builtin.boolean
 (#match? @constant.builtin.boolean "^(true|false)$"))

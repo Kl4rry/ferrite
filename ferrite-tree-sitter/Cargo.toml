@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-tree-sitter-bash = { git = "https://github.com/tree-sitter/tree-sitter-bash", rev = "4488aa41406547e478636a4fcfd24f5bbc3f2f74", optional = true }
+tree-sitter-bash = { git = "https://github.com/tree-sitter/tree-sitter-bash", rev = "1b0321ee85701d5036c334a6f04761cdc672e64c", optional = true }
 tree-sitter-c = { version = "0.20.2", optional = true }
 tree-sitter-c-sharp = { git = "https://github.com/tree-sitter/tree-sitter-c-sharp", rev = "5b60f99545fea00a33bbfae5be956f684c4c69e2", optional = true }
 tree-sitter-cmake = { version = "0.2.0", optional = true }
@@ -20,7 +20,7 @@ tree-sitter-rust = { version = "0.20.3", optional = true }
 tree-sitter-toml = { git = "https://github.com/Mathspy/tree-sitter-toml", optional = true }
 tree-sitter-xml = { git = "https://github.com/RenjiSann/tree-sitter-xml", rev = "422528a43630db6dcc1e222d1c5ee3babd559473", optional = true }
 tree-sitter-yaml = { git = "https://github.com/panekj/tree-sitter-yaml", rev = "80c8d76847f03e772c5c524cf29bafb56858a8d1", optional = true }
-tree-sitter-fish = { git = "https://github.com/ram02z/tree-sitter-fish", rev = "f9176908c9eb2e11eb684d79e1d00f3b29bd65c9", optional = true }
+tree-sitter-fish = { git = "https://github.com/ram02z/tree-sitter-fish", rev = "6675b56266b3f615fb112205b6b83a79315309c4", optional = true }
 tree-sitter-comment = { git = "https://github.com/stsewd/tree-sitter-comment", rev = "94c99a66bb5051d8321b5900aee92b76450c50ce", optional = true }
 tree-sitter-javascript = { version = "0.20.0", optional = true }
 

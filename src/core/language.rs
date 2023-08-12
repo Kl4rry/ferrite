@@ -274,3 +274,15 @@ pub fn get_tree_sitter_language(language: &str) -> Option<&'static LanguageConfi
 pub fn get_available_languages() -> Vec<&'static str> {
     LANGUAGES.keys().copied().collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn language_load_test() {
+        for k in LANGUAGES.keys() {
+            println!("{k}");
+            assert!(get_lang_config(*k).is_some())
+        }
+    }
+}
