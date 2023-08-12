@@ -43,6 +43,7 @@ impl Buffer {
             SetCursorPos(col, line) => self.set_cursor_pos(col, line),
             SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
             NextMatch => self.next_match(),
+            PrevMatch => self.prev_match(),
             Undo if !self.read_only => self.undo(),
             Redo if !self.read_only => self.redo(),
             RevertBuffer if !self.read_only => self.revert_buffer(),

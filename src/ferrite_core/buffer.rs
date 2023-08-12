@@ -1368,6 +1368,14 @@ impl Buffer {
         }
     }
 
+    pub fn prev_match(&mut self) {
+        if let Some(searcher) = &mut self.searcher {
+            if let Some(search_match) = searcher.get_prev_match() {
+                self.select_area(search_match.end, search_match.start);
+            }
+        }
+    }
+
     pub fn cursor_is_eof(&self) -> bool {
         self.cursor.position == self.rope.len_bytes()
     }

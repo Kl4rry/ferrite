@@ -103,6 +103,15 @@ impl BufferSearcher {
         guard.get(self.match_index).copied()
     }
 
+    pub fn get_prev_match(&mut self) -> Option<SearchMatch> {
+        let guard = self.matches.lock().unwrap();
+        if self.match_index == 0 {
+            self.match_index = guard.len().saturating_sub(1);
+        }
+        self.match_index -= 1;
+        guard.get(self.match_index).copied()
+    }
+
     pub fn update_query(&mut self, query: String) {
         let _ = self.tx.send(QueryUpdate::Query(query));
     }

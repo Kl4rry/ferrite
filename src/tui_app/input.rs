@@ -83,12 +83,14 @@ pub enum InputCommand {
     VerticalScroll(i64),
     FileSearch,
     NextMatch,
+    PrevMatch,
     FocusPalette,
     OpenFileBrowser,
     OpenBufferBrowser,
     Escape,
     Save,
     Quit,
+    Close,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -138,6 +140,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Esc, KeyModifiers::NONE),
             InputCommand::Escape,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
+            InputCommand::Close,
             Exclusiveness::Exclusive,
         ),
         (
@@ -213,6 +220,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             InputCommand::FileSearch,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            InputCommand::PrevMatch,
             Exclusiveness::Exclusive,
         ),
         (

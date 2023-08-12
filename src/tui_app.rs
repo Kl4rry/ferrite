@@ -409,6 +409,9 @@ impl TuiApp {
 
             if let Some(input) = input {
                 match input {
+                    InputCommand::Close => {
+                        self.close_current_buffer();
+                    }
                     InputCommand::Quit => {
                         self.quit(control_flow);
                     }
