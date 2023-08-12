@@ -14,7 +14,6 @@ pub fn init(local_clipboard: bool) {
     let Ok(clipboard) = Clipboard::new() else {
         IS_USING_LOCAL_CLIPBOARD.store(true, Ordering::SeqCst);
         return;
-
     };
     *CLIPBOARD.lock().unwrap() = Some(clipboard);
 }

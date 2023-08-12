@@ -11,6 +11,7 @@ use crossterm::{
     event::{self, Event, KeyEventKind, MouseButton, MouseEventKind},
     execute, terminal,
 };
+use humansize::format_size;
 use slab::Slab;
 use tui::layout::{Margin, Rect};
 use utility::{line_ending, point::Point};
@@ -460,10 +461,20 @@ impl TuiApp {
                                 self.buffer_finder = None;
                                 self.current_buffer_id = choice.id;
                             }
-                        } else if let Err(err) =
-                            self.buffers[self.current_buffer_id].handle_input(input)
-                        {
-                            self.palette.set_error(err);
+                        } else {
+                            use crate::core::buffer::input::Response;
+                            match self.buffers[self.current_buffer_id].handle_input(input) {
+                                Ok(response) => match response {
+                                    Response::Written(name, bytes_written) => {
+                                        self.palette.set_msg(format!(
+                                            "`{name}` written: {}",
+                                            format_size(bytes_written, humansize::BINARY)
+                                        ))
+                                    }
+                                    Response::None => (),
+                                },
+                                Err(err) => self.palette.set_error(err),
+                            }
                         }
                     }
                 }
@@ -486,8 +497,11 @@ impl TuiApp {
                         Ok(cmd) => match cmd {
                             Command::OpenFile(path) => self.open_file(path),
                             Command::SaveFile(path) => {
-                                if let Err(err) = self.buffers[self.current_buffer_id].save(path) {
-                                    self.palette.set_msg(err.to_string())
+                                match self.buffers[self.current_buffer_id].save(path) {
+                                    Ok(bytes_written) => {
+                                        self.palette.set_msg(format!("`{}` written: {}", self.buffers[self.current_buffer_id].name().unwrap_or_default(), format_size(bytes_written, humansize::BINARY)))
+                                    },
+                                    Err(err) => self.palette.set_msg(err.to_string()),
                                 }
                             }
                             Command::Language(language) => match language {

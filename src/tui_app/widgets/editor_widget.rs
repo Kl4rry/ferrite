@@ -347,6 +347,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
             let info_line = InfoLine {
                 theme,
+                config: &self.config.info_line,
                 encoding: buffer.encoding,
                 file: buffer.file(),
                 line: buffer.cursor_pos().1 + 1,
@@ -354,6 +355,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 dirty: buffer.is_dirty(),
                 branch: &branch,
                 language: buffer.language_name(),
+                size: buffer.rope().len_bytes(),
             };
             info_line.render(Rect::new(0, text_area.height, area.width, 1), buf);
         }

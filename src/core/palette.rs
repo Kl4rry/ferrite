@@ -186,7 +186,9 @@ impl CommandPalette {
                             buffer.mark_dirty();
                         }
                     }
-                    input => buffer.handle_input(input)?,
+                    input => {
+                        buffer.handle_input(input)?;
+                    }
                 }
 
                 if enter && buffer.rope().len_bytes() > 0 {

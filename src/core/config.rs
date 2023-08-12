@@ -29,7 +29,7 @@ pub fn get_true() -> bool {
     false
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -45,6 +45,8 @@ pub struct Config {
     pub show_indent_rulers: bool,
     #[serde(default)]
     pub picker: PickerConfig,
+    #[serde(default)]
+    pub info_line: InfoLineConfig,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -55,6 +57,28 @@ pub struct PickerConfig {
     pub follow_ignore: bool,
     pub follow_parent_ignore: bool,
     pub follow_git_global: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InfoLineConfig {
+    pub left: Vec<String>,
+    pub center: Vec<String>,
+    pub right: Vec<String>,
+    pub padding: usize,
+}
+
+impl Default for InfoLineConfig {
+    fn default() -> Self {
+        Self {
+            left: ["size"].iter().map(|s| s.to_string()).collect(),
+            center: ["file"].iter().map(|s| s.to_string()).collect(),
+            right: ["branch", "position", "encoding", "language"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            padding: 1,
+        }
+    }
 }
 
 impl Default for PickerConfig {

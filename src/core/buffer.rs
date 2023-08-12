@@ -26,7 +26,7 @@ use crate::{
 pub mod encoding;
 pub mod error;
 mod history;
-mod input;
+pub mod input;
 mod read;
 pub mod search;
 mod write;
@@ -1205,21 +1205,21 @@ impl Buffer {
         self.history.finish();
     }
 
-    pub fn save(&mut self, path: Option<PathBuf>) -> Result<(), BufferError> {
+    pub fn save(&mut self, path: Option<PathBuf>) -> Result<usize, BufferError> {
         if let Some(path) = path {
             self.file = Some(path);
         }
 
         let Some(path) = self.file.clone() else {
-            return Err(BufferError::NoPathSet)
+            return Err(BufferError::NoPathSet);
         };
 
-        write::write(self.encoding, self.line_ending, self.rope.clone(), path)?;
+        let written = write::write(self.encoding, self.line_ending, self.rope.clone(), path)?;
 
         self.dirty = false;
         self.history.save();
 
-        Ok(())
+        Ok(written)
     }
 
     pub fn reload(&mut self) -> Result<(), BufferError> {

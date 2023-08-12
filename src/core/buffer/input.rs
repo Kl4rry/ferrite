@@ -1,9 +1,15 @@
 use super::{error::BufferError, Buffer};
 use crate::tui_app::input::InputCommand;
 
+pub enum Response {
+    Written(String, usize),
+    None,
+}
+
 impl Buffer {
-    pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
+    pub fn handle_input(&mut self, input: InputCommand) -> Result<Response, BufferError> {
         use InputCommand::*;
+        let mut respone = Response::None;
         match input {
             MoveRight { shift } => self.move_right_char(shift),
             MoveLeft { shift } => self.move_left_char(shift),
@@ -33,7 +39,7 @@ impl Buffer {
             Tab { back } if !self.read_only => self.tab(back),
             VerticalScroll(distance) => self.vertical_scroll(distance),
             Escape => self.escape(),
-            Save => self.save(None)?,
+            Save => respone = Response::Written(self.name().unwrap_or_default(), self.save(None)?),
             SetCursorPos(col, line) => self.set_cursor_pos(col, line),
             SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
             NextMatch => self.next_match(),
@@ -47,6 +53,6 @@ impl Buffer {
             searcher.update_buffer(self.rope.clone());
         }
 
-        Ok(())
+        Ok(respone)
     }
 }

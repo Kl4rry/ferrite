@@ -15,7 +15,7 @@ pub fn write(
     line_ending: LineEnding,
     rope: Rope,
     path: impl AsRef<Path>,
-) -> Result<(), BufferError> {
+) -> Result<usize, BufferError> {
     let path = path.as_ref().to_path_buf();
     const BUFFER_SIZE: usize = 8192;
 
@@ -80,5 +80,5 @@ pub fn write(
     file.flush()?;
     file.get_mut().sync_all()?;
 
-    Ok(())
+    Ok(total_written)
 }

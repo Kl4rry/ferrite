@@ -12,3 +12,9 @@ follow_git_exclude = true
 follow_ignore = true
 follow_parent_ignore = true
 follow_git_global = true
+
+[info_line]
+left = ["size"]
+center = ["file"]
+right = ["branch", "position", "encoding", "language"]
+padding = 1
