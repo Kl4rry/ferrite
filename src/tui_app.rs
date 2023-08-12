@@ -11,7 +11,6 @@ use crossterm::{
     event::{self, Event, KeyEventKind, MouseButton, MouseEventKind},
     execute, terminal,
 };
-use humansize::format_size;
 use slab::Slab;
 use tui::layout::{Margin, Rect};
 use utility::{line_ending, point::Point};
@@ -31,6 +30,7 @@ use crate::{
     clipboard,
     ferrite_core::{
         buffer::{encoding::get_encoding, Buffer},
+        byte_size::format_byte_size,
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
@@ -471,7 +471,7 @@ impl TuiApp {
                                     Response::Written(name, bytes_written) => {
                                         self.palette.set_msg(format!(
                                             "`{name}` written: {}",
-                                            format_size(bytes_written, humansize::BINARY)
+                                            format_byte_size(bytes_written)
                                         ))
                                     }
                                     Response::None => (),
@@ -502,7 +502,7 @@ impl TuiApp {
                             Command::SaveFile(path) => {
                                 match self.buffers[self.current_buffer_id].save(path) {
                                     Ok(bytes_written) => {
-                                        self.palette.set_msg(format!("`{}` written: {}", self.buffers[self.current_buffer_id].name().unwrap_or_default(), format_size(bytes_written, humansize::BINARY)))
+                                        self.palette.set_msg(format!("`{}` written: {}", self.buffers[self.current_buffer_id].name().unwrap_or_default(), format_byte_size(bytes_written)))
                                     },
                                     Err(err) => self.palette.set_msg(err.to_string()),
                                 }

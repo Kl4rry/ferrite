@@ -1,4 +1,5 @@
 pub mod buffer;
+pub mod byte_size;
 pub mod config;
 pub mod git;
 pub mod indent;
