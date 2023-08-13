@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fs,
     io::{self, Stdout},
     num::NonZeroUsize,
     path::{Path, PathBuf},
@@ -635,7 +634,7 @@ impl TuiApp {
     }
 
     pub fn open_file(&mut self, path: impl AsRef<Path>) {
-        let real_path = match fs::canonicalize(&path) {
+        let real_path = match dunce::canonicalize(&path) {
             Ok(path) => path,
             Err(err) => {
                 self.palette.set_error(err);
@@ -646,7 +645,7 @@ impl TuiApp {
         match self.buffers.iter().find(|(_, buffer)| {
             buffer
                 .file()
-                .map(|path| fs::canonicalize(path).unwrap())
+                .map(|path| dunce::canonicalize(path).unwrap())
                 .as_deref()
                 == Some(&real_path)
         }) {
