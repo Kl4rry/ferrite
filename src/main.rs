@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 use std::{
     fs::{self, OpenOptions},
-    io::{self, LineWriter, Read},
+    io::{self, IsTerminal, LineWriter, Read},
     path::PathBuf,
     process::ExitCode,
 };
@@ -108,7 +108,7 @@ fn main() -> Result<ExitCode> {
     {
         let event_loop = TuiEventLoop::new();
         let mut tui_app = tui_app::TuiApp::new(&args, event_loop.create_proxy())?;
-        if atty::isnt(atty::Stream::Stdin) {
+        if !io::stdin().is_terminal() {
             let mut stdin = io::stdin().lock();
             let mut text = String::new();
             stdin.read_to_string(&mut text)?;
