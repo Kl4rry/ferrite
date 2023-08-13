@@ -57,6 +57,7 @@ pub struct PickerConfig {
     pub follow_ignore: bool,
     pub follow_parent_ignore: bool,
     pub follow_git_global: bool,
+    pub show_only_text_files: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -90,6 +91,7 @@ impl Default for PickerConfig {
             follow_ignore: true,
             follow_parent_ignore: true,
             follow_git_global: true,
+            show_only_text_files: true,
         }
     }
 }

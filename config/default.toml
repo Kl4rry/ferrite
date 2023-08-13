@@ -12,6 +12,7 @@ follow_git_exclude = true
 follow_ignore = true
 follow_parent_ignore = true
 follow_git_global = true
+show_only_text_files = true
 
 [info_line]
 left = ["size"]

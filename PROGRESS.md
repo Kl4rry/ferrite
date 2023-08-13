@@ -14,7 +14,7 @@
 - [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
 - [x] Undo/redo
 - [ ] Infinte undo with undo file
-- [ ] Configuration
+- [x] Configuration
 
 ### Micro features
 - [x] Highlighted line number
@@ -22,7 +22,7 @@
 - [x] Tab detection
 - [ ] Indetation deletion like vscode
 - [x] Variable length tabs
-- [ ] Command palette completion
+- [x] Command palette completion
 - [ ] Git mv aware rename/move command
 - [x] Open directory and browse
 - [ ] Auto indent
@@ -40,7 +40,7 @@
 - [ ] Softwrapping
 
 ### Big features
-- [ ] tree sitter
+- [x] tree sitter
 - [ ] lsp
 - [ ] sqlite
 - [ ] git integration

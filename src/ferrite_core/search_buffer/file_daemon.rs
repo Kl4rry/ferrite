@@ -105,7 +105,13 @@ impl FileDaemon {
                         entries
                             .par_iter()
                             .filter(|entry| entry.file_type().map(|f| f.is_file()).unwrap_or(false))
-                            .filter_map(|entry| get_text_file_path(entry.path().to_path_buf())),
+                            .filter_map(|entry| {
+                                if picker_config.show_only_text_files {
+                                    get_text_file_path(entry.path().to_path_buf())
+                                } else {
+                                    Some(entry.path().to_path_buf())
+                                }
+                            }),
                     );
 
                     let mut files: Vec<_> = tracked_files
@@ -131,7 +137,7 @@ impl FileDaemon {
                     Ok(event) => {
                         for path in event.paths {
                             updated = updated
-                                || if is_text_file(&path) {
+                                || if !picker_config.show_only_text_files || is_text_file(&path) {
                                     tracked_files.insert(path)
                                 } else {
                                     tracked_files.remove(&path)
