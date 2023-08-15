@@ -11,6 +11,8 @@ use clap::Parser;
 use ferrite_core::config::Config;
 use tui_app::event_loop::TuiEventLoop;
 
+use crate::ferrite_core::persistence::PersistenceManager;
+
 mod ferrite_core;
 
 mod clipboard;
@@ -50,60 +52,68 @@ fn main() -> Result<ExitCode> {
             "Created default config at: `{}`",
             Config::get_default_location()?.to_string_lossy()
         );
+        PersistenceManager::init()?;
+        println!(
+            "Created db at: `{}`",
+            PersistenceManager::get_default_location()?.to_string_lossy()
+        );
         return Ok(ExitCode::SUCCESS);
     }
 
-    let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
-        eprintln!("Unable to get project directory");
-        return Ok(ExitCode::from(1));
-    };
-    fs::create_dir_all(dirs.data_dir())?;
-    let log_file_path = dirs.data_dir().join(".log.txt");
-    let log_file = LineWriter::new(
-        OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&log_file_path)?,
-    );
+    {
+        let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
+            eprintln!("Unable to get project directory");
+            return Ok(ExitCode::from(1));
+        };
+        fs::create_dir_all(dirs.data_dir())?;
+        let log_file_path = dirs.data_dir().join(".log.txt");
 
-    let var = args
-        .log_level
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| std::env::var("FERRITE_LOG").unwrap_or_default());
-    let log_level = match var.to_ascii_lowercase().as_str() {
-        "off" => log::LevelFilter::Off,
-        "error" => log::LevelFilter::Error,
-        "warn" => log::LevelFilter::Warn,
-        "info" => log::LevelFilter::Info,
-        "debug" => log::LevelFilter::Debug,
-        "trace" => log::LevelFilter::Trace,
-        #[cfg(debug_assertions)]
-        _ => log::LevelFilter::Trace,
-        #[cfg(not(debug_assertions))]
-        _ => log::LevelFilter::Info,
-    };
-
-    simplelog::WriteLogger::init(log_level, Default::default(), log_file)?;
-    clipboard::init(args.local_clipboard);
-
-    if args.log_file {
-        let mut cmd = std::process::Command::new("tail");
-        cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
-
-        #[cfg(not(target_family = "unix"))]
-        {
-            let mut child = cmd.spawn()?;
-            let exit_status = child.wait()?;
-            return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
+        if args.log_file {
+            let mut cmd = std::process::Command::new("tail");
+            cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
+    
+            #[cfg(not(target_family = "unix"))]
+            {
+                let mut child = cmd.spawn()?;
+                let exit_status = child.wait()?;
+                return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
+            }
+    
+            #[cfg(target_family = "unix")]
+            {
+                use std::os::unix::process::CommandExt;
+                Err(cmd.exec())?;
+            }
         }
 
-        #[cfg(target_family = "unix")]
-        {
-            use std::os::unix::process::CommandExt;
-            Err(cmd.exec())?;
-        }
+        let log_file = LineWriter::new(
+            OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&log_file_path)?,
+        );
+
+        let var = args
+            .log_level
+            .as_ref()
+            .cloned()
+            .unwrap_or_else(|| std::env::var("FERRITE_LOG").unwrap_or_default());
+        let log_level = match var.to_ascii_lowercase().as_str() {
+            "off" => log::LevelFilter::Off,
+            "error" => log::LevelFilter::Error,
+            "warn" => log::LevelFilter::Warn,
+            "info" => log::LevelFilter::Info,
+            "debug" => log::LevelFilter::Debug,
+            "trace" => log::LevelFilter::Trace,
+            #[cfg(debug_assertions)]
+            _ => log::LevelFilter::Trace,
+            #[cfg(not(debug_assertions))]
+            _ => log::LevelFilter::Info,
+        };
+        simplelog::WriteLogger::init(log_level, Default::default(), log_file)?;
     }
+
+    clipboard::init(args.local_clipboard);
 
     {
         let event_loop = TuiEventLoop::new();

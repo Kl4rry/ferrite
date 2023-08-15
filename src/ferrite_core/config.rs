@@ -195,4 +195,10 @@ mod tests {
     fn default_config() {
         let _ = Config::default();
     }
+
+    #[test]
+    fn empty_config() {
+        let result: Result<Config, _> = toml::from_str("");
+        assert!(result.is_ok());
+    }
 }
