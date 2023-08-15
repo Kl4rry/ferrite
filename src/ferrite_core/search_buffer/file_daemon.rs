@@ -1,10 +1,11 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
@@ -72,6 +73,7 @@ impl FileDaemon {
                     true => RecursiveMode::Recursive,
                     false => RecursiveMode::NonRecursive,
                 };
+                log::info!("watching workspace: {:?} using {:?}", path, mode);
 
                 if let Err(err) = watcher.watch(&path, mode) {
                     log::error!("Error starting file watcher {err}");
@@ -85,7 +87,6 @@ impl FileDaemon {
 
             let mut iterator = ignore::WalkBuilder::new(&path)
                 .follow_links(false)
-                .parents(picker_config.follow_parent_ignore)
                 .ignore(picker_config.follow_ignore)
                 .git_global(picker_config.follow_git_global)
                 .git_ignore(picker_config.follow_gitignore)
@@ -132,17 +133,89 @@ impl FileDaemon {
                 }
             }
 
+            let global_gitignore = Gitignore::global().0;
+
+            let mut gitignore_cache: HashMap<PathBuf, Gitignore> = HashMap::new();
+            let mut last_clear = Instant::now();
+
             let mut updated = false;
             loop {
+                {
+                    let now = Instant::now();
+                    if now.duration_since(last_clear) > Duration::from_secs(30)
+                        && update_rx.is_empty()
+                    {
+                        last_clear = now;
+                        gitignore_cache.clear();
+                    }
+                }
+
                 match update_rx.recv() {
                     Ok(event) => {
                         for path in event.paths {
-                            updated = updated
-                                || if !picker_config.show_only_text_files || is_text_file(&path) {
-                                    tracked_files.insert(path)
-                                } else {
-                                    tracked_files.remove(&path)
-                                };
+                            if !picker_config.show_only_text_files || is_text_file(&path) {
+                                let is_hidden = !picker_config.show_hidden
+                                    && path.components().any(|component| match component {
+                                        std::path::Component::Normal(name) => {
+                                            name.to_string_lossy().starts_with('.')
+                                        }
+                                        _ => false,
+                                    });
+                                let is_global_ignore = picker_config.follow_git_global
+                                    && global_gitignore.matched(&path, false).is_ignore();
+
+                                if is_hidden || is_global_ignore {
+                                    continue;
+                                }
+
+                                match gitignore_cache.get(&path) {
+                                    Some(ignore) => {
+                                        if ignore.matched(&path, false).is_ignore() {
+                                            updated |= tracked_files.insert(path);
+                                        }
+                                    }
+                                    None => {
+                                        let mut builder =
+                                            GitignoreBuilder::new(std::env::current_dir().unwrap());
+                                        for part in path.ancestors() {
+                                            if part.starts_with(std::env::current_dir().unwrap())
+                                                && part != path
+                                            {
+                                                if picker_config.follow_gitignore {
+                                                    let _ = builder.add(part.join(".gitignore"));
+                                                }
+                                                if picker_config.follow_ignore {
+                                                    let _ = builder.add(part.join(".ignore"));
+                                                }
+                                                if picker_config.follow_git_exclude {
+                                                    let _ =
+                                                        builder.add(part.join(".git/info/exclude"));
+                                                }
+                                            }
+                                        }
+
+                                        match builder.build() {
+                                            Ok(ignore) => {
+                                                if !ignore
+                                                    .matched_path_or_any_parents(&path, false)
+                                                    .is_ignore()
+                                                {
+                                                    updated |= tracked_files.insert(path.clone());
+                                                }
+                                                if let Some(parent) = path.parent() {
+                                                    gitignore_cache
+                                                        .insert(parent.to_path_buf(), ignore);
+                                                }
+                                            }
+                                            Err(_) => {
+                                                updated |= tracked_files.insert(path);
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                updated |= tracked_files.remove(&path);
+                            };
                         }
                     }
                     Err(err) => {

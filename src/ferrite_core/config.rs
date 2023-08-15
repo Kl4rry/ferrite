@@ -59,7 +59,6 @@ pub struct PickerConfig {
     pub follow_gitignore: bool,
     pub follow_git_exclude: bool,
     pub follow_ignore: bool,
-    pub follow_parent_ignore: bool,
     pub follow_git_global: bool,
     pub show_only_text_files: bool,
 }
@@ -93,7 +92,6 @@ impl Default for PickerConfig {
             follow_gitignore: true,
             follow_git_exclude: true,
             follow_ignore: true,
-            follow_parent_ignore: true,
             follow_git_global: true,
             show_only_text_files: true,
         }
