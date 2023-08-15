@@ -150,17 +150,25 @@ impl FileDaemon {
                     }
                 }
 
+                let workspace_dir = std::env::current_dir().unwrap();
+
                 match update_rx.recv() {
                     Ok(event) => {
                         for path in event.paths {
                             if !picker_config.show_only_text_files || is_text_file(&path) {
+                                let str_path = path.to_string_lossy().into_owned();
+                                let relative_path = Path::new(
+                                    str_path.trim_start_matches(&*workspace_dir.to_string_lossy()),
+                                );
                                 let is_hidden = !picker_config.show_hidden
-                                    && path.components().any(|component| match component {
-                                        std::path::Component::Normal(name) => {
-                                            name.to_string_lossy().starts_with('.')
-                                        }
-                                        _ => false,
-                                    });
+                                    && relative_path.components().any(
+                                        |component| match component {
+                                            std::path::Component::Normal(name) => {
+                                                name.to_string_lossy().starts_with('.')
+                                            }
+                                            _ => false,
+                                        },
+                                    );
                                 let is_global_ignore = picker_config.follow_git_global
                                     && global_gitignore.matched(&path, false).is_ignore();
 
@@ -175,12 +183,9 @@ impl FileDaemon {
                                         }
                                     }
                                     None => {
-                                        let mut builder =
-                                            GitignoreBuilder::new(std::env::current_dir().unwrap());
+                                        let mut builder = GitignoreBuilder::new(&workspace_dir);
                                         for part in path.ancestors() {
-                                            if part.starts_with(std::env::current_dir().unwrap())
-                                                && part != path
-                                            {
+                                            if part.starts_with(&workspace_dir) && part != path {
                                                 if picker_config.follow_gitignore {
                                                     let _ = builder.add(part.join(".gitignore"));
                                                 }
