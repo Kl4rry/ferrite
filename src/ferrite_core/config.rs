@@ -42,7 +42,11 @@ pub struct Config {
     #[serde(default = "get_true")]
     pub watch_recursive: bool,
     #[serde(default = "get_true")]
+    pub watch_workspace: bool,
+    #[serde(default = "get_true")]
     pub show_indent_rulers: bool,
+    #[serde(default = "get_false")]
+    pub always_prompt_on_exit: bool,
     #[serde(default)]
     pub picker: PickerConfig,
     #[serde(default)]

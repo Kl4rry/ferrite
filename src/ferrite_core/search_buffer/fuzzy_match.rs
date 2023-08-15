@@ -37,22 +37,20 @@ impl<T: Matchable> Eq for FuzzyMatch<T> {}
 
 impl<T: Matchable> PartialOrd for FuzzyMatch<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.score.partial_cmp(&other.score) {
-            Some(cmp::Ordering::Equal) => (),
-            Some(cmp::Ordering::Greater) => return Some(cmp::Ordering::Less),
-            Some(cmp::Ordering::Less) => return Some(cmp::Ordering::Greater),
-            ord => return ord,
-        }
-        Some(lexical_sort::natural_lexical_cmp(
-            &self.item.as_match_str(),
-            &self.item.as_match_str(),
-        ))
+        Some(self.cmp(other))
     }
 }
 
 impl<T: Matchable> Ord for FuzzyMatch<T> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        match self.score.cmp(&other.score) {
+            cmp::Ordering::Equal => lexical_sort::natural_lexical_cmp(
+                &self.item.as_match_str(),
+                &self.item.as_match_str(),
+            ),
+            cmp::Ordering::Greater => cmp::Ordering::Less,
+            cmp::Ordering::Less => cmp::Ordering::Greater,
+        }
     }
 }
 

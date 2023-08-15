@@ -10,7 +10,7 @@ use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
 
 use crate::ferrite_core::{
-    config::PickerConfig,
+    config::Config,
     pubsub::{self, Subscriber},
 };
 
@@ -43,14 +43,13 @@ pub struct FileDaemon {
 }
 
 impl FileDaemon {
-    pub fn new(
-        path: PathBuf,
-        recursive: bool,
-        picker_config: PickerConfig,
-    ) -> anyhow::Result<Self> {
+    pub fn new(path: PathBuf, config: &Config) -> anyhow::Result<Self> {
         let (publisher, subscriber) = pubsub::create(Vec::new());
         let (change_broadcaster, change_detector) = pubsub::create(());
         let path_to_search = path.clone();
+        let picker_config = config.picker;
+        let recursive = config.watch_recursive;
+        let watch_workspace = config.watch_workspace;
 
         thread::spawn(move || {
             let (update_tx, update_rx) = cb::unbounded();
@@ -68,14 +67,16 @@ impl FileDaemon {
                 }
             };
 
-            let mode = match recursive {
-                true => RecursiveMode::Recursive,
-                false => RecursiveMode::NonRecursive,
-            };
+            if watch_workspace {
+                let mode = match recursive {
+                    true => RecursiveMode::Recursive,
+                    false => RecursiveMode::NonRecursive,
+                };
 
-            if let Err(err) = watcher.watch(&path, mode) {
-                log::error!("Error starting file watcher {err}");
-            };
+                if let Err(err) = watcher.watch(&path, mode) {
+                    log::error!("Error starting file watcher {err}");
+                };
+            }
 
             let mut tracked_files = HashSet::new();
 

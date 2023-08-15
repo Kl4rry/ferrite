@@ -135,11 +135,7 @@ impl TuiApp {
         if let Some(path) = args.files.first() {
             if path.is_dir() {
                 std::env::set_current_dir(path)?;
-                let daemon = FileDaemon::new(
-                    std::env::current_dir()?,
-                    config.watch_recursive,
-                    config.picker,
-                )?;
+                let daemon = FileDaemon::new(std::env::current_dir()?, &config)?;
                 file_finder = Some(SearchBuffer::new(
                     FileFindProvider(daemon.subscribe()),
                     proxy.clone(),
@@ -151,11 +147,7 @@ impl TuiApp {
         let file_daemon = if let Some(daemon) = file_daemon {
             daemon
         } else {
-            FileDaemon::new(
-                std::env::current_dir()?,
-                config.watch_recursive,
-                config.picker,
-            )?
+            FileDaemon::new(std::env::current_dir()?, &config)?
         };
 
         Ok(Self {
@@ -677,9 +669,7 @@ impl TuiApp {
             })
             .collect();
 
-        if unsaved.is_empty() {
-            *control_flow = TuiEventLoopControlFlow::Exit;
-        } else {
+        if !unsaved.is_empty() {
             self.palette.set_prompt(
                 format!(
                     "You have {} unsaved buffer(s): {:?}, Are you sure you want to exit?",
@@ -689,6 +679,14 @@ impl TuiApp {
                 ('y', PalettePromptEvent::Quit),
                 ('n', PalettePromptEvent::Nop),
             );
+        } else if self.config.always_prompt_on_exit {
+            self.palette.set_prompt(
+                "Are you sure you want to exit?",
+                ('y', PalettePromptEvent::Quit),
+                ('n', PalettePromptEvent::Nop),
+            );
+        } else {
+            *control_flow = TuiEventLoopControlFlow::Exit;
         }
     }
 

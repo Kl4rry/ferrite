@@ -13,7 +13,7 @@ impl<'a> SplashWidget<'a> {
     }
 }
 
-const SPLASH: &str = r#"
+const SPLASH: &str = r"
 ╭────────────────────────────────────╮
 │     ______               _ __      │
 │    / ____/__  __________(_) /____  │
@@ -25,7 +25,7 @@ const SPLASH: &str = r#"
 │       Browse files CTRL + O        │
 │           Quit CTRL + Q            │
 ╰────────────────────────────────────╯
-"#;
+";
 
 impl Widget for SplashWidget<'_> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {

@@ -228,41 +228,87 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
     })
 }
 
-// TODO make this functions use more then extension
+pub enum Pattern {
+    Suffix(&'static str),
+    Name(&'static str),
+}
+
+impl Pattern {
+    pub fn matches(&self, file: &str) -> bool {
+        match self {
+            Pattern::Suffix(suffix) => file.ends_with(suffix),
+            Pattern::Name(name) => name.to_lowercase() == file.to_lowercase(),
+        }
+    }
+}
+
 pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
-    static LANGUAGES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
-        let mut langs = HashMap::new();
-        langs.insert("rs", "rust");
-        langs.insert("json", "json");
-        langs.insert("c", "c");
-        langs.insert("h", "c");
-        langs.insert("cpp", "cpp");
-        langs.insert("cc", "cpp");
-        langs.insert("hpp", "cpp");
-        langs.insert("cx", "cpp");
-        langs.insert("tcc", "cpp");
-        langs.insert("css", "css");
-        langs.insert("glsl", "glsl");
-        langs.insert("vert", "glsl");
-        langs.insert("frag", "glsl");
-        langs.insert("html", "html");
-        langs.insert("md", "markdown");
-        langs.insert("py", "python");
-        langs.insert("toml", "toml");
-        langs.insert("xml", "xml");
-        langs.insert("yaml", "yaml");
-        langs.insert("yml", "yaml");
-        langs.insert("cs", "c-sharp");
-        langs.insert("sh", "bash");
-        langs.insert("bash", "bash");
-        langs.insert("bashrc", "bash");
-        langs.insert("fish", "fish");
-        langs.insert("js", "javascript");
-        langs
+    use Pattern::*;
+    static LANGUAGES: Lazy<Vec<(Pattern, &'static str)>> = Lazy::new(|| {
+        vec![
+            (Suffix(".rs"), "rust"),
+            (Suffix(".json"), "json"),
+            (Suffix(".c"), "c"),
+            (Suffix(".h"), "c"),
+            (Suffix(".css"), "css"),
+            (Suffix(".md"), "markdown"),
+            (Suffix(".py"), "python"),
+            (Suffix(".toml"), "toml"),
+            (Suffix(".xml"), "xml"),
+            (Suffix(".yaml"), "yaml"),
+            (Suffix(".yml"), "yaml"),
+            (Suffix(".cs"), "c-sharp"),
+            (Suffix(".fish"), "fish"),
+            (Suffix(".js"), "javascript"),
+            // glsl
+            (Suffix(".glsl"), "glsl"),
+            (Suffix(".vert"), "glsl"),
+            (Suffix(".frag"), "glsl"),
+            // html
+            (Suffix(".html"), "html"),
+            (Suffix(".html"), "html"),
+            (Suffix(".htm"), "html"),
+            (Suffix(".xhtml"), "html"),
+            (Suffix(".shtml"), "html"),
+            // c++
+            (Suffix(".cpp"), "cpp"),
+            (Suffix(".cc"), "cpp"),
+            (Suffix(".cp"), "cpp"),
+            (Suffix(".cxx"), "cpp"),
+            (Suffix(".c++"), "cpp"),
+            (Suffix(".C"), "cpp"),
+            (Suffix(".h"), "cpp"),
+            (Suffix(".hh"), "cpp"),
+            (Suffix(".hpp"), "cpp"),
+            (Suffix(".hxx"), "cpp"),
+            (Suffix(".h++"), "cpp"),
+            (Suffix(".inl"), "cpp"),
+            (Suffix(".ipp"), "cpp"),
+            (Suffix(".cx"), "cpp"),
+            (Suffix(".tcc"), "cpp"),
+            // shell
+            (Suffix(".sh"), "bash"),
+            (Suffix(".bash"), "bash"),
+            (Suffix(".zsh"), "bash"),
+            (Name(".bash_login"), "bash"),
+            (Name(".bash_logout"), "bash"),
+            (Name(".bash_profile"), "bash"),
+            (Name(".bashrc"), "bash"),
+            (Name(".profile"), "bash"),
+            (Name(".zshenv"), "bash"),
+            (Name(".zlogin"), "bash"),
+            (Name(".zlogout"), "bash"),
+            (Name(".zprofile"), "bash"),
+            (Name(".zshrc"), "bash"),
+        ]
     });
 
-    let ext = path.as_ref().extension()?.to_string_lossy();
-    LANGUAGES.get(ext.as_ref()).copied()
+    let path = path.as_ref().file_name()?.to_string_lossy();
+    LANGUAGES
+        .iter()
+        .find(|(suffix, _)| suffix.matches(&path))
+        .map(|(_, lang)| lang)
+        .copied()
 }
 
 pub fn get_tree_sitter_language(language: &str) -> Option<&'static LanguageConfig> {

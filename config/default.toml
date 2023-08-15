@@ -3,7 +3,9 @@ rulers = [80]
 local_clipboard = false
 show_splash = true
 watch_recursive = true
+watch_workspace = true
 show_indent_rulers = true
+always_prompt_on_exit = false
 
 [picker]
 show_hidden = false
