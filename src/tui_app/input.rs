@@ -223,12 +223,12 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Mapping::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            Mapping::new(KeyCode::Char('n'), KeyModifiers::ALT),
             InputCommand::PrevMatch,
             Exclusiveness::Exclusive,
         ),
         (
-            Mapping::new(KeyCode::Char('n'), KeyModifiers::CONTROL),
+            Mapping::new(KeyCode::Char('m'), KeyModifiers::ALT),
             InputCommand::NextMatch,
             Exclusiveness::Exclusive,
         ),
