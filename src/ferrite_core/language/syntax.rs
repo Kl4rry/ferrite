@@ -37,7 +37,7 @@ impl SyntaxProvider {
         let highlight_config = language.highlight_config.clone();
         let name = language.name.clone();
         thread::spawn(move || {
-            log::info!("Highlight thread started for '{name}'");
+            log::info!("Highlight thread started for `{name}`");
             let mut highlighter = Highlighter::new();
             let mut rope;
 
@@ -98,7 +98,7 @@ impl Syntax {
     pub fn set_language(&mut self, language: &str) -> Result<()> {
         match get_tree_sitter_language(language) {
             Some(lang) => {
-                log::info!("set lang to '{language}'");
+                log::info!("set lang to `{language}`");
                 self.syntax_provder = Some(SyntaxProvider::new(
                     lang,
                     self.proxy.clone(),

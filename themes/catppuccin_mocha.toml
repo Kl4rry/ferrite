@@ -1,0 +1,102 @@
+"editor.line_nr" = { fg = "surface1", bg = "mantle" }
+"editor.current_line_nr" = { fg = "text", bg = "mantle" }
+"editor.text" = { fg = "text" }
+"editor.info_line" = { fg = "subtext1", bg = "mantle" }
+"editor.background" = { fg = "text", bg = "base" }
+"editor.selection" = { bg = "surface1"}
+"editor.border" = { bg = "base", fg = "text" }
+"editor.ruler" = { fg = "surface0" }
+"editor.error_text" = { fg = "red" }
+
+#"editor.search.match" = { bg = "faint_blue" }
+"editor.search.match" = { bg = "red" }
+
+"editor.fuzzy.match" = { fg = "red" }
+"editor.completer" = { bg = "surface1", fg = "text" }
+"editor.completer.selected" = { bg = "surface1", fg = "text" }
+
+
+
+[syntax]
+"type" = { fg = "yellow" }
+
+"constructor" = { fg = "sapphire" }
+
+"constant" = { fg = "peach" }
+"constant.builtin" = { fg = "peach" }
+"constant.character" = { fg = "teal" }
+"constant.character.escape" = { fg = "pink"}
+
+"string" = { fg = "green" }
+"string.regexp" = { fg = "peach" }
+"string.special" = { fg = "blue" }
+
+"comment" = { fg = "surface2" }
+
+"variable" = { fg = "text" }
+"variable.parameter" = { fg = "maroon" }
+"variable.builtin" = { fg = "red" }
+"variable.other.member" = { fg = "teal" }
+
+"label" = { fg = "sapphire" }
+
+"punctuation" = { fg = "overlay2" }
+"punctuation.special" = { fg = "sky" }
+
+"keyword" = { fg = "mauve" }
+"keyword.control.conditional" = { fg = "mauve" }
+
+"operator" = { fg = "sky" }
+
+"function" = { fg = "blue" }
+"function.builtin" = { fg = "peach" }
+"function.macro" = { fg = "mauve" }
+
+"tag" = { fg = "mauve" }
+
+"namespace" = { fg = "blue" }
+
+"special" = { fg = "blue" }
+
+# Special case for languages
+"rust.type.builtin" = { fg = "yellow" } 
+
+
+"markup.heading" = { fg = "lavender" }
+"markup.raw" = { fg = "flamingo" }
+"markup.bold" = { fg = "text" }
+"markup.italic" = { fg = "teal" }
+"markup.list" = { fg = "mauve" }
+"markup.quote" = { fg = "yellow" }
+"markup.link.url" = { fg = "rosewater" }
+"markup.link.text" = { fg = "blue" }
+
+[palette]
+rosewater = "#f5e0dc"
+flamingo = "#f2cdcd"
+pink = "#f5c2e7"
+mauve = "#cba6f7"
+red = "#f38ba8"
+maroon = "#eba0ac"
+peach = "#fab387"
+yellow = "#f9e2af"
+green = "#a6e3a1"
+teal = "#94e2d5"
+sky = "#89dceb"
+sapphire = "#74c7ec"
+blue = "#89b4fa"
+lavender = "#b4befe"
+
+text = "#cdd6f4"
+subtext1 = "#bac2de"
+subtext0 = "#a6adc8"
+overlay2 = "#9399b2"
+overlay1 = "#7f849c"
+overlay0 = "#6c7086"
+surface2 = "#585b70"
+surface1 = "#45475a"
+surface0 = "#313244"
+
+base = "#1e1e2e"
+mantle = "#181825"
+crust = "#11111b"

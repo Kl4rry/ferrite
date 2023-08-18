@@ -69,14 +69,16 @@ fn raw_style_to_style(s: &Style, palette: &HashMap<String, String>) -> Result<st
     let mut style = style::Style::default();
 
     if let Some(fg) = &s.fg {
-        if let Some(color) = palette.get(fg) {
-            style.fg = Some(Color::from_str(color)?);
+        match palette.get(fg) {
+            Some(color) => style.fg = Some(Color::from_str(color)?),
+            None => log::error!("Color `{fg}` not found"),
         }
     }
 
     if let Some(bg) = &s.bg {
-        if let Some(color) = palette.get(bg) {
-            style.bg = Some(Color::from_str(color)?);
+        match palette.get(bg) {
+            Some(color) => style.bg = Some(Color::from_str(color)?),
+            None => log::error!("Color `{bg}` not found"),
         }
     }
 
