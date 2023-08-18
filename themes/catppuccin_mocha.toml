@@ -7,10 +7,7 @@
 "editor.border" = { bg = "base", fg = "text" }
 "editor.ruler" = { fg = "surface0" }
 "editor.error_text" = { fg = "red" }
-
-#"editor.search.match" = { bg = "faint_blue" }
-"editor.search.match" = { bg = "red" }
-
+"editor.search.match" = { bg = "faint_teal" }
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "surface1", fg = "text" }
 "editor.completer.selected" = { bg = "surface1", fg = "text" }
@@ -44,7 +41,6 @@
 "punctuation.special" = { fg = "sky" }
 
 "keyword" = { fg = "mauve" }
-"keyword.control.conditional" = { fg = "mauve" }
 
 "operator" = { fg = "sky" }
 
@@ -60,7 +56,6 @@
 
 # Special case for languages
 "rust.type.builtin" = { fg = "yellow" } 
-
 
 "markup.heading" = { fg = "lavender" }
 "markup.raw" = { fg = "flamingo" }
@@ -100,3 +95,5 @@ surface0 = "#313244"
 base = "#1e1e2e"
 mantle = "#181825"
 crust = "#11111b"
+
+faint_teal = "#384d5d"
