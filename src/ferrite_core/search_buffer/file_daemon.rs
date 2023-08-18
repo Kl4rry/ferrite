@@ -68,8 +68,6 @@ impl FileDaemon {
                 }
             };
 
-            log::debug!("{:#?}", picker_config);
-
             if watch_workspace {
                 let mode = match recursive {
                     true => RecursiveMode::Recursive,
