@@ -134,7 +134,7 @@ jobs:
       - name: Build
         run: |
           source "$HOME/.cargo/env"
-          cargo build --release
+          cargo build --release --features embed-themes
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v1

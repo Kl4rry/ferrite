@@ -188,6 +188,13 @@ impl EditorTheme {
             }
         }
 
+        #[cfg(feature = "embed-themes")]
+        {
+            for (name, theme) in get_embedded_themes() {
+                themes.entry(name).or_insert(theme);
+            }
+        }
+
         themes.insert("default".into(), EditorTheme::default());
 
         log::info!("{:#?}", themes.keys().collect::<Vec<&String>>());
@@ -202,11 +209,41 @@ impl Default for EditorTheme {
     }
 }
 
+#[cfg(feature = "embed-themes")]
+static THEMES: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/themes");
+
+#[cfg(feature = "embed-themes")]
+fn get_embedded_themes() -> Vec<(String, EditorTheme)> {
+    THEMES
+        .files()
+        .map(|file| {
+            (
+                file.path()
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned(),
+                EditorTheme::from_str(file.contents_utf8().unwrap()).unwrap(),
+            )
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn themes_config() {
         let _ = EditorTheme::default();
+    }
+
+    #[cfg(feature = "embed-themes")]
+    #[test]
+    fn parse_embedded_themes() {
+        for file in THEMES.files() {
+            let content = file.contents_utf8();
+            assert!(content.is_some());
+            assert!(EditorTheme::from_str(content.unwrap()).is_ok());
+        }
     }
 }

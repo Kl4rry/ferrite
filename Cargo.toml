@@ -7,17 +7,21 @@ authors = ["Axel Kappel"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 anyhow = "1.0.68"
+arboard = "3.2.0"
 cb = { package = "crossbeam-channel", version = "0.5.8" }
 cc = "1.0.79"
 chardetng = "0.1.17"
 clap = { version = "4.1.4", features = ["derive", "cargo"] }
-arboard = "3.2.0"
 crossterm = "0.26.0"
 detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev = "f645bcc" }
 directories = "5.0.0"
+dunce = "1.0.4"
 encoding_rs = "0.8.31"
 ferrite-tree-sitter = { path = "ferrite-tree-sitter" }
 flume = { version = "0.10.14", default-features = false }
+humansize = "2.1.3"
+ignore = "0.4.20"
+include_dir = { version = "0.7.3", optional = true }
 lexical-sort = "0.3.1"
 log = "0.4.17"
 memchr = "2.5.0"
@@ -36,9 +40,6 @@ tui = { package = "ratatui", version = "0.21.0" }
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
 utility = { path = "utility" }
-ignore = "0.4.20"
-humansize = "2.1.3"
-dunce = "1.0.4"
 
 [dev-dependencies]
 tempdir = "0.3.7"
@@ -47,6 +48,7 @@ tempdir = "0.3.7"
 opt-level = 3
 
 [features]
+embed-themes = ["dep:include_dir"]
 lang-bash = ["ferrite-tree-sitter/lang-bash"]
 lang-c = ["ferrite-tree-sitter/lang-c"]
 lang-c-sharp = ["ferrite-tree-sitter/lang-c-sharp"]
