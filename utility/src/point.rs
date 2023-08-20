@@ -50,3 +50,21 @@ impl<T: PrimInt + SubAssign> SubAssign<Point<T>> for Point<T> {
         self.column -= rhs.column;
     }
 }
+
+impl From<tree_sitter::Point> for Point<usize> {
+    fn from(value: tree_sitter::Point) -> Self {
+        Self {
+            line: value.row,
+            column: value.column,
+        }
+    }
+}
+
+impl From<Point<usize>> for tree_sitter::Point {
+    fn from(value: Point<usize>) -> Self {
+        Self {
+            row: value.line,
+            column: value.column,
+        }
+    }
+}

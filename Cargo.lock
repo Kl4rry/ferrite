@@ -1782,6 +1782,7 @@ version = "0.1.0"
 dependencies = [
  "num-traits",
  "ropey",
+ "tree-sitter",
  "unicode-general-category",
  "unicode-segmentation",
  "unicode-width",
