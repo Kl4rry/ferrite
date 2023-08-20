@@ -50,6 +50,12 @@ fn main() -> Result<ExitCode> {
             "Created default config at: `{}`",
             Config::get_default_location()?.to_string_lossy()
         );
+
+        #[cfg(feature = "embed-themes")]
+        {
+            crate::ferrite_core::theme::init_themes()?;
+        }
+
         return Ok(ExitCode::SUCCESS);
     }
 

@@ -229,6 +229,34 @@ fn get_embedded_themes() -> Vec<(String, EditorTheme)> {
         .collect()
 }
 
+#[cfg(feature = "embed-themes")]
+pub fn init_themes() -> Result<()> {
+    let Some(project_dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
+        anyhow::bail!("Config directory could not be located");
+    };
+    let theme_dir = project_dirs.config_dir().join("themes");
+    fs::create_dir_all(&theme_dir)?;
+    for (name, theme) in THEMES.files().map(|file| {
+        (
+            file.path()
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            file.contents_utf8().unwrap(),
+        )
+    }) {
+        let path = theme_dir.join(format!("{name}.toml"));
+        if !path.exists() {
+            fs::write(&path, theme)?;
+        }
+    }
+
+    println!("Wrote bundled themes to `{}`", theme_dir.to_string_lossy());
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

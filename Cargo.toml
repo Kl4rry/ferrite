@@ -68,7 +68,7 @@ lang-fish = ["ferrite-tree-sitter/lang-fish"]
 lang-comment = ["ferrite-tree-sitter/lang-comment"]
 lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 
-default = ["lang-bash", "lang-c", "lang-c-sharp", "lang-cmake", "lang-cpp", "lang-css", "lang-glsl", "lang-html", "lang-json", "lang-md", "lang-python", "lang-rust", "lang-toml", "lang-xml", "lang-yaml", "lang-fish", "lang-comment", "lang-javascript"]
+default = ["embed-themes", "lang-bash", "lang-c", "lang-c-sharp", "lang-cmake", "lang-cpp", "lang-css", "lang-glsl", "lang-html", "lang-json", "lang-md", "lang-python", "lang-rust", "lang-toml", "lang-xml", "lang-yaml", "lang-fish", "lang-comment", "lang-javascript"]
 
 [workspace]
 members = ["ferrite-tree-sitter", "utility"]
