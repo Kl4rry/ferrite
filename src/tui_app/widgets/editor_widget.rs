@@ -257,11 +257,12 @@ impl StatefulWidget for EditorWidget<'_> {
 
             // Apply highlight
             {
+                let rope = buffer.rope().clone();
                 let highlights: Vec<_> = highlights
                     .par_iter()
                     .map(|(start, end, style)| {
-                        let start_point = buffer.rope().byte_to_point(*start);
-                        let end_point = buffer.rope().byte_to_point(*end);
+                        let start_point = rope.byte_to_point(*start);
+                        let end_point = rope.byte_to_point(*end);
 
                         let start_x = start_point
                             .column
