@@ -1,10 +1,7 @@
 use std::{
     borrow::Cow,
     fmt, iter, mem, ops,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc, Mutex, MutexGuard,
-    },
+    sync::{Arc, Mutex, MutexGuard},
     thread,
     time::Instant,
 };
@@ -56,7 +53,7 @@ impl SyntaxProvider {
 
                 let time = Instant::now();
                 if let Ok(iterator) =
-                    highlighter.highlight(&highlight_config.clone(), rope.slice(..), None, |name| {
+                    highlighter.highlight(&highlight_config.clone(), rope.slice(..), |name| {
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
                     })
                 {
@@ -150,8 +147,6 @@ impl<'a> TextProvider<'a> for RopeProvider<'a> {
 
 /// Stolen from tree-sitter-highlight
 
-const CANCELLATION_CHECK_INTERVAL: usize = 100;
-
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug)]
 pub struct Highlight {
@@ -240,9 +235,7 @@ where
     byte_offset: usize,
     highlighter: &'a mut Highlighter,
     injection_callback: F,
-    cancellation_flag: Option<&'a AtomicUsize>,
     layers: Vec<HighlightIterLayer<'a>>,
-    iter_count: usize,
     next_event: Option<HighlightEvent>,
     last_highlight_range: Option<(usize, usize, usize)>,
 }
@@ -276,13 +269,11 @@ impl Highlighter {
         &'a mut self,
         config: &'a HighlightConfiguration,
         source: RopeSlice<'a>,
-        cancellation_flag: Option<&'a AtomicUsize>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
     ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
         let layers = HighlightIterLayer::new(
             source,
             self,
-            cancellation_flag,
             &mut injection_callback,
             config,
             0,
@@ -298,9 +289,7 @@ impl Highlighter {
             source,
             byte_offset: 0,
             injection_callback,
-            cancellation_flag,
             highlighter: self,
-            iter_count: 0,
             layers,
             next_event: None,
             last_highlight_range: None,
@@ -438,7 +427,6 @@ impl<'a> HighlightIterLayer<'a> {
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: RopeSlice<'a>,
         highlighter: &mut Highlighter,
-        cancellation_flag: Option<&'a AtomicUsize>,
         injection_callback: &mut F,
         mut config: &'a HighlightConfiguration,
         mut depth: usize,
@@ -452,8 +440,6 @@ impl<'a> HighlightIterLayer<'a> {
                     .parser
                     .set_language(config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
-
-                unsafe { highlighter.parser.set_cancellation_flag(cancellation_flag) };
 
                 let tree = highlighter
                     .parser
@@ -471,7 +457,6 @@ impl<'a> HighlightIterLayer<'a> {
                     )
                     .ok_or(Error::Cancelled)?;
 
-                unsafe { highlighter.parser.set_cancellation_flag(None) };
                 let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
                 // Process combined injections.
@@ -763,18 +748,6 @@ where
                 return Some(Ok(e));
             }
 
-            // Periodically check for cancellation, returning `Cancelled` error if the
-            // cancellation flag was flipped.
-            if let Some(cancellation_flag) = self.cancellation_flag {
-                self.iter_count += 1;
-                if self.iter_count >= CANCELLATION_CHECK_INTERVAL {
-                    self.iter_count = 0;
-                    if cancellation_flag.load(Ordering::Relaxed) != 0 {
-                        return Some(Err(Error::Cancelled));
-                    }
-                }
-            }
-
             // If none of the layers have any more highlight boundaries, terminate.
             if self.layers.is_empty() {
                 return if self.byte_offset < self.source.len_bytes() {
@@ -846,7 +819,6 @@ where
                             match HighlightIterLayer::new(
                                 self.source,
                                 self.highlighter,
-                                self.cancellation_flag,
                                 &mut self.injection_callback,
                                 config,
                                 self.layers[0].depth + 1,
