@@ -63,7 +63,7 @@ impl SyntaxProvider {
                     ));
                     proxy.request_render();
                 }
-                log::trace!("highlight took: {}ms", time.elapsed().as_millis());
+                log::trace!("highlight took: {}us or {}ms", time.elapsed().as_micros(), time.elapsed().as_millis());
             }
 
             log::info!("Syntax provider thread exit");
@@ -443,6 +443,7 @@ impl<'a> HighlightIterLayer<'a> {
                     .set_language(config.language)
                     .map_err(|_| Error::InvalidLanguage)?;
 
+                let time = Instant::now();
                 let tree = highlighter
                     .parser
                     .parse_with(
@@ -458,6 +459,7 @@ impl<'a> HighlightIterLayer<'a> {
                         None,
                     )
                     .ok_or(Error::Cancelled)?;
+                log::trace!("parsing took: {}us or {}ms", time.elapsed().as_micros(), time.elapsed().as_millis());
 
                 let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
