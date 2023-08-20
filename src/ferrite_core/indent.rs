@@ -12,7 +12,7 @@ pub enum Indentation {
 
 impl Default for Indentation {
     fn default() -> Self {
-        Self::Tabs(NonZeroUsize::new(1).unwrap())
+        Self::Spaces(NonZeroUsize::new(4).unwrap())
     }
 }
 

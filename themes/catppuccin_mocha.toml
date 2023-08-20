@@ -29,6 +29,8 @@
 "string.special" = { fg = "blue" }
 
 "comment" = { fg = "surface2" }
+"info" = { fg = "yellow" }
+"hint" = { fg = "yellow" }
 
 "variable" = { fg = "text" }
 "variable.parameter" = { fg = "maroon" }

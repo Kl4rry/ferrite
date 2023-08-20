@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    fmt, iter, mem,
+    fmt, iter, mem, ops,
     sync::{Arc, Mutex, MutexGuard},
     thread,
     time::Instant,
@@ -13,7 +13,6 @@ use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
     Range, TextProvider, Tree,
 };
-use utility::graphemes::RopeGraphemeExt;
 
 use super::{get_tree_sitter_language, LanguageConfig};
 use crate::tui_app::event_loop::TuiEventLoopProxy;
@@ -54,7 +53,6 @@ impl SyntaxProvider {
                 let time = Instant::now();
                 if let Ok(iterator) =
                     highlighter.highlight(&highlight_config.clone(), rope.slice(..), |name| {
-                        log::trace!("injected `{name}`");
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
                     })
                 {
@@ -64,7 +62,11 @@ impl SyntaxProvider {
                     ));
                     proxy.request_render();
                 }
-                log::trace!("highlight took: {}us or {}ms", time.elapsed().as_micros(), time.elapsed().as_millis());
+                log::trace!(
+                    "highlight took: {}us or {}ms",
+                    time.elapsed().as_micros(),
+                    time.elapsed().as_millis()
+                );
             }
 
             log::info!("Syntax provider thread exit");
@@ -176,12 +178,7 @@ impl std::error::Error for Error {}
 /// Represents a single step in rendering a syntax-highlighted document.
 #[derive(Copy, Clone, Debug)]
 pub enum HighlightEvent {
-    Source {
-        start: usize,
-        end: usize,
-        start_point: utility::point::Point<usize>,
-        end_point: utility::point::Point<usize>,
-    },
+    Source { start: usize, end: usize },
     HighlightStart(Highlight),
     HighlightEnd,
 }
@@ -217,14 +214,14 @@ pub struct Highlighter {
 #[derive(Debug)]
 struct LocalDef<'a> {
     name: RopeSlice<'a>,
-    value_range: Range,
+    value_range: ops::Range<usize>,
     highlight: Option<Highlight>,
 }
 
 #[derive(Debug)]
 struct LocalScope<'a> {
     inherits: bool,
-    range: Range,
+    range: ops::Range<usize>,
     local_defs: Vec<LocalDef<'a>>,
 }
 
@@ -234,7 +231,6 @@ where
 {
     source: RopeSlice<'a>,
     byte_offset: usize,
-    point_offset: Point,
     highlighter: &'a mut Highlighter,
     injection_callback: F,
     layers: Vec<HighlightIterLayer<'a>>,
@@ -247,7 +243,7 @@ struct HighlightIterLayer<'a> {
     cursor: QueryCursor,
     captures: iter::Peekable<QueryCaptures<'a, 'a, RopeProvider<'a>>>,
     config: &'a HighlightConfiguration,
-    highlight_end_stack: Vec<(usize, Point)>,
+    highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
     ranges: Vec<Range>,
     depth: usize,
@@ -290,7 +286,6 @@ impl Highlighter {
         let mut result = HighlightIter {
             source,
             byte_offset: 0,
-            point_offset: Point { row: 0, column: 0 },
             injection_callback,
             highlighter: self,
             layers,
@@ -460,7 +455,11 @@ impl<'a> HighlightIterLayer<'a> {
                         None,
                     )
                     .ok_or(Error::Cancelled)?;
-                log::trace!("parsing took: {}us or {}ms", time.elapsed().as_micros(), time.elapsed().as_millis());
+                log::trace!(
+                    "parsing took: {}us or {}ms",
+                    time.elapsed().as_micros(),
+                    time.elapsed().as_millis()
+                );
 
                 let mut cursor = highlighter.cursors.pop().unwrap_or(QueryCursor::new());
 
@@ -527,15 +526,7 @@ impl<'a> HighlightIterLayer<'a> {
                     highlight_end_stack: Vec::new(),
                     scope_stack: vec![LocalScope {
                         inherits: false,
-                        range: Range {
-                            start_byte: 0,
-                            end_byte: usize::MAX,
-                            start_point: Point::default(),
-                            end_point: Point {
-                                row: usize::MAX,
-                                column: usize::MAX,
-                            },
-                        },
+                        range: 0..usize::MAX,
                         local_defs: Vec::new(),
                     }],
                     cursor,
@@ -665,7 +656,7 @@ impl<'a> HighlightIterLayer<'a> {
             .map(|(m, i)| m.captures[*i].node.start_byte());
         let next_end = self.highlight_end_stack.last().cloned();
         match (next_start, next_end) {
-            (Some(start), Some((end, _end_point))) => {
+            (Some(start), Some(end)) => {
                 if start < end {
                     Some((start, true, depth))
                 } else {
@@ -673,7 +664,7 @@ impl<'a> HighlightIterLayer<'a> {
                 }
             }
             (Some(i), None) => Some((i, true, depth)),
-            (None, Some((j, _))) => Some((j, false, depth)),
+            (None, Some(j)) => Some((j, false, depth)),
             _ => None,
         }
     }
@@ -686,25 +677,15 @@ where
     fn emit_event(
         &mut self,
         offset: usize,
-        point_offset: Option<Point>,
         event: Option<HighlightEvent>,
     ) -> Option<Result<HighlightEvent, Error>> {
         let result;
         if self.byte_offset < offset {
-            let point_offset = match point_offset {
-                Some(point) => point,
-                None => self.source.byte_to_point(offset).into(),
-            };
-
             result = Some(Ok(HighlightEvent::Source {
                 start: self.byte_offset,
                 end: offset,
-                start_point: self.point_offset.into(),
-                end_point: point_offset.into(),
             }));
-
             self.byte_offset = offset;
-            self.point_offset = point_offset;
             self.next_event = event;
         } else {
             result = event.map(Ok);
@@ -775,11 +756,8 @@ where
                     let result = Some(Ok(HighlightEvent::Source {
                         start: self.byte_offset,
                         end: self.source.len_bytes(),
-                        start_point: self.source.byte_to_point(self.byte_offset),
-                        end_point: self.source.byte_to_point(self.source.len_bytes()),
                     }));
                     self.byte_offset = self.source.len_bytes();
-                    self.point_offset = self.source.byte_to_point(self.source.len_bytes()).into();
                     result
                 } else {
                     None
@@ -791,33 +769,25 @@ where
             let layer = &mut self.layers[0];
             if let Some((next_match, capture_index)) = layer.captures.peek() {
                 let next_capture = next_match.captures[*capture_index];
-                range = next_capture.node.range();
+                range = next_capture.node.byte_range();
 
                 // If any previous highlight ends before this node starts, then before
                 // processing this capture, emit the source code up until the end of the
                 // previous highlight, and an end event for that highlight.
-                if let Some((end_byte, end_point)) = layer.highlight_end_stack.last().cloned() {
-                    if end_byte <= range.start_byte {
+                if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
+                    if end_byte <= range.start {
                         layer.highlight_end_stack.pop();
-                        return self.emit_event(
-                            end_byte,
-                            Some(end_point),
-                            Some(HighlightEvent::HighlightEnd),
-                        );
+                        return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
                     }
                 }
             }
             // If there are no more captures, then emit any remaining highlight end events.
             // And if there are none of those, then just advance to the end of the document.
-            else if let Some((end_byte, end_point)) = layer.highlight_end_stack.last().cloned() {
+            else if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
                 layer.highlight_end_stack.pop();
-                return self.emit_event(
-                    end_byte,
-                    Some(end_point),
-                    Some(HighlightEvent::HighlightEnd),
-                );
+                return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
             } else {
-                return self.emit_event(self.source.len_bytes(), None, None);
+                return self.emit_event(self.source.len_bytes(), None);
             };
 
             let (mut match_, capture_index) = layer.captures.next().unwrap();
@@ -870,7 +840,7 @@ where
             }
 
             // Remove from the local scope stack any local scopes that have already ended.
-            while range.start_byte > layer.scope_stack.last().unwrap().range.end_byte {
+            while range.start > layer.scope_stack.last().unwrap().range.end {
                 layer.scope_stack.pop();
             }
 
@@ -885,7 +855,7 @@ where
                     definition_highlight = None;
                     let mut scope = LocalScope {
                         inherits: true,
-                        range,
+                        range: range.clone(),
                         local_defs: Vec::new(),
                     };
                     for prop in layer.config.query.property_settings(match_.pattern_index) {
@@ -903,20 +873,14 @@ where
                     definition_highlight = None;
                     let scope = layer.scope_stack.last_mut().unwrap();
 
-                    let mut value_range = Range {
-                        start_byte: 0,
-                        end_byte: 0,
-                        start_point: Default::default(),
-                        end_point: Default::default(),
-                    };
+                    let mut value_range = 0..0;
                     for capture in match_.captures {
                         if Some(capture.index) == layer.config.local_def_value_capture_index {
-                            value_range = capture.node.range();
+                            value_range = capture.node.byte_range();
                         }
                     }
 
-                    if let Some(name) = self.source.get_byte_slice(range.start_byte..range.end_byte)
-                    {
+                    if let Some(name) = self.source.get_byte_slice(range.clone()) {
                         scope.local_defs.push(LocalDef {
                             name,
                             value_range,
@@ -932,12 +896,10 @@ where
                     && definition_highlight.is_none()
                 {
                     definition_highlight = None;
-                    if let Some(name) = self.source.get_byte_slice(range.start_byte..range.end_byte)
-                    {
+                    if let Some(name) = self.source.get_byte_slice(range.clone()) {
                         for scope in layer.scope_stack.iter().rev() {
                             if let Some(highlight) = scope.local_defs.iter().rev().find_map(|def| {
-                                if def.name == name && range.start_byte >= def.value_range.end_byte
-                                {
+                                if def.name == name && range.start >= def.value_range.end {
                                     Some(def.highlight)
                                 } else {
                                     None
@@ -971,10 +933,7 @@ where
             // If this exact range has already been highlighted by an earlier pattern, or by
             // a different layer, then skip over this one.
             if let Some((last_start, last_end, last_depth)) = self.last_highlight_range {
-                if range.start_byte == last_start
-                    && range.end_byte == last_end
-                    && layer.depth < last_depth
-                {
+                if range.start == last_start && range.end == last_end && layer.depth < last_depth {
                     self.sort_layers();
                     continue 'main;
                 }
@@ -1026,15 +985,10 @@ where
 
             // Emit a scope start event and push the node's end position to the stack.
             if let Some(highlight) = reference_highlight.or(current_highlight) {
-                self.last_highlight_range = Some((range.start_byte, range.end_byte, layer.depth));
-                layer
-                    .highlight_end_stack
-                    .push((range.end_byte, range.end_point));
-                return self.emit_event(
-                    range.start_byte,
-                    Some(range.start_point),
-                    Some(HighlightEvent::HighlightStart(highlight)),
-                );
+                self.last_highlight_range = Some((range.start, range.end, layer.depth));
+                layer.highlight_end_stack.push(range.end);
+                return self
+                    .emit_event(range.start, Some(HighlightEvent::HighlightStart(highlight)));
             }
 
             self.sort_layers();

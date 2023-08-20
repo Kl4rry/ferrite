@@ -1,3 +1,4 @@
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use ropey::RopeSlice;
 use tui::{
     layout::Rect,
@@ -224,47 +225,15 @@ impl StatefulWidget for EditorWidget<'_> {
             let range = buffer.view_range();
             let col_pos = buffer.col_pos();
             let line_pos = buffer.line_pos();
+            let mut highlights = Vec::new();
             {
                 if let Some(syntax) = buffer.get_syntax() {
                     if let Some((_rope, events)) = &*syntax.get_highlight_events() {
                         let mut highlight: Option<Highlight> = None;
                         for event in events {
                             match event {
-                                HighlightEvent::Source {
-                                    start,
-                                    end,
-                                    start_point,
-                                    end_point,
-                                } => {
+                                HighlightEvent::Source { start, end } => {
                                     if range.contains(start) || range.contains(end) {
-                                        let start_x = start_point
-                                            .column
-                                            .saturating_sub(col_pos)
-                                            .clamp(0, text_area.width.into());
-                                        let start_y = start_point
-                                            .line
-                                            .saturating_sub(line_pos)
-                                            .clamp(0, text_area.height.into());
-
-                                        let end_x = end_point
-                                            .column
-                                            .saturating_sub(col_pos)
-                                            .clamp(0, text_area.width.into());
-                                        let end_y = end_point
-                                            .line
-                                            .saturating_sub(line_pos)
-                                            .clamp(0, text_area.height.into());
-
-                                        // FIXME This should not be needed
-                                        let end_x = end_x.max(start_x);
-
-                                        let highlight_area = Rect {
-                                            x: start_x as u16 + text_area.x,
-                                            y: start_y as u16 + text_area.y,
-                                            width: (end_x as u16 - start_x as u16),
-                                            height: (end_y as u16 - start_y as u16) + 1,
-                                        };
-
                                         let mut style = theme.text;
                                         if let Some(highlight) = &highlight {
                                             if let Some(name) = highlight
@@ -275,8 +244,7 @@ impl StatefulWidget for EditorWidget<'_> {
                                                 style = self.theme.get_syntax(name);
                                             }
                                         }
-
-                                        buf.set_style(highlight_area, style);
+                                        highlights.push((*start, *end, style));
                                     }
                                 }
                                 HighlightEvent::HighlightStart(h) => highlight = Some(*h),
@@ -284,6 +252,51 @@ impl StatefulWidget for EditorWidget<'_> {
                             }
                         }
                     }
+                }
+            }
+
+            // Apply highlight
+            {
+                let highlights: Vec<_> = highlights
+                    .par_iter()
+                    .map(|(start, end, style)| {
+                        let start_point = buffer.rope().byte_to_point(*start);
+                        let end_point = buffer.rope().byte_to_point(*end);
+
+                        let start_x = start_point
+                            .column
+                            .saturating_sub(col_pos)
+                            .clamp(0, text_area.width.into());
+                        let start_y = start_point
+                            .line
+                            .saturating_sub(line_pos)
+                            .clamp(0, text_area.height.into());
+
+                        let end_x = end_point
+                            .column
+                            .saturating_sub(col_pos)
+                            .clamp(0, text_area.width.into());
+                        let end_y = end_point
+                            .line
+                            .saturating_sub(line_pos)
+                            .clamp(0, text_area.height.into());
+
+                        // FIXME This should not be needed
+                        let end_x = end_x.max(start_x);
+
+                        let highlight_area = Rect {
+                            x: start_x as u16 + text_area.x,
+                            y: start_y as u16 + text_area.y,
+                            width: (end_x as u16 - start_x as u16),
+                            height: (end_y as u16 - start_y as u16) + 1,
+                        };
+
+                        (highlight_area, style)
+                    })
+                    .collect();
+
+                for (area, style) in highlights {
+                    buf.set_style(area, *style);
                 }
             }
 

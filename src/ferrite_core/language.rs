@@ -253,13 +253,15 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".css"), "css"),
             (Suffix(".md"), "markdown"),
             (Suffix(".py"), "python"),
-            (Suffix(".toml"), "toml"),
             (Suffix(".xml"), "xml"),
             (Suffix(".yaml"), "yaml"),
             (Suffix(".yml"), "yaml"),
             (Suffix(".cs"), "c-sharp"),
             (Suffix(".fish"), "fish"),
             (Suffix(".js"), "javascript"),
+            // toml
+            (Suffix(".toml"), "toml"),
+            (Name("Cargo.lock"), "toml"),
             // glsl
             (Suffix(".glsl"), "glsl"),
             (Suffix(".vert"), "glsl"),

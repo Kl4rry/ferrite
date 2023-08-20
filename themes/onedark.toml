@@ -20,7 +20,9 @@
 "warning" = { fg = "yellow" }
 "error" = { fg = "red" }
 
-"comment" = { fg = "light_gray", modifiers = ["italic"] }
+"comment" = { fg = "light_gray" }
+"info" = { fg = "yellow" }
+"hint" = { fg = "yellow" }
 
 "constant" = { fg = "gold" }
 "constant.numeric" = { fg = "gold" }
@@ -60,7 +62,7 @@
 "markup.link.text" = { fg = "purple" }
 
 # Special case for languages
-"rust.type.builtin" = { fg = "yellow" } 
+"type.builtin.rust" = { fg = "yellow" } 
 
 [palette]
 yellow = "#E5C07B"
