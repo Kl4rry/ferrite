@@ -54,6 +54,7 @@ impl SyntaxProvider {
                 let time = Instant::now();
                 if let Ok(iterator) =
                     highlighter.highlight(&highlight_config.clone(), rope.slice(..), |name| {
+                        log::trace!("injected `{name}`");
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
                     })
                 {
