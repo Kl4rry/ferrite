@@ -157,20 +157,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 line_buffer.clear();
             }
 
-            for ruler in config.rulers.iter().copied() {
-                let real_col =
-                    ruler as i64 - buffer.col_pos() as i64 + area.x as i64 + left_offset as i64 + 1;
-                if (area.left().into()..area.right().into()).contains(&real_col) {
-                    for y in area.top()..(area.bottom() - 1) {
-                        let cell = buf.get_mut(real_col as u16, y);
-                        if cell.symbol.chars().all(|ch| ch.is_whitespace()) {
-                            cell.set_symbol("│");
-                            cell.set_style(theme.ruler);
-                        }
-                    }
-                }
-            }
-
+            let mut ruler_cells = Vec::new();
             if !view.lines.is_empty() && config.show_indent_rulers {
                 // TODO fix empty line gaps in blocks using tree-sitter indent queries
                 'outer: for line in text_area.top()..text_area.bottom() {
@@ -193,8 +180,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             continue;
                         }
 
-                        cell.set_char('│');
-                        cell.set_style(self.theme.ruler);
+                        ruler_cells.push((col, line));
                     }
                 }
             }
@@ -299,6 +285,26 @@ impl StatefulWidget for EditorWidget<'_> {
                 for (area, style) in highlights {
                     buf.set_style(area, *style);
                 }
+            }
+
+            for ruler in config.rulers.iter().copied() {
+                let real_col =
+                    ruler as i64 - buffer.col_pos() as i64 + area.x as i64 + left_offset as i64 + 1;
+                if (area.left().into()..area.right().into()).contains(&real_col) {
+                    for y in area.top()..(area.bottom() - 1) {
+                        let cell = buf.get_mut(real_col as u16, y);
+                        if cell.symbol.chars().all(|ch| ch.is_whitespace()) {
+                            cell.set_symbol("│");
+                            cell.set_style(theme.ruler);
+                        }
+                    }
+                }
+            }
+
+            for (col, line) in ruler_cells {
+                let cell = buf.get_mut(col, line);
+                cell.set_char('│');
+                cell.set_style(self.theme.ruler);
             }
 
             if let Some(rect) = cursor_rect {

@@ -552,12 +552,13 @@ impl TuiApp {
                             }
                             Command::New => self.current_buffer_id = self.buffers.insert(Buffer::new()),
                             Command::Reload => {
-                                self.palette.set_prompt(
-                                    "The buffer is unsaved are you sure you want to reload?",
-                                    ('y', PalettePromptEvent::Reload),
-                                    ('n', PalettePromptEvent::Nop),
-                                );
-                                if let Err(err) = self.buffers[self.current_buffer_id].reload() {
+                                if self.buffers[self.current_buffer_id].is_dirty() {
+                                    self.palette.set_prompt(
+                                        "The buffer is unsaved are you sure you want to reload?",
+                                        ('y', PalettePromptEvent::Reload),
+                                        ('n', PalettePromptEvent::Nop),
+                                    );
+                                } else if let Err(err) = self.buffers[self.current_buffer_id].reload() {
                                     self.palette.set_error(err)
                                 };
                             }

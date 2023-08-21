@@ -1229,8 +1229,12 @@ impl Buffer {
 
         let (encoding, rope) = read::read(path)?;
         self.encoding = encoding;
-        self.rope = rope;
+        let len_bytes = self.rope.len_bytes();
+        self.history.replace(&mut self.rope, 0..len_bytes, rope);
+
         self.dirty = false;
+        self.history.save();
+        self.queue_syntax_update();
 
         Ok(())
     }

@@ -6,12 +6,11 @@
 - [ ] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
 - [x] Mouse jumping and selection
 - [x] Command palette
-- [ ] Command palette auto complete
+- [x] Command palette auto complete
 - [x] Custom themes
 - [ ] Split panes
 - [x] Multiple buffers and buffer selection screen (maybe tabs for the gui version)
 - [x] Quick fuzzy file finding
-- [ ] Logger buffer for debugging using [log](https://crates.io/crates/log)
 - [x] Undo/redo
 - [ ] Infinte undo with undo file
 - [x] Configuration
@@ -26,7 +25,7 @@
 - [ ] Git mv aware rename/move command
 - [x] Open directory and browse
 - [ ] Auto indent
-- [ ] Indentation guides
+- [x] Indentation guides
 - [ ] Git file status tracked/untracked/modfied/moved using git status --porcelain
 - [ ] Mouse double click select word
 
