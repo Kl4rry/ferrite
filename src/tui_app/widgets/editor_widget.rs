@@ -247,8 +247,8 @@ impl StatefulWidget for EditorWidget<'_> {
                 let highlights: Vec<_> = highlights
                     .par_iter()
                     .map(|(start, end, style)| {
-                        let start_point = rope.byte_to_point(start.min(rope.len_bytes()));
-                        let end_point = rope.byte_to_point(end.min(rope.len_bytes()));
+                        let start_point = rope.byte_to_point(*start.min(rope.len_bytes()));
+                        let end_point = rope.byte_to_point(*end.min(rope.len_bytes()));
 
                         let start_x = start_point
                             .column
