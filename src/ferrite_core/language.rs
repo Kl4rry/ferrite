@@ -261,6 +261,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".js"), "javascript"),
             // cmake
             (Name("CMakeLists.txt"), "cmake"),
+            (Suffix(".cmake"), "cmake"),
             // toml
             (Suffix(".toml"), "toml"),
             (Name("Cargo.lock"), "toml"),
