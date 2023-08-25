@@ -46,7 +46,7 @@
 ; Constants
 
 (this) @variable.builtin
-(nullptr) @constant.builtin
+(null "nullptr" @variable.builtin)
 
 ; Keywords
 

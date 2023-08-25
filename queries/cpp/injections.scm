@@ -1,3 +1,6 @@
+((comment) @injection.content
+ (#set! injection.language "comment"))
+
 ; inherits: c
 (raw_string_literal
   delimiter: (raw_string_delimiter) @injection.language
