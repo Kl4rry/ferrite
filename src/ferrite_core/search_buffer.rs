@@ -45,33 +45,30 @@ where
             let mut options = Arc::new(Vec::new());
             let mut query = String::new();
             let options_recv = option_provder.get_options_reciver();
-            let mut options_finished = false;
 
             loop {
-                if options_finished {
-                    match search_rx.recv() {
-                        Ok(new_query) => {
-                            query = new_query;
+                select! {
+                    recv(search_rx) -> new_query => {
+                        match new_query {
+                            Ok(new_query) => {
+                                query = new_query;
+                            }
+                            Err(_) => break,
                         }
-                        Err(_) => break,
                     }
-                } else {
-                    select! {
-                        recv(search_rx) -> new_query => {
-                            match new_query {
-                                Ok(new_query) => {
-                                    query = new_query;
-                                }
-                                Err(_) => break,
+                    recv(options_recv) -> new_options => {
+                        match new_options {
+                            Ok(new_options) => {
+                                options = new_options;
                             }
-                        }
-                        recv(options_recv) -> new_options => {
-                            match new_options {
-                                Ok(new_options) => {
-                                    options = new_options;
+                            Err(_) => {
+                                match search_rx.recv() {
+                                    Ok(new_query) => {
+                                        query = new_query;
+                                    }
+                                    Err(_) => break,
                                 }
-                                Err(_) => options_finished = true,
-                            }
+                            },
                         }
                     }
                 }
