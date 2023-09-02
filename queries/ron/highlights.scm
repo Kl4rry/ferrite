@@ -10,6 +10,7 @@
 (integer) @constant.numeric.integer
 (float) @constant.numeric.float
 (char) @constant.character
+(boolean) @constant.boolean
 [
   (string)
   (raw_string)
