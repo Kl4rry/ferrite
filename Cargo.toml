@@ -1,8 +1,8 @@
 [package]
+authors = ["Axel Kappel"]
+edition = "2021"
 name = "ferrite"
 version = "0.1.0"
-edition = "2021"
-authors = ["Axel Kappel"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
@@ -53,22 +53,44 @@ lang-bash = ["ferrite-tree-sitter/lang-bash"]
 lang-c = ["ferrite-tree-sitter/lang-c"]
 lang-c-sharp = ["ferrite-tree-sitter/lang-c-sharp"]
 lang-cmake = ["ferrite-tree-sitter/lang-cmake"]
+lang-comment = ["ferrite-tree-sitter/lang-comment"]
 lang-cpp = ["ferrite-tree-sitter/lang-cpp"]
 lang-css = ["ferrite-tree-sitter/lang-css"]
+lang-fish = ["ferrite-tree-sitter/lang-fish"]
 lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
 lang-html = ["ferrite-tree-sitter/lang-html"]
+lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 lang-json = ["ferrite-tree-sitter/lang-json"]
 lang-md = ["ferrite-tree-sitter/lang-md"]
 lang-python = ["ferrite-tree-sitter/lang-python"]
+lang-ron = ["ferrite-tree-sitter/lang-ron"]
 lang-rust = ["ferrite-tree-sitter/lang-rust"]
 lang-toml = ["ferrite-tree-sitter/lang-toml"]
 lang-xml = ["ferrite-tree-sitter/lang-xml"]
 lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
-lang-fish = ["ferrite-tree-sitter/lang-fish"]
-lang-comment = ["ferrite-tree-sitter/lang-comment"]
-lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 
-default = ["embed-themes", "lang-bash", "lang-c", "lang-c-sharp", "lang-cmake", "lang-cpp", "lang-css", "lang-glsl", "lang-html", "lang-json", "lang-md", "lang-python", "lang-rust", "lang-toml", "lang-xml", "lang-yaml", "lang-fish", "lang-comment", "lang-javascript"]
+default = [
+  "embed-themes",
+  "lang-bash",
+  "lang-c",
+  "lang-c-sharp",
+  "lang-cmake",
+  "lang-cpp",
+  "lang-css",
+  "lang-glsl",
+  "lang-html",
+  "lang-json",
+  "lang-md",
+  "lang-python",
+  "lang-rust",
+  "lang-toml",
+  "lang-xml",
+  "lang-yaml",
+  "lang-fish",
+  "lang-comment",
+  "lang-javascript",
+  "lang-ron",
+]
 
 [workspace]
 members = ["ferrite-tree-sitter", "utility"]

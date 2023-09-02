@@ -26,6 +26,8 @@ pub use tree_sitter_json;
 pub use tree_sitter_md;
 #[cfg(feature = "lang-python")]
 pub use tree_sitter_python;
+#[cfg(feature = "lang-ron")]
+pub use tree_sitter_ron;
 #[cfg(feature = "lang-rust")]
 pub use tree_sitter_rust;
 #[cfg(feature = "lang-toml")]

@@ -1,18 +1,3 @@
-; source https://github.com/helix-editor/helix
-; -------
-; Tree-Sitter doesn't allow overrides in regards to captures,
-; though it is possible to affect the child node of a captured
-; node. Thus, the approach here is to flip the order so that
-; overrides are unnecessary.
-; -------
-
-; -------
-; Types
-; -------
-
-; ---
-; Primitives
-; ---
 
 (escape_sequence) @constant.character.escape
 (primitive_type) @type.builtin.rust

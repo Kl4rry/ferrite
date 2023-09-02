@@ -74,6 +74,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("javascript", OnceCell::new());
     #[cfg(feature = "lang-bash")]
     langs.insert("bash", OnceCell::new());
+    #[cfg(feature = "lang-ron")]
+    langs.insert("ron", OnceCell::new());
     langs
 });
 
@@ -224,6 +226,14 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             include_str!("../../queries/javascript/injections.scm"),
             include_str!("../../queries/javascript/locals.scm"),
         ),
+        #[cfg(feature = "lang-ron")]
+        "ron" => LanguageConfig::new(
+            "ron",
+            ferrite_tree_sitter::tree_sitter_ron::language(),
+            include_str!("../../queries/ron/highlights.scm"),
+            include_str!("../../queries/ron/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -259,6 +269,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".cs"), "c-sharp"),
             (Suffix(".fish"), "fish"),
             (Suffix(".js"), "javascript"),
+            (Suffix(".ron"), "ron"),
             // cmake
             (Name("CMakeLists.txt"), "cmake"),
             (Suffix(".cmake"), "cmake"),
@@ -332,6 +343,7 @@ mod tests {
     #[test]
     fn language_load_test() {
         for k in LANGUAGES.keys() {
+            println!("{k}");
             assert!(get_lang_config(*k).is_some())
         }
     }
