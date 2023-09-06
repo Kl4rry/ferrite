@@ -16,7 +16,7 @@ use utility::{line_ending, point::Point};
 
 use self::{
     event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
-    input::{get_default_mappings, Exclusiveness, Mapping},
+    keymap::{get_default_mappings, Exclusiveness, Mapping},
     widgets::{
         background_widget::BackgroundWidget,
         editor_widget::{lines_to_left_offset, EditorWidget},
@@ -44,12 +44,12 @@ use crate::{
         },
         theme::EditorTheme,
     },
-    tui_app::input::InputCommand,
+    tui_app::keymap::InputCommand,
     Args,
 };
 
 pub mod event_loop;
-pub mod input;
+pub mod keymap;
 pub mod rect_ext;
 mod widgets;
 
@@ -318,7 +318,7 @@ impl TuiApp {
                 Event::Key(event) => {
                     if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
                         log::debug!("{:?}", event);
-                        input::get_command_from_input(
+                        keymap::get_command_from_input(
                             event.code,
                             event.modifiers,
                             &self.key_mappings,

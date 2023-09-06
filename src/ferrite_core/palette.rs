@@ -7,7 +7,7 @@ use self::completer::{Completer, CompleterContext};
 use super::buffer::{error::BufferError, Buffer};
 use crate::tui_app::{
     event_loop::{TuiAppEvent, TuiEventLoopProxy},
-    input::InputCommand,
+    keymap::InputCommand,
 };
 
 pub mod cmd;

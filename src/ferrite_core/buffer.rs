@@ -20,7 +20,7 @@ use super::{
 };
 use crate::{
     clipboard,
-    tui_app::{event_loop::TuiEventLoopProxy, input::LineMoveDir},
+    tui_app::{event_loop::TuiEventLoopProxy, keymap::LineMoveDir},
 };
 
 pub mod encoding;

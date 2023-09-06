@@ -1,5 +1,5 @@
 use super::{error::BufferError, Buffer};
-use crate::tui_app::input::InputCommand;
+use crate::tui_app::keymap::InputCommand;
 
 pub enum Response {
     Written(String, usize),

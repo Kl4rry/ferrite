@@ -6,7 +6,7 @@ use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
-use crate::tui_app::{event_loop::TuiEventLoopProxy, input::InputCommand};
+use crate::tui_app::{event_loop::TuiEventLoopProxy, keymap::InputCommand};
 
 pub mod buffer_find;
 pub mod file_daemon;
