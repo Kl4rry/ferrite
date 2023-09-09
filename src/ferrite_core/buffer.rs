@@ -930,7 +930,11 @@ impl Buffer {
         let start_byte_idx = self.rope.line_to_byte(start_line_idx);
         let end_byte_idx = self.rope.end_of_line_byte(end_line_idx);
 
-        let mut removed = self.rope.slice(start_byte_idx..end_byte_idx).to_string();
+        let mut removed = self
+            .rope
+            .byte_slice(start_byte_idx..end_byte_idx)
+            .to_string();
+
         if RopeSlice::from(removed.as_str())
             .get_line_ending()
             .is_none()
