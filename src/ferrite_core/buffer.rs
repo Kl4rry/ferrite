@@ -944,7 +944,7 @@ impl Buffer {
 
         self.history
             .remove(&mut self.rope, start_byte_idx..end_byte_idx);
-        let end_idx = self.rope.len_bytes().saturating_sub(1);
+        let end_idx = self.rope.len_bytes();
         self.history.insert(&mut self.rope, end_idx, "\n");
 
         let new_line_start_byte_idx = self.rope.line_to_byte(new_line_idx);
