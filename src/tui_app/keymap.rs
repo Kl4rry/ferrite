@@ -128,8 +128,11 @@ pub fn get_command_from_input(
         }
     }
 
-    if modifiers == KeyModifiers::empty() || modifiers == KeyModifiers::SHIFT {
-        if let KeyCode::Char(ch) = keycode {
+    if let KeyCode::Char(ch) = keycode {
+        if !ch.is_ascii_alphanumeric()
+            || modifiers == KeyModifiers::empty()
+            || modifiers == KeyModifiers::SHIFT
+        {
             return Some(InputCommand::Char(ch));
         }
     }

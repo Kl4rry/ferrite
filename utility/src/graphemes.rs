@@ -53,7 +53,7 @@ pub fn grapheme_width(g: &str, current_col: usize) -> usize {
         // properly.
         // TODO properly handle unicode width for all codepoints
         // example of where unicode width is currently wrong: 🤦🏼‍♂️ (taken from https://hsivonen.fi/string-length/)
-        UnicodeWidthStr::width_cjk(g).max(1)
+        UnicodeWidthStr::width(g).max(1)
     }
 }
 
