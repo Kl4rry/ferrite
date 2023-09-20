@@ -212,9 +212,11 @@ impl StatefulWidget for EditorWidget<'_> {
             let col_pos = buffer.col_pos();
             let line_pos = buffer.line_pos();
             let mut highlights = Vec::new();
+            let mut syntax_rope = None;
             {
                 if let Some(syntax) = buffer.get_syntax() {
-                    if let Some((_rope, events)) = &*syntax.get_highlight_events() {
+                    if let Some((rope, events)) = &*syntax.get_highlight_events() {
+                        syntax_rope = Some(rope.clone());
                         let mut highlight: Option<Highlight> = None;
                         for event in events {
                             match event {
@@ -242,8 +244,7 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             // Apply highlight
-            {
-                let rope = buffer.rope().clone();
+            if let Some(rope) = syntax_rope {
                 let highlights: Vec<_> = highlights
                     .par_iter()
                     .map(|(start, end, style)| {
