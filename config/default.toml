@@ -6,6 +6,7 @@ watch_recursive = true
 watch_workspace = true
 show_indent_rulers = true
 always_prompt_on_exit = false
+case_insensitive_search = true
 
 [picker]
 show_hidden = false

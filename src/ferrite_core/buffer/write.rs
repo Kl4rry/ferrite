@@ -24,7 +24,7 @@ pub fn write(
             .create(true)
             .truncate(true)
             .write(true)
-            .open(&path)?,
+            .open(path)?,
     );
 
     let mut output_rope = RopeBuilder::new();

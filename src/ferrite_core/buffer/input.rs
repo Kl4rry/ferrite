@@ -51,7 +51,7 @@ impl Buffer {
         }
 
         if let Some(searcher) = &mut self.searcher {
-            searcher.update_buffer(self.rope.clone());
+            searcher.update_buffer(self.rope.clone(), None);
         }
 
         Ok(respone)

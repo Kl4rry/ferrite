@@ -15,8 +15,8 @@ pub struct SearchMatch {
 }
 
 enum QueryUpdate {
-    Rope(Rope),
-    Query(String),
+    Rope(Rope, Option<bool>),
+    Query(String, bool),
 }
 
 pub struct BufferSearcher {
@@ -27,10 +27,15 @@ pub struct BufferSearcher {
 }
 
 impl BufferSearcher {
-    pub fn new(proxy: TuiEventLoopProxy, query: String, rope: Rope) -> Self {
+    pub fn new(
+        proxy: TuiEventLoopProxy,
+        query: String,
+        rope: Rope,
+        case_insensitive: bool,
+    ) -> Self {
         let matches = Arc::new(Mutex::new(Vec::new()));
         let (tx, rx) = mpsc::channel();
-        let _ = tx.send(QueryUpdate::Rope(rope.clone()));
+        let _ = tx.send(QueryUpdate::Rope(rope.clone(), Some(case_insensitive)));
         let thread_rope = rope.clone();
 
         let thread_matches = matches.clone();
@@ -39,14 +44,23 @@ impl BufferSearcher {
             let matches = thread_matches;
             let mut query = query;
             let mut rope = thread_rope;
+            let mut case_insensitive = case_insensitive;
 
             let mut match_buffer = Vec::new();
 
             // TODO don't block on every update do batch reciving
             while let Ok(update) = rx.recv() {
                 match update {
-                    QueryUpdate::Rope(r) => rope = r,
-                    QueryUpdate::Query(q) => query = q,
+                    QueryUpdate::Rope(r, case) => {
+                        if let Some(case) = case {
+                            case_insensitive = case;
+                        }
+                        rope = r;
+                    }
+                    QueryUpdate::Query(q, case) => {
+                        case_insensitive = case;
+                        query = q;
+                    }
                 }
 
                 let chars: Vec<_> = query.chars().collect();
@@ -54,11 +68,11 @@ impl BufferSearcher {
                 let mut current_char = 1;
 
                 for ch in rope.chars() {
-                    if ch == chars[query_idx] {
+                    if compare_char(&ch, &chars[query_idx], case_insensitive) {
                         query_idx += 1;
                     } else {
                         query_idx = 0;
-                        if ch == chars[query_idx] {
+                        if compare_char(&ch, &chars[query_idx], case_insensitive) {
                             query_idx += 1;
                         }
                     }
@@ -112,17 +126,26 @@ impl BufferSearcher {
         guard.get(self.match_index).copied()
     }
 
-    pub fn update_query(&mut self, query: String) {
-        let _ = self.tx.send(QueryUpdate::Query(query));
+    pub fn update_query(&mut self, query: String, case_insensitive: bool) {
+        let _ = self.tx.send(QueryUpdate::Query(query, case_insensitive));
     }
 
-    pub fn update_buffer(&mut self, rope: Rope) {
+    pub fn update_buffer(&mut self, rope: Rope, case_insensitive: Option<bool>) {
         if !self.last_rope.is_instance(&rope) {
-            let _ = self.tx.send(QueryUpdate::Rope(rope));
+            let _ = self.tx.send(QueryUpdate::Rope(rope, case_insensitive));
         }
     }
 
     pub fn get_matches(&self) -> Arc<Mutex<Vec<SearchMatch>>> {
         self.matches.clone()
+    }
+}
+
+#[inline(always)]
+pub fn compare_char(lhs: &char, rhs: &char, case_insensitive: bool) -> bool {
+    if case_insensitive {
+        lhs.to_ascii_lowercase() == rhs.to_ascii_lowercase()
+    } else {
+        lhs == rhs
     }
 }

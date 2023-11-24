@@ -82,6 +82,7 @@ pub enum InputCommand {
     RevertBuffer,
     VerticalScroll(i64),
     FileSearch,
+    CaseInsensitive,
     NextMatch,
     PrevMatch,
     FocusPalette,
@@ -225,6 +226,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             InputCommand::FileSearch,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('i'), KeyModifiers::CONTROL),
+            InputCommand::CaseInsensitive,
             Exclusiveness::Exclusive,
         ),
         (

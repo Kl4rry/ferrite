@@ -104,6 +104,14 @@ impl CommandPalette {
         };
     }
 
+    pub fn update_prompt(&mut self, new_prompt: impl Into<String>) {
+        match &mut self.state {
+            PaletteState::Input { prompt, .. } => *prompt = new_prompt.into(),
+            PaletteState::Prompt { prompt, .. } => *prompt = new_prompt.into(),
+            _ => (),
+        }
+    }
+
     pub fn set_prompt(
         &mut self,
         prompt: impl Into<String>,
@@ -140,6 +148,14 @@ impl CommandPalette {
 
     pub fn state(&mut self) -> &mut PaletteState {
         &mut self.state
+    }
+
+    pub fn mode(&self) -> Option<&str> {
+        if let PaletteState::Input { mode, .. } = &self.state {
+            Some(mode)
+        } else {
+            None
+        }
     }
 }
 

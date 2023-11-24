@@ -1355,11 +1355,16 @@ impl Buffer {
         start..end
     }
 
-    pub fn start_search(&mut self, proxy: TuiEventLoopProxy, query: String) {
+    pub fn start_search(
+        &mut self,
+        proxy: TuiEventLoopProxy,
+        query: String,
+        case_insensitive: bool,
+    ) {
         if let Some(searcher) = &mut self.searcher {
-            searcher.update_query(query);
+            searcher.update_query(query, case_insensitive);
         } else {
-            let searcher = BufferSearcher::new(proxy, query, self.rope.clone());
+            let searcher = BufferSearcher::new(proxy, query, self.rope.clone(), case_insensitive);
             self.searcher = Some(searcher);
         }
     }

@@ -425,10 +425,16 @@ impl TuiApp {
                         self.file_finder = None;
                         self.buffer_finder = None;
                         self.palette.focus(
-                            "search: ",
+                            self.get_search_prompt(),
                             "search",
                             CompleterContext::new(&self.themes),
                         );
+                    }
+                    InputCommand::CaseInsensitive => {
+                        self.config.case_insensitive_search = !self.config.case_insensitive_search;
+                        if let Some("search") = self.palette.mode() {
+                            self.palette.update_prompt(self.get_search_prompt());
+                        }
                     }
                     InputCommand::Escape
                         if self.file_finder.is_some() | self.buffer_finder.is_some() =>
@@ -608,7 +614,11 @@ impl TuiApp {
                     }
                 }
                 "search" => {
-                    self.buffers[self.current_buffer_id].start_search(self.proxy.clone(), content);
+                    self.buffers[self.current_buffer_id].start_search(
+                        self.proxy.clone(),
+                        content,
+                        self.config.case_insensitive_search,
+                    );
                     self.palette.unfocus();
                 }
                 _ => (),
@@ -751,6 +761,16 @@ impl TuiApp {
             Some((id, _)) => id,
             None => self.buffers.insert(Buffer::new()),
         }
+    }
+
+    pub fn get_search_prompt(&self) -> String {
+        let mut prompt = String::from("search");
+        if self.config.case_insensitive_search {
+            prompt += " (i): ";
+        } else {
+            prompt += ": ";
+        }
+        prompt
     }
 }
 

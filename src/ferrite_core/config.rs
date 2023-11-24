@@ -47,6 +47,8 @@ pub struct Config {
     pub show_indent_rulers: bool,
     #[serde(default = "get_false")]
     pub always_prompt_on_exit: bool,
+    #[serde(default = "get_true")]
+    pub case_insensitive_search: bool,
     #[serde(default)]
     pub picker: PickerConfig,
     #[serde(default)]
