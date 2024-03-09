@@ -80,7 +80,7 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
 });
 
 fn get_lang_config(name: &str) -> Option<LanguageConfig> {
-    log::info!("Loading tree-sitter syntax for: `{name}`");
+    tracing::info!("Loading tree-sitter syntax for: `{name}`");
     Some(match name {
         #[cfg(feature = "lang-rust")]
         "rust" => LanguageConfig::new(

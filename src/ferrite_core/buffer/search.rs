@@ -40,7 +40,7 @@ impl BufferSearcher {
 
         let thread_matches = matches.clone();
         thread::spawn(move || {
-            log::info!("search thread spawned");
+            tracing::info!("search thread spawned");
             let matches = thread_matches;
             let mut query = query;
             let mut rope = thread_rope;
@@ -97,7 +97,7 @@ impl BufferSearcher {
                 proxy.request_render();
                 match_buffer.clear();
             }
-            log::info!("search thread exit");
+            tracing::info!("search thread exit");
         });
 
         Self {

@@ -71,14 +71,14 @@ fn raw_style_to_style(s: &Style, palette: &HashMap<String, String>) -> Result<st
     if let Some(fg) = &s.fg {
         match palette.get(fg) {
             Some(color) => style.fg = Some(Color::from_str(color)?),
-            None => log::error!("Color `{fg}` not found"),
+            None => tracing::error!("Color `{fg}` not found"),
         }
     }
 
     if let Some(bg) = &s.bg {
         match palette.get(bg) {
             Some(color) => style.bg = Some(Color::from_str(color)?),
-            None => log::error!("Color `{bg}` not found"),
+            None => tracing::error!("Color `{bg}` not found"),
         }
     }
 
@@ -143,7 +143,7 @@ impl EditorTheme {
                 },
             }
         }
-        log::warn!("missing in theme: {}", name);
+        tracing::warn!("missing in theme: {}", name);
         self.text
     }
 
@@ -157,14 +157,14 @@ impl EditorTheme {
             theme_dirs.push(dirs.config_dir().join("themes"));
         }
 
-        log::info!("Loading themes from: {:#?}", theme_dirs);
+        tracing::info!("Loading themes from: {:#?}", theme_dirs);
 
         let mut themes = HashMap::new();
         for path in theme_dirs {
             let dir = match fs::read_dir(&path) {
                 Ok(dir) => dir,
                 Err(err) => {
-                    log::error!("Error loading {} {err}", path.to_string_lossy());
+                    tracing::error!("Error loading {} {err}", path.to_string_lossy());
                     continue;
                 }
             };
@@ -180,7 +180,7 @@ impl EditorTheme {
                                 themes.entry(name).or_insert(theme);
                             }
                             Err(err) => {
-                                log::error!("Error loading {} {err}", path.to_string_lossy())
+                                tracing::error!("Error loading {} {err}", path.to_string_lossy())
                             }
                         }
                     }
@@ -197,7 +197,7 @@ impl EditorTheme {
 
         themes.insert("default".into(), EditorTheme::default());
 
-        log::info!("{:#?}", themes.keys().collect::<Vec<&String>>());
+        tracing::info!("{:#?}", themes.keys().collect::<Vec<&String>>());
 
         themes
     }

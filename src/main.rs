@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 use std::{
     fs::{self, OpenOptions},
-    io::{self, IsTerminal, LineWriter, Read},
+    io::{self, IsTerminal, Read},
     path::PathBuf,
     process::ExitCode,
 };
@@ -9,6 +9,8 @@ use std::{
 use anyhow::Result;
 use clap::Parser;
 use ferrite_core::config::Config;
+use tracing::Level;
+use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
 use tui_app::event_loop::TuiEventLoop;
 
 mod ferrite_core;
@@ -34,7 +36,7 @@ pub struct Args {
     /// Use process local clipboard
     #[arg(long)]
     pub local_clipboard: bool,
-    /// Options `off`, `error`, `warn`, `info`, `debug` or `trace`
+    /// Options `error`, `warn`, `info`, `debug` or `trace`
     #[arg(long)]
     pub log_level: Option<String>,
     /// Initialize default config
@@ -65,12 +67,10 @@ fn main() -> Result<ExitCode> {
     };
     fs::create_dir_all(dirs.data_dir())?;
     let log_file_path = dirs.data_dir().join(".log.txt");
-    let log_file = LineWriter::new(
-        OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&log_file_path)?,
-    );
+    let log_file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&log_file_path)?;
 
     let var = args
         .log_level
@@ -78,19 +78,29 @@ fn main() -> Result<ExitCode> {
         .cloned()
         .unwrap_or_else(|| std::env::var("FERRITE_LOG").unwrap_or_default());
     let log_level = match var.to_ascii_lowercase().as_str() {
-        "off" => log::LevelFilter::Off,
-        "error" => log::LevelFilter::Error,
-        "warn" => log::LevelFilter::Warn,
-        "info" => log::LevelFilter::Info,
-        "debug" => log::LevelFilter::Debug,
-        "trace" => log::LevelFilter::Trace,
+        "error" => Level::ERROR,
+        "warn" => Level::WARN,
+        "info" => Level::INFO,
+        "debug" => Level::DEBUG,
+        "trace" => Level::TRACE,
         #[cfg(debug_assertions)]
-        _ => log::LevelFilter::Trace,
+        _ => Level::TRACE,
         #[cfg(not(debug_assertions))]
-        _ => log::LevelFilter::Info,
+        _ => Level::INFO,
     };
 
-    simplelog::WriteLogger::init(log_level, Default::default(), log_file)?;
+    let subscriber = Registry::default().with(
+        fmt::layer()
+            .compact()
+            .without_time()
+            .with_ansi(true)
+            .with_writer(log_file)
+            .with_filter(filter::LevelFilter::from_level(log_level)),
+    );
+
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+    tracing_log::LogTracer::init().unwrap();
+
     clipboard::init(args.local_clipboard);
 
     if args.log_file {
@@ -123,8 +133,13 @@ fn main() -> Result<ExitCode> {
             buffer.set_view_lines(height.saturating_sub(2).into());
             buffer.goto(args.line as i64);
         }
+
+        if !io::stdout().is_terminal() {
+            return Ok(ExitCode::SUCCESS);
+        }
+
         tui_app.run(event_loop)?;
     }
 
-    Ok(ExitCode::from(0))
+    Ok(ExitCode::SUCCESS)
 }

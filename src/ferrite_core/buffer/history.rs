@@ -75,7 +75,7 @@ impl History {
                     frame.edits.push(inverse);
                 }
             }
-            None => log::error!("Edited rope before starting new edit frame"),
+            None => tracing::error!("Edited rope before starting new edit frame"),
         }
     }
 

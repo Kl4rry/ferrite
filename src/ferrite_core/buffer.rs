@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{
     cmp, io,
     num::NonZeroUsize,
@@ -98,9 +99,9 @@ impl Default for Buffer {
     }
 }
 
-impl ToString for Buffer {
-    fn to_string(&self) -> String {
-        self.rope.to_string()
+impl fmt::Display for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.rope)
     }
 }
 
@@ -123,7 +124,7 @@ impl Buffer {
         let mut syntax = Syntax::new(proxy);
         if let Some(language) = get_language_from_path(&path) {
             if let Err(err) = syntax.set_language(language) {
-                log::error!("Error setting language: {err}");
+                tracing::error!("Error setting language: {err}");
             }
             syntax.update_text(Rope::new());
         }
@@ -142,7 +143,7 @@ impl Buffer {
         let mut syntax = Syntax::new(proxy);
         if let Some(language) = get_language_from_path(path) {
             if let Err(err) = syntax.set_language(language) {
-                log::error!("Error setting language: {err}");
+                tracing::error!("Error setting language: {err}");
             }
             syntax.update_text(rope.clone());
         }

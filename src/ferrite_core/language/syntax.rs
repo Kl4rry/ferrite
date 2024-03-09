@@ -33,7 +33,7 @@ impl SyntaxProvider {
         let highlight_config = language.highlight_config.clone();
         let name = language.name.clone();
         thread::spawn(move || {
-            log::info!("Highlight thread started for `{name}`");
+            tracing::info!("Highlight thread started for `{name}`");
             let mut highlighter = Highlighter::new();
             let mut rope;
 
@@ -41,7 +41,7 @@ impl SyntaxProvider {
                 rope = match rope_rx.recv() {
                     Ok(rope) => rope,
                     Err(err) => {
-                        log::error!("Recv error: {err}");
+                        tracing::error!("Recv error: {err}");
                         break;
                     }
                 };
@@ -62,14 +62,14 @@ impl SyntaxProvider {
                     ));
                     proxy.request_render();
                 }
-                log::trace!(
+                tracing::trace!(
                     "highlight took: {}us or {}ms",
                     time.elapsed().as_micros(),
                     time.elapsed().as_millis()
                 );
             }
 
-            log::info!("Syntax provider thread exit");
+            tracing::info!("Syntax provider thread exit");
         });
 
         Ok(Self { language, rope_tx })
@@ -98,7 +98,7 @@ impl Syntax {
     pub fn set_language(&mut self, language: &str) -> Result<()> {
         match get_tree_sitter_language(language) {
             Some(lang) => {
-                log::info!("set lang to `{language}`");
+                tracing::info!("set lang to `{language}`");
                 self.syntax_provder = Some(SyntaxProvider::new(
                     lang,
                     self.proxy.clone(),
@@ -455,7 +455,7 @@ impl<'a> HighlightIterLayer<'a> {
                         None,
                     )
                     .ok_or(Error::Cancelled)?;
-                log::trace!(
+                tracing::trace!(
                     "parsing took: {}us or {}ms",
                     time.elapsed().as_micros(),
                     time.elapsed().as_millis()

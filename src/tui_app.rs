@@ -317,7 +317,7 @@ impl TuiApp {
             let input = match event {
                 Event::Key(event) => {
                     if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
-                        log::debug!("{:?}", event);
+                        tracing::debug!("{:?}", event);
                         keymap::get_command_from_input(
                             event.code,
                             event.modifiers,

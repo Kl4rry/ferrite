@@ -61,7 +61,7 @@ pub fn set_primary(text: impl Into<String>) {
         let _ = clipboard
             .set()
             .clipboard(LinuxClipboardKind::Primary)
-            .text(&text.into());
+            .text(text.into());
     }
 }
 

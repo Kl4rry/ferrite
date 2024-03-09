@@ -63,7 +63,7 @@ impl FileDaemon {
             ) {
                 Ok(watcher) => watcher,
                 Err(err) => {
-                    log::error!("Error starting file watcher {err}");
+                    tracing::error!("Error starting file watcher {err}");
                     return;
                 }
             };
@@ -73,10 +73,10 @@ impl FileDaemon {
                     true => RecursiveMode::Recursive,
                     false => RecursiveMode::NonRecursive,
                 };
-                log::info!("watching workspace: {:?} using {:?}", path, mode);
+                tracing::info!("watching workspace: {:?} using {:?}", path, mode);
 
                 if let Err(err) = watcher.watch(&path, mode) {
-                    log::error!("Error starting file watcher {err}");
+                    tracing::error!("Error starting file watcher {err}");
                 };
             }
 
@@ -125,7 +125,7 @@ impl FileDaemon {
                         return;
                     }
 
-                    log::trace!(
+                    tracing::trace!(
                         "Found {} files in {}ms",
                         tracked_files.len(),
                         start.elapsed().as_millis()
@@ -224,7 +224,7 @@ impl FileDaemon {
                         }
                     }
                     Err(err) => {
-                        log::error!("File daemon thread exit: {err}");
+                        tracing::error!("File daemon thread exit: {err}");
                         return;
                     }
                 }

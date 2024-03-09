@@ -19,7 +19,7 @@ fn get_current_branch() -> Option<String> {
             }
         }
         Err(err) => {
-            log::error!("{}", err);
+            tracing::error!("{}", err);
             None
         }
     }
@@ -52,7 +52,9 @@ impl BranchWatcher {
                             let mut guard = current_branch_thread.lock().unwrap();
                             if let Some(current) = &*guard {
                                 if current != &branch {
-                                    log::info!("Git branch changed from `{current}` to `{branch}`");
+                                    tracing::info!(
+                                        "Git branch changed from `{current}` to `{branch}`"
+                                    );
                                 }
                             }
                             *guard = Some(branch);
