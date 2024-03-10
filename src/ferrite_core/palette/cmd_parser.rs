@@ -4,7 +4,8 @@ use utility::line_ending::LineEnding;
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
 use crate::ferrite_core::{
-    buffer::encoding::get_encoding_names, language::get_available_languages,
+    buffer::{case::Case, encoding::get_encoding_names},
+    language::get_available_languages,
     palette::cmd_parser::generic_cmd::GenericCommand,
 };
 
@@ -48,6 +49,9 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("paste", [..]) => Command::Paste,
         ("copy", [..]) => Command::Copy,
         ("revert-buffer", [..]) => Command::RevertBuffer,
+        ("case", [case, ..]) =>  {
+            Command::Case(Case::from_str(case.take().unwrap().unwrap_string().as_str()))
+        }
         ("line-ending", [line_ending, ..]) => Command::LineEnding(line_ending.take().map(|line_ending| {
             match line_ending.unwrap_string().as_str() {
                 "lf" => LineEnding::LF,
@@ -95,6 +99,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("paste", None, true),
         CommandTemplate::new("copy", None, true),
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
+        CommandTemplate::new("case", Some(("encoding", CommandTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
             .set_custom_alternative_error(|encoding, _| format!("`{encoding}` is unknown an encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs")),
         CommandTemplate::new("language", Some(("language", CommandTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true).add_alias("lang"),

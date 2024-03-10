@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use utility::line_ending::LineEnding;
 
+use crate::ferrite_core::buffer::case::Case;
+
 #[derive(Debug, Clone)]
 pub enum Command {
     OpenFile(PathBuf),
@@ -9,6 +11,7 @@ pub enum Command {
     Language(Option<String>),
     Encoding(Option<String>),
     LineEnding(Option<LineEnding>),
+    Case(Case),
     New,
     Reload,
     Logger,

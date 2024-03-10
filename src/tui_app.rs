@@ -569,6 +569,7 @@ impl TuiApp {
                                 };
                             }
                             Command::Goto(line) => self.buffers[self.current_buffer_id].goto(line),
+                            Command::Case(case) => self.buffers[self.current_buffer_id].transform_case(case),
                             Command::Quit => self.quit(control_flow),
                             Command::ForceQuit => *control_flow = TuiEventLoopControlFlow::Exit,
                             Command::Logger => todo!(),

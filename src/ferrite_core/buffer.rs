@@ -24,6 +24,7 @@ use crate::{
     tui_app::{event_loop::TuiEventLoopProxy, keymap::LineMoveDir},
 };
 
+pub mod case;
 pub mod encoding;
 pub mod error;
 mod history;
