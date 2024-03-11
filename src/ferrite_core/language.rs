@@ -316,6 +316,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Name(".zlogout"), "bash"),
             (Name(".zprofile"), "bash"),
             (Name(".zshrc"), "bash"),
+            (Name("PKGBUILD"), "bash"),
         ]
     });
 
