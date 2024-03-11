@@ -30,9 +30,6 @@ pub struct Args {
     /// Language
     #[arg(long = "lang")]
     pub language: Option<String>,
-    /// Tail log file
-    #[arg(long)]
-    pub log_file: bool,
     /// Use process local clipboard
     #[arg(long)]
     pub local_clipboard: bool,
@@ -51,31 +48,55 @@ pub enum Subcommands {
         #[arg(long)]
         overwrite: bool,
     },
+    /// Tail log file
+    Log,
 }
 
 fn main() -> Result<ExitCode> {
-    let args = Args::parse();
-    if let Some(Subcommands::Init { overwrite }) = args.subcommands {
-        Config::create_default_config(overwrite)?;
-        println!(
-            "Created default config at: `{}`",
-            Config::get_default_location()?.to_string_lossy()
-        );
-
-        #[cfg(feature = "embed-themes")]
-        {
-            crate::ferrite_core::theme::init_themes()?;
-        }
-
-        return Ok(ExitCode::SUCCESS);
-    }
-
     let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
         eprintln!("Unable to get project directory");
         return Ok(ExitCode::from(1));
     };
-    fs::create_dir_all(dirs.data_dir())?;
     let log_file_path = dirs.data_dir().join(".log.txt");
+
+    let args = Args::parse();
+    if let Some(subcmd) = &args.subcommands {
+        match subcmd {
+            Subcommands::Init { overwrite } => {
+                Config::create_default_config(*overwrite)?;
+                println!(
+                    "Created default config at: `{}`",
+                    Config::get_default_location()?.to_string_lossy()
+                );
+
+                #[cfg(feature = "embed-themes")]
+                {
+                    crate::ferrite_core::theme::init_themes()?;
+                }
+
+                return Ok(ExitCode::SUCCESS);
+            }
+            Subcommands::Log => {
+                let mut cmd = std::process::Command::new("tail");
+                cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
+
+                #[cfg(not(target_family = "unix"))]
+                {
+                    let mut child = cmd.spawn()?;
+                    let exit_status = child.wait()?;
+                    return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
+                }
+
+                #[cfg(target_family = "unix")]
+                {
+                    use std::os::unix::process::CommandExt;
+                    Err(cmd.exec())?;
+                }
+            }
+        }
+    }
+
+    fs::create_dir_all(dirs.data_dir())?;
     let log_file = OpenOptions::new()
         .append(true)
         .create(true)
@@ -111,24 +132,6 @@ fn main() -> Result<ExitCode> {
     tracing_log::LogTracer::init().unwrap();
 
     clipboard::init(args.local_clipboard);
-
-    if args.log_file {
-        let mut cmd = std::process::Command::new("tail");
-        cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
-
-        #[cfg(not(target_family = "unix"))]
-        {
-            let mut child = cmd.spawn()?;
-            let exit_status = child.wait()?;
-            return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
-        }
-
-        #[cfg(target_family = "unix")]
-        {
-            use std::os::unix::process::CommandExt;
-            Err(cmd.exec())?;
-        }
-    }
 
     {
         let event_loop = TuiEventLoop::new();
