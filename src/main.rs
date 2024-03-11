@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use ferrite_core::config::Config;
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
@@ -39,15 +39,24 @@ pub struct Args {
     /// Options `error`, `warn`, `info`, `debug` or `trace`
     #[arg(long)]
     pub log_level: Option<String>,
+    #[command(subcommand)]
+    pub subcommands: Option<Subcommands>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Subcommands {
     /// Initialize default config
-    #[arg(long)]
-    pub init: bool,
+    Init {
+        /// Overwrite existing config
+        #[arg(long)]
+        overwrite: bool,
+    },
 }
 
 fn main() -> Result<ExitCode> {
     let args = Args::parse();
-    if args.init {
-        Config::create_default_config()?;
+    if let Some(Subcommands::Init { overwrite }) = args.subcommands {
+        Config::create_default_config(overwrite)?;
         println!(
             "Created default config at: `{}`",
             Config::get_default_location()?.to_string_lossy()

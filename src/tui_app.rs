@@ -495,6 +495,7 @@ impl TuiApp {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::FormatSelection => self.format_selection_current_buffer(),
                             Command::Format => self.format_current_buffer(),
                             Command::OpenFile(path) => self.open_file(path),
                             Command::SaveFile(path) => {
@@ -638,6 +639,32 @@ impl TuiApp {
         }
     }
 
+    pub fn format_selection_current_buffer(&mut self) {
+        let buffer_lang = self.buffers[self.current_buffer_id].language_name();
+        let config = self
+            .config
+            .language
+            .iter()
+            .find(|lang| lang.name == buffer_lang);
+        let Some(config) = config else {
+            self.palette
+                .set_error(format!("No language config found for `{buffer_lang}`"));
+
+            return;
+        };
+
+        let Some(fmt) = &config.format_selection else {
+            self.palette
+                .set_error(format!("No selection formatter found for `{buffer_lang}`"));
+            return;
+        };
+
+        if let Err(err) = self.buffers[self.current_buffer_id].format_selection(fmt) {
+            // FIXME make error able to display more then one line
+            self.palette.set_error(err);
+        }
+    }
+
     pub fn format_current_buffer(&mut self) {
         let buffer_lang = self.buffers[self.current_buffer_id].language_name();
         let config = self
@@ -647,11 +674,11 @@ impl TuiApp {
             .find(|lang| lang.name == buffer_lang);
         let Some(config) = config else {
             self.palette
-                .set_error(format!("No formatter found for `{buffer_lang}`"));
+                .set_error(format!("No language config found for `{buffer_lang}`"));
             return;
         };
 
-        let Some(fmt) = &config.formatter else {
+        let Some(fmt) = &config.format else {
             self.palette
                 .set_error(format!("No formatter found for `{buffer_lang}`"));
             return;

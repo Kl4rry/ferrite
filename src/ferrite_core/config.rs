@@ -78,7 +78,8 @@ pub struct InfoLineConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Language {
     pub name: String,
-    pub formatter: Option<String>,
+    pub format: Option<String>,
+    pub format_selection: Option<String>,
 }
 
 impl Default for InfoLineConfig {
@@ -111,7 +112,7 @@ impl Default for PickerConfig {
 const DEFAULT_CONFIG: &str = include_str!("../../config/default.toml");
 
 impl Config {
-    pub fn create_default_config() -> Result<()> {
+    pub fn create_default_config(overwrite: bool) -> Result<()> {
         let config = Self::get_default_location()?;
 
         let mut config_folder = config.clone();
@@ -121,7 +122,7 @@ impl Config {
             fs::create_dir_all(config_folder)?;
         }
 
-        if !config.exists() {
+        if !config.exists() || overwrite {
             fs::write(config, DEFAULT_CONFIG)?;
         }
 

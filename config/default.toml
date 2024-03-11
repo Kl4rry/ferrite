@@ -24,12 +24,14 @@ padding = 1
 
 [[language]]
 name = "rust"
-formatter = "rustfmt"
+format = "rustfmt"
 
 [[language]]
 name = "cpp"
-formatter = "clang-format"
+format = "clang-format"
+format_selection = "clang-format --offset=%start% --length=%len%"
 
 [[language]]
 name = "c"
-formatter = "clang-format"
+format = "clang-format"
+format_selection = "clang-format --offset=%start% --length=%len%"
