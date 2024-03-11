@@ -4,7 +4,7 @@ local_clipboard = false
 show_splash = true
 watch_recursive = true
 watch_workspace = true
-show_indent_rulers = true
+show_indent_rulers = false
 always_prompt_on_exit = false
 case_insensitive_search = true
 
@@ -21,3 +21,15 @@ left = ["size"]
 center = ["file"]
 right = ["branch", "position", "encoding", "language"]
 padding = 1
+
+[[language]]
+name = "rust"
+formatter = "rustfmt"
+
+[[language]]
+name = "cpp"
+formatter = "clang-format"
+
+[[language]]
+name = "c"
+formatter = "clang-format"

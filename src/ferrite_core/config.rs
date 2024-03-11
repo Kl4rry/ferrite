@@ -43,7 +43,7 @@ pub struct Config {
     pub watch_recursive: bool,
     #[serde(default = "get_true")]
     pub watch_workspace: bool,
-    #[serde(default = "get_true")]
+    #[serde(default = "get_false")]
     pub show_indent_rulers: bool,
     #[serde(default = "get_false")]
     pub always_prompt_on_exit: bool,
@@ -53,6 +53,8 @@ pub struct Config {
     pub picker: PickerConfig,
     #[serde(default)]
     pub info_line: InfoLineConfig,
+    #[serde(default)]
+    pub language: Vec<Language>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -71,6 +73,12 @@ pub struct InfoLineConfig {
     pub center: Vec<String>,
     pub right: Vec<String>,
     pub padding: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Language {
+    pub name: String,
+    pub formatter: Option<String>,
 }
 
 impl Default for InfoLineConfig {

@@ -27,6 +27,7 @@ use crate::{
 pub mod case;
 pub mod encoding;
 pub mod error;
+mod format;
 mod history;
 pub mod input;
 mod read;

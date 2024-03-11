@@ -495,6 +495,7 @@ impl TuiApp {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Format => self.format_current_buffer(),
                             Command::OpenFile(path) => self.open_file(path),
                             Command::SaveFile(path) => {
                                 match self.buffers[self.current_buffer_id].save(path) {
@@ -634,6 +635,31 @@ impl TuiApp {
                 PalettePromptEvent::Quit => *control_flow = TuiEventLoopControlFlow::Exit,
                 PalettePromptEvent::CloseCurrent => self.force_close_current_buffer(),
             },
+        }
+    }
+
+    pub fn format_current_buffer(&mut self) {
+        let buffer_lang = self.buffers[self.current_buffer_id].language_name();
+        let config = self
+            .config
+            .language
+            .iter()
+            .find(|lang| lang.name == buffer_lang);
+        let Some(config) = config else {
+            self.palette
+                .set_error(format!("No formatter found for `{buffer_lang}`"));
+            return;
+        };
+
+        let Some(fmt) = &config.formatter else {
+            self.palette
+                .set_error(format!("No formatter found for `{buffer_lang}`"));
+            return;
+        };
+
+        if let Err(err) = self.buffers[self.current_buffer_id].format(fmt) {
+            // FIXME make error able to display more then one line
+            self.palette.set_error(err);
         }
     }
 

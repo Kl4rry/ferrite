@@ -27,6 +27,7 @@ pub enum Command {
     Close,
     Paste,
     Copy,
+    Format,
     GitReload,
     RevertBuffer,
 }

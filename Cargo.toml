@@ -32,6 +32,7 @@ ropey = "1.5.1"
 serde = { version = "1.0.152", features = ["derive"] }
 slab = "0.4.8"
 sublime_fuzzy = "0.7.0"
+subprocess = "0.2.9"
 toml = "0.7.1"
 tracing = "0.1.40"
 tracing-log = "0.2.0"
