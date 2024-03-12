@@ -11,6 +11,7 @@ pub enum Command {
     Language(Option<String>),
     Encoding(Option<String>),
     LineEnding(Option<LineEnding>),
+    Shell(Vec<PathBuf>),
     Case(Case),
     New,
     Reload,

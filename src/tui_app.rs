@@ -3,6 +3,7 @@ use std::{
     io::{self, Stdout},
     num::NonZeroUsize,
     path::{Path, PathBuf},
+    thread,
 };
 
 use anyhow::Result;
@@ -11,6 +12,7 @@ use crossterm::{
     execute, terminal,
 };
 use slab::Slab;
+use subprocess::{Exec, Redirection};
 use tui::layout::{Margin, Rect};
 use utility::{line_ending, point::Point};
 
@@ -484,17 +486,71 @@ impl TuiApp {
 
     pub fn handle_app_event(
         &mut self,
-        _proxy: &TuiEventLoopProxy,
+        proxy: &TuiEventLoopProxy,
         event: TuiAppEvent,
         control_flow: &mut TuiEventLoopControlFlow,
     ) {
         match event {
-            event_loop::TuiAppEvent::PaletteEvent { mode, content } => match mode.as_str() {
+            TuiAppEvent::ShellResult(result) => match result {
+                Ok(buffer) => {
+                    let id = self.buffers.insert(buffer);
+                    self.current_buffer_id = id;
+                }
+                Err(e) => self.palette.set_error(e),
+            },
+            TuiAppEvent::PaletteEvent { mode, content } => match mode.as_str() {
                 "command" => {
                     use cmd::Command;
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Shell(args) => {
+                                let thread_proxy = proxy.clone();
+                                thread::spawn(move || {
+                                    let mut cmd = String::new();
+                                    for arg in args.into_iter().map(|path| path.to_string_lossy().to_string()) {
+                                        cmd.push_str(&arg);
+                                        cmd.push(' ');
+                                    }
+
+                                    let exec = Exec::shell(cmd).stdout(Redirection::Pipe).stderr(Redirection::Pipe);
+
+                                    let mut popen = match exec.popen() {
+                                        Ok(popen) => popen,
+                                        Err(e) => {
+                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            return;
+                                        }
+                                    };
+                                    let (stdout, stderr) = match popen.communicate_bytes(None) {
+                                        Ok(out) => out,
+                                        Err(e) => {
+                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            return;
+                                        }
+                                    };
+                                    let status = match popen.wait() {
+                                        Ok(status) => status,
+                                        Err(e) => {
+                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            return;
+                                        }
+                                    };
+                                    if !status.success() {
+                                        thread_proxy.send(TuiAppEvent::ShellResult(Err(anyhow::Error::msg(String::from_utf8_lossy(&stderr.unwrap()).to_string()))));
+                                        return;
+                                    }
+                                    let buffer = match Buffer::from_bytes(&stdout.unwrap(), thread_proxy.clone()) {
+                                        Ok(buffer) => buffer,
+                                        Err(e) => {
+                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            return;
+                                        }
+                                    };
+
+                                    thread_proxy.send(TuiAppEvent::ShellResult(Ok(buffer)));
+                                });
+                            }
                             Command::Delete => {
                                 match self.buffers[self.current_buffer_id].move_to_trash() {
                                     Ok(true) => {

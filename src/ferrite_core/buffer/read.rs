@@ -1,21 +1,20 @@
 use std::{
     fs::File,
-    io::{self, Read},
+    io::{self},
     path::Path,
 };
 
 use encoding_rs::{CoderResult, Encoding};
 use ropey::{Rope, RopeBuilder};
 
-pub fn read(path: impl AsRef<Path>) -> Result<(&'static Encoding, Rope), io::Error> {
+pub fn read(mut reader: impl io::Read) -> Result<(&'static Encoding, Rope), io::Error> {
     const BUFFER_SIZE: usize = 8192;
     let mut encoding_detector = chardetng::EncodingDetector::new();
     let mut content = Vec::new();
     let mut buffer = [0u8; BUFFER_SIZE];
-    let mut file = File::open(path)?;
 
     let encoding = loop {
-        let len = file.read(&mut buffer)?;
+        let len = reader.read(&mut buffer)?;
         let filled = &buffer[..len];
         encoding_detector.feed(filled, len == 0);
         content.extend_from_slice(filled);
@@ -33,7 +32,7 @@ pub fn read(path: impl AsRef<Path>) -> Result<(&'static Encoding, Rope), io::Err
     let mut file_empty = false;
     loop {
         if input.is_empty() {
-            let read = file.read(&mut buffer)?;
+            let read = reader.read(&mut buffer)?;
             input = &buffer[..read];
             if read == 0 {
                 file_empty = true;
@@ -59,4 +58,8 @@ pub fn read(path: impl AsRef<Path>) -> Result<(&'static Encoding, Rope), io::Err
     let rope = rope_builder.finish();
 
     Ok((encoding, rope))
+}
+
+pub fn read_from_file(path: impl AsRef<Path>) -> Result<(&'static Encoding, Rope), io::Error> {
+    read(File::open(path)?)
 }

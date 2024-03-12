@@ -147,7 +147,6 @@ pub enum CommandArg {
 }
 
 impl CommandArg {
-    #[allow(dead_code)]
     pub fn unwrap_int(self) -> i64 {
         match self {
             Self::Int(val) => val,
@@ -155,7 +154,6 @@ impl CommandArg {
         }
     }
 
-    #[allow(dead_code)]
     pub fn unwrap_string(self) -> String {
         match self {
             Self::String(val) => val,

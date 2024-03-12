@@ -140,7 +140,7 @@ impl Buffer {
 
     pub fn from_file(path: impl AsRef<Path>, proxy: TuiEventLoopProxy) -> Result<Self, io::Error> {
         let path = path.as_ref();
-        let (encoding, rope) = read::read(path)?;
+        let (encoding, rope) = read::read_from_file(path)?;
 
         let mut syntax = Syntax::new(proxy);
         if let Some(language) = get_language_from_path(path) {
@@ -154,6 +154,20 @@ impl Buffer {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             file: Some(path.into()),
+            encoding,
+            syntax: Some(syntax),
+            ..Default::default()
+        })
+    }
+
+    pub fn from_bytes(bytes: &[u8], proxy: TuiEventLoopProxy) -> Result<Self, io::Error> {
+        let (encoding, rope) = read::read(bytes)?;
+        let syntax = Syntax::new(proxy);
+
+        Ok(Self {
+            indent: Indentation::detect_indent_rope(rope.slice(..)),
+            rope,
+            file: None,
             encoding,
             syntax: Some(syntax),
             ..Default::default()
@@ -1234,7 +1248,7 @@ impl Buffer {
             return Err(BufferError::NoPathSet);
         };
 
-        let (encoding, rope) = read::read(path)?;
+        let (encoding, rope) = read::read_from_file(path)?;
         self.encoding = encoding;
         let len_bytes = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len_bytes, rope);

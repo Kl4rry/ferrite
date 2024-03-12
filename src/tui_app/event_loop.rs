@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::ferrite_core::palette::PalettePromptEvent;
+use crate::ferrite_core::{buffer::Buffer, palette::PalettePromptEvent};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +18,7 @@ pub enum TuiEventLoopControlFlow {
 pub enum TuiAppEvent {
     PaletteEvent { mode: String, content: String },
     PromptEvent(PalettePromptEvent),
+    ShellResult(Result<Buffer, anyhow::Error>),
 }
 
 pub enum TuiEvent {
