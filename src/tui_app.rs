@@ -495,6 +495,22 @@ impl TuiApp {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Delete => {
+                                match self.buffers[self.current_buffer_id].move_to_trash() {
+                                    Ok(true) => {
+                                        let path = self.buffers[self.current_buffer_id].file().unwrap();
+                                        self.palette.set_msg(format!("`{}` moved to trash", path.to_string_lossy()));
+                                        self.close_current_buffer();
+                                    }
+                                    Ok(false) => {
+                                        self.palette.set_error("No path set for file, cannot move to trash");
+                                    }
+                                    Err(e) => {
+                                        self.palette.set_error(e);
+                                        self.close_current_buffer();
+                                    }
+                                }
+                            }
                             Command::FormatSelection => self.format_selection_current_buffer(),
                             Command::Format => self.format_current_buffer(),
                             Command::OpenFile(path) => self.open_file(path),

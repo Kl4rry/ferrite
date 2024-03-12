@@ -1401,6 +1401,15 @@ impl Buffer {
             self.undo();
         }
     }
+
+    pub fn move_to_trash(&self) -> Result<bool, trash::Error> {
+        if let Some(path) = &self.file {
+            trash::delete(path)?;
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
 }
 
 pub struct ViewLine<'a> {

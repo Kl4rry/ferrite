@@ -51,6 +51,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("format", [..]) => Command::Format,
         ("format-selection", [..]) => Command::FormatSelection,
         ("revert-buffer", [..]) => Command::RevertBuffer,
+        ("delete", [..]) => Command::Delete,
         ("case", [case, ..]) =>  {
             Command::Case(Case::from_str(case.take().unwrap().unwrap_string().as_str()))
         }
@@ -102,6 +103,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("copy", None, true),
         CommandTemplate::new("format", None, true),
         CommandTemplate::new("format-selection", None, true),
+        CommandTemplate::new("delete", None, true),
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
         CommandTemplate::new("case", Some(("encoding", CommandTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
