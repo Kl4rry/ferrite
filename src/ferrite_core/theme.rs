@@ -208,7 +208,7 @@ impl EditorTheme {
 
 impl Default for EditorTheme {
     fn default() -> Self {
-        EditorTheme::from_str(include_str!("../../themes/onedark.toml")).unwrap()
+        EditorTheme::from_str(include_str!("../../themes/catppuccin_mocha.toml")).unwrap()
     }
 }
 
