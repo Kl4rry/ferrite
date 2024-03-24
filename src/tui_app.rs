@@ -13,12 +13,13 @@ use crossterm::{
 };
 use slab::Slab;
 use subprocess::{Exec, Redirection};
-use tui::layout::{Margin, Rect};
+use tui::layout::{Margin, Position, Rect};
 use utility::{line_ending, point::Point};
 
 use self::{
     event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
     keymap::{get_default_mappings, Exclusiveness, Mapping},
+    panes::{PaneKind, Panes},
     widgets::{
         background_widget::BackgroundWidget,
         editor_widget::{lines_to_left_offset, EditorWidget},
@@ -52,13 +53,15 @@ use crate::{
 
 pub mod event_loop;
 pub mod keymap;
+pub mod panes;
 pub mod rect_ext;
 mod widgets;
 
 pub struct TuiApp {
     terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
     buffers: Slab<Buffer>,
-    current_buffer_id: usize,
+    buffer_area: Rect,
+    panes: Panes,
     themes: HashMap<String, EditorTheme>,
     config: Config,
     config_path: Option<PathBuf>,
@@ -121,8 +124,8 @@ impl TuiApp {
             current_buffer_id = buffers.insert(Buffer::new());
         }
 
+        let (width, height) = crossterm::terminal::size()?;
         for (_, buffer) in &mut buffers {
-            let (width, height) = crossterm::terminal::size()?;
             buffer.set_view_lines(height.saturating_sub(2).into());
             buffer.set_view_columns(width.into());
             buffer.goto(args.line as i64);
@@ -155,7 +158,13 @@ impl TuiApp {
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
             buffers,
-            current_buffer_id,
+            buffer_area: Rect {
+                x: 0,
+                y: 0,
+                width,
+                height: height.saturating_sub(2),
+            },
+            panes: Panes::new(current_buffer_id),
             themes,
             palette,
             file_finder,
@@ -174,9 +183,7 @@ impl TuiApp {
     pub fn new_buffer_with_text(&mut self, text: &str) -> &mut Buffer {
         let mut buffer = Buffer::new();
         buffer.set_text(text);
-        let id = self.buffers.insert(buffer);
-        self.current_buffer_id = id;
-        &mut self.buffers[self.current_buffer_id]
+        self.insert_buffer(buffer, true).1
     }
 
     pub fn run(mut self, event_loop: TuiEventLoop) -> Result<()> {
@@ -196,13 +203,12 @@ impl TuiApp {
             std::panic::set_hook(Box::new(move |info| {
                 _ = terminal::disable_raw_mode();
                 println!();
+                let _ = std::fs::write("./panic.txt", format!("{info:?}"));
                 default_panic(info);
             }));
         }
 
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
-
-        execute!(self.terminal.backend_mut(), terminal::LeaveAlternateScreen,)?;
 
         Ok(())
     }
@@ -253,25 +259,34 @@ impl TuiApp {
                 f.render_widget(BackgroundWidget::new(theme), f.size());
                 let size = f.size();
                 let editor_size = Rect::new(size.x, size.y, size.width, size.height - 1);
-                f.render_stateful_widget(
-                    EditorWidget::new(
-                        theme,
-                        &self.config,
-                        !self.palette.has_focus() && self.file_finder.is_none(),
-                        self.branch_watcher.current_branch(),
-                    ),
-                    editor_size,
-                    &mut self.buffers[self.current_buffer_id],
-                );
 
-                if self.config.show_splash {
-                    let buffer = &mut self.buffers[self.current_buffer_id];
-                    if buffer.rope().len_bytes() == 0
-                        && !buffer.is_dirty()
-                        && buffer.file().is_none()
-                        && self.buffers.len() == 1
-                    {
-                        f.render_widget(SplashWidget::new(theme), editor_size);
+                self.buffer_area = editor_size;
+                let current_pane = self.panes.get_current_pane();
+                for (pane, pane_rect) in self.panes.get_pane_bounds(editor_size) {
+                    if let PaneKind::Buffer(buffer_id) = pane {
+                        f.render_stateful_widget(
+                            EditorWidget::new(
+                                theme,
+                                &self.config,
+                                !self.palette.has_focus()
+                                    && self.file_finder.is_none()
+                                    && current_pane == pane,
+                                self.branch_watcher.current_branch(),
+                            ),
+                            pane_rect,
+                            &mut self.buffers[buffer_id],
+                        );
+
+                        if self.config.show_splash && self.panes.len() == 1 {
+                            let buffer = &mut self.buffers[buffer_id];
+                            if buffer.rope().len_bytes() == 0
+                                && !buffer.is_dirty()
+                                && buffer.file().is_none()
+                                && self.buffers.len() == 1
+                            {
+                                f.render_widget(SplashWidget::new(theme), pane_rect);
+                            }
+                        }
                     }
                 }
 
@@ -316,92 +331,141 @@ impl TuiApp {
         control_flow: &mut TuiEventLoopControlFlow,
     ) {
         {
-            let input = match event {
-                Event::Key(event) => {
-                    if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
-                        tracing::debug!("{:?}", event);
-                        keymap::get_command_from_input(
-                            event.code,
-                            event.modifiers,
-                            &self.key_mappings,
-                        )
-                    } else {
-                        None
-                    }
-                }
-                Event::Mouse(event) => match event.kind {
-                    // TODO allow scoll when using cmd palette
-                    MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
-                    MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
-                    MouseEventKind::Down(MouseButton::Middle) => {
-                        let buffer = &self.buffers[self.current_buffer_id];
-                        if (event.row as usize) < buffer.get_view_lines()
-                            && (event.column as usize) < buffer.get_view_columns()
-                        {
-                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
-                            let column = (event.column as usize).saturating_sub(left_offset)
-                                + buffer.col_pos();
-                            let line = event.row as usize + buffer.line_pos();
-                            Some(InputCommand::PastePrimary(column, line))
-                        } else {
-                            // TODO handle other clicks then in current buffer
-                            None
-                        }
-                    }
-                    MouseEventKind::Down(MouseButton::Left) => {
-                        self.drag_start =
-                            Some(Point::new(event.column as usize, event.row as usize));
-
-                        let buffer = &self.buffers[self.current_buffer_id];
-                        if (event.row as usize) < buffer.get_view_lines()
-                            && (event.column as usize) < buffer.get_view_columns()
-                        {
-                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
-                            let column = (event.column as usize).saturating_sub(left_offset)
-                                + buffer.col_pos();
-                            let line = event.row as usize + buffer.line_pos();
-                            Some(InputCommand::SetCursorPos(column, line))
-                        } else {
-                            // TODO handle other clicks then in current buffer
-                            None
-                        }
-                    }
-                    MouseEventKind::Up(MouseButton::Left) => {
-                        self.drag_start = None;
-                        None
-                    }
-                    MouseEventKind::Drag(MouseButton::Left) => {
-                        // TODO maybe scroll more of the buffer into view when going outside its bounds
-                        if let Some(Point { line, column }) = self.drag_start {
-                            let buffer = &mut self.buffers[self.current_buffer_id];
-                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
-
-                            let anchor = {
-                                let column = column.saturating_sub(left_offset) + buffer.col_pos();
-                                let line = line + buffer.line_pos();
-                                Point::new(column, line)
-                            };
-
-                            let cursor = {
-                                let column = (event.column as usize).saturating_sub(left_offset)
-                                    + buffer.col_pos();
-                                let line = event.row as usize + buffer.line_pos();
-                                Point::new(column, line)
-                            };
-
-                            Some(InputCommand::SelectArea { cursor, anchor })
+            let input = 'block: {
+                match event {
+                    Event::Key(event) => {
+                        if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
+                            tracing::trace!("{:?}", event);
+                            keymap::get_command_from_input(
+                                event.code,
+                                event.modifiers,
+                                &self.key_mappings,
+                            )
                         } else {
                             None
                         }
                     }
+                    Event::Mouse(event) => match event.kind {
+                        // TODO allow scoll when using cmd palette
+                        MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
+                        MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
+                        MouseEventKind::Down(MouseButton::Middle) => {
+                            for (pane_kind, pane_rect) in
+                                self.panes.get_pane_bounds(self.buffer_area)
+                            {
+                                if pane_rect.contains(Position::new(event.column, event.row)) {
+                                    self.panes.make_current(pane_kind);
+                                    if let PaneKind::Buffer(buffer_id) = pane_kind {
+                                        let buffer = &self.buffers[buffer_id];
+                                        let (_, left_offset) =
+                                            lines_to_left_offset(buffer.len_lines());
+                                        let column = (event.column as usize)
+                                            .saturating_sub(left_offset)
+                                            + buffer.col_pos().saturating_sub(pane_rect.x.into());
+                                        let line = (event.row as usize + buffer.line_pos())
+                                            .saturating_sub(pane_rect.y.into());
+                                        break 'block Some(InputCommand::PastePrimary(
+                                            column, line,
+                                        ));
+                                    }
+                                }
+                            }
+
+                            None
+                        }
+                        MouseEventKind::Down(MouseButton::Left) => {
+                            for (pane_kind, pane_rect) in
+                                self.panes.get_pane_bounds(self.buffer_area)
+                            {
+                                if pane_rect.contains(Position::new(event.column, event.row)) {
+                                    self.panes.make_current(pane_kind);
+                                    if let PaneKind::Buffer(buffer_id) = pane_kind {
+                                        self.drag_start = Some(Point::new(
+                                            event.column as usize,
+                                            event.row as usize,
+                                        ));
+
+                                        let buffer = &self.buffers[buffer_id];
+                                        let (_, left_offset) =
+                                            lines_to_left_offset(buffer.len_lines());
+                                        let column = (event.column as usize)
+                                            .saturating_sub(left_offset)
+                                            + buffer.col_pos();
+                                        let line = event.row as usize
+                                            + buffer.line_pos().saturating_sub(pane_rect.y.into());
+                                        break 'block Some(InputCommand::SetCursorPos(
+                                            column, line,
+                                        ));
+                                    }
+                                }
+                            }
+
+                            None
+                        }
+                        MouseEventKind::Up(MouseButton::Left) => {
+                            self.drag_start = None;
+                            None
+                        }
+                        MouseEventKind::Drag(MouseButton::Left) => {
+                            for (pane_kind, pane_rect) in
+                                self.panes.get_pane_bounds(self.buffer_area)
+                            {
+                                if pane_rect.contains(Position::new(event.column, event.row)) {
+                                    self.panes.make_current(pane_kind);
+                                    if let PaneKind::Buffer(buffer_id) = pane_kind {
+                                        // TODO maybe scroll more of the buffer into view when going outside its bounds
+                                        if let Some(Point { line, column }) = self.drag_start {
+                                            let buffer = &mut self.buffers[buffer_id];
+                                            let (_, left_offset) =
+                                                lines_to_left_offset(buffer.len_lines());
+
+                                            let anchor = {
+                                                let column = column.saturating_sub(left_offset)
+                                                    + buffer.col_pos();
+                                                let line = line
+                                                    + buffer
+                                                        .line_pos()
+                                                        .saturating_sub(pane_rect.y.into());
+                                                Point::new(column, line)
+                                            };
+
+                                            let cursor = {
+                                                let column = (event.column as usize)
+                                                    .saturating_sub(left_offset)
+                                                    + buffer.col_pos();
+                                                let line = event.row as usize
+                                                    + buffer
+                                                        .line_pos()
+                                                        .saturating_sub(pane_rect.y.into());
+                                                Point::new(column, line)
+                                            };
+
+                                            break 'block Some(InputCommand::SelectArea {
+                                                cursor,
+                                                anchor,
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+
+                            None
+                        }
+                        _ => None,
+                    },
+                    Event::Paste(text) => Some(InputCommand::Insert(text)),
                     _ => None,
-                },
-                Event::Paste(text) => Some(InputCommand::Insert(text)),
-                _ => None,
+                }
             };
 
             if let Some(input) = input {
                 match input {
+                    InputCommand::GrowPane => {
+                        self.panes.grow_current(self.buffer_area);
+                    }
+                    InputCommand::ShrinkPane => {
+                        self.panes.shrink_current(self.buffer_area);
+                    }
                     InputCommand::Close => {
                         self.close_current_buffer();
                     }
@@ -444,8 +508,8 @@ impl TuiApp {
                         self.file_finder = None;
                         self.buffer_finder = None;
                     }
-                    InputCommand::OpenFileBrowser => self.browse_workspace(),
-                    InputCommand::OpenBufferBrowser => self.browse_buffers(),
+                    InputCommand::OpenFileBrowser => self.open_file_picker(),
+                    InputCommand::OpenBufferBrowser => self.open_buffer_picker(),
                     input => {
                         if self.palette.has_focus() {
                             let _ = self
@@ -461,11 +525,14 @@ impl TuiApp {
                             let _ = finder.handle_input(input);
                             if let Some(choice) = finder.get_choice() {
                                 self.buffer_finder = None;
-                                self.current_buffer_id = choice.id;
+                                self.panes.replace_current(PaneKind::Buffer(choice.id));
                             }
                         } else {
                             use crate::ferrite_core::buffer::input::Response;
-                            match self.buffers[self.current_buffer_id].handle_input(input) {
+                            let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                                return;
+                            };
+                            match self.buffers[buffer_id].handle_input(input) {
                                 Ok(response) => match response {
                                     Response::Written(name, bytes_written) => {
                                         self.palette.set_msg(format!(
@@ -493,8 +560,7 @@ impl TuiApp {
         match event {
             TuiAppEvent::ShellResult(result) => match result {
                 Ok(buffer) => {
-                    let id = self.buffers.insert(buffer);
-                    self.current_buffer_id = id;
+                    self.insert_buffer(buffer, true);
                 }
                 Err(e) => self.palette.set_error(e),
             },
@@ -504,46 +570,68 @@ impl TuiApp {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Split(direction) => {
+                                let buffer_id = self.insert_buffer(Buffer::new(), false).0;
+                                self.panes.split(PaneKind::Buffer(buffer_id), direction);
+                                self.open_file_picker();
+                            }
                             Command::Shell(args) => {
                                 let thread_proxy = proxy.clone();
                                 thread::spawn(move || {
                                     let mut cmd = String::new();
-                                    for arg in args.into_iter().map(|path| path.to_string_lossy().to_string()) {
+                                    for arg in args
+                                        .into_iter()
+                                        .map(|path| path.to_string_lossy().to_string())
+                                    {
                                         cmd.push_str(&arg);
                                         cmd.push(' ');
                                     }
 
-                                    let exec = Exec::shell(cmd).stdout(Redirection::Pipe).stderr(Redirection::Pipe);
+                                    let exec = Exec::shell(cmd)
+                                        .stdout(Redirection::Pipe)
+                                        .stderr(Redirection::Pipe);
 
                                     let mut popen = match exec.popen() {
                                         Ok(popen) => popen,
                                         Err(e) => {
-                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            thread_proxy
+                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
                                     let (stdout, stderr) = match popen.communicate_bytes(None) {
                                         Ok(out) => out,
                                         Err(e) => {
-                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            thread_proxy
+                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
                                     let status = match popen.wait() {
                                         Ok(status) => status,
                                         Err(e) => {
-                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            thread_proxy
+                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
                                     if !status.success() {
-                                        thread_proxy.send(TuiAppEvent::ShellResult(Err(anyhow::Error::msg(String::from_utf8_lossy(&stderr.unwrap()).to_string()))));
+                                        thread_proxy.send(TuiAppEvent::ShellResult(Err(
+                                            anyhow::Error::msg(
+                                                String::from_utf8_lossy(&stderr.unwrap())
+                                                    .to_string(),
+                                            ),
+                                        )));
                                         return;
                                     }
-                                    let buffer = match Buffer::from_bytes(&stdout.unwrap(), thread_proxy.clone()) {
+                                    let buffer = match Buffer::from_bytes(
+                                        &stdout.unwrap(),
+                                        thread_proxy.clone(),
+                                    ) {
                                         Ok(buffer) => buffer,
                                         Err(e) => {
-                                            thread_proxy.send(TuiAppEvent::ShellResult(Err(e.into())));
+                                            thread_proxy
+                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
@@ -552,14 +640,24 @@ impl TuiApp {
                                 });
                             }
                             Command::Delete => {
-                                match self.buffers[self.current_buffer_id].move_to_trash() {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+
+                                match self.buffers[buffer_id].move_to_trash() {
                                     Ok(true) => {
-                                        let path = self.buffers[self.current_buffer_id].file().unwrap();
-                                        self.palette.set_msg(format!("`{}` moved to trash", path.to_string_lossy()));
+                                        let path = self.buffers[buffer_id].file().unwrap();
+                                        self.palette.set_msg(format!(
+                                            "`{}` moved to trash",
+                                            path.to_string_lossy()
+                                        ));
                                         self.close_current_buffer();
                                     }
                                     Ok(false) => {
-                                        self.palette.set_error("No path set for file, cannot move to trash");
+                                        self.palette.set_error(
+                                            "No path set for file, cannot move to trash",
+                                        );
                                     }
                                     Err(e) => {
                                         self.palette.set_error(e);
@@ -571,79 +669,132 @@ impl TuiApp {
                             Command::Format => self.format_current_buffer(),
                             Command::OpenFile(path) => self.open_file(path),
                             Command::SaveFile(path) => {
-                                match self.buffers[self.current_buffer_id].save(path) {
-                                    Ok(bytes_written) => {
-                                        self.palette.set_msg(format!("`{}` written: {}", self.buffers[self.current_buffer_id].name().unwrap_or_default(), format_byte_size(bytes_written)))
-                                    },
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+
+                                match self.buffers[buffer_id].save(path) {
+                                    Ok(bytes_written) => self.palette.set_msg(format!(
+                                        "`{}` written: {}",
+                                        self.buffers[buffer_id].name().unwrap_or_default(),
+                                        format_byte_size(bytes_written)
+                                    )),
                                     Err(err) => self.palette.set_msg(err.to_string()),
                                 }
                             }
-                            Command::Language(language) => match language {
-                                Some(language) => {
-                                    if let Err(err) = self.buffers[self.current_buffer_id].set_langauge(&language, self.proxy.clone()) {
-                                        self.palette.set_error(err);
+                            Command::Language(language) => {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                match language {
+                                    Some(language) => {
+                                        if let Err(err) = self.buffers[buffer_id]
+                                            .set_langauge(&language, self.proxy.clone())
+                                        {
+                                            self.palette.set_error(err);
+                                        }
                                     }
+                                    None => self
+                                        .palette
+                                        .set_msg(self.buffers[buffer_id].language_name()),
                                 }
-                                None => self
-                                .palette
-                                .set_msg(self.buffers[self.current_buffer_id].language_name()),
-                            },
-                            Command::Encoding(encoding) => match encoding {
+                            }
+                            Command::Encoding(encoding) => {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                match encoding {
                                 Some(encoding) => {
                                     match get_encoding(&encoding) {
-                                        Some(encoding) => self.buffers[self.current_buffer_id].encoding = encoding,
+                                        Some(encoding) => self.buffers[buffer_id].encoding = encoding,
                                         None => self.palette.set_error("unknown encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"),
                                     }
                                 }
                                 None => self
                                 .palette
-                                .set_msg(self.buffers[self.current_buffer_id].encoding.name()),
-                            },
+                                .set_msg(self.buffers[buffer_id].encoding.name()),
+                            }
+                            }
                             Command::Indent(indent) => {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
                                 match indent {
                                     Some(indent) => {
                                         if let Ok(spaces) = indent.parse::<NonZeroUsize>() {
-                                            self.buffers[self.current_buffer_id].indent = Indentation::Spaces(spaces);
+                                            self.buffers[buffer_id].indent =
+                                                Indentation::Spaces(spaces);
                                         } else if indent == "tabs" {
-                                            self.buffers[self.current_buffer_id].indent = Indentation::Tabs(NonZeroUsize::new(1).unwrap());
+                                            self.buffers[buffer_id].indent =
+                                                Indentation::Tabs(NonZeroUsize::new(1).unwrap());
                                         } else {
-                                            self.palette.set_error("Indentation must be a number or `tabs`");
+                                            self.palette.set_error(
+                                                "Indentation must be a number or `tabs`",
+                                            );
+                                        }
+                                    }
+                                    None => match self.buffers[buffer_id].indent {
+                                        Indentation::Tabs(_) => self.palette.set_msg("tabs"),
+                                        Indentation::Spaces(amount) => {
+                                            self.palette.set_msg(format!("{} space(s)", amount))
                                         }
                                     },
-                                    None => {
-                                        match self.buffers[self.current_buffer_id].indent {
-                                            Indentation::Tabs(_) => self.palette.set_msg("tabs"),
-                                            Indentation::Spaces(amount) => {
-                                                self.palette.set_msg(format!("{} space(s)", amount))
-                                            }
-                                        }
-                                    },
-                                }
-                            },
-                            Command::LineEnding(line_ending) => {
-                                match line_ending {
-                                    Some(line_ending) => self.buffers[self.current_buffer_id].line_ending = line_ending,
-                                    None => self.palette.set_msg(match self.buffers[self.current_buffer_id].line_ending {
-                                        line_ending::LineEnding::Crlf => "crlf",
-                                        line_ending::LineEnding::LF => "lf",
-                                        _ => unreachable!(),
-                                    }),
                                 }
                             }
-                            Command::New => self.current_buffer_id = self.buffers.insert(Buffer::new()),
+                            Command::LineEnding(line_ending) => {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                match line_ending {
+                                    Some(line_ending) => {
+                                        self.buffers[buffer_id].line_ending = line_ending
+                                    }
+                                    None => self.palette.set_msg(
+                                        match self.buffers[buffer_id].line_ending {
+                                            line_ending::LineEnding::Crlf => "crlf",
+                                            line_ending::LineEnding::LF => "lf",
+                                            _ => unreachable!(),
+                                        },
+                                    ),
+                                }
+                            }
+                            Command::New => {
+                                self.insert_buffer(Buffer::new(), true);
+                            }
                             Command::Reload => {
-                                if self.buffers[self.current_buffer_id].is_dirty() {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                if self.buffers[buffer_id].is_dirty() {
                                     self.palette.set_prompt(
                                         "The buffer is unsaved are you sure you want to reload?",
                                         ('y', PalettePromptEvent::Reload),
                                         ('n', PalettePromptEvent::Nop),
                                     );
-                                } else if let Err(err) = self.buffers[self.current_buffer_id].reload() {
+                                } else if let Err(err) = self.buffers[buffer_id].reload() {
                                     self.palette.set_error(err)
                                 };
                             }
-                            Command::Goto(line) => self.buffers[self.current_buffer_id].goto(line),
-                            Command::Case(case) => self.buffers[self.current_buffer_id].transform_case(case),
+                            Command::Goto(line) => {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                self.buffers[buffer_id].goto(line);
+                            }
+                            Command::Case(case) => {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                self.buffers[buffer_id].transform_case(case);
+                            }
                             Command::Quit => self.quit(control_flow),
                             Command::ForceQuit => *control_flow = TuiEventLoopControlFlow::Exit,
                             Command::Logger => todo!(),
@@ -659,23 +810,40 @@ impl TuiApp {
                                     self.palette.set_msg(&self.config.theme);
                                 }
                             },
-                            Command::BrowseBuffers => self.browse_buffers(),
-                            Command::BrowseWorkspace => self.browse_workspace(),
+                            Command::BrowseBuffers => self.open_buffer_picker(),
+                            Command::BrowseWorkspace => self.open_file_picker(),
                             Command::OpenConfig => self.open_config(),
                             Command::ForceClose => self.force_close_current_buffer(),
                             Command::Close => self.close_current_buffer(),
                             Command::Paste => {
-                                if let Err(err) = self.buffers[self.current_buffer_id].handle_input(InputCommand::Paste) {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                if let Err(err) =
+                                    self.buffers[buffer_id].handle_input(InputCommand::Paste)
+                                {
                                     self.palette.set_error(err);
                                 }
                             }
                             Command::Copy => {
-                                if let Err(err) = self.buffers[self.current_buffer_id].handle_input(InputCommand::Copy) {
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                if let Err(err) =
+                                    self.buffers[buffer_id].handle_input(InputCommand::Copy)
+                                {
                                     self.palette.set_error(err);
                                 }
                             }
                             Command::RevertBuffer => {
-                                let _ = self.buffers[self.current_buffer_id].handle_input(InputCommand::RevertBuffer);
+                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                else {
+                                    return;
+                                };
+                                let _ = self.buffers[buffer_id]
+                                    .handle_input(InputCommand::RevertBuffer);
                             }
                             Command::GitReload => self.branch_watcher.force_reload(),
                         },
@@ -685,11 +853,17 @@ impl TuiApp {
                 "goto" => {
                     self.palette.reset();
                     if let Ok(line) = content.trim().parse::<i64>() {
-                        self.buffers[self.current_buffer_id].goto(line);
+                        let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                            return;
+                        };
+                        self.buffers[buffer_id].goto(line);
                     }
                 }
                 "search" => {
-                    self.buffers[self.current_buffer_id].start_search(
+                    let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                        return;
+                    };
+                    self.buffers[buffer_id].start_search(
                         self.proxy.clone(),
                         content,
                         self.config.case_insensitive_search,
@@ -701,7 +875,10 @@ impl TuiApp {
             TuiAppEvent::PromptEvent(event) => match event {
                 PalettePromptEvent::Nop => (),
                 PalettePromptEvent::Reload => {
-                    if let Err(err) = self.buffers[self.current_buffer_id].reload() {
+                    let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                        return;
+                    };
+                    if let Err(err) = self.buffers[buffer_id].reload() {
                         self.palette.set_error(err);
                     }
                 }
@@ -712,7 +889,10 @@ impl TuiApp {
     }
 
     pub fn format_selection_current_buffer(&mut self) {
-        let buffer_lang = self.buffers[self.current_buffer_id].language_name();
+        let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+            return;
+        };
+        let buffer_lang = self.buffers[buffer_id].language_name();
         let config = self
             .config
             .language
@@ -731,34 +911,36 @@ impl TuiApp {
             return;
         };
 
-        if let Err(err) = self.buffers[self.current_buffer_id].format_selection(fmt) {
+        if let Err(err) = self.buffers[buffer_id].format_selection(fmt) {
             // FIXME make error able to display more then one line
             self.palette.set_error(err);
         }
     }
 
     pub fn format_current_buffer(&mut self) {
-        let buffer_lang = self.buffers[self.current_buffer_id].language_name();
-        let config = self
-            .config
-            .language
-            .iter()
-            .find(|lang| lang.name == buffer_lang);
-        let Some(config) = config else {
-            self.palette
-                .set_error(format!("No language config found for `{buffer_lang}`"));
-            return;
-        };
+        if let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() {
+            let buffer_lang = self.buffers[buffer_id].language_name();
+            let config = self
+                .config
+                .language
+                .iter()
+                .find(|lang| lang.name == buffer_lang);
+            let Some(config) = config else {
+                self.palette
+                    .set_error(format!("No language config found for `{buffer_lang}`"));
+                return;
+            };
 
-        let Some(fmt) = &config.format else {
-            self.palette
-                .set_error(format!("No formatter found for `{buffer_lang}`"));
-            return;
-        };
+            let Some(fmt) = &config.format else {
+                self.palette
+                    .set_error(format!("No formatter found for `{buffer_lang}`"));
+                return;
+            };
 
-        if let Err(err) = self.buffers[self.current_buffer_id].format(fmt) {
-            // FIXME make error able to display more then one line
-            self.palette.set_error(err);
+            if let Err(err) = self.buffers[buffer_id].format(fmt) {
+                // FIXME make error able to display more then one line
+                self.palette.set_error(err);
+            }
         }
     }
 
@@ -778,15 +960,17 @@ impl TuiApp {
                 .as_deref()
                 == Some(&real_path)
         }) {
-            Some((id, _)) => self.current_buffer_id = id,
+            Some((id, _)) => self.panes.replace_current(PaneKind::Buffer(id)),
             None => match Buffer::from_file(path, self.proxy.clone()) {
                 Ok(buffer) => {
-                    let current_buf = self.buffers.get_mut(self.current_buffer_id).unwrap();
-                    if !current_buf.is_dirty() && current_buf.rope().len_bytes() == 0 {
-                        *current_buf = buffer;
-                    } else {
-                        self.current_buffer_id = self.buffers.insert(buffer);
+                    if let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() {
+                        let current_buf = self.buffers.get_mut(buffer_id).unwrap();
+                        if !current_buf.is_dirty() && current_buf.rope().len_bytes() == 0 {
+                            *current_buf = buffer;
+                            return;
+                        }
                     }
+                    self.insert_buffer(buffer, true);
                 }
                 Err(err) => self.palette.set_error(err),
             },
@@ -827,7 +1011,7 @@ impl TuiApp {
         }
     }
 
-    pub fn browse_buffers(&mut self) {
+    pub fn open_buffer_picker(&mut self) {
         self.palette.reset();
         self.file_finder = None;
         let mut scratch_buffer_number = 1;
@@ -853,7 +1037,7 @@ impl TuiApp {
         ));
     }
 
-    pub fn browse_workspace(&mut self) {
+    pub fn open_file_picker(&mut self) {
         self.palette.reset();
         self.buffer_finder = None;
         self.file_finder = Some(SearchBuffer::new(
@@ -870,22 +1054,33 @@ impl TuiApp {
     }
 
     pub fn close_current_buffer(&mut self) {
-        if self.buffers[self.current_buffer_id].is_dirty() {
-            self.palette.set_prompt(
-                "Current buffer has unsaved changes are you sure you want to close it?",
-                ('y', PalettePromptEvent::CloseCurrent),
-                ('n', PalettePromptEvent::Nop),
-            );
-        } else {
-            self.force_close_current_buffer();
+        // TODO make this close any buffer
+        if let Some(buffer) = self.get_current_buffer() {
+            if buffer.is_dirty() {
+                self.palette.set_prompt(
+                    "Current buffer has unsaved changes are you sure you want to close it?",
+                    ('y', PalettePromptEvent::CloseCurrent),
+                    ('n', PalettePromptEvent::Nop),
+                );
+            } else {
+                self.force_close_current_buffer();
+            }
         }
     }
 
     pub fn force_close_current_buffer(&mut self) {
-        self.buffers.remove(self.current_buffer_id);
-        self.current_buffer_id = match self.buffers.iter().next() {
-            Some((id, _)) => id,
-            None => self.buffers.insert(Buffer::new()),
+        // TODO make this close any buffer
+        if let Some(buffer_id) = self.get_current_buffer_id() {
+            if self.panes.len() > 1 {
+                self.panes.remove_pane(PaneKind::Buffer(buffer_id));
+                self.buffers.remove(buffer_id);
+            } else if self.buffers.len() > 1 {
+                self.buffers.remove(buffer_id);
+                let (buffer_id, _) = self.buffers.iter().next().unwrap();
+                self.panes.replace_current(PaneKind::Buffer(buffer_id));
+            } else {
+                self.buffers[buffer_id] = Buffer::new();
+            }
         }
     }
 
@@ -898,6 +1093,37 @@ impl TuiApp {
         }
         prompt
     }
+
+    pub fn get_current_buffer_id(&self) -> Option<usize> {
+        match self.panes.get_current_pane() {
+            PaneKind::Buffer(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn get_current_buffer(&self) -> Option<&Buffer> {
+        let PaneKind::Buffer(buffer) = self.panes.get_current_pane() else {
+            return None;
+        };
+
+        self.buffers.get(buffer)
+    }
+
+    pub fn _get_current_buffer_mut(&mut self) -> Option<&mut Buffer> {
+        let PaneKind::Buffer(buffer) = self.panes.get_current_pane() else {
+            return None;
+        };
+
+        self.buffers.get_mut(buffer)
+    }
+
+    pub fn insert_buffer(&mut self, buffer: Buffer, make_current: bool) -> (usize, &mut Buffer) {
+        let buffer_id = self.buffers.insert(buffer);
+        if make_current {
+            self.panes.replace_current(PaneKind::Buffer(buffer_id));
+        }
+        (buffer_id, &mut self.buffers[buffer_id])
+    }
 }
 
 impl Drop for TuiApp {
@@ -907,6 +1133,7 @@ impl Drop for TuiApp {
             self.terminal.backend_mut(),
             event::DisableMouseCapture,
             event::DisableBracketedPaste,
+            terminal::LeaveAlternateScreen,
         );
         let _ = self.terminal.show_cursor();
         clipboard::uninit();

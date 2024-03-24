@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use encoding_rs::Encoding;
-use tui::widgets::Widget;
+use tui::{style::Style, widgets::Widget};
 use unicode_width::UnicodeWidthStr;
 
 use crate::ferrite_core::{
@@ -11,6 +11,7 @@ use crate::ferrite_core::{
 pub struct InfoLine<'a> {
     pub theme: &'a EditorTheme,
     pub config: &'a InfoLineConfig,
+    pub focus: bool,
     pub encoding: &'static Encoding,
     pub file: Option<&'a Path>,
     pub column: usize,
@@ -48,6 +49,11 @@ impl InfoLine<'_> {
 
 impl Widget for InfoLine<'_> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+        let style = match self.focus {
+            true => self.theme.info_line,
+            false => self.theme.info_line_unfocused,
+        };
+
         let mut left = String::from(" ");
         for item in &self.config.left {
             if let Some(item) = self.get_info_item(item) {
@@ -75,18 +81,12 @@ impl Widget for InfoLine<'_> {
         }
         let right_width = right.width();
 
-        buf.set_stringn(
-            area.x,
-            area.y,
-            &left,
-            area.width.into(),
-            self.theme.info_line,
-        );
+        buf.set_stringn(area.x, area.y, &left, area.width.into(), style);
 
         if area.width as usize > left_width + right_width {
             let mut output_area = area;
             output_area.x = (output_area.x + output_area.width) - right_width as u16;
-            buf.set_string(output_area.x, output_area.y, &right, Default::default());
+            buf.set_string(output_area.x, output_area.y, &right, Style::default());
         }
 
         if area.width as usize > left_width + center_width + right_width {
@@ -97,10 +97,10 @@ impl Widget for InfoLine<'_> {
                 area.y,
                 &center,
                 area.width.into(),
-                self.theme.info_line,
+                style,
             );
         }
 
-        buf.set_style(area, self.theme.info_line);
+        buf.set_style(area, style);
     }
 }

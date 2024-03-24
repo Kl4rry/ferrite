@@ -59,6 +59,10 @@ impl StatefulWidget for EditorWidget<'_> {
         buf: &mut tui::buffer::Buffer,
         buffer: &mut Self::State,
     ) {
+        if area.area() == 0 {
+            return;
+        }
+
         let Self {
             theme,
             config,
@@ -71,7 +75,7 @@ impl StatefulWidget for EditorWidget<'_> {
         let text_area = Rect {
             x: area.x + left_offset as u16,
             y: area.y,
-            width: area.width - left_offset as u16,
+            width: area.width.saturating_sub(left_offset as u16),
             height: area.height - 1,
         };
 
@@ -146,13 +150,15 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 line_buffer.push(' ');
 
-                buf.set_stringn(
-                    text_area.x,
-                    text_area.y + i as u16,
-                    &line_buffer,
-                    text_area.width as usize,
-                    theme.text,
-                );
+                if text_area.width > 0 {
+                    buf.set_stringn(
+                        text_area.x,
+                        text_area.y + i as u16,
+                        &line_buffer,
+                        text_area.width as usize,
+                        theme.text,
+                    );
+                }
 
                 line_buffer.clear();
             }
@@ -172,7 +178,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         }
 
                         let cell = buf.get_mut(col, line);
-                        if !RopeSlice::from(cell.symbol.as_str()).is_whitespace()
+                        if !RopeSlice::from(cell.symbol()).is_whitespace()
                             || (col as usize - text_area.left() as usize + buffer.col_pos())
                                 % buffer.indent.width()
                                 != 0
@@ -294,7 +300,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 if (area.left().into()..area.right().into()).contains(&real_col) {
                     for y in area.top()..(area.bottom() - 1) {
                         let cell = buf.get_mut(real_col as u16, y);
-                        if cell.symbol.chars().all(|ch| ch.is_whitespace()) {
+                        if cell.symbol().chars().all(|ch| ch.is_whitespace()) {
                             cell.set_symbol("│");
                             cell.set_style(theme.ruler);
                         }
@@ -369,6 +375,7 @@ impl StatefulWidget for EditorWidget<'_> {
             let info_line = InfoLine {
                 theme,
                 config: &self.config.info_line,
+                focus: self.has_focus,
                 encoding: buffer.encoding,
                 file: buffer.file(),
                 line: buffer.cursor_pos().1 + 1,
@@ -378,7 +385,10 @@ impl StatefulWidget for EditorWidget<'_> {
                 language: buffer.language_name(),
                 size: buffer.rope().len_bytes(),
             };
-            info_line.render(Rect::new(0, text_area.height, area.width, 1), buf);
+            info_line.render(
+                Rect::new(area.x, text_area.height + text_area.y, area.width, 1),
+                buf,
+            );
         }
     }
 }

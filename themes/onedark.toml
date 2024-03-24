@@ -3,6 +3,7 @@
 "editor.current_line_nr" = { fg = "white", bg = "light_black" }
 "editor.text" = { fg = "white" }
 "editor.info_line" = { fg = "white", bg = "light_black" }
+"editor.info_line.unfocused" = { fg = "line_nr", bg = "light_black" }
 "editor.background" = { bg = "black", fg = "white" }
 "editor.selection" = { bg = "gray"}
 "editor.border" = { bg = "black", fg = "white" }

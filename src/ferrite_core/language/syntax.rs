@@ -41,7 +41,7 @@ impl SyntaxProvider {
                 rope = match rope_rx.recv() {
                     Ok(rope) => rope,
                     Err(err) => {
-                        tracing::error!("Recv error: {err}");
+                        tracing::info!("Exiting highlight thread: {err}");
                         break;
                     }
                 };

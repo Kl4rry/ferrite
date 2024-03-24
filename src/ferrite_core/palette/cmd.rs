@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use utility::line_ending::LineEnding;
 
-use crate::ferrite_core::buffer::case::Case;
+use crate::{ferrite_core::buffer::case::Case, tui_app::panes::Direction};
 
 #[derive(Debug, Clone)]
 pub enum Command {
@@ -13,6 +13,7 @@ pub enum Command {
     LineEnding(Option<LineEnding>),
     Shell(Vec<PathBuf>),
     Case(Case),
+    Split(Direction),
     New,
     Reload,
     Logger,

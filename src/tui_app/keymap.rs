@@ -92,6 +92,8 @@ pub enum InputCommand {
     Save,
     Quit,
     Close,
+    GrowPane,
+    ShrinkPane,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -445,6 +447,16 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Down, KeyModifiers::ALT),
             InputCommand::MoveLine(LineMoveDir::Down),
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('+'), KeyModifiers::ALT),
+            InputCommand::GrowPane,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('-'), KeyModifiers::ALT),
+            InputCommand::ShrinkPane,
             Exclusiveness::Exclusive,
         ),
     ]

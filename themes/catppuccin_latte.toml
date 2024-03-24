@@ -2,6 +2,7 @@
 "editor.current_line_nr" = { fg = "text", bg = "mantle" }
 "editor.text" = { fg = "text" }
 "editor.info_line" = { fg = "subtext1", bg = "mantle" }
+"editor.info_line.unfocused" = { fg = "surface1", bg = "mantle" }
 "editor.background" = { fg = "text", bg = "base" }
 "editor.selection" = { bg = "surface1"}
 "editor.border" = { bg = "base", fg = "text" }

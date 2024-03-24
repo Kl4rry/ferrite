@@ -199,7 +199,7 @@ impl Buffer {
         self.view_columns = cols;
     }
 
-    pub fn get_view_columns(&self) -> usize {
+    pub fn _get_view_columns(&self) -> usize {
         self.view_columns
     }
 

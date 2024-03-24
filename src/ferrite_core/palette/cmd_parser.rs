@@ -3,10 +3,13 @@ use utility::line_ending::LineEnding;
 
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
-use crate::ferrite_core::{
-    buffer::{case::Case, encoding::get_encoding_names},
-    language::get_available_languages,
-    palette::cmd_parser::generic_cmd::GenericCommand,
+use crate::{
+    ferrite_core::{
+        buffer::{case::Case, encoding::get_encoding_names},
+        language::get_available_languages,
+        palette::cmd_parser::generic_cmd::GenericCommand,
+    },
+    tui_app::panes::Direction,
 };
 
 pub mod lexer;
@@ -52,6 +55,9 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("format-selection", [..]) => Command::FormatSelection,
         ("revert-buffer", [..]) => Command::RevertBuffer,
         ("delete", [..]) => Command::Delete,
+        ("split", [direction, ..]) => {
+            Command::Split(Direction::from_str(direction.take().unwrap().unwrap_string().as_str()).unwrap())
+        },
         ("shell", args) => {
             let mut paths = Vec::new();
             for arg in args {
@@ -113,6 +119,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("delete", None, true),
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
         CommandTemplate::new("shell", Some(("arg", CommandTemplateArg::Path)), false),
+        CommandTemplate::new("split", Some(("direction", CommandTemplateArg::Alternatives(["up", "down", "left", "right"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("case", Some(("encoding", CommandTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
             .set_custom_alternative_error(|encoding, _| format!("`{encoding}` is unknown an encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs")),

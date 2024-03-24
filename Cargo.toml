@@ -10,9 +10,10 @@ anyhow = "1.0.68"
 arboard = "3.2.0"
 cb = { package = "crossbeam-channel", version = "0.5.8" }
 cc = "1.0.79"
+crossterm = "0.25.0" # Pinned to 0.25.0 because emoji are broken in newer versions
 chardetng = "0.1.17"
 clap = { version = "4.1.4", features = ["derive", "cargo"] }
-crossterm = "0.25.0" # Pinned to 0.25.0 because emoji are broken in newer versions
+csscolorparser = { version = "0.6.2", features = ["rgb"] }
 detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev = "f645bcc" }
 directories = "5.0.0"
 dunce = "1.0.4"
@@ -40,7 +41,7 @@ tracing-subscriber = "0.3.18"
 trash = "4.0.0"
 tree-sitter = "0.20.10"
 tree_magic_mini = { version = "3.0.3", features = ["with-gpl-data"] }
-tui = { package = "ratatui", version = "0.23.0" }
+tui = { package = "ratatui", version = "0.26.0" }
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
 utility = { path = "utility" }

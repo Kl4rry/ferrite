@@ -224,7 +224,7 @@ impl FileDaemon {
                         }
                     }
                     Err(err) => {
-                        tracing::error!("File daemon thread exit: {err}");
+                        tracing::info!("File daemon thread exit: {err}");
                         return;
                     }
                 }

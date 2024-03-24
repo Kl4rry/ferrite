@@ -8,9 +8,10 @@ use std::{
 };
 
 use anyhow::Result;
+use csscolorparser::ParseColorError;
 use memchr::memrchr;
 use serde::Deserialize;
-use tui::style::{self, Color, ParseColorError};
+use tui::style::{self, Color};
 
 #[derive(Debug)]
 pub enum StyleLoadError {
@@ -90,6 +91,7 @@ pub struct EditorTheme {
     pub current_line_nr: style::Style,
     pub text: style::Style,
     pub info_line: style::Style,
+    pub info_line_unfocused: style::Style,
     pub background: style::Style,
     pub selection: style::Style,
     pub border: style::Style,
@@ -112,6 +114,7 @@ impl EditorTheme {
             current_line_nr: theme.get_style("editor.current_line_nr")?,
             text: theme.get_style("editor.text")?,
             info_line: theme.get_style("editor.info_line")?,
+            info_line_unfocused: theme.get_style("editor.info_line.unfocused")?,
             background: theme.get_style("editor.background")?,
             selection: theme.get_style("editor.selection")?,
             border: theme.get_style("editor.border")?,
