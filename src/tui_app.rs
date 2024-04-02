@@ -956,7 +956,7 @@ impl TuiApp {
         match self.buffers.iter().find(|(_, buffer)| {
             buffer
                 .file()
-                .map(|path| dunce::canonicalize(path).unwrap())
+                .and_then(|path| dunce::canonicalize(path).ok())
                 .as_deref()
                 == Some(&real_path)
         }) {
