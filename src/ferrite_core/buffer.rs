@@ -1424,6 +1424,13 @@ impl Buffer {
 
         Ok(false)
     }
+
+    pub fn get_selection(&self) -> String {
+        let start = self.cursor.anchor.min(self.cursor.position);
+        let end = self.cursor.anchor.max(self.cursor.position);
+        let slice = self.rope.byte_slice(start..end);
+        slice.to_string()
+    }
 }
 
 pub struct ViewLine<'a> {

@@ -3,6 +3,7 @@ pub struct Token {
     pub text: String,
     pub start: usize,
     pub len: usize,
+    #[allow(dead_code)]
     pub quote: Option<char>,
 }
 

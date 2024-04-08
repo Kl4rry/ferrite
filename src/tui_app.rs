@@ -488,13 +488,17 @@ impl TuiApp {
                             .focus("goto: ", "goto", CompleterContext::new(&self.themes));
                     }
                     InputCommand::FileSearch => {
-                        self.file_finder = None;
-                        self.buffer_finder = None;
-                        self.palette.focus(
-                            self.get_search_prompt(),
-                            "search",
-                            CompleterContext::new(&self.themes),
-                        );
+                        if let Some(buffer) = self.get_current_buffer() {
+                            let selection = buffer.get_selection();
+                            self.file_finder = None;
+                            self.buffer_finder = None;
+                            self.palette.focus(
+                                self.get_search_prompt(),
+                                "search",
+                                CompleterContext::new(&self.themes),
+                            );
+                            self.palette.set_line(selection);
+                        }
                     }
                     InputCommand::CaseInsensitive => {
                         self.config.case_insensitive_search = !self.config.case_insensitive_search;

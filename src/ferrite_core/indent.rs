@@ -6,6 +6,7 @@ use utility::graphemes::TAB_WIDTH;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {
+    #[allow(dead_code)]
     Tabs(NonZeroUsize),
     Spaces(NonZeroUsize),
 }

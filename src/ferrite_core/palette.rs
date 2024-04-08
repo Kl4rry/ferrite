@@ -104,6 +104,12 @@ impl CommandPalette {
         };
     }
 
+    pub fn set_line(&mut self, content: impl AsRef<str>) {
+        if let PaletteState::Input { buffer, .. } = &mut self.state {
+            buffer.replace(0..buffer.rope().len_bytes(), content.as_ref());
+        }
+    }
+
     pub fn update_prompt(&mut self, new_prompt: impl Into<String>) {
         match &mut self.state {
             PaletteState::Input { prompt, .. } => *prompt = new_prompt.into(),
