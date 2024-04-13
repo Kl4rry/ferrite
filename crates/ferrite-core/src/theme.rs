@@ -208,12 +208,12 @@ impl EditorTheme {
 
 impl Default for EditorTheme {
     fn default() -> Self {
-        EditorTheme::from_str(include_str!("../../themes/catppuccin_mocha.toml")).unwrap()
+        EditorTheme::from_str(include_str!("../../../themes/catppuccin_mocha.toml")).unwrap()
     }
 }
 
 #[cfg(feature = "embed-themes")]
-static THEMES: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/../themes");
+static THEMES: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/../../themes");
 
 #[cfg(feature = "embed-themes")]
 fn get_embedded_themes() -> Vec<(String, EditorTheme)> {

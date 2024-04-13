@@ -86,15 +86,15 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
         "rust" => LanguageConfig::new(
             "rust",
             ferrite_tree_sitter::tree_sitter_rust::language(),
-            include_str!("../../queries/rust/highlights.scm"),
-            include_str!("../../queries/rust/injections.scm"),
-            include_str!("../../queries/rust/locals.scm"),
+            include_str!("../../../queries/rust/highlights.scm"),
+            include_str!("../../../queries/rust/injections.scm"),
+            include_str!("../../../queries/rust/locals.scm"),
         ),
         #[cfg(feature = "lang-json")]
         "json" => LanguageConfig::new(
             "json",
             ferrite_tree_sitter::tree_sitter_json::language(),
-            include_str!("../../queries/json/highlights.scm"),
+            include_str!("../../../queries/json/highlights.scm"),
             "",
             "",
         ),
@@ -102,39 +102,39 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
         "c" => LanguageConfig::new(
             "c",
             ferrite_tree_sitter::tree_sitter_c::language(),
-            include_str!("../../queries/c/highlights.scm"),
-            include_str!("../../queries/c/injections.scm"),
+            include_str!("../../../queries/c/highlights.scm"),
+            include_str!("../../../queries/c/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-cpp")]
         "cpp" => LanguageConfig::new(
             "cpp",
             ferrite_tree_sitter::tree_sitter_cpp::language(),
-            include_str!("../../queries/cpp/highlights.scm"),
-            include_str!("../../queries/cpp/injections.scm"),
+            include_str!("../../../queries/cpp/highlights.scm"),
+            include_str!("../../../queries/cpp/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-cmake")]
         "cmake" => LanguageConfig::new(
             "cmake",
             ferrite_tree_sitter::tree_sitter_cmake::language(),
-            include_str!("../../queries/cmake/highlights.scm"),
-            include_str!("../../queries/cmake/injections.scm"),
+            include_str!("../../../queries/cmake/highlights.scm"),
+            include_str!("../../../queries/cmake/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-css")]
         "css" => LanguageConfig::new(
             "css",
             ferrite_tree_sitter::tree_sitter_css::language(),
-            include_str!("../../queries/css/highlights.scm"),
-            include_str!("../../queries/css/injections.scm"),
+            include_str!("../../../queries/css/highlights.scm"),
+            include_str!("../../../queries/css/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-glsl")]
         "glsl" => LanguageConfig::new(
             "glsl",
             ferrite_tree_sitter::tree_sitter_glsl::language(),
-            include_str!("../../queries/glsl/highlights.scm"),
+            include_str!("../../../queries/glsl/highlights.scm"),
             "",
             "",
         ),
@@ -142,79 +142,79 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
         "html" => LanguageConfig::new(
             "html",
             ferrite_tree_sitter::tree_sitter_html::language(),
-            include_str!("../../queries/html/highlights.scm"),
-            include_str!("../../queries/html/injections.scm"),
+            include_str!("../../../queries/html/highlights.scm"),
+            include_str!("../../../queries/html/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-md")]
         "markdown" => LanguageConfig::new(
             "markdown",
             ferrite_tree_sitter::tree_sitter_md::language(),
-            include_str!("../../queries/markdown/highlights.scm"),
-            include_str!("../../queries/markdown/injections.scm"),
+            include_str!("../../../queries/markdown/highlights.scm"),
+            include_str!("../../../queries/markdown/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-python")]
         "python" => LanguageConfig::new(
             "python",
             ferrite_tree_sitter::tree_sitter_python::language(),
-            include_str!("../../queries/python/highlights.scm"),
-            include_str!("../../queries/python/injections.scm"),
-            include_str!("../../queries/python/locals.scm"),
+            include_str!("../../../queries/python/highlights.scm"),
+            include_str!("../../../queries/python/injections.scm"),
+            include_str!("../../../queries/python/locals.scm"),
         ),
         #[cfg(feature = "lang-toml")]
         "toml" => LanguageConfig::new(
             "toml",
             ferrite_tree_sitter::tree_sitter_toml::language(),
-            include_str!("../../queries/toml/highlights.scm"),
-            include_str!("../../queries/toml/injections.scm"),
+            include_str!("../../../queries/toml/highlights.scm"),
+            include_str!("../../../queries/toml/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-xml")]
         "xml" => LanguageConfig::new(
             "xml",
             ferrite_tree_sitter::tree_sitter_xml::language(),
-            include_str!("../../queries/xml/highlights.scm"),
-            include_str!("../../queries/xml/injections.scm"),
+            include_str!("../../../queries/xml/highlights.scm"),
+            include_str!("../../../queries/xml/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-yaml")]
         "yaml" => LanguageConfig::new(
             "yaml",
             ferrite_tree_sitter::tree_sitter_yaml::language(),
-            include_str!("../../queries/yaml/highlights.scm"),
-            include_str!("../../queries/yaml/injections.scm"),
+            include_str!("../../../queries/yaml/highlights.scm"),
+            include_str!("../../../queries/yaml/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-c-sharp")]
         "c-sharp" => LanguageConfig::new(
             "c-sharp",
             ferrite_tree_sitter::tree_sitter_c_sharp::language(),
-            include_str!("../../queries/c-sharp/highlights.scm"),
-            include_str!("../../queries/c-sharp/injections.scm"),
+            include_str!("../../../queries/c-sharp/highlights.scm"),
+            include_str!("../../../queries/c-sharp/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-bash")]
         "bash" => LanguageConfig::new(
             "bash",
             ferrite_tree_sitter::tree_sitter_bash::language(),
-            include_str!("../../queries/bash/highlights.scm"),
-            include_str!("../../queries/bash/injections.scm"),
+            include_str!("../../../queries/bash/highlights.scm"),
+            include_str!("../../../queries/bash/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-fish")]
         "fish" => LanguageConfig::new(
             "fish",
             ferrite_tree_sitter::tree_sitter_fish::language(),
-            include_str!("../../queries/fish/highlights.scm"),
-            include_str!("../../queries/fish/injections.scm"),
+            include_str!("../../../queries/fish/highlights.scm"),
+            include_str!("../../../queries/fish/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-comment")]
         "comment" => LanguageConfig::new(
             "comment",
             ferrite_tree_sitter::tree_sitter_comment::language(),
-            include_str!("../../queries/comment/highlights.scm"),
+            include_str!("../../../queries/comment/highlights.scm"),
             "",
             "",
         ),
@@ -222,16 +222,16 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
         "javascript" => LanguageConfig::new(
             "javascript",
             ferrite_tree_sitter::tree_sitter_javascript::language(),
-            include_str!("../../queries/javascript/highlights.scm"),
-            include_str!("../../queries/javascript/injections.scm"),
-            include_str!("../../queries/javascript/locals.scm"),
+            include_str!("../../../queries/javascript/highlights.scm"),
+            include_str!("../../../queries/javascript/injections.scm"),
+            include_str!("../../../queries/javascript/locals.scm"),
         ),
         #[cfg(feature = "lang-ron")]
         "ron" => LanguageConfig::new(
             "ron",
             ferrite_tree_sitter::tree_sitter_ron::language(),
-            include_str!("../../queries/ron/highlights.scm"),
-            include_str!("../../queries/ron/injections.scm"),
+            include_str!("../../../queries/ron/highlights.scm"),
+            include_str!("../../../queries/ron/injections.scm"),
             "",
         ),
         _ => return None,
