@@ -4,6 +4,7 @@ use std::{
     num::NonZeroUsize,
     ops::Range,
     path::{Path, PathBuf},
+    sync::OnceLock,
     time::Instant,
 };
 
@@ -38,6 +39,18 @@ pub mod write;
 
 #[cfg(test)]
 pub mod buffer_tests;
+
+static PROXY: OnceLock<TuiEventLoopProxy> = OnceLock::new();
+
+pub fn set_buffer_proxy(proxy: TuiEventLoopProxy) {
+    if PROXY.set(proxy).is_err() {
+        tracing::error!("Error attempted to set buffer proxy twice");
+    }
+}
+
+fn get_buffer_proxy() -> TuiEventLoopProxy {
+    PROXY.get().unwrap().clone()
+}
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Cursor {
@@ -125,9 +138,9 @@ impl Buffer {
         }
     }
 
-    pub fn with_path(path: impl Into<PathBuf>, proxy: TuiEventLoopProxy) -> Self {
+    pub fn with_path(path: impl Into<PathBuf>) -> Self {
         let path = path.into();
-        let mut syntax = Syntax::new(proxy);
+        let mut syntax = Syntax::new(get_buffer_proxy());
         if let Some(language) = get_language_from_path(&path) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");
@@ -142,11 +155,11 @@ impl Buffer {
         }
     }
 
-    pub fn from_file(path: impl AsRef<Path>, proxy: TuiEventLoopProxy) -> Result<Self, io::Error> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, io::Error> {
         let path = path.as_ref();
         let (encoding, rope) = read::read_from_file(path)?;
 
-        let mut syntax = Syntax::new(proxy);
+        let mut syntax = Syntax::new(get_buffer_proxy());
         if let Some(language) = get_language_from_path(path) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");

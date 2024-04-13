@@ -84,6 +84,7 @@ pub struct TuiApp {
 
 impl TuiApp {
     pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
+        buffer::set_buffer_proxy(proxy.clone());
         let mut palette = CommandPalette::new(proxy.clone());
         let config_path = Config::get_default_location().ok();
         let mut config = match Config::load_from_default_location() {
@@ -116,10 +117,10 @@ impl TuiApp {
                 continue;
             }
 
-            let buffer = match Buffer::from_file(file, proxy.clone()) {
+            let buffer = match Buffer::from_file(file) {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound => Buffer::with_path(file, proxy.clone()),
+                    io::ErrorKind::NotFound => Buffer::with_path(file),
                     _ => Err(err)?,
                 },
             };
@@ -160,7 +161,7 @@ impl TuiApp {
         let job_manager = JobManager::new(proxy.clone());
 
         let workspace = if buffers.is_empty() {
-            match Workspace::load_workspace(proxy.clone()) {
+            match Workspace::load_workspace() {
                 Ok(workspace) => workspace,
                 Err(err) => {
                     tracing::error!("Error loading workspace: {err}");
@@ -1032,7 +1033,7 @@ impl TuiApp {
                 == Some(&real_path)
         }) {
             Some((id, _)) => self.workspace.panes.replace_current(PaneKind::Buffer(id)),
-            None => match Buffer::from_file(path, self.proxy.clone()) {
+            None => match Buffer::from_file(path) {
                 Ok(buffer) => {
                     if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
                         let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();

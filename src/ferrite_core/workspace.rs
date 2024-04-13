@@ -9,10 +9,7 @@ use slab::Slab;
 use utility::graphemes::RopeGraphemeExt;
 
 use super::buffer::{Buffer, Cursor};
-use crate::tui_app::{
-    event_loop::TuiEventLoopProxy,
-    panes::{PaneKind, Panes},
-};
+use crate::tui_app::panes::{PaneKind, Panes};
 
 pub struct Workspace {
     pub buffers: Slab<Buffer>,
@@ -75,14 +72,14 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn load_workspace(proxy: TuiEventLoopProxy) -> Result<Self> {
+    pub fn load_workspace() -> Result<Self> {
         let mut buffers = Slab::new();
         let mut panes = Panes::new(0);
 
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
         for buffer_data in &workspace.buffers {
-            match Buffer::from_file(&buffer_data.path, proxy.clone()) {
+            match Buffer::from_file(&buffer_data.path) {
                 Ok(mut buffer) => {
                     let cursor = buffer_data.cursor;
                     let line_pos = buffer_data.line_pos;
