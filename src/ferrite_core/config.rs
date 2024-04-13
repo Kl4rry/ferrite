@@ -87,7 +87,7 @@ impl Default for InfoLineConfig {
         Self {
             left: ["size"].iter().map(|s| s.to_string()).collect(),
             center: ["file"].iter().map(|s| s.to_string()).collect(),
-            right: ["branch", "position", "encoding", "language"]
+            right: ["branch", "position", "encoding", "language", "spinner"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect(),

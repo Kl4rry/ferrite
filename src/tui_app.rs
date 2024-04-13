@@ -31,11 +31,13 @@ use self::{
 use crate::{
     clipboard,
     ferrite_core::{
-        buffer::{encoding::get_encoding, Buffer},
+        buffer::{self, encoding::get_encoding, Buffer},
         byte_size::format_byte_size,
         config::{Config, ConfigWatcher},
         git::branch::BranchWatcher,
         indent::Indentation,
+        job_manager::{JobHandle, JobManager},
+        jobs::SaveBufferJob,
         palette::{
             cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent,
         },
@@ -45,7 +47,9 @@ use crate::{
             file_find::FileFindProvider,
             SearchBuffer,
         },
+        spinner::Spinner,
         theme::EditorTheme,
+        workspace::Workspace,
     },
     tui_app::keymap::InputCommand,
     Args,
@@ -59,9 +63,8 @@ mod widgets;
 
 pub struct TuiApp {
     terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
-    buffers: Slab<Buffer>,
+    workspace: Workspace,
     buffer_area: Rect,
-    panes: Panes,
     themes: HashMap<String, EditorTheme>,
     config: Config,
     config_path: Option<PathBuf>,
@@ -74,6 +77,9 @@ pub struct TuiApp {
     proxy: TuiEventLoopProxy,
     drag_start: Option<Point<usize>>,
     file_daemon: FileDaemon,
+    job_manager: JobManager,
+    save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
+    spinner: Spinner,
 }
 
 impl TuiApp {
@@ -120,10 +126,6 @@ impl TuiApp {
             current_buffer_id = buffers.insert(buffer);
         }
 
-        if buffers.is_empty() {
-            current_buffer_id = buffers.insert(Buffer::new());
-        }
-
         let (width, height) = crossterm::terminal::size()?;
         for (_, buffer) in &mut buffers {
             buffer.set_view_lines(height.saturating_sub(2).into());
@@ -155,16 +157,32 @@ impl TuiApp {
             FileDaemon::new(std::env::current_dir()?, &config)?
         };
 
+        let job_manager = JobManager::new(proxy.clone());
+
+        let workspace = if buffers.is_empty() {
+            match Workspace::load_workspace(proxy.clone()) {
+                Ok(workspace) => workspace,
+                Err(err) => {
+                    tracing::error!("Error loading workspace: {err}");
+                    Workspace::new()
+                }
+            }
+        } else {
+            Workspace {
+                buffers,
+                panes: Panes::new(current_buffer_id),
+            }
+        };
+
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
-            buffers,
+            workspace,
             buffer_area: Rect {
                 x: 0,
                 y: 0,
                 width,
                 height: height.saturating_sub(2),
             },
-            panes: Panes::new(current_buffer_id),
             themes,
             palette,
             file_finder,
@@ -177,6 +195,9 @@ impl TuiApp {
             config,
             config_path,
             config_watcher,
+            job_manager,
+            save_jobs: Vec::new(),
+            spinner: Spinner::default(),
         })
     }
 
@@ -187,6 +208,7 @@ impl TuiApp {
     }
 
     pub fn run(mut self, event_loop: TuiEventLoop) -> Result<()> {
+        tracing::info!("Starting tui app");
         let mut stdout = std::io::stdout();
         terminal::enable_raw_mode()?;
         execute!(
@@ -227,13 +249,13 @@ impl TuiApp {
                 self.handle_app_event(proxy, event, control_flow)
             }
             event_loop::TuiEvent::Render => {
-                self.do_polling();
+                self.do_polling(control_flow);
                 self.render();
             }
         }
     }
 
-    pub fn do_polling(&mut self) {
+    pub fn do_polling(&mut self, control_flow: &mut TuiEventLoopControlFlow) {
         if let Some(config_watcher) = &self.config_watcher {
             if config_watcher.has_changed() {
                 if let Some(path) = &self.config_path {
@@ -250,6 +272,37 @@ impl TuiApp {
                 }
             }
         }
+
+        for job in &mut self.save_jobs {
+            if let Ok(result) = job.recv_try() {
+                match result {
+                    Ok(job) => {
+                        if let Some(buffer) = self.workspace.buffers.get_mut(job.buffer_id) {
+                            if job.last_edit <= buffer.get_last_edit() {
+                                buffer.mark_saved();
+                            } else {
+                                buffer.mark_history_dirty();
+                            }
+                        }
+
+                        let path = job.path.file_name().unwrap_or_default().to_string_lossy();
+                        self.palette.set_msg(format!(
+                            "`{}` written: {}",
+                            path,
+                            format_byte_size(job.written)
+                        ));
+                    }
+
+                    Err(err) => self.palette.set_msg(err.to_string()),
+                }
+            }
+        }
+        self.save_jobs.retain(|job| !job.is_finished());
+
+        self.job_manager.poll_jobs();
+
+        let duration = self.spinner.update(!self.save_jobs.is_empty());
+        *control_flow = TuiEventLoopControlFlow::WaitMax(duration);
     }
 
     pub fn render(&mut self) {
@@ -261,8 +314,8 @@ impl TuiApp {
                 let editor_size = Rect::new(size.x, size.y, size.width, size.height - 1);
 
                 self.buffer_area = editor_size;
-                let current_pane = self.panes.get_current_pane();
-                for (pane, pane_rect) in self.panes.get_pane_bounds(editor_size) {
+                let current_pane = self.workspace.panes.get_current_pane();
+                for (pane, pane_rect) in self.workspace.panes.get_pane_bounds(editor_size) {
                     if let PaneKind::Buffer(buffer_id) = pane {
                         f.render_stateful_widget(
                             EditorWidget::new(
@@ -272,17 +325,18 @@ impl TuiApp {
                                     && self.file_finder.is_none()
                                     && current_pane == pane,
                                 self.branch_watcher.current_branch(),
+                                self.spinner.current(),
                             ),
                             pane_rect,
-                            &mut self.buffers[buffer_id],
+                            &mut self.workspace.buffers[buffer_id],
                         );
 
-                        if self.config.show_splash && self.panes.len() == 1 {
-                            let buffer = &mut self.buffers[buffer_id];
-                            if buffer.rope().len_bytes() == 0
+                        if self.config.show_splash && self.workspace.panes.len() == 1 {
+                            let buffer = &mut self.workspace.buffers[buffer_id];
+                            if buffer.len_bytes() == 0
                                 && !buffer.is_dirty()
                                 && buffer.file().is_none()
-                                && self.buffers.len() == 1
+                                && self.workspace.buffers.len() == 1
                             {
                                 f.render_widget(SplashWidget::new(theme), pane_rect);
                             }
@@ -351,12 +405,12 @@ impl TuiApp {
                         MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
                         MouseEventKind::Down(MouseButton::Middle) => {
                             for (pane_kind, pane_rect) in
-                                self.panes.get_pane_bounds(self.buffer_area)
+                                self.workspace.panes.get_pane_bounds(self.buffer_area)
                             {
                                 if pane_rect.contains(Position::new(event.column, event.row)) {
-                                    self.panes.make_current(pane_kind);
+                                    self.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id) = pane_kind {
-                                        let buffer = &self.buffers[buffer_id];
+                                        let buffer = &self.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
                                         let column = (event.column as usize)
@@ -375,17 +429,17 @@ impl TuiApp {
                         }
                         MouseEventKind::Down(MouseButton::Left) => {
                             for (pane_kind, pane_rect) in
-                                self.panes.get_pane_bounds(self.buffer_area)
+                                self.workspace.panes.get_pane_bounds(self.buffer_area)
                             {
                                 if pane_rect.contains(Position::new(event.column, event.row)) {
-                                    self.panes.make_current(pane_kind);
+                                    self.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id) = pane_kind {
                                         self.drag_start = Some(Point::new(
                                             event.column as usize,
                                             event.row as usize,
                                         ));
 
-                                        let buffer = &self.buffers[buffer_id];
+                                        let buffer = &self.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
                                         let column = (event.column as usize)
@@ -408,14 +462,14 @@ impl TuiApp {
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
                             for (pane_kind, pane_rect) in
-                                self.panes.get_pane_bounds(self.buffer_area)
+                                self.workspace.panes.get_pane_bounds(self.buffer_area)
                             {
                                 if pane_rect.contains(Position::new(event.column, event.row)) {
-                                    self.panes.make_current(pane_kind);
+                                    self.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id) = pane_kind {
                                         // TODO maybe scroll more of the buffer into view when going outside its bounds
                                         if let Some(Point { line, column }) = self.drag_start {
-                                            let buffer = &mut self.buffers[buffer_id];
+                                            let buffer = &mut self.workspace.buffers[buffer_id];
                                             let (_, left_offset) =
                                                 lines_to_left_offset(buffer.len_lines());
 
@@ -461,10 +515,10 @@ impl TuiApp {
             if let Some(input) = input {
                 match input {
                     InputCommand::GrowPane => {
-                        self.panes.grow_current(self.buffer_area);
+                        self.workspace.panes.grow_current(self.buffer_area);
                     }
                     InputCommand::ShrinkPane => {
-                        self.panes.shrink_current(self.buffer_area);
+                        self.workspace.panes.shrink_current(self.buffer_area);
                     }
                     InputCommand::Close => {
                         self.close_current_buffer();
@@ -514,6 +568,12 @@ impl TuiApp {
                     }
                     InputCommand::OpenFileBrowser => self.open_file_picker(),
                     InputCommand::OpenBufferBrowser => self.open_buffer_picker(),
+                    InputCommand::Save => {
+                        if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                        {
+                            self.save_buffer(buffer_id, None);
+                        }
+                    }
                     input => {
                         if self.palette.has_focus() {
                             let _ = self
@@ -529,24 +589,19 @@ impl TuiApp {
                             let _ = finder.handle_input(input);
                             if let Some(choice) = finder.get_choice() {
                                 self.buffer_finder = None;
-                                self.panes.replace_current(PaneKind::Buffer(choice.id));
+                                self.workspace
+                                    .panes
+                                    .replace_current(PaneKind::Buffer(choice.id));
                             }
                         } else {
-                            use crate::ferrite_core::buffer::input::Response;
-                            let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                            let PaneKind::Buffer(buffer_id) =
+                                self.workspace.panes.get_current_pane()
+                            else {
                                 return;
                             };
-                            match self.buffers[buffer_id].handle_input(input) {
-                                Ok(response) => match response {
-                                    Response::Written(name, bytes_written) => {
-                                        self.palette.set_msg(format!(
-                                            "`{name}` written: {}",
-                                            format_byte_size(bytes_written)
-                                        ))
-                                    }
-                                    Response::None => (),
-                                },
-                                Err(err) => self.palette.set_error(err),
+                            if let Err(err) = self.workspace.buffers[buffer_id].handle_input(input)
+                            {
+                                self.palette.set_error(err);
                             }
                         }
                     }
@@ -576,7 +631,9 @@ impl TuiApp {
                         Ok(cmd) => match cmd {
                             Command::Split(direction) => {
                                 let buffer_id = self.insert_buffer(Buffer::new(), false).0;
-                                self.panes.split(PaneKind::Buffer(buffer_id), direction);
+                                self.workspace
+                                    .panes
+                                    .split(PaneKind::Buffer(buffer_id), direction);
                                 self.open_file_picker();
                             }
                             Command::Shell(args) => {
@@ -644,14 +701,16 @@ impl TuiApp {
                                 });
                             }
                             Command::Delete => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
 
-                                match self.buffers[buffer_id].move_to_trash() {
+                                match self.workspace.buffers[buffer_id].move_to_trash() {
                                     Ok(true) => {
-                                        let path = self.buffers[buffer_id].file().unwrap();
+                                        let path =
+                                            self.workspace.buffers[buffer_id].file().unwrap();
                                         self.palette.set_msg(format!(
                                             "`{}` moved to trash",
                                             path.to_string_lossy()
@@ -673,28 +732,23 @@ impl TuiApp {
                             Command::Format => self.format_current_buffer(),
                             Command::OpenFile(path) => self.open_file(path),
                             Command::SaveFile(path) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
 
-                                match self.buffers[buffer_id].save(path) {
-                                    Ok(bytes_written) => self.palette.set_msg(format!(
-                                        "`{}` written: {}",
-                                        self.buffers[buffer_id].name().unwrap_or_default(),
-                                        format_byte_size(bytes_written)
-                                    )),
-                                    Err(err) => self.palette.set_msg(err.to_string()),
-                                }
+                                self.save_buffer(buffer_id, path);
                             }
                             Command::Language(language) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
                                 match language {
                                     Some(language) => {
-                                        if let Err(err) = self.buffers[buffer_id]
+                                        if let Err(err) = self.workspace.buffers[buffer_id]
                                             .set_langauge(&language, self.proxy.clone())
                                         {
                                             self.palette.set_error(err);
@@ -702,38 +756,40 @@ impl TuiApp {
                                     }
                                     None => self
                                         .palette
-                                        .set_msg(self.buffers[buffer_id].language_name()),
+                                        .set_msg(self.workspace.buffers[buffer_id].language_name()),
                                 }
                             }
                             Command::Encoding(encoding) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
                                 match encoding {
                                 Some(encoding) => {
                                     match get_encoding(&encoding) {
-                                        Some(encoding) => self.buffers[buffer_id].encoding = encoding,
+                                        Some(encoding) => self.workspace.buffers[buffer_id].encoding = encoding,
                                         None => self.palette.set_error("unknown encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"),
                                     }
                                 }
                                 None => self
                                 .palette
-                                .set_msg(self.buffers[buffer_id].encoding.name()),
+                                .set_msg(self.workspace.buffers[buffer_id].encoding.name()),
                             }
                             }
                             Command::Indent(indent) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
                                 match indent {
                                     Some(indent) => {
                                         if let Ok(spaces) = indent.parse::<NonZeroUsize>() {
-                                            self.buffers[buffer_id].indent =
+                                            self.workspace.buffers[buffer_id].indent =
                                                 Indentation::Spaces(spaces);
                                         } else if indent == "tabs" {
-                                            self.buffers[buffer_id].indent =
+                                            self.workspace.buffers[buffer_id].indent =
                                                 Indentation::Tabs(NonZeroUsize::new(1).unwrap());
                                         } else {
                                             self.palette.set_error(
@@ -741,7 +797,7 @@ impl TuiApp {
                                             );
                                         }
                                     }
-                                    None => match self.buffers[buffer_id].indent {
+                                    None => match self.workspace.buffers[buffer_id].indent {
                                         Indentation::Tabs(_) => self.palette.set_msg("tabs"),
                                         Indentation::Spaces(amount) => {
                                             self.palette.set_msg(format!("{} space(s)", amount))
@@ -750,16 +806,17 @@ impl TuiApp {
                                 }
                             }
                             Command::LineEnding(line_ending) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
                                 match line_ending {
                                     Some(line_ending) => {
-                                        self.buffers[buffer_id].line_ending = line_ending
+                                        self.workspace.buffers[buffer_id].line_ending = line_ending
                                     }
                                     None => self.palette.set_msg(
-                                        match self.buffers[buffer_id].line_ending {
+                                        match self.workspace.buffers[buffer_id].line_ending {
                                             line_ending::LineEnding::Crlf => "crlf",
                                             line_ending::LineEnding::LF => "lf",
                                             _ => unreachable!(),
@@ -771,33 +828,37 @@ impl TuiApp {
                                 self.insert_buffer(Buffer::new(), true);
                             }
                             Command::Reload => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
-                                if self.buffers[buffer_id].is_dirty() {
+                                if self.workspace.buffers[buffer_id].is_dirty() {
                                     self.palette.set_prompt(
                                         "The buffer is unsaved are you sure you want to reload?",
                                         ('y', PalettePromptEvent::Reload),
                                         ('n', PalettePromptEvent::Nop),
                                     );
-                                } else if let Err(err) = self.buffers[buffer_id].reload() {
+                                } else if let Err(err) = self.workspace.buffers[buffer_id].reload()
+                                {
                                     self.palette.set_error(err)
                                 };
                             }
                             Command::Goto(line) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
-                                self.buffers[buffer_id].goto(line);
+                                self.workspace.buffers[buffer_id].goto(line);
                             }
                             Command::Case(case) => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
-                                self.buffers[buffer_id].transform_case(case);
+                                self.workspace.buffers[buffer_id].transform_case(case);
                             }
                             Command::Quit => self.quit(control_flow),
                             Command::ForceQuit => *control_flow = TuiEventLoopControlFlow::Exit,
@@ -820,33 +881,36 @@ impl TuiApp {
                             Command::ForceClose => self.force_close_current_buffer(),
                             Command::Close => self.close_current_buffer(),
                             Command::Paste => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
-                                if let Err(err) =
-                                    self.buffers[buffer_id].handle_input(InputCommand::Paste)
+                                if let Err(err) = self.workspace.buffers[buffer_id]
+                                    .handle_input(InputCommand::Paste)
                                 {
                                     self.palette.set_error(err);
                                 }
                             }
                             Command::Copy => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
-                                if let Err(err) =
-                                    self.buffers[buffer_id].handle_input(InputCommand::Copy)
+                                if let Err(err) = self.workspace.buffers[buffer_id]
+                                    .handle_input(InputCommand::Copy)
                                 {
                                     self.palette.set_error(err);
                                 }
                             }
                             Command::RevertBuffer => {
-                                let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane()
+                                let PaneKind::Buffer(buffer_id) =
+                                    self.workspace.panes.get_current_pane()
                                 else {
                                     return;
                                 };
-                                let _ = self.buffers[buffer_id]
+                                let _ = self.workspace.buffers[buffer_id]
                                     .handle_input(InputCommand::RevertBuffer);
                             }
                             Command::GitReload => self.branch_watcher.force_reload(),
@@ -857,17 +921,19 @@ impl TuiApp {
                 "goto" => {
                     self.palette.reset();
                     if let Ok(line) = content.trim().parse::<i64>() {
-                        let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                        let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                        else {
                             return;
                         };
-                        self.buffers[buffer_id].goto(line);
+                        self.workspace.buffers[buffer_id].goto(line);
                     }
                 }
                 "search" => {
-                    let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                    else {
                         return;
                     };
-                    self.buffers[buffer_id].start_search(
+                    self.workspace.buffers[buffer_id].start_search(
                         self.proxy.clone(),
                         content,
                         self.config.case_insensitive_search,
@@ -879,10 +945,11 @@ impl TuiApp {
             TuiAppEvent::PromptEvent(event) => match event {
                 PalettePromptEvent::Nop => (),
                 PalettePromptEvent::Reload => {
-                    let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                    else {
                         return;
                     };
-                    if let Err(err) = self.buffers[buffer_id].reload() {
+                    if let Err(err) = self.workspace.buffers[buffer_id].reload() {
                         self.palette.set_error(err);
                     }
                 }
@@ -893,10 +960,10 @@ impl TuiApp {
     }
 
     pub fn format_selection_current_buffer(&mut self) {
-        let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() else {
+        let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
             return;
         };
-        let buffer_lang = self.buffers[buffer_id].language_name();
+        let buffer_lang = self.workspace.buffers[buffer_id].language_name();
         let config = self
             .config
             .language
@@ -915,15 +982,15 @@ impl TuiApp {
             return;
         };
 
-        if let Err(err) = self.buffers[buffer_id].format_selection(fmt) {
+        if let Err(err) = self.workspace.buffers[buffer_id].format_selection(fmt) {
             // FIXME make error able to display more then one line
             self.palette.set_error(err);
         }
     }
 
     pub fn format_current_buffer(&mut self) {
-        if let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() {
-            let buffer_lang = self.buffers[buffer_id].language_name();
+        if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
+            let buffer_lang = self.workspace.buffers[buffer_id].language_name();
             let config = self
                 .config
                 .language
@@ -941,7 +1008,7 @@ impl TuiApp {
                 return;
             };
 
-            if let Err(err) = self.buffers[buffer_id].format(fmt) {
+            if let Err(err) = self.workspace.buffers[buffer_id].format(fmt) {
                 // FIXME make error able to display more then one line
                 self.palette.set_error(err);
             }
@@ -957,18 +1024,18 @@ impl TuiApp {
             }
         };
 
-        match self.buffers.iter().find(|(_, buffer)| {
+        match self.workspace.buffers.iter().find(|(_, buffer)| {
             buffer
                 .file()
                 .and_then(|path| dunce::canonicalize(path).ok())
                 .as_deref()
                 == Some(&real_path)
         }) {
-            Some((id, _)) => self.panes.replace_current(PaneKind::Buffer(id)),
+            Some((id, _)) => self.workspace.panes.replace_current(PaneKind::Buffer(id)),
             None => match Buffer::from_file(path, self.proxy.clone()) {
                 Ok(buffer) => {
-                    if let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() {
-                        let current_buf = self.buffers.get_mut(buffer_id).unwrap();
+                    if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
+                        let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
                         if !current_buf.is_dirty() && current_buf.rope().len_bytes() == 0 {
                             *current_buf = buffer;
                             return;
@@ -983,6 +1050,7 @@ impl TuiApp {
 
     pub fn quit(&mut self, control_flow: &mut TuiEventLoopControlFlow) {
         let unsaved: Vec<_> = self
+            .workspace
             .buffers
             .iter()
             .filter_map(|(_, buffer)| {
@@ -1020,6 +1088,7 @@ impl TuiApp {
         self.file_finder = None;
         let mut scratch_buffer_number = 1;
         let buffers: Vec<_> = self
+            .workspace
             .buffers
             .iter()
             .map(|(id, buffer)| BufferItem {
@@ -1075,15 +1144,19 @@ impl TuiApp {
     pub fn force_close_current_buffer(&mut self) {
         // TODO make this close any buffer
         if let Some(buffer_id) = self.get_current_buffer_id() {
-            if self.panes.len() > 1 {
-                self.panes.remove_pane(PaneKind::Buffer(buffer_id));
-                self.buffers.remove(buffer_id);
-            } else if self.buffers.len() > 1 {
-                self.buffers.remove(buffer_id);
-                let (buffer_id, _) = self.buffers.iter().next().unwrap();
-                self.panes.replace_current(PaneKind::Buffer(buffer_id));
+            if self.workspace.panes.len() > 1 {
+                self.workspace
+                    .panes
+                    .remove_pane(PaneKind::Buffer(buffer_id));
+                self.workspace.buffers.remove(buffer_id);
+            } else if self.workspace.buffers.len() > 1 {
+                self.workspace.buffers.remove(buffer_id);
+                let (buffer_id, _) = self.workspace.buffers.iter().next().unwrap();
+                self.workspace
+                    .panes
+                    .replace_current(PaneKind::Buffer(buffer_id));
             } else {
-                self.buffers[buffer_id] = Buffer::new();
+                self.workspace.buffers[buffer_id] = Buffer::new();
             }
         }
     }
@@ -1099,39 +1172,79 @@ impl TuiApp {
     }
 
     pub fn get_current_buffer_id(&self) -> Option<usize> {
-        match self.panes.get_current_pane() {
+        match self.workspace.panes.get_current_pane() {
             PaneKind::Buffer(id) => Some(id),
             _ => None,
         }
     }
 
     pub fn get_current_buffer(&self) -> Option<&Buffer> {
-        let PaneKind::Buffer(buffer) = self.panes.get_current_pane() else {
+        let PaneKind::Buffer(buffer) = self.workspace.panes.get_current_pane() else {
             return None;
         };
 
-        self.buffers.get(buffer)
+        self.workspace.buffers.get(buffer)
     }
 
     pub fn _get_current_buffer_mut(&mut self) -> Option<&mut Buffer> {
-        let PaneKind::Buffer(buffer) = self.panes.get_current_pane() else {
+        let PaneKind::Buffer(buffer) = self.workspace.panes.get_current_pane() else {
             return None;
         };
 
-        self.buffers.get_mut(buffer)
+        self.workspace.buffers.get_mut(buffer)
     }
 
     pub fn insert_buffer(&mut self, buffer: Buffer, make_current: bool) -> (usize, &mut Buffer) {
-        let buffer_id = self.buffers.insert(buffer);
+        let buffer_id = self.workspace.buffers.insert(buffer);
         if make_current {
-            self.panes.replace_current(PaneKind::Buffer(buffer_id));
+            self.workspace
+                .panes
+                .replace_current(PaneKind::Buffer(buffer_id));
         }
-        (buffer_id, &mut self.buffers[buffer_id])
+        (buffer_id, &mut self.workspace.buffers[buffer_id])
+    }
+
+    pub fn save_buffer(&mut self, buffer_id: usize, path: Option<PathBuf>) {
+        let buffer = &mut self.workspace.buffers[buffer_id];
+
+        if let Some(path) = path {
+            buffer.set_file(path);
+        }
+
+        let Some(path) = buffer.file() else {
+            self.palette.set_msg(buffer::error::BufferError::NoPathSet);
+            return;
+        };
+
+        let job = self.job_manager.spawn_foreground_job(
+            move |(buffer_id, encoding, line_ending, rope, path, last_edit)| {
+                let written = buffer::write::write(encoding, line_ending, rope.clone(), &path)?;
+                Ok(SaveBufferJob {
+                    buffer_id,
+                    path,
+                    last_edit,
+                    written,
+                })
+            },
+            (
+                buffer_id,
+                buffer.encoding,
+                buffer.line_ending,
+                buffer.rope().clone(),
+                path.to_path_buf(),
+                buffer.get_last_edit(),
+            ),
+        );
+
+        self.save_jobs.push(job);
     }
 }
 
 impl Drop for TuiApp {
     fn drop(&mut self) {
+        if let Err(e) = self.workspace.save_workspace() {
+            tracing::error!("Error saving workspace: {e}");
+        };
         let _ = terminal::disable_raw_mode();
         let _ = execute!(
             self.terminal.backend_mut(),

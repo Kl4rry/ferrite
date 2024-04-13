@@ -532,6 +532,8 @@ pub trait RopeGraphemeExt {
 
     fn byte_to_col(&self, byte_idx: usize) -> usize;
     fn byte_to_point(&self, byte_idx: usize) -> Point<usize>;
+
+    fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
@@ -692,6 +694,10 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         let column = self.line(line).byte_to_col(line_byte_idx);
         Point { line, column }
     }
+
+    fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize {
+        ensure_grapheme_boundary_next_byte(*self, byte_idx)
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -781,5 +787,9 @@ impl RopeGraphemeExt for Rope {
 
     fn byte_to_point(&self, byte_idx: usize) -> Point<usize> {
         self.slice(..).byte_to_point(byte_idx)
+    }
+
+    fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize {
+        self.slice(..).ensure_grapheme_boundary_next_byte(byte_idx)
     }
 }

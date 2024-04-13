@@ -32,6 +32,7 @@ pub struct EditorWidget<'a> {
     config: &'a Config,
     has_focus: bool,
     branch: Option<String>,
+    spinner: Option<char>,
 }
 
 impl<'a> EditorWidget<'a> {
@@ -40,12 +41,14 @@ impl<'a> EditorWidget<'a> {
         config: &'a Config,
         has_focus: bool,
         branch: Option<String>,
+        spinner: Option<char>,
     ) -> Self {
         Self {
             theme,
             config,
             has_focus,
             branch,
+            spinner,
         }
     }
 }
@@ -68,6 +71,7 @@ impl StatefulWidget for EditorWidget<'_> {
             config,
             has_focus,
             branch,
+            spinner,
         } = self;
 
         let (line_number_max_width, left_offset) = lines_to_left_offset(buffer.len_lines());
@@ -384,6 +388,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 branch: &branch,
                 language: buffer.language_name(),
                 size: buffer.rope().len_bytes(),
+                spinner,
             };
             info_line.render(
                 Rect::new(area.x, text_area.height + text_area.y, area.width, 1),

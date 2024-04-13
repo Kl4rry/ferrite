@@ -4,10 +4,12 @@ use std::{
     num::NonZeroUsize,
     ops::Range,
     path::{Path, PathBuf},
+    time::Instant,
 };
 
 use encoding_rs::Encoding;
 use ropey::{Rope, RopeSlice};
+use serde::{Deserialize, Serialize};
 use utility::{
     graphemes::RopeGraphemeExt as _,
     line_ending::{rope_end_without_line_ending, LineEnding, DEFAULT_LINE_ENDING},
@@ -30,14 +32,14 @@ pub mod error;
 mod format;
 mod history;
 pub mod input;
-mod read;
+pub mod read;
 pub mod search;
-mod write;
+pub mod write;
 
 #[cfg(test)]
 pub mod buffer_tests;
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Cursor {
     pub anchor: usize,
     pub position: usize,
@@ -64,6 +66,7 @@ pub struct Buffer {
     file: Option<PathBuf>,
     dirty: bool,
     read_only: bool,
+    last_edit: Instant,
     pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
@@ -89,11 +92,12 @@ impl Default for Buffer {
             encoding: encoding_rs::UTF_8,
             indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
+            last_edit: Instant::now(),
             read_only: false,
             line_ending: DEFAULT_LINE_ENDING,
             clamp_cursor: true,
-            view_lines: usize::MAX,
-            view_columns: usize::MAX,
+            view_lines: 10000,
+            view_columns: 10000,
             syntax: None,
             history: History::default(),
             searcher: None,
@@ -269,6 +273,10 @@ impl Buffer {
 
     pub fn file(&self) -> Option<&Path> {
         self.file.as_deref()
+    }
+
+    pub fn set_file(&mut self, path: impl Into<PathBuf>) {
+        self.file = Some(path.into());
     }
 
     pub fn line_pos(&self) -> usize {
@@ -1226,23 +1234,6 @@ impl Buffer {
         self.history.finish();
     }
 
-    pub fn save(&mut self, path: Option<PathBuf>) -> Result<usize, BufferError> {
-        if let Some(path) = path {
-            self.file = Some(path);
-        }
-
-        let Some(path) = self.file.clone() else {
-            return Err(BufferError::NoPathSet);
-        };
-
-        let written = write::write(self.encoding, self.line_ending, self.rope.clone(), path)?;
-
-        self.dirty = false;
-        self.history.save();
-
-        Ok(written)
-    }
-
     pub fn reload(&mut self) -> Result<(), BufferError> {
         let Some(path) = &self.file else {
             return Err(BufferError::NoPathSet);
@@ -1325,6 +1316,7 @@ impl Buffer {
         {
             let cursor_line = self.rope.byte_to_line(self.cursor.position);
             let start_line = self.line_pos;
+            tracing::warn!("{} {}", self.line_pos, self.view_lines);
             let end_line = self.line_pos + self.view_lines;
             if cursor_line < start_line || cursor_line >= end_line {
                 self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);
@@ -1346,11 +1338,16 @@ impl Buffer {
 
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
+        self.last_edit = Instant::now();
         self.queue_syntax_update();
     }
 
     pub fn mark_clean(&mut self) {
         self.dirty = false;
+    }
+
+    pub fn get_last_edit(&self) -> Instant {
+        self.last_edit
     }
 
     pub fn queue_syntax_update(&mut self) {
@@ -1430,6 +1427,26 @@ impl Buffer {
         let end = self.cursor.anchor.max(self.cursor.position);
         let slice = self.rope.byte_slice(start..end);
         slice.to_string()
+    }
+
+    pub fn mark_history_dirty(&mut self) {
+        self.history.mark_all_dirty();
+    }
+
+    pub fn mark_saved(&mut self) {
+        self.dirty = false;
+        self.history.save();
+    }
+
+    pub fn len_bytes(&self) -> usize {
+        self.rope.len_bytes()
+    }
+
+    pub fn ensure_cursor_is_valid(&mut self) {
+        let position = self.cursor.position.min(self.rope.len_bytes());
+        let anchor = self.cursor.position.min(self.rope.len_bytes());
+        self.cursor.position = self.rope().ensure_grapheme_boundary_next_byte(position);
+        self.cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
     }
 }
 

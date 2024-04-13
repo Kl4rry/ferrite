@@ -166,4 +166,10 @@ impl History {
         }
         self.stack[self.current_frame as usize].dirty = false;
     }
+
+    pub fn mark_all_dirty(&mut self) {
+        for frame in &mut self.stack {
+            frame.dirty = true;
+        }
+    }
 }

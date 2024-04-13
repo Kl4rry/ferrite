@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self, Display};
 
 use ropey::RopeSlice;
 use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -63,8 +63,8 @@ impl CommandPalette {
         }
     }
 
-    pub fn set_msg(&mut self, msg: impl Into<String>) {
-        self.state = PaletteState::Message(msg.into());
+    pub fn set_msg(&mut self, msg: impl Display) {
+        self.state = PaletteState::Message(msg.to_string());
     }
 
     pub fn set_error(&mut self, msg: impl fmt::Display) {

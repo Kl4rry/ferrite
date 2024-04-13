@@ -19,7 +19,7 @@ show_only_text_files = true
 [info_line]
 left = ["size"]
 center = ["file"]
-right = ["branch", "position", "encoding", "language"]
+right = ["branch", "position", "encoding", "language", "spinner"]
 padding = 1
 
 [[language]]

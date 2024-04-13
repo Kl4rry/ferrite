@@ -20,6 +20,7 @@ pub struct InfoLine<'a> {
     pub branch: &'a Option<String>,
     pub language: String,
     pub size: usize,
+    pub spinner: Option<char>,
 }
 
 impl InfoLine<'_> {
@@ -42,6 +43,7 @@ impl InfoLine<'_> {
             "position" => Some(format!("{}:{}", self.line, self.column)),
             "branch" => self.branch.clone(),
             "size" => Some(format_byte_size(self.size)),
+            "spinner" => Some(self.spinner.unwrap_or(' ').to_string()),
             _ => None,
         }
     }

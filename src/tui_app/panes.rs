@@ -1,14 +1,15 @@
 use std::mem;
 
+use serde::{Deserialize, Serialize};
 use tui::layout::Rect;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PaneKind {
     Buffer(usize),
     _Logger,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum Split {
     Horizontal,
     Vertical,
@@ -43,7 +44,7 @@ impl Direction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 enum Node {
     Leaf(PaneKind),
     Internal {
@@ -292,7 +293,7 @@ impl Node {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Panes {
     node: Node,
     current_pane: PaneKind,
