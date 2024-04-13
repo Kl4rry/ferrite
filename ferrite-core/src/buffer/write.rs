@@ -5,8 +5,8 @@ use std::{
 };
 
 use encoding_rs::{CoderResult, Encoding};
+use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 use ropey::{Rope, RopeBuilder};
-use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use super::error::BufferError;
 

@@ -1,8 +1,8 @@
 use std::time::Duration;
 
+use ferrite_utility::graphemes::ensure_grapheme_boundary_next_byte;
 use ropey::Rope;
 use subprocess::{Exec, PopenError, Redirection};
-use utility::graphemes::ensure_grapheme_boundary_next_byte;
 
 use super::{Buffer, Cursor};
 

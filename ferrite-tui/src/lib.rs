@@ -35,11 +35,11 @@ use ferrite_core::{
     theme::EditorTheme,
     workspace::Workspace,
 };
+use ferrite_utility::{line_ending, point::Point};
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
 use slab::Slab;
 use subprocess::{Exec, Redirection};
 use tui::layout::{Margin, Position, Rect};
-use utility::{line_ending, point::Point};
 
 use self::{
     event_loop::{TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},

@@ -4,9 +4,9 @@ use std::{
 };
 
 use anyhow::Result;
+use ferrite_utility::graphemes::RopeGraphemeExt;
 use serde::{Deserialize, Serialize};
 use slab::Slab;
-use utility::graphemes::RopeGraphemeExt;
 
 use super::buffer::{Buffer, Cursor};
 use crate::panes::{PaneKind, Panes};

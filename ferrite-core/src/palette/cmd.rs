@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use utility::line_ending::LineEnding;
+use ferrite_utility::line_ending::LineEnding;
 
 use crate::{buffer::case::Case, panes::Direction};
 

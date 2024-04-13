@@ -1,7 +1,7 @@
 use std::{mem, ops::Range};
 
+use ferrite_utility::graphemes::ensure_grapheme_boundary_next_byte;
 use ropey::Rope;
-use utility::graphemes::ensure_grapheme_boundary_next_byte;
 
 use super::Cursor;
 

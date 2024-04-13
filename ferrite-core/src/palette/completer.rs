@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
-use utility::line_ending::LineEnding;
+use ferrite_utility::line_ending::LineEnding;
 
 use self::path_completer::complete_file_path;
 use super::cmd_parser::{

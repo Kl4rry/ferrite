@@ -590,6 +590,7 @@ dependencies = [
  "dunce",
  "encoding_rs",
  "ferrite-tree-sitter",
+ "ferrite-utility",
  "flume",
  "heck 0.5.0",
  "humansize",
@@ -614,7 +615,6 @@ dependencies = [
  "tree_magic_mini",
  "unicode-segmentation",
  "unicode-width",
- "utility",
 ]
 
 [[package]]
@@ -652,6 +652,7 @@ dependencies = [
  "encoding_rs",
  "ferrite-cli",
  "ferrite-core",
+ "ferrite-utility",
  "ratatui",
  "rayon",
  "ropey",
@@ -659,7 +660,17 @@ dependencies = [
  "subprocess",
  "tracing",
  "unicode-width",
- "utility",
+]
+
+[[package]]
+name = "ferrite-utility"
+version = "0.1.0"
+dependencies = [
+ "num-traits",
+ "ropey",
+ "unicode-general-category",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]
@@ -2177,17 +2188,6 @@ name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
-
-[[package]]
-name = "utility"
-version = "0.1.0"
-dependencies = [
- "num-traits",
- "ropey",
- "unicode-general-category",
- "unicode-segmentation",
- "unicode-width",
-]
 
 [[package]]
 name = "valuable"

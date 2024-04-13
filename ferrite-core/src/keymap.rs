@@ -1,4 +1,4 @@
-use utility::point::Point;
+use ferrite_utility::point::Point;
 
 pub mod keycode;
 use keycode::{KeyCode, KeyModifiers};

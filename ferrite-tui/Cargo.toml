@@ -17,4 +17,4 @@ subprocess.workspace = true
 tracing.workspace = true
 tui.workspace = true
 unicode-width.workspace = true
-utility.workspace = true
+ferrite-utility.workspace = true

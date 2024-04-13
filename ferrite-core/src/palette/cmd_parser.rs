@@ -1,5 +1,5 @@
+use ferrite_utility::line_ending::LineEnding;
 use once_cell::sync::Lazy;
-use utility::line_ending::LineEnding;
 
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;

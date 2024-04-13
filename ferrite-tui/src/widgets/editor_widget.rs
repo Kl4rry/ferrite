@@ -4,15 +4,15 @@ use ferrite_core::{
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
+use ferrite_utility::{
+    graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH},
+    point::Point,
+};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use ropey::RopeSlice;
 use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
-};
-use utility::{
-    graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH},
-    point::Point,
 };
 
 use super::info_line::InfoLine;

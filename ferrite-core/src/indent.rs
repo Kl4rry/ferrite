@@ -1,8 +1,8 @@
 use std::num::NonZeroUsize;
 
 use detect_indent::IndentKind;
+use ferrite_utility::graphemes::TAB_WIDTH;
 use ropey::RopeSlice;
-use utility::graphemes::TAB_WIDTH;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Indentation {

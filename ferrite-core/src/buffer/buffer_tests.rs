@@ -1,7 +1,7 @@
 use std::fs;
 
+use ferrite_utility::line_ending::DEFAULT_LINE_ENDING;
 use tempdir::TempDir;
-use utility::line_ending::DEFAULT_LINE_ENDING;
 
 use super::{read, write};
 

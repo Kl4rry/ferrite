@@ -9,13 +9,13 @@ use std::{
 };
 
 use encoding_rs::Encoding;
-use ropey::{Rope, RopeSlice};
-use serde::{Deserialize, Serialize};
-use utility::{
+use ferrite_utility::{
     graphemes::RopeGraphemeExt as _,
     line_ending::{rope_end_without_line_ending, LineEnding, DEFAULT_LINE_ENDING},
     point::Point,
 };
+use ropey::{Rope, RopeSlice};
+use serde::{Deserialize, Serialize};
 
 use self::{error::BufferError, history::History, search::BufferSearcher};
 use super::{

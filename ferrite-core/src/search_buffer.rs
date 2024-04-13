@@ -1,8 +1,8 @@
 use std::{borrow::Cow, sync::Arc, thread};
 
 use cb::select;
+use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 use ropey::RopeSlice;
-use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};

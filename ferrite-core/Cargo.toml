@@ -6,8 +6,8 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 arboard.workspace = true
-blake3.workspace = true
 bitflags.workspace = true
+blake3.workspace = true
 cb.workspace = true
 chardetng.workspace = true
 csscolorparser = { workspace = true, features = ["rgb"] }
@@ -16,6 +16,7 @@ directories.workspace = true
 dunce.workspace = true
 encoding_rs.workspace = true
 ferrite-tree-sitter.workspace = true
+ferrite-utility.workspace = true
 flume = { workspace = true, default-features = false }
 heck.workspace = true
 humansize.workspace = true
@@ -35,9 +36,8 @@ subprocess.workspace = true
 toml.workspace = true 
 tracing.workspace = true 
 trash.workspace = true 
-tree-sitter.workspace = true 
 tree_magic_mini = { workspace = true, features = ["with-gpl-data"] }
-utility.workspace = true
+tree-sitter.workspace = true 
 unicode-segmentation.workspace = true
 unicode-width.workspace = true
 

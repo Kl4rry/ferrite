@@ -4,6 +4,7 @@ use ferrite_core::{
     search_buffer::{Matchable, SearchBuffer},
     theme::EditorTheme,
 };
+use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
@@ -11,7 +12,6 @@ use tui::{
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
-use utility::graphemes::RopeGraphemeExt;
 
 use super::one_line_input_widget::OneLineInputWidget;
 use crate::glue::convert_style;

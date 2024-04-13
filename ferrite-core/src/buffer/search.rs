@@ -3,8 +3,8 @@ use std::{
     thread,
 };
 
+use ferrite_utility::{graphemes::RopeGraphemeExt as _, point::Point};
 use ropey::Rope;
-use utility::{graphemes::RopeGraphemeExt as _, point::Point};
 
 use crate::event_loop_proxy::EventLoopProxy;
 
