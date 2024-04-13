@@ -19,11 +19,11 @@ detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev 
 directories = "5.0.0" 
 dunce = "1.0.4" 
 encoding_rs = "0.8.31" 
-ferrite-cli = { path = "ferrite-cli" } 
-ferrite-core = { path = "ferrite-core" } 
-ferrite-tree-sitter = { path = "ferrite-tree-sitter" } 
-ferrite-tui = { path = "ferrite-tui" } 
-ferrite-utility = { path = "ferrite-utility" } 
+ferrite-cli = { path = "crates/ferrite-cli" } 
+ferrite-core = { path = "crates/ferrite-core" } 
+ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" } 
+ferrite-tui = { path = "crates/ferrite-tui" } 
+ferrite-utility = { path = "crates/ferrite-utility" } 
 flume = { version = "0.11.0", default-features = false } 
 heck = "0.5.0" 
 humansize = "2.1.3" 
@@ -70,7 +70,8 @@ tracing-subscriber = { workspace = true }
 opt-level = 3
 
 [workspace]
-members = ["ferrite-cli", "ferrite-core", "ferrite-tree-sitter", "ferrite-tui", "ferrite-utility"]
+resolver = "2"
+members = ["crates/*"]
 
 [[bin]]
 name = "fe"
