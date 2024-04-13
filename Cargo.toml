@@ -21,7 +21,7 @@ dunce = "1.0.4"
 encoding_rs = "0.8.31" 
 ferrite-cli = { path = "ferrite-cli" }
 ferrite-core = { path = "ferrite-core" }
-ferrite-term = { path = "ferrite-term" }
+ferrite-tui = { path = "ferrite-tui" }
 ferrite-tree-sitter = {path = "ferrite-tree-sitter" }
 flume = { version = "0.11.0", default-features = false }
 heck = "0.5.0"
@@ -60,7 +60,7 @@ clap.workspace = true
 directories.workspace = true
 ferrite-cli.workspace = true
 ferrite-core.workspace = true
-ferrite-term.workspace = true
+ferrite-tui.workspace = true
 tracing-log.workspace = true
 tracing-subscriber.workspace = true
 
@@ -70,7 +70,7 @@ tracing.workspace = true
 opt-level = 3
 
 [workspace]
-members = ["ferrite-cli", "ferrite-core", "ferrite-term", "ferrite-tree-sitter", "utility"]
+members = ["ferrite-cli", "ferrite-core", "ferrite-tui", "ferrite-tree-sitter", "utility"]
 
 [[bin]]
 name = "fe"

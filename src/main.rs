@@ -92,7 +92,7 @@ fn main() -> Result<ExitCode> {
 
     ferrite_core::clipboard::init(args.local_clipboard);
 
-    ferrite_term::run(&args)?;
+    ferrite_tui::run(&args)?;
 
     Ok(ExitCode::SUCCESS)
 }

@@ -561,7 +561,7 @@ dependencies = [
  "directories",
  "ferrite-cli",
  "ferrite-core",
- "ferrite-term",
+ "ferrite-tui",
  "tracing",
  "tracing-log",
  "tracing-subscriber",
@@ -618,26 +618,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrite-term"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossterm 0.25.0",
- "dunce",
- "encoding_rs",
- "ferrite-cli",
- "ferrite-core",
- "ratatui",
- "rayon",
- "ropey",
- "slab",
- "subprocess",
- "tracing",
- "unicode-width",
- "utility",
-]
-
-[[package]]
 name = "ferrite-tree-sitter"
 version = "0.1.0"
 dependencies = [
@@ -660,6 +640,26 @@ dependencies = [
  "tree-sitter-toml",
  "tree-sitter-xml",
  "tree-sitter-yaml",
+]
+
+[[package]]
+name = "ferrite-tui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "crossterm 0.25.0",
+ "dunce",
+ "encoding_rs",
+ "ferrite-cli",
+ "ferrite-core",
+ "ratatui",
+ "rayon",
+ "ropey",
+ "slab",
+ "subprocess",
+ "tracing",
+ "unicode-width",
+ "utility",
 ]
 
 [[package]]
