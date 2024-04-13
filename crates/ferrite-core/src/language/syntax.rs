@@ -17,6 +17,8 @@ use tree_sitter::{
 use super::{get_tree_sitter_language, LanguageConfig};
 use crate::event_loop_proxy::EventLoopProxy;
 
+type HighlightResult = Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>;
+
 struct SyntaxProvider {
     pub language: &'static LanguageConfig,
     pub rope_tx: Sender<Rope>,
@@ -26,7 +28,7 @@ impl SyntaxProvider {
     pub fn new(
         language: &'static LanguageConfig,
         proxy: Box<dyn EventLoopProxy>,
-        result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
+        result: HighlightResult,
     ) -> Result<Self> {
         let (rope_tx, rope_rx) = cb::unbounded::<Rope>();
 
@@ -34,7 +36,7 @@ impl SyntaxProvider {
         let name = language.name.clone();
         thread::spawn(move || {
             tracing::info!("Highlight thread started for `{name}`");
-            let mut highlighter = Highlighter::new();
+            let mut highlighter = Highlighter::default();
             let mut rope;
 
             loop {
@@ -82,7 +84,7 @@ impl SyntaxProvider {
 
 pub struct Syntax {
     syntax_provder: Option<SyntaxProvider>,
-    result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
+    result: HighlightResult,
     proxy: Box<dyn EventLoopProxy>,
 }
 
@@ -249,14 +251,16 @@ struct HighlightIterLayer<'a> {
     depth: usize,
 }
 
-impl Highlighter {
-    pub fn new() -> Self {
-        Highlighter {
+impl Default for Highlighter {
+    fn default() -> Self {
+        Self {
             parser: Parser::new(),
             cursors: Vec::new(),
         }
     }
+}
 
+impl Highlighter {
     #[allow(dead_code)]
     pub fn parser(&mut self) -> &mut Parser {
         &mut self.parser

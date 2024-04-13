@@ -1,19 +1,9 @@
 use std::{
     sync::mpsc::{self, Receiver, Sender},
     thread,
-    time::Duration,
 };
 
-use ferrite_core::event_loop_proxy::{EventLoopProxy, UserEvent};
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TuiEventLoopControlFlow {
-    Poll,
-    Wait,
-    Exit,
-    WaitMax(Duration),
-}
+use ferrite_core::event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent};
 
 pub enum TuiEvent {
     Render,
@@ -26,6 +16,12 @@ pub struct TuiEventLoop {
     proxy_rx: Receiver<UserEvent>,
     waker_tx: Sender<()>,
     waker_rx: Receiver<()>,
+}
+
+impl Default for TuiEventLoop {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TuiEventLoop {
@@ -49,7 +45,7 @@ impl TuiEventLoop {
 
     pub fn run<F>(self, mut handler: F)
     where
-        F: FnMut(&TuiEventLoopProxy, TuiEvent, &mut TuiEventLoopControlFlow),
+        F: FnMut(&TuiEventLoopProxy, TuiEvent, &mut EventLoopControlFlow),
     {
         let Self {
             proxy_tx,
@@ -72,31 +68,31 @@ impl TuiEventLoop {
         });
 
         'main: loop {
-            let mut control_flow = TuiEventLoopControlFlow::Wait;
+            let mut control_flow = EventLoopControlFlow::Wait;
 
             while let Ok(event) = crossterm_rx.try_recv() {
                 handler(&proxy, TuiEvent::Crossterm(event), &mut control_flow);
-                if control_flow == TuiEventLoopControlFlow::Exit {
+                if control_flow == EventLoopControlFlow::Exit {
                     break 'main;
                 }
             }
             while let Ok(event) = proxy_rx.try_recv() {
                 handler(&proxy, TuiEvent::AppEvent(event), &mut control_flow);
-                if control_flow == TuiEventLoopControlFlow::Exit {
+                if control_flow == EventLoopControlFlow::Exit {
                     break 'main;
                 }
             }
             handler(&proxy, TuiEvent::Render, &mut control_flow);
 
             match control_flow {
-                TuiEventLoopControlFlow::Poll => {
+                EventLoopControlFlow::Poll => {
                     let _ = waker_rx.try_recv();
                 }
-                TuiEventLoopControlFlow::Wait => {
+                EventLoopControlFlow::Wait => {
                     let _ = waker_rx.recv();
                 }
-                TuiEventLoopControlFlow::Exit => break,
-                TuiEventLoopControlFlow::WaitMax(timeout) => {
+                EventLoopControlFlow::Exit => break,
+                EventLoopControlFlow::WaitMax(timeout) => {
                     let _ = waker_rx.recv_timeout(timeout);
                 }
             }

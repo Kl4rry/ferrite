@@ -2,6 +2,7 @@ pub mod buffer;
 pub mod byte_size;
 pub mod clipboard;
 pub mod config;
+pub mod engine;
 pub mod event_loop_proxy;
 pub mod git;
 pub mod indent;

@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use anyhow::bail;
 use heck::{
     ToKebabCase, ToLowerCamelCase, ToPascalCase, ToShoutyKebabCase, ToShoutySnakeCase, ToSnakeCase,
     ToTitleCase, ToTrainCase,
@@ -19,9 +22,11 @@ pub enum Case {
     ScreamingKebab,
 }
 
-impl Case {
-    pub fn from_str(s: &str) -> Self {
-        match s {
+impl FromStr for Case {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "lower" => Case::Lower,
             "upper" => Case::Upper,
             "snake" => Case::Snake,
@@ -32,10 +37,12 @@ impl Case {
             "train" => Case::Train,
             "screaming-snake" => Case::ScreamingSnake,
             "screaming-kebab" => Case::ScreamingKebab,
-            _ => panic!("'{s}' is not valid case"),
-        }
+            _ => bail!("'{s}' is not valid case"),
+        })
     }
+}
 
+impl Case {
     pub fn transform(&self, s: &str) -> String {
         match self {
             Case::Lower => s.to_lowercase(),

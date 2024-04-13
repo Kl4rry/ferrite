@@ -29,8 +29,8 @@ pub struct BufferData {
     line_pos: usize,
 }
 
-impl Workspace {
-    pub fn new() -> Self {
+impl Default for Workspace {
+    fn default() -> Self {
         let mut buffers = Slab::new();
         let buffer_id = buffers.insert(Buffer::new());
         Self {
@@ -38,7 +38,9 @@ impl Workspace {
             panes: Panes::new(buffer_id),
         }
     }
+}
 
+impl Workspace {
     pub fn save_workspace(&self) -> Result<()> {
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let mut workspace_data = WorkspaceData {

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use ferrite_utility::line_ending::LineEnding;
 use once_cell::sync::Lazy;
 
@@ -64,7 +66,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
             Command::Shell(paths)
         }
         ("case", [case, ..]) =>  {
-            Command::Case(Case::from_str(case.take().unwrap().unwrap_string().as_str()))
+            Command::Case(Case::from_str(case.take().unwrap().unwrap_string().as_str()).unwrap())
         }
         ("line-ending", [line_ending, ..]) => Command::LineEnding(line_ending.take().map(|line_ending| {
             match line_ending.unwrap_string().as_str() {

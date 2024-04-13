@@ -589,6 +589,7 @@ dependencies = [
  "directories",
  "dunce",
  "encoding_rs",
+ "ferrite-cli",
  "ferrite-tree-sitter",
  "ferrite-utility",
  "flume",

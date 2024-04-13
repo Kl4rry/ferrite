@@ -106,7 +106,7 @@ pub struct EditorTheme {
 }
 
 impl EditorTheme {
-    pub fn from_str(s: &str) -> Result<Self> {
+    pub fn parse_theme(s: &str) -> Result<Self> {
         let theme: Theme = toml::from_str(s)?;
 
         Ok(Self {
@@ -151,7 +151,7 @@ impl EditorTheme {
     }
 
     pub fn load_theme(path: impl AsRef<Path>) -> Result<Self> {
-        Self::from_str(&fs::read_to_string(path)?)
+        Self::parse_theme(&fs::read_to_string(path)?)
     }
 
     pub fn load_themes() -> HashMap<String, EditorTheme> {
@@ -208,7 +208,7 @@ impl EditorTheme {
 
 impl Default for EditorTheme {
     fn default() -> Self {
-        EditorTheme::from_str(include_str!("../../../themes/catppuccin_mocha.toml")).unwrap()
+        EditorTheme::parse_theme(include_str!("../../../themes/catppuccin_mocha.toml")).unwrap()
     }
 }
 
@@ -226,7 +226,7 @@ fn get_embedded_themes() -> Vec<(String, EditorTheme)> {
                     .unwrap()
                     .to_string_lossy()
                     .into_owned(),
-                EditorTheme::from_str(file.contents_utf8().unwrap()).unwrap(),
+                EditorTheme::parse_theme(file.contents_utf8().unwrap()).unwrap(),
             )
         })
         .collect()
@@ -274,7 +274,7 @@ mod tests {
         for file in THEMES.files() {
             let content = file.contents_utf8();
             assert!(content.is_some());
-            assert!(EditorTheme::from_str(content.unwrap()).is_ok());
+            assert!(EditorTheme::parse_theme(content.unwrap()).is_ok());
         }
     }
 }

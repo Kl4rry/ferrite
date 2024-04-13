@@ -1,5 +1,6 @@
-use std::mem;
+use std::{mem, str::FromStr};
 
+use anyhow::bail;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy)]
@@ -50,15 +51,17 @@ pub enum Direction {
     Left,
 }
 
-impl Direction {
-    pub fn from_str(direction: &str) -> Option<Self> {
-        match direction {
-            "up" => Some(Direction::Up),
-            "down" => Some(Direction::Down),
-            "left" => Some(Direction::Left),
-            "right" => Some(Direction::Right),
-            _ => None,
-        }
+impl FromStr for Direction {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "up" => Direction::Up,
+            "down" => Direction::Down,
+            "left" => Direction::Left,
+            "right" => Direction::Right,
+            _ => bail!("Unkown direction: {s}"),
+        })
     }
 }
 
@@ -178,10 +181,10 @@ impl Node {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn num_panes(&self) -> usize {
         match self {
             Node::Leaf(_) => 1,
-            Node::Internal { left, right, .. } => left.len() + right.len(),
+            Node::Internal { left, right, .. } => left.num_panes() + right.num_panes(),
         }
     }
 
@@ -339,7 +342,7 @@ impl Panes {
     }
 
     pub fn remove_pane(&mut self, pane: PaneKind) -> bool {
-        if self.node.len() > 1 {
+        if self.node.num_panes() > 1 {
             self.current_pane = self.node.remove(pane).unwrap();
             true
         } else {
@@ -353,8 +356,8 @@ impl Panes {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.node.len()
+    pub fn num_panes(&self) -> usize {
+        self.node.num_panes()
     }
 
     pub fn get_pane_bounds(&self, rect: Rect) -> Vec<(PaneKind, Rect)> {
