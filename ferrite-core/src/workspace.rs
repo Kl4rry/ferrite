@@ -9,7 +9,7 @@ use slab::Slab;
 use utility::graphemes::RopeGraphemeExt;
 
 use super::buffer::{Buffer, Cursor};
-use crate::tui_app::panes::{PaneKind, Panes};
+use crate::panes::{PaneKind, Panes};
 
 pub struct Workspace {
     pub buffers: Slab<Buffer>,

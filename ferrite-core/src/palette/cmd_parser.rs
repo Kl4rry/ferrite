@@ -4,12 +4,10 @@ use utility::line_ending::LineEnding;
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
 use crate::{
-    ferrite_core::{
+    
         buffer::{case::Case, encoding::get_encoding_names},
         language::get_available_languages,
-        palette::cmd_parser::generic_cmd::GenericCommand,
-    },
-    tui_app::panes::Direction,
+        palette::cmd_parser::generic_cmd::GenericCommand, panes::Direction,
 };
 
 pub mod lexer;

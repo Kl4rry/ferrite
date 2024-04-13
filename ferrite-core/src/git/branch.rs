@@ -4,7 +4,7 @@ use std::{
     thread,
 };
 
-use crate::{ferrite_core::pubsub::Subscriber, tui_app::event_loop::TuiEventLoopProxy};
+use crate::{pubsub::Subscriber, event_loop_proxy::EventLoopProxy};
 
 fn get_current_branch() -> Option<String> {
     match Command::new("git")
@@ -27,19 +27,19 @@ fn get_current_branch() -> Option<String> {
 
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
-    proxy: TuiEventLoopProxy,
+    proxy: Box<dyn EventLoopProxy>,
 }
 
 impl BranchWatcher {
     pub fn new(
-        proxy: TuiEventLoopProxy,
+        proxy: Box<dyn EventLoopProxy>,
         mut change_detector: Subscriber<()>,
     ) -> Result<Self, notify::Error> {
         let current_branch = Arc::new(Mutex::new(None));
 
         {
             let current_branch_thread = current_branch.clone();
-            let thread_proxy = proxy.clone();
+            let thread_proxy = proxy.dup();
             thread::spawn(move || {
                 if let Some(branch) = get_current_branch() {
                     *current_branch_thread.lock().unwrap() = Some(branch);
@@ -76,7 +76,7 @@ impl BranchWatcher {
     }
 
     pub fn force_reload(&self) {
-        let proxy = self.proxy.clone();
+        let proxy = self.proxy.dup();
         let current_branch_thread = self.current_branch.clone();
         thread::spawn(move || {
             if let Some(branch) = get_current_branch() {

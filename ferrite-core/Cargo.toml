@@ -1,0 +1,90 @@
+[package]
+name = "ferrite-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow.workspace = true
+arboard.workspace = true
+blake3.workspace = true
+bitflags.workspace = true
+cb.workspace = true
+chardetng.workspace = true
+csscolorparser = { workspace = true, features = ["rgb"] }
+detect-indent.workspace = true 
+directories.workspace = true
+dunce.workspace = true
+encoding_rs.workspace = true
+ferrite-tree-sitter.workspace = true
+flume = { workspace = true, default-features = false }
+heck = { workspace = true, features = ["unicode"] }
+humansize.workspace = true
+ignore.workspace = true
+include_dir = { workspace = true, optional = true }
+lexical-sort.workspace = true
+memchr.workspace = true
+notify.workspace = true
+once_cell.workspace = true
+rayon.workspace = true
+ropey.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true 
+slab.workspace = true 
+sublime_fuzzy.workspace = true 
+subprocess.workspace = true 
+toml.workspace = true 
+tracing.workspace = true 
+trash.workspace = true 
+tree-sitter.workspace = true 
+tree_magic_mini = { workspace = true, features = ["with-gpl-data"] }
+utility.workspace = true
+unicode-segmentation.workspace = true
+unicode-width.workspace = true
+
+[dev-dependencies]
+tempdir.workspace = true
+
+[features]
+embed-themes = ["dep:include_dir"]
+lang-bash = ["ferrite-tree-sitter/lang-bash"]
+lang-c = ["ferrite-tree-sitter/lang-c"]
+lang-c-sharp = ["ferrite-tree-sitter/lang-c-sharp"]
+lang-cmake = ["ferrite-tree-sitter/lang-cmake"]
+lang-comment = ["ferrite-tree-sitter/lang-comment"]
+lang-cpp = ["ferrite-tree-sitter/lang-cpp"]
+lang-css = ["ferrite-tree-sitter/lang-css"]
+lang-fish = ["ferrite-tree-sitter/lang-fish"]
+lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
+lang-html = ["ferrite-tree-sitter/lang-html"]
+lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
+lang-json = ["ferrite-tree-sitter/lang-json"]
+lang-md = ["ferrite-tree-sitter/lang-md"]
+lang-python = ["ferrite-tree-sitter/lang-python"]
+lang-ron = ["ferrite-tree-sitter/lang-ron"]
+lang-rust = ["ferrite-tree-sitter/lang-rust"]
+lang-toml = ["ferrite-tree-sitter/lang-toml"]
+lang-xml = ["ferrite-tree-sitter/lang-xml"]
+lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
+
+default = [
+  "embed-themes",
+  "lang-bash",
+  "lang-c",
+  "lang-c-sharp",
+  "lang-cmake",
+  "lang-cpp",
+  "lang-css",
+  "lang-glsl",
+  "lang-html",
+  "lang-json",
+  "lang-md",
+  "lang-python",
+  "lang-rust",
+  "lang-toml",
+  "lang-xml",
+  "lang-yaml",
+  "lang-fish",
+  "lang-comment",
+  "lang-javascript",
+  "lang-ron",
+]

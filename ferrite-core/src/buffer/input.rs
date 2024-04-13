@@ -1,5 +1,5 @@
 use super::{error::BufferError, Buffer};
-use crate::tui_app::keymap::InputCommand;
+use crate::keymap::InputCommand;
 
 impl Buffer {
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {

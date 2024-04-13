@@ -6,7 +6,7 @@ use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
-use crate::tui_app::{event_loop::TuiEventLoopProxy, keymap::InputCommand};
+use crate::{event_loop_proxy::EventLoopProxy, keymap::InputCommand};
 
 pub mod buffer_find;
 pub mod file_daemon;
@@ -33,7 +33,7 @@ where
 {
     pub fn new<T: SearchOptionProvider<Matchable = M> + Send + Sync + 'static>(
         option_provder: T,
-        proxy: TuiEventLoopProxy,
+        proxy: Box<dyn EventLoopProxy>,
     ) -> Self {
         let mut search_field = Buffer::new();
         search_field.set_view_lines(1);

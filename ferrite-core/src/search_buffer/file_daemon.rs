@@ -10,7 +10,7 @@ use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
 
-use crate::ferrite_core::{
+use crate::{
     config::Config,
     pubsub::{self, Subscriber},
 };

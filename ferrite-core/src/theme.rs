@@ -4,14 +4,14 @@ use std::{
     fmt::{self},
     fs,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use anyhow::Result;
 use csscolorparser::ParseColorError;
 use memchr::memrchr;
 use serde::Deserialize;
-use tui::style::{self, Color};
+
+pub mod style;
 
 #[derive(Debug)]
 pub enum StyleLoadError {
@@ -71,14 +71,14 @@ fn raw_style_to_style(s: &Style, palette: &HashMap<String, String>) -> Result<st
 
     if let Some(fg) = &s.fg {
         match palette.get(fg) {
-            Some(color) => style.fg = Some(Color::from_str(color)?),
+            Some(color) => style.fg = Some(csscolorparser::parse(color)?),
             None => tracing::error!("Color `{fg}` not found"),
         }
     }
 
     if let Some(bg) = &s.bg {
         match palette.get(bg) {
-            Some(color) => style.bg = Some(Color::from_str(color)?),
+            Some(color) => style.bg = Some(csscolorparser::parse(color)?),
             None => tracing::error!("Color `{bg}` not found"),
         }
     }
@@ -139,7 +139,7 @@ impl EditorTheme {
         let mut name = name;
         loop {
             match self.syntax.get(name) {
-                Some(style) => return *style,
+                Some(style) => return style.clone(),
                 None => match memrchr(b'.', name.as_bytes()) {
                     Some(i) => name = &name[..i],
                     None => break,
@@ -147,7 +147,7 @@ impl EditorTheme {
             }
         }
         tracing::warn!("missing in theme: {}", name);
-        self.text
+        self.text.clone()
     }
 
     pub fn load_theme(path: impl AsRef<Path>) -> Result<Self> {
@@ -213,7 +213,7 @@ impl Default for EditorTheme {
 }
 
 #[cfg(feature = "embed-themes")]
-static THEMES: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/themes");
+static THEMES: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/../themes");
 
 #[cfg(feature = "embed-themes")]
 fn get_embedded_themes() -> Vec<(String, EditorTheme)> {

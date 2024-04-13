@@ -3,7 +3,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::tui_app::event_loop::TuiEventLoopProxy;
+use crate::event_loop_proxy::EventLoopProxy;
 
 pub struct JobHandle<T> {
     recv: mpsc::Receiver<T>,
@@ -23,12 +23,12 @@ impl<T> JobHandle<T> {
 }
 
 pub struct JobManager {
-    proxy: TuiEventLoopProxy,
+    proxy: Box<dyn EventLoopProxy>,
     foreground_job: Vec<JoinHandle<()>>,
 }
 
 impl JobManager {
-    pub fn new(proxy: TuiEventLoopProxy) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
         Self {
             proxy,
             foreground_job: Vec::new(),
@@ -57,7 +57,7 @@ impl JobManager {
         input: I,
     ) -> JobHandle<O> {
         let (tx, rx) = mpsc::channel();
-        let proxy = self.proxy.clone();
+        let proxy = self.proxy.dup();
         let handle = thread::spawn(move || {
             let output = f(input);
             let _ = tx.send(output);

@@ -15,7 +15,7 @@ use tree_sitter::{
 };
 
 use super::{get_tree_sitter_language, LanguageConfig};
-use crate::tui_app::event_loop::TuiEventLoopProxy;
+use crate::event_loop_proxy::EventLoopProxy;
 
 struct SyntaxProvider {
     pub language: &'static LanguageConfig,
@@ -25,7 +25,7 @@ struct SyntaxProvider {
 impl SyntaxProvider {
     pub fn new(
         language: &'static LanguageConfig,
-        proxy: TuiEventLoopProxy,
+        proxy: Box<dyn EventLoopProxy>,
         result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
     ) -> Result<Self> {
         let (rope_tx, rope_rx) = cb::unbounded::<Rope>();
@@ -83,11 +83,11 @@ impl SyntaxProvider {
 pub struct Syntax {
     syntax_provder: Option<SyntaxProvider>,
     result: Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>,
-    proxy: TuiEventLoopProxy,
+    proxy: Box<dyn EventLoopProxy>,
 }
 
 impl Syntax {
-    pub fn new(proxy: TuiEventLoopProxy) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
         Self {
             syntax_provder: None,
             result: Arc::new(Mutex::new(None)),
@@ -101,7 +101,7 @@ impl Syntax {
                 tracing::info!("set lang to `{language}`");
                 self.syntax_provder = Some(SyntaxProvider::new(
                     lang,
-                    self.proxy.clone(),
+                    self.proxy.dup(),
                     self.result.clone(),
                 )?);
                 *self.result.lock().unwrap() = None;

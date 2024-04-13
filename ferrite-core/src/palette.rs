@@ -5,8 +5,8 @@ use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 
 use self::completer::{Completer, CompleterContext};
 use super::buffer::{error::BufferError, Buffer};
-use crate::tui_app::{
-    event_loop::{TuiAppEvent, TuiEventLoopProxy},
+use crate::{
+    event_loop_proxy::{UserEvent, EventLoopProxy},
     keymap::InputCommand,
 };
 
@@ -51,12 +51,12 @@ pub enum PaletteState {
 }
 
 pub struct CommandPalette {
-    proxy: TuiEventLoopProxy,
+    proxy: Box<dyn EventLoopProxy>,
     state: PaletteState,
 }
 
 impl CommandPalette {
-    pub fn new(proxy: TuiEventLoopProxy) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
         Self {
             state: PaletteState::Nothing,
             proxy,
@@ -214,7 +214,7 @@ impl CommandPalette {
                 }
 
                 if enter && buffer.rope().len_bytes() > 0 {
-                    self.proxy.send(TuiAppEvent::PaletteEvent {
+                    self.proxy.send(UserEvent::PaletteEvent {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),
                     });
@@ -249,13 +249,13 @@ impl CommandPalette {
                         match selected {
                             SelectedPrompt::Alt1 => {
                                 self.proxy
-                                    .send(TuiAppEvent::PromptEvent(alt1_event.clone()));
+                                    .send(UserEvent::PromptEvent(alt1_event.clone()));
                                 self.reset();
                                 break;
                             }
                             SelectedPrompt::Alt2 => {
                                 self.proxy
-                                    .send(TuiAppEvent::PromptEvent(alt2_event.clone()));
+                                    .send(UserEvent::PromptEvent(alt2_event.clone()));
                                 self.reset();
                                 break;
                             }

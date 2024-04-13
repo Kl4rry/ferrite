@@ -1,5 +1,7 @@
-use crossterm::event::{KeyCode, KeyModifiers};
 use utility::point::Point;
+
+pub mod keycode;
+use keycode::{KeyCode, KeyModifiers};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mapping {

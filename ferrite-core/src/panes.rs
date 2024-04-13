@@ -1,7 +1,25 @@
 use std::mem;
 
 use serde::{Deserialize, Serialize};
-use tui::layout::Rect;
+
+#[derive(Debug, Clone, Copy)]
+pub struct Rect {
+    pub x: usize,
+    pub y: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+impl Rect {
+    pub fn new(x: usize, y: usize, width: usize, height: usize) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PaneKind {
@@ -177,7 +195,7 @@ impl Node {
                 ratio,
             } => match split {
                 Split::Horizontal => {
-                    let first = (rect.height as f32 * ratio) as u16;
+                    let first = (rect.height as f32 * ratio) as usize;
                     let second = rect.height - first;
                     left.get_pane_bounds(bounds, Rect::new(rect.x, rect.y, rect.width, first));
                     right.get_pane_bounds(
@@ -186,7 +204,7 @@ impl Node {
                     );
                 }
                 Split::Vertical => {
-                    let first = (rect.width as f32 * ratio) as u16;
+                    let first = (rect.width as f32 * ratio) as usize;
                     let second = rect.width - first;
                     left.get_pane_bounds(bounds, Rect::new(rect.x, rect.y, first, rect.height));
                     right.get_pane_bounds(
@@ -222,7 +240,7 @@ impl Node {
                     }
                     Node::Internal { left, right, .. } => match split {
                         Split::Horizontal => {
-                            let first = (rect.height as f32 * ratio) as u16;
+                            let first = (rect.height as f32 * ratio) as usize;
                             let second = rect.height - first;
                             left.get_parent_size(
                                 pane,
@@ -234,7 +252,7 @@ impl Node {
                             );
                         }
                         Split::Vertical => {
-                            let first = (rect.width as f32 * ratio) as u16;
+                            let first = (rect.width as f32 * ratio) as usize;
                             let second = rect.width - first;
                             left.get_parent_size(
                                 pane,

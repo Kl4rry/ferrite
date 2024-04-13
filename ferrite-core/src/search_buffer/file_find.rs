@@ -1,7 +1,7 @@
 use std::{sync::Arc, thread};
 
 use super::SearchOptionProvider;
-use crate::ferrite_core::pubsub::Subscriber;
+use crate::pubsub::Subscriber;
 
 pub struct FileFindProvider(pub Subscriber<Vec<String>>);
 

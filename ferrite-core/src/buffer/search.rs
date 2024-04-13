@@ -6,7 +6,7 @@ use std::{
 use ropey::Rope;
 use utility::{graphemes::RopeGraphemeExt as _, point::Point};
 
-use crate::tui_app::event_loop::TuiEventLoopProxy;
+use crate::event_loop_proxy::EventLoopProxy;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SearchMatch {
@@ -28,7 +28,7 @@ pub struct BufferSearcher {
 
 impl BufferSearcher {
     pub fn new(
-        proxy: TuiEventLoopProxy,
+        proxy: Box<dyn EventLoopProxy>,
         query: String,
         rope: Rope,
         case_insensitive: bool,

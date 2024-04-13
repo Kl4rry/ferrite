@@ -11,7 +11,7 @@ use anyhow::Result;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 
-use crate::tui_app::event_loop::TuiEventLoopProxy;
+use crate::event_loop_proxy::EventLoopProxy;
 
 pub fn default_theme() -> String {
     "default".into()
@@ -166,7 +166,7 @@ pub struct ConfigWatcher {
 }
 
 impl ConfigWatcher {
-    pub fn watch(path: impl AsRef<Path>, proxy: TuiEventLoopProxy) -> Result<Self> {
+    pub fn watch(path: impl AsRef<Path>, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
         let path = path.as_ref();
 
         let changed = Arc::new(AtomicBool::new(false));

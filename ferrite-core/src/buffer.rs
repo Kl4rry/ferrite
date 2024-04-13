@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{
     clipboard,
-    tui_app::{event_loop::TuiEventLoopProxy, keymap::LineMoveDir},
+    event_loop_proxy::EventLoopProxy, keymap::LineMoveDir,
 };
 
 pub mod case;
@@ -40,16 +40,16 @@ pub mod write;
 #[cfg(test)]
 pub mod buffer_tests;
 
-static PROXY: OnceLock<TuiEventLoopProxy> = OnceLock::new();
+static PROXY: OnceLock<Box<dyn EventLoopProxy>> = OnceLock::new();
 
-pub fn set_buffer_proxy(proxy: TuiEventLoopProxy) {
+pub fn set_buffer_proxy(proxy: Box<dyn EventLoopProxy>) {
     if PROXY.set(proxy).is_err() {
         tracing::error!("Error attempted to set buffer proxy twice");
     }
 }
 
-fn get_buffer_proxy() -> TuiEventLoopProxy {
-    PROXY.get().unwrap().clone()
+fn get_buffer_proxy() -> Box<dyn EventLoopProxy> {
+    PROXY.get().unwrap().dup()
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
@@ -177,7 +177,7 @@ impl Buffer {
         })
     }
 
-    pub fn from_bytes(bytes: &[u8], proxy: TuiEventLoopProxy) -> Result<Self, io::Error> {
+    pub fn from_bytes(bytes: &[u8], proxy: Box<dyn EventLoopProxy>) -> Result<Self, io::Error> {
         let (encoding, rope) = read::read(bytes)?;
         let syntax = Syntax::new(proxy);
 
@@ -239,7 +239,7 @@ impl Buffer {
         }
     }
 
-    pub fn set_langauge(&mut self, language: &str, proxy: TuiEventLoopProxy) -> anyhow::Result<()> {
+    pub fn set_langauge(&mut self, language: &str, proxy: Box<dyn EventLoopProxy>) -> anyhow::Result<()> {
         let syntax = match self.syntax.as_mut() {
             Some(syntax) => syntax,
             None => {
@@ -1384,7 +1384,7 @@ impl Buffer {
 
     pub fn start_search(
         &mut self,
-        proxy: TuiEventLoopProxy,
+        proxy: Box<dyn EventLoopProxy>,
         query: String,
         case_insensitive: bool,
     ) {
