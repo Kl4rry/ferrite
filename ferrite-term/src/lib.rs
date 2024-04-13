@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{self, Stdout},
+    io::{self, IsTerminal, Read, Stdout},
     num::NonZeroUsize,
     path::{Path, PathBuf},
     thread,
@@ -11,15 +11,38 @@ use crossterm::{
     event::{self, Event, KeyEventKind, MouseButton, MouseEventKind},
     execute, terminal,
 };
+use ferrite_cli::Args;
+use ferrite_core::{
+    buffer::{self, encoding::get_encoding, Buffer},
+    byte_size::format_byte_size,
+    clipboard,
+    config::{Config, ConfigWatcher},
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+    git::branch::BranchWatcher,
+    indent::Indentation,
+    job_manager::{JobHandle, JobManager},
+    jobs::SaveBufferJob,
+    keymap::{self, get_default_mappings, Exclusiveness, InputCommand, Mapping},
+    palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
+    panes::{PaneKind, Panes},
+    search_buffer::{
+        buffer_find::{BufferFindProvider, BufferItem},
+        file_daemon::FileDaemon,
+        file_find::FileFindProvider,
+        SearchBuffer,
+    },
+    spinner::Spinner,
+    theme::EditorTheme,
+    workspace::Workspace,
+};
+use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
 use slab::Slab;
 use subprocess::{Exec, Redirection};
 use tui::layout::{Margin, Position, Rect};
 use utility::{line_ending, point::Point};
 
 use self::{
-    event_loop::{TuiAppEvent, TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
-    keymap::{get_default_mappings, Exclusiveness, Mapping},
-    panes::{PaneKind, Panes},
+    event_loop::{TuiEvent, TuiEventLoop, TuiEventLoopControlFlow, TuiEventLoopProxy},
     widgets::{
         background_widget::BackgroundWidget,
         editor_widget::{lines_to_left_offset, EditorWidget},
@@ -28,38 +51,34 @@ use self::{
         splash::SplashWidget,
     },
 };
-use crate::{
-    clipboard,
-    ferrite_core::{
-        buffer::{self, encoding::get_encoding, Buffer},
-        byte_size::format_byte_size,
-        config::{Config, ConfigWatcher},
-        git::branch::BranchWatcher,
-        indent::Indentation,
-        job_manager::{JobHandle, JobManager},
-        jobs::SaveBufferJob,
-        palette::{
-            cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent,
-        },
-        search_buffer::{
-            buffer_find::{BufferFindProvider, BufferItem},
-            file_daemon::FileDaemon,
-            file_find::FileFindProvider,
-            SearchBuffer,
-        },
-        spinner::Spinner,
-        theme::EditorTheme,
-        workspace::Workspace,
-    },
-    tui_app::keymap::InputCommand,
-    Args,
-};
+use crate::glue::{convert_keycode, convert_modifier};
 
 pub mod event_loop;
-pub mod keymap;
-pub mod panes;
+#[rustfmt::skip]
+pub mod glue;
 pub mod rect_ext;
 mod widgets;
+
+pub fn run(args: &Args) -> Result<()> {
+    let event_loop = TuiEventLoop::new();
+    let mut tui_app = TuiApp::new(&args, event_loop.create_proxy())?;
+    if !io::stdin().is_terminal() {
+        let mut stdin = io::stdin().lock();
+        let mut text = String::new();
+        stdin.read_to_string(&mut text)?;
+        let buffer = tui_app.new_buffer_with_text(&text);
+        let (_, height) = crossterm::terminal::size()?;
+        buffer.set_view_lines(height.saturating_sub(2).into());
+        buffer.goto(args.line as i64);
+    }
+
+    if !io::stdout().is_terminal() {
+        return Ok(());
+    }
+
+    tui_app.run(event_loop)?;
+    Ok(())
+}
 
 pub struct TuiApp {
     terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
@@ -74,7 +93,7 @@ pub struct TuiApp {
     buffer_finder: Option<SearchBuffer<BufferItem>>,
     key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
     branch_watcher: BranchWatcher,
-    proxy: TuiEventLoopProxy,
+    proxy: Box<dyn EventLoopProxy>,
     drag_start: Option<Point<usize>>,
     file_daemon: FileDaemon,
     job_manager: JobManager,
@@ -84,8 +103,8 @@ pub struct TuiApp {
 
 impl TuiApp {
     pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
-        buffer::set_buffer_proxy(proxy.clone());
-        let mut palette = CommandPalette::new(proxy.clone());
+        buffer::set_buffer_proxy(proxy.dup());
+        let mut palette = CommandPalette::new(proxy.dup());
         let config_path = Config::get_default_location().ok();
         let mut config = match Config::load_from_default_location() {
             Ok(config) => config,
@@ -97,7 +116,7 @@ impl TuiApp {
 
         let mut config_watcher = None;
         if let Some(ref config_path) = config_path {
-            config_watcher = Some(ConfigWatcher::watch(config_path, proxy.clone())?);
+            config_watcher = Some(ConfigWatcher::watch(config_path, proxy.dup())?);
         }
 
         if config.local_clipboard {
@@ -133,7 +152,7 @@ impl TuiApp {
             buffer.set_view_columns(width.into());
             buffer.goto(args.line as i64);
             if let Some(language) = &args.language {
-                buffer.set_langauge(language, proxy.clone())?;
+                buffer.set_langauge(language, proxy.dup())?;
             }
         }
 
@@ -146,7 +165,7 @@ impl TuiApp {
                 let daemon = FileDaemon::new(std::env::current_dir()?, &config)?;
                 file_finder = Some(SearchBuffer::new(
                     FileFindProvider(daemon.subscribe()),
-                    proxy.clone(),
+                    proxy.dup(),
                 ));
                 file_daemon = Some(daemon);
             }
@@ -158,7 +177,7 @@ impl TuiApp {
             FileDaemon::new(std::env::current_dir()?, &config)?
         };
 
-        let job_manager = JobManager::new(proxy.clone());
+        let job_manager = JobManager::new(proxy.dup());
 
         let workspace = if buffers.is_empty() {
             match Workspace::load_workspace() {
@@ -189,8 +208,8 @@ impl TuiApp {
             file_finder,
             buffer_finder: None,
             key_mappings: get_default_mappings(),
-            branch_watcher: BranchWatcher::new(proxy.clone(), file_daemon.change_detector())?,
-            proxy,
+            branch_watcher: BranchWatcher::new(proxy.dup(), file_daemon.change_detector())?,
+            proxy: Box::new(proxy),
             drag_start: None,
             file_daemon,
             config,
@@ -316,7 +335,11 @@ impl TuiApp {
 
                 self.buffer_area = editor_size;
                 let current_pane = self.workspace.panes.get_current_pane();
-                for (pane, pane_rect) in self.workspace.panes.get_pane_bounds(editor_size) {
+                for (pane, pane_rect) in self
+                    .workspace
+                    .panes
+                    .get_pane_bounds(tui_to_ferrite_rect(editor_size))
+                {
                     if let PaneKind::Buffer(buffer_id) = pane {
                         f.render_stateful_widget(
                             EditorWidget::new(
@@ -328,7 +351,7 @@ impl TuiApp {
                                 self.branch_watcher.current_branch(),
                                 self.spinner.current(),
                             ),
-                            pane_rect,
+                            ferrite_to_tui_rect(pane_rect),
                             &mut self.workspace.buffers[buffer_id],
                         );
 
@@ -339,7 +362,10 @@ impl TuiApp {
                                 && buffer.file().is_none()
                                 && self.workspace.buffers.len() == 1
                             {
-                                f.render_widget(SplashWidget::new(theme), pane_rect);
+                                f.render_widget(
+                                    SplashWidget::new(theme),
+                                    ferrite_to_tui_rect(pane_rect),
+                                );
                             }
                         }
                     }
@@ -392,8 +418,8 @@ impl TuiApp {
                         if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
                             tracing::trace!("{:?}", event);
                             keymap::get_command_from_input(
-                                event.code,
-                                event.modifiers,
+                                convert_keycode(event.code),
+                                convert_modifier(event.modifiers),
                                 &self.key_mappings,
                             )
                         } else {
@@ -405,10 +431,14 @@ impl TuiApp {
                         MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
                         MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
                         MouseEventKind::Down(MouseButton::Middle) => {
-                            for (pane_kind, pane_rect) in
-                                self.workspace.panes.get_pane_bounds(self.buffer_area)
+                            for (pane_kind, pane_rect) in self
+                                .workspace
+                                .panes
+                                .get_pane_bounds(tui_to_ferrite_rect(self.buffer_area))
                             {
-                                if pane_rect.contains(Position::new(event.column, event.row)) {
+                                if ferrite_to_tui_rect(pane_rect)
+                                    .contains(Position::new(event.column, event.row))
+                                {
                                     self.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id) = pane_kind {
                                         let buffer = &self.workspace.buffers[buffer_id];
@@ -429,10 +459,14 @@ impl TuiApp {
                             None
                         }
                         MouseEventKind::Down(MouseButton::Left) => {
-                            for (pane_kind, pane_rect) in
-                                self.workspace.panes.get_pane_bounds(self.buffer_area)
+                            for (pane_kind, pane_rect) in self
+                                .workspace
+                                .panes
+                                .get_pane_bounds(tui_to_ferrite_rect(self.buffer_area))
                             {
-                                if pane_rect.contains(Position::new(event.column, event.row)) {
+                                if ferrite_to_tui_rect(pane_rect)
+                                    .contains(Position::new(event.column, event.row))
+                                {
                                     self.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id) = pane_kind {
                                         self.drag_start = Some(Point::new(
@@ -462,10 +496,14 @@ impl TuiApp {
                             None
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
-                            for (pane_kind, pane_rect) in
-                                self.workspace.panes.get_pane_bounds(self.buffer_area)
+                            for (pane_kind, pane_rect) in self
+                                .workspace
+                                .panes
+                                .get_pane_bounds(tui_to_ferrite_rect(self.buffer_area))
                             {
-                                if pane_rect.contains(Position::new(event.column, event.row)) {
+                                if ferrite_to_tui_rect(pane_rect)
+                                    .contains(Position::new(event.column, event.row))
+                                {
                                     self.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id) = pane_kind {
                                         // TODO maybe scroll more of the buffer into view when going outside its bounds
@@ -516,10 +554,14 @@ impl TuiApp {
             if let Some(input) = input {
                 match input {
                     InputCommand::GrowPane => {
-                        self.workspace.panes.grow_current(self.buffer_area);
+                        self.workspace
+                            .panes
+                            .grow_current(tui_to_ferrite_rect(self.buffer_area));
                     }
                     InputCommand::ShrinkPane => {
-                        self.workspace.panes.shrink_current(self.buffer_area);
+                        self.workspace
+                            .panes
+                            .shrink_current(tui_to_ferrite_rect(self.buffer_area));
                     }
                     InputCommand::Close => {
                         self.close_current_buffer();
@@ -614,17 +656,17 @@ impl TuiApp {
     pub fn handle_app_event(
         &mut self,
         proxy: &TuiEventLoopProxy,
-        event: TuiAppEvent,
+        event: UserEvent,
         control_flow: &mut TuiEventLoopControlFlow,
     ) {
         match event {
-            TuiAppEvent::ShellResult(result) => match result {
+            UserEvent::ShellResult(result) => match result {
                 Ok(buffer) => {
                     self.insert_buffer(buffer, true);
                 }
                 Err(e) => self.palette.set_error(e),
             },
-            TuiAppEvent::PaletteEvent { mode, content } => match mode.as_str() {
+            UserEvent::PaletteEvent { mode, content } => match mode.as_str() {
                 "command" => {
                     use cmd::Command;
                     self.palette.reset();
@@ -638,7 +680,7 @@ impl TuiApp {
                                 self.open_file_picker();
                             }
                             Command::Shell(args) => {
-                                let thread_proxy = proxy.clone();
+                                let thread_proxy = proxy.dup();
                                 thread::spawn(move || {
                                     let mut cmd = String::new();
                                     for arg in args
@@ -657,7 +699,7 @@ impl TuiApp {
                                         Ok(popen) => popen,
                                         Err(e) => {
                                             thread_proxy
-                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
+                                                .send(UserEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
@@ -665,7 +707,7 @@ impl TuiApp {
                                         Ok(out) => out,
                                         Err(e) => {
                                             thread_proxy
-                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
+                                                .send(UserEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
@@ -673,12 +715,12 @@ impl TuiApp {
                                         Ok(status) => status,
                                         Err(e) => {
                                             thread_proxy
-                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
+                                                .send(UserEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
                                     if !status.success() {
-                                        thread_proxy.send(TuiAppEvent::ShellResult(Err(
+                                        thread_proxy.send(UserEvent::ShellResult(Err(
                                             anyhow::Error::msg(
                                                 String::from_utf8_lossy(&stderr.unwrap())
                                                     .to_string(),
@@ -688,17 +730,17 @@ impl TuiApp {
                                     }
                                     let buffer = match Buffer::from_bytes(
                                         &stdout.unwrap(),
-                                        thread_proxy.clone(),
+                                        thread_proxy.dup(),
                                     ) {
                                         Ok(buffer) => buffer,
                                         Err(e) => {
                                             thread_proxy
-                                                .send(TuiAppEvent::ShellResult(Err(e.into())));
+                                                .send(UserEvent::ShellResult(Err(e.into())));
                                             return;
                                         }
                                     };
 
-                                    thread_proxy.send(TuiAppEvent::ShellResult(Ok(buffer)));
+                                    thread_proxy.send(UserEvent::ShellResult(Ok(buffer)));
                                 });
                             }
                             Command::Delete => {
@@ -750,7 +792,7 @@ impl TuiApp {
                                 match language {
                                     Some(language) => {
                                         if let Err(err) = self.workspace.buffers[buffer_id]
-                                            .set_langauge(&language, self.proxy.clone())
+                                            .set_langauge(&language, self.proxy.dup())
                                         {
                                             self.palette.set_error(err);
                                         }
@@ -935,7 +977,7 @@ impl TuiApp {
                         return;
                     };
                     self.workspace.buffers[buffer_id].start_search(
-                        self.proxy.clone(),
+                        self.proxy.dup(),
                         content,
                         self.config.case_insensitive_search,
                     );
@@ -943,7 +985,7 @@ impl TuiApp {
                 }
                 _ => (),
             },
-            TuiAppEvent::PromptEvent(event) => match event {
+            UserEvent::PromptEvent(event) => match event {
                 PalettePromptEvent::Nop => (),
                 PalettePromptEvent::Reload => {
                     let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
@@ -1107,7 +1149,7 @@ impl TuiApp {
 
         self.buffer_finder = Some(SearchBuffer::new(
             BufferFindProvider(buffers.into()),
-            self.proxy.clone(),
+            self.proxy.dup(),
         ));
     }
 
@@ -1116,7 +1158,7 @@ impl TuiApp {
         self.buffer_finder = None;
         self.file_finder = Some(SearchBuffer::new(
             FileFindProvider(self.file_daemon.subscribe()),
-            self.proxy.clone(),
+            self.proxy.dup(),
         ));
     }
 

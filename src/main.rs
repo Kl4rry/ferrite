@@ -1,56 +1,15 @@
 #![allow(clippy::type_complexity)]
 use std::{
     fs::{self, OpenOptions},
-    io::{self, IsTerminal, Read},
-    path::PathBuf,
     process::ExitCode,
 };
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::Parser;
+use ferrite_cli::{Args, Subcommands};
 use ferrite_core::config::Config;
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
-use tui_app::event_loop::TuiEventLoop;
-
-mod ferrite_core;
-
-mod clipboard;
-mod tui_app;
-
-/// A text editor
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Args {
-    /// Path to files that will be opened
-    pub files: Vec<PathBuf>,
-    /// Line to open file on
-    #[arg(long, short, default_value = "0")]
-    pub line: u32,
-    /// Language
-    #[arg(long = "lang")]
-    pub language: Option<String>,
-    /// Use process local clipboard
-    #[arg(long)]
-    pub local_clipboard: bool,
-    /// Options `error`, `warn`, `info`, `debug` or `trace`
-    #[arg(long)]
-    pub log_level: Option<String>,
-    #[command(subcommand)]
-    pub subcommands: Option<Subcommands>,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum Subcommands {
-    /// Initialize default config
-    Init {
-        /// Overwrite existing config
-        #[arg(long)]
-        overwrite: bool,
-    },
-    /// Tail log file
-    Log,
-}
 
 fn main() -> Result<ExitCode> {
     let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
@@ -131,27 +90,9 @@ fn main() -> Result<ExitCode> {
     tracing::subscriber::set_global_default(subscriber).unwrap();
     tracing_log::LogTracer::init().unwrap();
 
-    clipboard::init(args.local_clipboard);
+    ferrite_core::clipboard::init(args.local_clipboard);
 
-    {
-        let event_loop = TuiEventLoop::new();
-        let mut tui_app = tui_app::TuiApp::new(&args, event_loop.create_proxy())?;
-        if !io::stdin().is_terminal() {
-            let mut stdin = io::stdin().lock();
-            let mut text = String::new();
-            stdin.read_to_string(&mut text)?;
-            let buffer = tui_app.new_buffer_with_text(&text);
-            let (_, height) = crossterm::terminal::size()?;
-            buffer.set_view_lines(height.saturating_sub(2).into());
-            buffer.goto(args.line as i64);
-        }
-
-        if !io::stdout().is_terminal() {
-            return Ok(ExitCode::SUCCESS);
-        }
-
-        tui_app.run(event_loop)?;
-    }
+    ferrite_term::run(&args)?;
 
     Ok(ExitCode::SUCCESS)
 }

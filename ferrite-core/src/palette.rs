@@ -6,7 +6,7 @@ use utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 use self::completer::{Completer, CompleterContext};
 use super::buffer::{error::BufferError, Buffer};
 use crate::{
-    event_loop_proxy::{UserEvent, EventLoopProxy},
+    event_loop_proxy::{EventLoopProxy, UserEvent},
     keymap::InputCommand,
 };
 
@@ -248,14 +248,12 @@ impl CommandPalette {
                     if LineEnding::from_char(ch).is_some() {
                         match selected {
                             SelectedPrompt::Alt1 => {
-                                self.proxy
-                                    .send(UserEvent::PromptEvent(alt1_event.clone()));
+                                self.proxy.send(UserEvent::PromptEvent(alt1_event.clone()));
                                 self.reset();
                                 break;
                             }
                             SelectedPrompt::Alt2 => {
-                                self.proxy
-                                    .send(UserEvent::PromptEvent(alt2_event.clone()));
+                                self.proxy.send(UserEvent::PromptEvent(alt2_event.clone()));
                                 self.reset();
                                 break;
                             }

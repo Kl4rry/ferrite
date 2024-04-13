@@ -22,10 +22,7 @@ use super::{
     indent::Indentation,
     language::{get_language_from_path, syntax::Syntax},
 };
-use crate::{
-    clipboard,
-    event_loop_proxy::EventLoopProxy, keymap::LineMoveDir,
-};
+use crate::{clipboard, event_loop_proxy::EventLoopProxy, keymap::LineMoveDir};
 
 pub mod case;
 pub mod encoding;
@@ -239,7 +236,11 @@ impl Buffer {
         }
     }
 
-    pub fn set_langauge(&mut self, language: &str, proxy: Box<dyn EventLoopProxy>) -> anyhow::Result<()> {
+    pub fn set_langauge(
+        &mut self,
+        language: &str,
+        proxy: Box<dyn EventLoopProxy>,
+    ) -> anyhow::Result<()> {
         let syntax = match self.syntax.as_mut() {
             Some(syntax) => syntax,
             None => {

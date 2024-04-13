@@ -4,7 +4,7 @@ use std::{
     thread,
 };
 
-use crate::{pubsub::Subscriber, event_loop_proxy::EventLoopProxy};
+use crate::{event_loop_proxy::EventLoopProxy, pubsub::Subscriber};
 
 fn get_current_branch() -> Option<String> {
     match Command::new("git")

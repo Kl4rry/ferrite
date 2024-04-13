@@ -1,5 +1,9 @@
 use std::{borrow::Cow, marker::PhantomData};
 
+use ferrite_core::{
+    search_buffer::{Matchable, SearchBuffer},
+    theme::EditorTheme,
+};
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
@@ -10,10 +14,7 @@ use unicode_width::UnicodeWidthStr;
 use utility::graphemes::RopeGraphemeExt;
 
 use super::one_line_input_widget::OneLineInputWidget;
-use crate::ferrite_core::{
-    search_buffer::{Matchable, SearchBuffer},
-    theme::EditorTheme,
-};
+use crate::glue::convert_style;
 
 pub struct SearchWidget<'a, M> {
     theme: &'a EditorTheme,
@@ -46,9 +47,9 @@ where
         let main_block = Block::default()
             .title(self.title)
             .borders(Borders::all())
-            .border_style(self.theme.border)
+            .border_style(convert_style(&self.theme.border))
             .border_type(BorderType::Plain)
-            .style(self.theme.background);
+            .style(convert_style(&self.theme.background));
         main_block.render(area, buf);
         let inner_area = area.inner(&Margin {
             horizontal: 1,
@@ -62,15 +63,15 @@ where
                 inner_area.y + i,
                 " ".repeat(inner_area.width.into()),
                 inner_area.width.into(),
-                self.theme.text,
+                convert_style(&self.theme.text),
             );
         }
 
         let search_field_block = Block::default()
             .borders(Borders::BOTTOM)
-            .border_style(self.theme.border)
+            .border_style(convert_style(&self.theme.border))
             .border_type(BorderType::Plain)
-            .style(self.theme.background);
+            .style(convert_style(&self.theme.background));
 
         let mut search_field_area = inner_area;
         search_field_area.height = 2;
@@ -84,7 +85,7 @@ where
                 search_field_area.y,
                 PROMPT,
                 search_field_area.width.into(),
-                self.theme.text,
+                convert_style(&self.theme.text),
             );
 
             let prompt_width = PROMPT.width() as u16;
@@ -106,7 +107,7 @@ where
                     input_area.y,
                     count,
                     input_area.width.into(),
-                    self.theme.text,
+                    convert_style(&self.theme.text),
                 );
             }
         }
@@ -168,7 +169,7 @@ where
                     result_area.y + i as u16,
                     &prompt,
                     width,
-                    self.theme.text,
+                    convert_style(&self.theme.text),
                 );
 
                 let mut spans = Vec::new();
@@ -181,7 +182,7 @@ where
                         let s: String = chars[current_idx..start].iter().collect();
                         spans.push(Span {
                             content: s.into(),
-                            style: self.theme.text,
+                            style: convert_style(&self.theme.text),
                         });
                         current_idx = start;
                     }
@@ -190,7 +191,7 @@ where
                     let s: String = chars[current_idx..end].iter().collect();
                     spans.push(Span {
                         content: s.into(),
-                        style: self.theme.fuzzy_match,
+                        style: convert_style(&self.theme.fuzzy_match),
                     });
                     current_idx = end;
                 }
@@ -199,7 +200,7 @@ where
                     let s: String = chars[current_idx..chars.len()].iter().collect();
                     spans.push(Span {
                         content: s.into(),
-                        style: self.theme.text,
+                        style: convert_style(&self.theme.text),
                     });
                 }
 
@@ -218,7 +219,7 @@ where
                             width: result_area.width,
                             height: 1,
                         },
-                        self.theme.selection,
+                        convert_style(&self.theme.selection),
                     );
                 }
             }

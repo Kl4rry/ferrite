@@ -1,7 +1,8 @@
+use ferrite_core::theme::EditorTheme;
 use tui::widgets::Widget;
 use unicode_width::UnicodeWidthStr;
 
-use crate::ferrite_core::theme::EditorTheme;
+use crate::glue::convert_style;
 
 pub struct SplashWidget<'a> {
     theme: &'a EditorTheme,
@@ -43,7 +44,7 @@ impl Widget for SplashWidget<'_> {
                     area.left() + left as u16,
                     area.top() + top as u16 + i as u16,
                     line,
-                    self.theme.text,
+                    convert_style(&self.theme.text),
                 );
             }
         }

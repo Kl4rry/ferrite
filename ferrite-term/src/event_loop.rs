@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use crate::ferrite_core::{buffer::Buffer, palette::PalettePromptEvent};
+use ferrite_core::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,21 +15,15 @@ pub enum TuiEventLoopControlFlow {
     WaitMax(Duration),
 }
 
-pub enum TuiAppEvent {
-    PaletteEvent { mode: String, content: String },
-    PromptEvent(PalettePromptEvent),
-    ShellResult(Result<Buffer, anyhow::Error>),
-}
-
 pub enum TuiEvent {
     Render,
-    AppEvent(TuiAppEvent),
+    AppEvent(UserEvent),
     Crossterm(crossterm::event::Event),
 }
 
 pub struct TuiEventLoop {
-    proxy_tx: Sender<TuiAppEvent>,
-    proxy_rx: Receiver<TuiAppEvent>,
+    proxy_tx: Sender<UserEvent>,
+    proxy_rx: Receiver<UserEvent>,
     waker_tx: Sender<()>,
     waker_rx: Receiver<()>,
 }
@@ -112,17 +106,21 @@ impl TuiEventLoop {
 
 #[derive(Clone)]
 pub struct TuiEventLoopProxy {
-    proxy_tx: mpsc::Sender<TuiAppEvent>,
+    proxy_tx: mpsc::Sender<UserEvent>,
     waker_tx: mpsc::Sender<()>,
 }
 
-impl TuiEventLoopProxy {
-    pub fn send(&self, event: TuiAppEvent) {
+impl EventLoopProxy for TuiEventLoopProxy {
+    fn send(&self, event: ferrite_core::event_loop_proxy::UserEvent) {
         let _ = self.proxy_tx.send(event);
         let _ = self.waker_tx.send(());
     }
 
-    pub fn request_render(&self) {
+    fn request_render(&self) {
         let _ = self.waker_tx.send(());
+    }
+
+    fn dup(&self) -> Box<dyn EventLoopProxy> {
+        Box::new(self.clone())
     }
 }

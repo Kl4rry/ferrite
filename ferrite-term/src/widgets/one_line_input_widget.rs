@@ -1,6 +1,7 @@
+use ferrite_core::{buffer::Buffer, theme::EditorTheme};
 use tui::{layout::Rect, style::Style, widgets::StatefulWidget};
 
-use crate::ferrite_core::{buffer::Buffer, theme::EditorTheme};
+use crate::glue::convert_style;
 
 pub struct OneLineInputWidget<'a> {
     theme: &'a EditorTheme,
@@ -27,14 +28,14 @@ impl StatefulWidget for OneLineInputWidget<'_> {
             area.y,
             " ".repeat(area.width.into()),
             area.width.into(),
-            self.theme.text,
+            convert_style(&self.theme.text),
         );
         buf.set_stringn(
             area.x,
             area.y,
             view.lines[0].text.to_string(),
             area.width.into(),
-            self.theme.text,
+            convert_style(&self.theme.text),
         );
         let cursor = buffer.cursor_grapheme_column() as i64 - buffer.col_pos() as i64;
         let anchor = buffer.anchor_grapheme_column() as i64 - buffer.col_pos() as i64;
@@ -46,7 +47,7 @@ impl StatefulWidget for OneLineInputWidget<'_> {
             width: (end - start) as u16,
             height: 1,
         };
-        buf.set_style(rect, self.theme.selection);
+        buf.set_style(rect, convert_style(&self.theme.selection));
 
         let cursor_area = Rect {
             x: area.x + cursor as u16,

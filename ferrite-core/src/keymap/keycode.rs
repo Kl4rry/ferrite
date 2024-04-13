@@ -1,4 +1,3 @@
-
 bitflags::bitflags! {
     #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
     pub struct KeyModifiers: u8 {
@@ -12,7 +11,9 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum MediaKeyCode {
     Play,
     Pause,
@@ -29,7 +30,9 @@ pub enum MediaKeyCode {
     MuteVolume,
 }
 
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum ModifierKeyCode {
     LeftShift,
     LeftControl,

@@ -1,3 +1,9 @@
+use ferrite_core::{
+    buffer::{search::SearchMatch, Buffer, Selection},
+    config::Config,
+    language::syntax::{Highlight, HighlightEvent},
+    theme::EditorTheme,
+};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use ropey::RopeSlice;
 use tui::{
@@ -10,15 +16,7 @@ use utility::{
 };
 
 use super::info_line::InfoLine;
-use crate::{
-    ferrite_core::{
-        buffer::{search::SearchMatch, Buffer, Selection},
-        config::Config,
-        language::syntax::{Highlight, HighlightEvent},
-        theme::EditorTheme,
-    },
-    tui_app::rect_ext::RectExt,
-};
+use crate::{glue::convert_style, rect_ext::RectExt};
 
 pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
     let line_number_max_width = lines.to_string().len().max(4);
@@ -86,7 +84,7 @@ impl StatefulWidget for EditorWidget<'_> {
         buffer.set_view_lines(text_area.height.into());
 
         buffer.set_view_columns((text_area.width as usize).saturating_sub(left_offset));
-        buf.set_style(area, theme.background);
+        buf.set_style(area, convert_style(&theme.background));
 
         buf.set_style(
             Rect {
@@ -95,7 +93,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 width: (line_number_max_width as u16 + 2).min(area.width),
                 height: area.height,
             },
-            theme.line_nr,
+            convert_style(&theme.line_nr),
         );
 
         let current_line_number = buffer.cursor_line_idx() + 1;
@@ -117,9 +115,9 @@ impl StatefulWidget for EditorWidget<'_> {
                     line_number
                 );
                 let line_nr_theme = if line_number == current_line_number {
-                    theme.current_line_nr
+                    convert_style(&theme.current_line_nr)
                 } else {
-                    theme.line_nr
+                    convert_style(&theme.line_nr)
                 };
 
                 buf.set_stringn(
@@ -160,7 +158,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         text_area.y + i as u16,
                         &line_buffer,
                         text_area.width as usize,
-                        theme.text,
+                        convert_style(&theme.text),
                     );
                 }
 
@@ -232,14 +230,14 @@ impl StatefulWidget for EditorWidget<'_> {
                             match event {
                                 HighlightEvent::Source { start, end } => {
                                     if range.contains(start) || range.contains(end) {
-                                        let mut style = theme.text;
+                                        let mut style = convert_style(&theme.text);
                                         if let Some(highlight) = &highlight {
                                             if let Some(name) = highlight
                                                 .query
                                                 .capture_names()
                                                 .get(highlight.capture_index)
                                             {
-                                                style = self.theme.get_syntax(name);
+                                                style = convert_style(&self.theme.get_syntax(name));
                                             }
                                         }
                                         highlights.push((*start, *end, style));
@@ -306,7 +304,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         let cell = buf.get_mut(real_col as u16, y);
                         if cell.symbol().chars().all(|ch| ch.is_whitespace()) {
                             cell.set_symbol("│");
-                            cell.set_style(theme.ruler);
+                            cell.set_style(convert_style(&theme.ruler));
                         }
                     }
                 }
@@ -315,13 +313,13 @@ impl StatefulWidget for EditorWidget<'_> {
             for (col, line) in ruler_cells {
                 let cell = buf.get_mut(col, line);
                 cell.set_char('│');
-                cell.set_style(self.theme.ruler);
+                cell.set_style(convert_style(&self.theme.ruler));
             }
 
             if let Some(rect) = cursor_rect {
                 buf.set_style(
                     rect,
-                    theme.text.add_modifier(tui::style::Modifier::REVERSED),
+                    convert_style(&theme.text).add_modifier(tui::style::Modifier::REVERSED),
                 );
             }
 
@@ -343,13 +341,13 @@ impl StatefulWidget for EditorWidget<'_> {
 
                         buf.set_style(
                             highlight_area.clamp_within(text_area),
-                            self.theme.search_match,
+                            convert_style(&self.theme.search_match),
                         );
                     }
                 }
             }
 
-            if let Some(bg) = theme.selection.bg {
+            if let Some(bg) = convert_style(&theme.selection).bg {
                 let Selection { start, end } = buffer.get_view_selection();
                 let line_pos = buffer.line_pos();
 

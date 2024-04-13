@@ -1,11 +1,12 @@
+use ferrite_core::{
+    palette::{CommandPalette, PaletteState, SelectedPrompt},
+    theme::EditorTheme,
+};
 use tui::{layout::Rect, widgets::StatefulWidget};
 use unicode_width::UnicodeWidthStr;
 
 use super::{completer_widget::CompleterWidget, one_line_input_widget::OneLineInputWidget};
-use crate::ferrite_core::{
-    palette::{CommandPalette, PaletteState, SelectedPrompt},
-    theme::EditorTheme,
-};
+use crate::glue::convert_style;
 
 pub struct CmdPaletteWidget<'a> {
     theme: &'a EditorTheme,
@@ -41,7 +42,13 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 ..
             } => {
                 let prompt_width = prompt.width() as u16;
-                buf.set_stringn(area.x, area.y, prompt, area.width.into(), self.theme.text);
+                buf.set_stringn(
+                    area.x,
+                    area.y,
+                    prompt,
+                    area.width.into(),
+                    convert_style(&self.theme.text),
+                );
                 let input_area = Rect {
                     x: area.x + prompt_width,
                     y: area.y,
@@ -62,7 +69,13 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 }
             }
             PaletteState::Message(msg) => {
-                buf.set_stringn(area.x, area.y, msg, area.width.into(), self.theme.text);
+                buf.set_stringn(
+                    area.x,
+                    area.y,
+                    msg,
+                    area.width.into(),
+                    convert_style(&self.theme.text),
+                );
             }
             PaletteState::Error(msg) => {
                 buf.set_stringn(
@@ -70,7 +83,7 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                     area.y,
                     msg,
                     area.width.into(),
-                    self.theme.error_text,
+                    convert_style(&self.theme.error_text),
                 );
             }
             PaletteState::Nothing => (),
@@ -83,7 +96,13 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
             } => {
                 let prompt = format!("{prompt}: ");
                 let prompt_width = prompt.width() as u16;
-                buf.set_stringn(area.x, area.y, &prompt, area.width.into(), self.theme.text);
+                buf.set_stringn(
+                    area.x,
+                    area.y,
+                    &prompt,
+                    area.width.into(),
+                    convert_style(&self.theme.text),
+                );
                 let alt1 = if *selected == SelectedPrompt::Alt1 {
                     alt1_char.to_ascii_uppercase()
                 } else {
@@ -101,7 +120,7 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                     area.y,
                     format!("{alt1} / {alt2}"),
                     area.width.into(),
-                    self.theme.text,
+                    convert_style(&self.theme.text),
                 );
             }
         };

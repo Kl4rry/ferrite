@@ -1,7 +1,8 @@
+use ferrite_core::{palette::completer::Completer, theme::EditorTheme};
 use tui::widgets::StatefulWidget;
 use unicode_width::UnicodeWidthStr;
 
-use crate::ferrite_core::{palette::completer::Completer, theme::EditorTheme};
+use crate::glue::convert_style;
 
 pub struct CompleterWidget<'a> {
     theme: &'a EditorTheme,
@@ -45,7 +46,7 @@ impl StatefulWidget for CompleterWidget<'_> {
                 area.bottom() - rows as u16 + i as u16,
                 " ".repeat(area.width.into()),
                 area.width.into(),
-                self.theme.completer,
+                convert_style(&self.theme.completer),
             );
         }
 
@@ -58,7 +59,7 @@ impl StatefulWidget for CompleterWidget<'_> {
                 let y = area.bottom() as usize - rows + row;
                 let x = area.left() as usize + widest * col;
                 let style = if Some(index) == completer.current() {
-                    self.theme.completer_selected
+                    convert_style(&self.theme.completer_selected)
                 } else {
                     Default::default()
                 };

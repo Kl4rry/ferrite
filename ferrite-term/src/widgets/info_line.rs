@@ -1,12 +1,11 @@
 use std::path::Path;
 
 use encoding_rs::Encoding;
+use ferrite_core::{byte_size::format_byte_size, config::InfoLineConfig, theme::EditorTheme};
 use tui::{style::Style, widgets::Widget};
 use unicode_width::UnicodeWidthStr;
 
-use crate::ferrite_core::{
-    byte_size::format_byte_size, config::InfoLineConfig, theme::EditorTheme,
-};
+use crate::glue::convert_style;
 
 pub struct InfoLine<'a> {
     pub theme: &'a EditorTheme,
@@ -52,8 +51,8 @@ impl InfoLine<'_> {
 impl Widget for InfoLine<'_> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         let style = match self.focus {
-            true => self.theme.info_line,
-            false => self.theme.info_line_unfocused,
+            true => convert_style(&self.theme.info_line),
+            false => convert_style(&self.theme.info_line_unfocused),
         };
 
         let mut left = String::from(" ");

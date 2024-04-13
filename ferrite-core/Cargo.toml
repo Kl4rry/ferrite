@@ -17,7 +17,7 @@ dunce.workspace = true
 encoding_rs.workspace = true
 ferrite-tree-sitter.workspace = true
 flume = { workspace = true, default-features = false }
-heck = { workspace = true, features = ["unicode"] }
+heck.workspace = true
 humansize.workspace = true
 ignore.workspace = true
 include_dir = { workspace = true, optional = true }
