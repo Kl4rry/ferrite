@@ -4,17 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow.workspace = true
-crossterm.workspace = true
-dunce.workspace = true
-encoding_rs.workspace = true
-ferrite-cli.workspace = true
-ferrite-core.workspace = true
-rayon.workspace = true
-ropey.workspace = true
-slab.workspace = true
-subprocess.workspace = true
-tracing.workspace = true
-tui.workspace = true
-unicode-width.workspace = true
-ferrite-utility.workspace = true
+anyhow = { workspace = true }
+crossterm = { workspace = true }
+dunce = { workspace = true }
+encoding_rs = { workspace = true }
+ferrite-cli = { workspace = true }
+ferrite-core = { workspace = true }
+ferrite-utility = { workspace = true }
+rayon = { workspace = true }
+ropey = { workspace = true }
+slab = { workspace = true }
+subprocess = { workspace = true }
+tracing = { workspace = true }
+tui = { workspace = true }
+unicode-width = { workspace = true }

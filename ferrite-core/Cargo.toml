@@ -4,45 +4,45 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow.workspace = true
-arboard.workspace = true
-bitflags.workspace = true
-blake3.workspace = true
-cb.workspace = true
-chardetng.workspace = true
+anyhow = { workspace = true }
+arboard = { workspace = true }
+bitflags = { workspace = true }
+blake3 = { workspace = true }
+cb = { workspace = true }
+chardetng = { workspace = true }
 csscolorparser = { workspace = true, features = ["rgb"] }
-detect-indent.workspace = true 
-directories.workspace = true
-dunce.workspace = true
-encoding_rs.workspace = true
-ferrite-tree-sitter.workspace = true
-ferrite-utility.workspace = true
+detect-indent = { workspace = true } 
+directories = { workspace = true }
+dunce = { workspace = true }
+encoding_rs = { workspace = true }
+ferrite-tree-sitter = { workspace = true }
+ferrite-utility = { workspace = true }
 flume = { workspace = true, default-features = false }
-heck.workspace = true
-humansize.workspace = true
-ignore.workspace = true
+heck = { workspace = true }
+humansize = { workspace = true }
+ignore = { workspace = true }
 include_dir = { workspace = true, optional = true }
-lexical-sort.workspace = true
-memchr.workspace = true
-notify.workspace = true
-once_cell.workspace = true
-rayon.workspace = true
-ropey.workspace = true
+lexical-sort = { workspace = true }
+memchr = { workspace = true }
+notify = { workspace = true }
+once_cell = { workspace = true }
+rayon = { workspace = true }
+ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true 
-slab.workspace = true 
-sublime_fuzzy.workspace = true 
-subprocess.workspace = true 
-toml.workspace = true 
-tracing.workspace = true 
-trash.workspace = true 
+serde_json = { workspace = true } 
+slab = { workspace = true } 
+sublime_fuzzy = { workspace = true } 
+subprocess = { workspace = true } 
+toml = { workspace = true } 
+tracing = { workspace = true } 
+trash = { workspace = true } 
+tree-sitter = { workspace = true } 
 tree_magic_mini = { workspace = true, features = ["with-gpl-data"] }
-tree-sitter.workspace = true 
-unicode-segmentation.workspace = true
-unicode-width.workspace = true
+unicode-segmentation = { workspace = true }
+unicode-width = { workspace = true }
 
 [dev-dependencies]
-tempdir.workspace = true
+tempdir = { workspace = true }
 
 [features]
 embed-themes = ["dep:include_dir"]
