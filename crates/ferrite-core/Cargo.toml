@@ -86,6 +86,6 @@ default = [
   "lang-yaml",
   "lang-fish",
   "lang-comment",
-  "lang-javascript",
+  #"lang-javascript",
   "lang-ron",
 ]

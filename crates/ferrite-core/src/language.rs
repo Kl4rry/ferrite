@@ -345,7 +345,7 @@ mod tests {
     fn language_load_test() {
         for k in LANGUAGES.keys() {
             println!("{k}");
-            //assert!(get_lang_config(*k).is_some())
+            assert!(get_lang_config(*k).is_some())
         }
     }
 }
