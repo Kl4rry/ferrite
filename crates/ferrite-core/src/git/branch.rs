@@ -62,6 +62,8 @@ impl BranchWatcher {
                         thread_proxy.request_render();
                     }
                 }
+
+                tracing::info!("Branch watcher exiting");
             });
         }
 
