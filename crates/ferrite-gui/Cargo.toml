@@ -1,0 +1,14 @@
+[package]
+name = "ferrite-gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+ferrite-cli = { workspace = true }
+ferrite-core = { workspace = true }
+pollster = "0.3.0"
+wgpu = "0.19.3"
+winit = "0.29.15"
+glyphon = "0.5.0"
+cgmath = "0.18.0"

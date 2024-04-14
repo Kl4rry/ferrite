@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 /// A text editor
 #[derive(Parser, Debug)]
@@ -20,8 +20,17 @@ pub struct Args {
     /// Options `error`, `warn`, `info`, `debug` or `trace`
     #[arg(long)]
     pub log_level: Option<String>,
+    /// Type UI to use
+    #[arg(long)]
+    pub ui: Option<Ui>,
     #[command(subcommand)]
     pub subcommands: Option<Subcommands>,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum Ui {
+    Tui,
+    Gui,
 }
 
 #[derive(Debug, Subcommand)]

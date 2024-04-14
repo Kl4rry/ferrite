@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use clap::Parser;
-use ferrite_cli::{Args, Subcommands};
+use ferrite_cli::{Args, Subcommands, Ui};
 use ferrite_core::config::Config;
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
@@ -91,7 +91,35 @@ fn main() -> Result<ExitCode> {
 
     ferrite_core::clipboard::init(args.local_clipboard);
 
-    ferrite_tui::run(&args)?;
+    #[cfg(not(any(feature = "tui", feature = "gui")))]
+    compile_error!("You must enable either tui or gui");
+
+    match args.ui {
+        Some(Ui::Tui) => {
+            #[cfg(feature = "tui")]
+            ferrite_tui::run(&args)?;
+            #[cfg(not(feature = "tui"))]
+            {
+                eprintln!("Ferrite has not been compiled with tui");
+                return Ok(ExitCode::FAILURE);
+            }
+        }
+        Some(Ui::Gui) => {
+            #[cfg(feature = "gui")]
+            ferrite_gui::run(&args)?;
+            #[cfg(not(feature = "gui"))]
+            {
+                eprintln!("Ferrite has not been compiled with gui");
+                return Ok(ExitCode::FAILURE);
+            }
+        }
+        None => {
+            #[cfg(feature = "tui")]
+            ferrite_tui::run(&args)?;
+            #[cfg(not(feature = "tui"))]
+            ferrite_gui::run(&args)?;
+        }
+    }
 
     Ok(ExitCode::SUCCESS)
 }

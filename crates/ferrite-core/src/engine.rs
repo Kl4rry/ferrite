@@ -318,6 +318,7 @@ impl Engine {
         control_flow: &mut EventLoopControlFlow,
     ) {
         match event {
+            UserEvent::Wake => (),
             UserEvent::ShellResult(result) => match result {
                 Ok(buffer) => {
                     self.insert_buffer(buffer, true);

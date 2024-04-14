@@ -6,6 +6,7 @@ pub enum UserEvent {
     PaletteEvent { mode: String, content: String },
     PromptEvent(PalettePromptEvent),
     ShellResult(Result<Buffer, anyhow::Error>),
+    Wake,
 }
 
 pub trait EventLoopProxy: Send + Sync {

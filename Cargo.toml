@@ -21,6 +21,7 @@ dunce = "1.0.4"
 encoding_rs = "0.8.31" 
 ferrite-cli = { path = "crates/ferrite-cli" } 
 ferrite-core = { path = "crates/ferrite-core" } 
+ferrite-gui = { path = "crates/ferrite-gui" } 
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" } 
 ferrite-tui = { path = "crates/ferrite-tui" } 
 ferrite-utility = { path = "crates/ferrite-utility" } 
@@ -60,11 +61,16 @@ clap = { workspace = true }
 directories = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
-ferrite-tui = { workspace = true }
-
+ferrite-gui = { workspace = true, optional = true }
+ferrite-tui = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+[features]
+default = ["tui", "gui"]
+tui = ["dep:ferrite-tui"]
+gui = ["dep:ferrite-gui"]
 
 [profile.dev.package."*"]
 opt-level = 3
