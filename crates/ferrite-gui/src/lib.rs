@@ -1,4 +1,4 @@
-use std::{iter, sync::Arc, time::Instant};
+use std::{env, iter, sync::Arc, time::Instant};
 
 use anyhow::Result;
 use event_loop_wrapper::EventLoopProxyWrapper;
@@ -61,14 +61,31 @@ impl GuiApp {
         );
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
+        let mut backends = if cfg!(windows) {
+            wgpu::Backends::DX12
+        } else if cfg!(macos) {
+            wgpu::Backends::PRIMARY
+        } else {
+            wgpu::Backends::all()
+        };
+
+        if let Ok(gpu_backend) = env::var("FERRITE_GPU_BACKEND") {
+            backends = wgpu::util::parse_backends_from_comma_list(&gpu_backend);
+        } else if let Ok(gpu_backend) = env::var("WGPU_BACKEND") {
+            backends = wgpu::util::parse_backends_from_comma_list(&gpu_backend);
+        };
+
+        let instance_descriptor = wgpu::InstanceDescriptor {
+            backends,
             ..Default::default()
-        });
+        };
+
+        let instance = wgpu::Instance::new(instance_descriptor);
+
         let surface = instance.create_surface(window.clone()).unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                power_preference: wgpu::PowerPreference::None,
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
