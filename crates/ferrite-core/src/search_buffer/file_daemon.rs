@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use cb::select;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
@@ -41,10 +42,12 @@ fn trim_path(start: &str, path: &Path) -> String {
 pub struct FileDaemon {
     subscriber: Subscriber<Vec<String>>,
     change_detector: Subscriber<()>,
+    exit_tx: cb::Sender<()>,
 }
 
 impl FileDaemon {
     pub fn new(path: PathBuf, config: &Config) -> anyhow::Result<Self> {
+        let (exit_tx, exit_rx) = cb::bounded::<()>(1);
         let (publisher, subscriber) = pubsub::create(Vec::new());
         let (change_broadcaster, change_detector) = pubsub::create(());
         let path_to_search = path.clone();
@@ -152,80 +155,89 @@ impl FileDaemon {
 
                 let workspace_dir = std::env::current_dir().unwrap();
 
-                match update_rx.recv() {
-                    Ok(event) => {
-                        for path in event.paths {
-                            if !picker_config.show_only_text_files || is_text_file(&path) {
-                                let str_path = path.to_string_lossy().into_owned();
-                                let relative_path = Path::new(
-                                    str_path.trim_start_matches(&*workspace_dir.to_string_lossy()),
-                                );
-                                let is_hidden = !picker_config.show_hidden
-                                    && relative_path.components().any(
-                                        |component| match component {
-                                            std::path::Component::Normal(name) => {
-                                                name.to_string_lossy().starts_with('.')
-                                            }
-                                            _ => false,
-                                        },
-                                    );
-                                let is_global_ignore = picker_config.follow_git_global
-                                    && global_gitignore.matched(&path, false).is_ignore();
+                select! {
+                    recv(exit_rx) -> _ => {
+                        tracing::info!("File daemon thread exit");
+                        return
+                    },
+                    recv(update_rx) -> res => {
+                        match res {
+                            Ok(event) => {
+                                for path in event.paths {
+                                    if !picker_config.show_only_text_files || is_text_file(&path) {
+                                        let str_path = path.to_string_lossy().into_owned();
+                                        let relative_path = Path::new(
+                                            str_path.trim_start_matches(&*workspace_dir.to_string_lossy()),
+                                        );
+                                        let is_hidden = !picker_config.show_hidden
+                                            && relative_path.components().any(
+                                                |component| match component {
+                                                    std::path::Component::Normal(name) => {
+                                                        name.to_string_lossy().starts_with('.')
+                                                    }
+                                                    _ => false,
+                                                },
+                                            );
+                                        let is_global_ignore = picker_config.follow_git_global
+                                            && global_gitignore.matched(&path, false).is_ignore();
 
-                                if is_hidden || is_global_ignore {
-                                    continue;
+                                        if is_hidden || is_global_ignore {
+                                            continue;
+                                        }
+
+                                        match gitignore_cache.get(&path) {
+                                            Some(ignore) => {
+                                                if ignore.matched(&path, false).is_ignore() {
+                                                    updated |= tracked_files.insert(path);
+                                                }
+                                            }
+                                            None => {
+                                                let mut builder = GitignoreBuilder::new(&workspace_dir);
+                                                for part in path.ancestors() {
+                                                    if part.starts_with(&workspace_dir) && part != path {
+                                                        if picker_config.follow_gitignore {
+                                                            let _ = builder.add(part.join(".gitignore"));
+                                                        }
+                                                        if picker_config.follow_ignore {
+                                                            let _ = builder.add(part.join(".ignore"));
+                                                        }
+                                                        if picker_config.follow_git_exclude {
+                                                            let _ =
+                                                                builder.add(part.join(".git/info/exclude"));
+                                                        }
+                                                    }
+                                                }
+
+                                                match builder.build() {
+                                                    Ok(ignore) => {
+                                                        if !ignore
+                                                            .matched_path_or_any_parents(&path, false)
+                                                            .is_ignore()
+                                                        {
+                                                            updated |= tracked_files.insert(path.clone());
+                                                        }
+                                                        if let Some(parent) = path.parent() {
+                                                            gitignore_cache
+                                                                .insert(parent.to_path_buf(), ignore);
+                                                        }
+                                                    }
+                                                    Err(_) => {
+                                                        updated |= tracked_files.insert(path);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        updated |= tracked_files.remove(&path);
+                                    };
                                 }
-
-                                match gitignore_cache.get(&path) {
-                                    Some(ignore) => {
-                                        if ignore.matched(&path, false).is_ignore() {
-                                            updated |= tracked_files.insert(path);
-                                        }
-                                    }
-                                    None => {
-                                        let mut builder = GitignoreBuilder::new(&workspace_dir);
-                                        for part in path.ancestors() {
-                                            if part.starts_with(&workspace_dir) && part != path {
-                                                if picker_config.follow_gitignore {
-                                                    let _ = builder.add(part.join(".gitignore"));
-                                                }
-                                                if picker_config.follow_ignore {
-                                                    let _ = builder.add(part.join(".ignore"));
-                                                }
-                                                if picker_config.follow_git_exclude {
-                                                    let _ =
-                                                        builder.add(part.join(".git/info/exclude"));
-                                                }
-                                            }
-                                        }
-
-                                        match builder.build() {
-                                            Ok(ignore) => {
-                                                if !ignore
-                                                    .matched_path_or_any_parents(&path, false)
-                                                    .is_ignore()
-                                                {
-                                                    updated |= tracked_files.insert(path.clone());
-                                                }
-                                                if let Some(parent) = path.parent() {
-                                                    gitignore_cache
-                                                        .insert(parent.to_path_buf(), ignore);
-                                                }
-                                            }
-                                            Err(_) => {
-                                                updated |= tracked_files.insert(path);
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                updated |= tracked_files.remove(&path);
-                            };
+                            }
+                            Err(err) => {
+                                tracing::info!("File daemon thread exit {err}");
+                                return;
+                            }
                         }
-                    }
-                    Err(err) => {
-                        tracing::info!("File daemon thread exit: {err}");
-                        return;
+
                     }
                 }
 
@@ -249,6 +261,7 @@ impl FileDaemon {
         Ok(Self {
             subscriber,
             change_detector,
+            exit_tx,
         })
     }
 
@@ -258,5 +271,11 @@ impl FileDaemon {
 
     pub fn change_detector(&self) -> Subscriber<()> {
         self.change_detector.clone()
+    }
+}
+
+impl Drop for FileDaemon {
+    fn drop(&mut self) {
+        let _ = self.exit_tx.send(());
     }
 }

@@ -7,6 +7,7 @@ use crate::{buffer::case::Case, panes::Direction};
 #[derive(Debug, Clone)]
 pub enum Command {
     OpenFile(PathBuf),
+    Cd(PathBuf),
     SaveFile(Option<PathBuf>),
     Language(Option<String>),
     Encoding(Option<String>),

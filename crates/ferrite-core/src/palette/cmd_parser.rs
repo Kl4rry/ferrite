@@ -32,6 +32,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
     #[rustfmt::skip]
     let cmd = match (name, args.as_mut_slice()) {
         ("open", [path, ..]) => Command::OpenFile(path.take().unwrap().unwrap_path()),
+        ("cd", [path, ..]) => Command::Cd(path.take().unwrap().unwrap_path()),
         ("save", [path, ..]) => Command::SaveFile(path.take().map(|arg| arg.unwrap_path())),
         ("goto", [line, ..]) => Command::Goto(line.take().unwrap().unwrap_int()),
         ("theme", [theme, ..]) => Command::Theme(theme.take().map(|theme| theme.unwrap_string())),
@@ -97,6 +98,7 @@ pub fn get_command_input_type(name: &str) -> Option<&'static CommandTemplateArg>
 static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
     let mut cmds = vec![
         CommandTemplate::new("open", Some(("path", CommandTemplateArg::Path)), false).add_alias("o"),
+        CommandTemplate::new("cd", Some(("path", CommandTemplateArg::Path)), false),
         CommandTemplate::new("save", Some(("path", CommandTemplateArg::Path)), true).add_alias("s"),
         CommandTemplate::new("goto", Some(("line", CommandTemplateArg::Int)), false).add_alias("g"),
         CommandTemplate::new("theme", Some(("theme", CommandTemplateArg::Theme)), true),

@@ -1330,7 +1330,6 @@ impl Buffer {
         {
             let cursor_line = self.rope.byte_to_line(self.cursor.position);
             let start_line = self.line_pos;
-            tracing::warn!("{} {}", self.line_pos, self.view_lines);
             let end_line = self.line_pos + self.view_lines;
             if cursor_line < start_line || cursor_line >= end_line {
                 self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);

@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io,
+    env, io,
     num::NonZeroUsize,
     path::{Path, PathBuf},
     thread,
@@ -331,6 +331,46 @@ impl Engine {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Cd(path) => match env::set_current_dir(&path) {
+                                Ok(_) => {
+                                    self.buffer_finder = None;
+                                    self.file_finder = None;
+
+                                    match FileDaemon::new(
+                                        env::current_dir().unwrap_or(PathBuf::from(".")),
+                                        &self.config,
+                                    ) {
+                                        Ok(file_daemon) => self.file_daemon = file_daemon,
+                                        Err(err) => {
+                                            tracing::error!("Error creating file daemon: {err}")
+                                        }
+                                    }
+
+                                    match BranchWatcher::new(
+                                        self.proxy.dup(),
+                                        self.file_daemon.change_detector(),
+                                    ) {
+                                        Ok(branch_watcher) => self.branch_watcher = branch_watcher,
+                                        Err(err) => {
+                                            tracing::error!("Error creating branch watcher: {err}")
+                                        }
+                                    }
+
+                                    self.workspace = match Workspace::load_workspace() {
+                                        Ok(workspace) => workspace,
+                                        Err(err) => {
+                                            tracing::error!("Error loading workspace: {err}");
+                                            Workspace::default()
+                                        }
+                                    };
+
+                                    self.palette.set_msg(format!(
+                                        "Set working dir to: {}",
+                                        path.to_string_lossy()
+                                    ));
+                                }
+                                Err(err) => self.palette.set_error(format!("{err}")),
+                            },
                             Command::Split(direction) => {
                                 let buffer_id = self.insert_buffer(Buffer::new(), false).0;
                                 self.workspace
