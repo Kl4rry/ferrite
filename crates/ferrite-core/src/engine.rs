@@ -342,7 +342,9 @@ impl Engine {
                                     ) {
                                         Ok(file_daemon) => self.file_daemon = file_daemon,
                                         Err(err) => {
-                                            tracing::error!("Error creating file daemon: {err}")
+                                            let msg = format!("Error creating file daemon: {err}");
+                                            tracing::error!(msg);
+                                            self.palette.set_error(msg);
                                         }
                                     }
 
@@ -352,14 +354,19 @@ impl Engine {
                                     ) {
                                         Ok(branch_watcher) => self.branch_watcher = branch_watcher,
                                         Err(err) => {
-                                            tracing::error!("Error creating branch watcher: {err}")
+                                            let msg =
+                                                format!("Error creating branch watcher: {err}");
+                                            tracing::error!(msg);
+                                            self.palette.set_error(msg);
                                         }
                                     }
 
                                     self.workspace = match Workspace::load_workspace() {
                                         Ok(workspace) => workspace,
                                         Err(err) => {
-                                            tracing::error!("Error loading workspace: {err}");
+                                            let msg = format!("Error loading workspace: {err}");
+                                            tracing::error!(msg);
+                                            self.palette.set_error(msg);
                                             Workspace::default()
                                         }
                                     };
