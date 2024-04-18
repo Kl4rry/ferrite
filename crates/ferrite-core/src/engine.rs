@@ -331,6 +331,10 @@ impl Engine {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Pwd => match env::current_dir() {
+                                Ok(path) => self.palette.set_msg(path.to_string_lossy()),
+                                Err(err) => self.palette.set_error(err),
+                            },
                             Command::Cd(path) => match env::set_current_dir(&path) {
                                 Ok(_) => {
                                     self.buffer_finder = None;

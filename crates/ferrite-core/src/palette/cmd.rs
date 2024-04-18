@@ -15,6 +15,7 @@ pub enum Command {
     Shell(Vec<PathBuf>),
     Case(Case),
     Split(Direction),
+    Pwd,
     New,
     Reload,
     Logger,
