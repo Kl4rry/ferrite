@@ -168,6 +168,15 @@ impl CommandPalette {
         match &self.state {
             PaletteState::Message(string) => string.lines().count(),
             PaletteState::Error(string) => string.lines().count(),
+            PaletteState::Prompt {
+                selected,
+                prompt,
+                alt1_char,
+                alt2_char,
+                ..
+            } => Self::get_prompt(*selected, prompt, *alt1_char, *alt2_char)
+                .lines()
+                .count(),
             _ => 1,
         }
     }
@@ -274,5 +283,26 @@ impl CommandPalette {
         }
 
         Ok(())
+    }
+
+    pub fn get_prompt(
+        selected: SelectedPrompt,
+        prompt: &str,
+        alt1_char: char,
+        alt2_char: char,
+    ) -> String {
+        let alt1 = if selected == SelectedPrompt::Alt1 {
+            alt1_char.to_ascii_uppercase()
+        } else {
+            alt1_char
+        };
+
+        let alt2 = if selected == SelectedPrompt::Alt2 {
+            alt2_char.to_ascii_uppercase()
+        } else {
+            alt2_char
+        };
+
+        format!("{prompt}: {alt1} / {alt2}")
     }
 }

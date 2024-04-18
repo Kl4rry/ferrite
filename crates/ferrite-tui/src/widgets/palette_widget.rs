@@ -1,5 +1,5 @@
 use ferrite_core::{
-    palette::{CommandPalette, PaletteState, SelectedPrompt},
+    palette::{CommandPalette, PaletteState},
     theme::EditorTheme,
 };
 use tui::{layout::Rect, widgets::StatefulWidget};
@@ -104,34 +104,19 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 alt2_char,
                 ..
             } => {
-                let prompt = format!("{prompt}: ");
-                let prompt_width = prompt.width() as u16;
-                buf.set_stringn(
-                    area.x,
-                    area.y,
-                    &prompt,
-                    area.width.into(),
-                    convert_style(&self.theme.text),
-                );
-                let alt1 = if *selected == SelectedPrompt::Alt1 {
-                    alt1_char.to_ascii_uppercase()
-                } else {
-                    *alt1_char
-                };
-
-                let alt2 = if *selected == SelectedPrompt::Alt2 {
-                    alt2_char.to_ascii_uppercase()
-                } else {
-                    *alt2_char
-                };
-
-                buf.set_stringn(
-                    area.x + prompt_width,
-                    area.y,
-                    format!("{alt1} / {alt2}"),
-                    area.width.into(),
-                    convert_style(&self.theme.text),
-                );
+                let msg = CommandPalette::get_prompt(*selected, prompt, *alt1_char, *alt2_char);
+                for (i, line) in msg.lines().enumerate() {
+                    if i >= area.height.into() {
+                        break;
+                    }
+                    buf.set_stringn(
+                        area.x,
+                        area.y + i as u16,
+                        line,
+                        area.width.into(),
+                        convert_style(&self.theme.text),
+                    );
+                }
             }
         };
     }
