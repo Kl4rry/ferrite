@@ -45,8 +45,6 @@ pub fn run(args: &Args) -> Result<()> {
         let mut text = String::new();
         stdin.read_to_string(&mut text)?;
         let buffer = tui_app.new_buffer_with_text(&text);
-        let (_, height) = crossterm::terminal::size()?;
-        buffer.set_view_lines(height.saturating_sub(2).into());
         buffer.goto(args.line as i64);
     }
 
