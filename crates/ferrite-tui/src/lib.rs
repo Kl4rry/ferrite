@@ -145,7 +145,13 @@ impl TuiApp {
                 let theme = &self.engine.themes[&self.engine.config.theme];
                 f.render_widget(BackgroundWidget::new(theme), f.size());
                 let size = f.size();
-                let editor_size = Rect::new(size.x, size.y, size.width, size.height - 1);
+                let editor_size = Rect::new(
+                    size.x,
+                    size.y,
+                    size.width,
+                    size.height
+                        .saturating_sub(self.engine.palette.height() as u16),
+                );
 
                 self.buffer_area = editor_size;
                 let current_pane = self.engine.workspace.panes.get_current_pane();
@@ -212,7 +218,13 @@ impl TuiApp {
                     );
                 }
 
-                let palette_size = Rect::new(size.left(), size.bottom() - 1, size.width, 1);
+                let palette_size = Rect::new(
+                    size.left(),
+                    size.bottom()
+                        .saturating_sub(self.engine.palette.height() as u16),
+                    size.width,
+                    (self.engine.palette.height() as u16).min(size.height),
+                );
                 f.render_stateful_widget(
                     CmdPaletteWidget::new(theme, self.engine.palette.has_focus(), size),
                     palette_size,

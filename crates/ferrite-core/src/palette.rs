@@ -163,6 +163,14 @@ impl CommandPalette {
             None
         }
     }
+
+    pub fn height(&self) -> usize {
+        match &self.state {
+            PaletteState::Message(string) => string.lines().count(),
+            PaletteState::Error(string) => string.lines().count(),
+            _ => 1,
+        }
+    }
 }
 
 impl CommandPalette {

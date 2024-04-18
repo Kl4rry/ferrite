@@ -69,22 +69,32 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 }
             }
             PaletteState::Message(msg) => {
-                buf.set_stringn(
-                    area.x,
-                    area.y,
-                    msg,
-                    area.width.into(),
-                    convert_style(&self.theme.text),
-                );
+                for (i, line) in msg.lines().enumerate() {
+                    if i >= area.height.into() {
+                        break;
+                    }
+                    buf.set_stringn(
+                        area.x,
+                        area.y + i as u16,
+                        line,
+                        area.width.into(),
+                        convert_style(&self.theme.text),
+                    );
+                }
             }
             PaletteState::Error(msg) => {
-                buf.set_stringn(
-                    area.x,
-                    area.y,
-                    msg,
-                    area.width.into(),
-                    convert_style(&self.theme.error_text),
-                );
+                for (i, line) in msg.lines().enumerate() {
+                    if i >= area.height.into() {
+                        break;
+                    }
+                    buf.set_stringn(
+                        area.x,
+                        area.y + i as u16,
+                        line,
+                        area.width.into(),
+                        convert_style(&self.theme.error_text),
+                    );
+                }
             }
             PaletteState::Nothing => (),
             PaletteState::Prompt {
