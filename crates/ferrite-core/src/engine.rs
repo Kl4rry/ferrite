@@ -320,8 +320,12 @@ impl Engine {
         match event {
             UserEvent::Wake => (),
             UserEvent::ShellResult(result) => match result {
-                Ok(buffer) => {
-                    self.insert_buffer(buffer, true);
+                Ok((pipe, buffer)) => {
+                    if pipe {
+                        self.insert_buffer(buffer, true);
+                    } else {
+                        self.palette.set_msg(buffer);
+                    }
                 }
                 Err(e) => self.palette.set_error(e),
             },
@@ -389,7 +393,7 @@ impl Engine {
                                     .split(PaneKind::Buffer(buffer_id), direction);
                                 self.open_file_picker();
                             }
-                            Command::Shell(args) => {
+                            Command::Shell { args, pipe } => {
                                 let thread_proxy = proxy.dup();
                                 thread::spawn(move || {
                                     let mut cmd = String::new();
@@ -450,7 +454,7 @@ impl Engine {
                                         }
                                     };
 
-                                    thread_proxy.send(UserEvent::ShellResult(Ok(buffer)));
+                                    thread_proxy.send(UserEvent::ShellResult(Ok((pipe, buffer))));
                                 });
                             }
                             Command::Delete => {

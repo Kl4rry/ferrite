@@ -12,7 +12,7 @@ pub enum Command {
     Language(Option<String>),
     Encoding(Option<String>),
     LineEnding(Option<LineEnding>),
-    Shell(Vec<PathBuf>),
+    Shell { args: Vec<PathBuf>, pipe: bool },
     Case(Case),
     Split(Direction),
     Pwd,

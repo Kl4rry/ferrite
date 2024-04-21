@@ -65,7 +65,14 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
             for arg in args {
                 paths.push(arg.take().unwrap().unwrap_path());
             }
-            Command::Shell(paths)
+            Command::Shell{ args: paths, pipe: false }
+        }
+        ("pipe", args) => {
+            let mut paths = Vec::new();
+            for arg in args {
+                paths.push(arg.take().unwrap().unwrap_path());
+            }
+            Command::Shell{ args: paths, pipe: true }
         }
         ("case", [case, ..]) =>  {
             Command::Case(Case::from_str(case.take().unwrap().unwrap_string().as_str()).unwrap())
@@ -122,7 +129,8 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("format-selection", None, true),
         CommandTemplate::new("delete", None, true),
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
-        CommandTemplate::new("shell", Some(("arg", CommandTemplateArg::Path)), false),
+        CommandTemplate::new("pipe", Some(("arg", CommandTemplateArg::Path)), false),
+        CommandTemplate::new("shell", Some(("arg", CommandTemplateArg::Path)), false).add_alias("sh"),
         CommandTemplate::new("split", Some(("direction", CommandTemplateArg::Alternatives(["up", "down", "left", "right"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("case", Some(("encoding", CommandTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)

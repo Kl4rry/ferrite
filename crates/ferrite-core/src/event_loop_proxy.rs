@@ -5,7 +5,7 @@ use crate::{buffer::Buffer, palette::PalettePromptEvent};
 pub enum UserEvent {
     PaletteEvent { mode: String, content: String },
     PromptEvent(PalettePromptEvent),
-    ShellResult(Result<Buffer, anyhow::Error>),
+    ShellResult(Result<(bool, Buffer), anyhow::Error>),
     Wake,
 }
 
