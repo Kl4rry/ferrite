@@ -174,9 +174,9 @@ impl Buffer {
         })
     }
 
-    pub fn from_bytes(bytes: &[u8], proxy: Box<dyn EventLoopProxy>) -> Result<Self, io::Error> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, io::Error> {
         let (encoding, rope) = read::read(bytes)?;
-        let syntax = Syntax::new(proxy);
+        let syntax = Syntax::new(get_buffer_proxy());
 
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),

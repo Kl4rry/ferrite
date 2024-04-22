@@ -1,11 +1,10 @@
 use std::time::Duration;
 
-use crate::{buffer::Buffer, palette::PalettePromptEvent};
+use crate::palette::PalettePromptEvent;
 
 pub enum UserEvent {
     PaletteEvent { mode: String, content: String },
     PromptEvent(PalettePromptEvent),
-    ShellResult(Result<(bool, Buffer), anyhow::Error>),
     Wake,
 }
 

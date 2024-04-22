@@ -3,7 +3,6 @@ use std::{
     env, io,
     num::NonZeroUsize,
     path::{Path, PathBuf},
-    thread,
 };
 
 use anyhow::Result;
@@ -51,6 +50,7 @@ pub struct Engine {
     pub file_daemon: FileDaemon,
     pub job_manager: JobManager,
     pub save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
+    pub shell_jobs: Vec<JobHandle<Result<(bool, Buffer), anyhow::Error>>>,
     pub spinner: Spinner,
 }
 
@@ -161,6 +161,7 @@ impl Engine {
             file_daemon,
             job_manager,
             save_jobs: Default::default(),
+            shell_jobs: Default::default(),
             spinner: Default::default(),
         })
     }
@@ -203,15 +204,40 @@ impl Engine {
                         ));
                     }
 
-                    Err(err) => self.palette.set_msg(err.to_string()),
+                    Err(e) => self.palette.set_msg(e),
                 }
             }
         }
         self.save_jobs.retain(|job| !job.is_finished());
 
+        let mut new_buffers = Vec::new();
+        {
+            for job in &mut self.shell_jobs {
+                if let Ok(result) = job.recv_try() {
+                    match result {
+                        Ok((pipe, buffer)) => {
+                            if pipe {
+                                new_buffers.push(buffer);
+                            } else {
+                                self.palette.set_msg(buffer);
+                            }
+                        }
+                        Err(e) => self.palette.set_error(e),
+                    }
+                }
+            }
+        }
+        self.shell_jobs.retain(|job| !job.is_finished());
+
+        for buffer in new_buffers {
+            self.insert_buffer(buffer, true);
+        }
+
         self.job_manager.poll_jobs();
 
-        let duration = self.spinner.update(!self.save_jobs.is_empty());
+        let duration = self
+            .spinner
+            .update(!self.save_jobs.is_empty() || !self.shell_jobs.is_empty());
         *control_flow = EventLoopControlFlow::WaitMax(duration);
     }
 
@@ -311,24 +337,9 @@ impl Engine {
         }
     }
 
-    pub fn handle_app_event(
-        &mut self,
-        proxy: Box<dyn EventLoopProxy>,
-        event: UserEvent,
-        control_flow: &mut EventLoopControlFlow,
-    ) {
+    pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
         match event {
             UserEvent::Wake => (),
-            UserEvent::ShellResult(result) => match result {
-                Ok((pipe, buffer)) => {
-                    if pipe {
-                        self.insert_buffer(buffer, true);
-                    } else {
-                        self.palette.set_msg(buffer);
-                    }
-                }
-                Err(e) => self.palette.set_error(e),
-            },
             UserEvent::PaletteEvent { mode, content } => match mode.as_str() {
                 "command" => {
                     use cmd::Command;
@@ -394,68 +405,40 @@ impl Engine {
                                 self.open_file_picker();
                             }
                             Command::Shell { args, pipe } => {
-                                let thread_proxy = proxy.dup();
-                                thread::spawn(move || {
-                                    let mut cmd = String::new();
-                                    for arg in args
-                                        .into_iter()
-                                        .map(|path| path.to_string_lossy().to_string())
-                                    {
-                                        cmd.push_str(&arg);
-                                        cmd.push(' ');
-                                    }
+                                let job = self.job_manager.spawn_foreground_job(
+                                    move |()| -> Result<_, anyhow::Error> {
+                                        let mut cmd = String::new();
+                                        for arg in args
+                                            .into_iter()
+                                            .map(|path| path.to_string_lossy().to_string())
+                                        {
+                                            cmd.push_str(&arg);
+                                            cmd.push(' ');
+                                        }
 
-                                    let exec = Exec::shell(cmd)
-                                        .stdout(Redirection::Pipe)
-                                        .stderr(Redirection::Pipe);
+                                        let exec = Exec::shell(cmd)
+                                            .stdout(Redirection::Pipe)
+                                            .stderr(Redirection::Pipe);
 
-                                    let mut popen = match exec.popen() {
-                                        Ok(popen) => popen,
-                                        Err(e) => {
-                                            thread_proxy
-                                                .send(UserEvent::ShellResult(Err(e.into())));
-                                            return;
-                                        }
-                                    };
-                                    let (stdout, stderr) = match popen.communicate_bytes(None) {
-                                        Ok(out) => out,
-                                        Err(e) => {
-                                            thread_proxy
-                                                .send(UserEvent::ShellResult(Err(e.into())));
-                                            return;
-                                        }
-                                    };
-                                    let status = match popen.wait() {
-                                        Ok(status) => status,
-                                        Err(e) => {
-                                            thread_proxy
-                                                .send(UserEvent::ShellResult(Err(e.into())));
-                                            return;
-                                        }
-                                    };
-                                    if !status.success() {
-                                        thread_proxy.send(UserEvent::ShellResult(Err(
-                                            anyhow::Error::msg(
+                                        let mut popen = exec.popen()?;
+
+                                        let (stdout, stderr) = popen.communicate_bytes(None)?;
+                                        let status = popen.wait()?;
+
+                                        if !status.success() {
+                                            return Err(anyhow::Error::msg(
                                                 String::from_utf8_lossy(&stderr.unwrap())
                                                     .to_string(),
-                                            ),
-                                        )));
-                                        return;
-                                    }
-                                    let buffer = match Buffer::from_bytes(
-                                        &stdout.unwrap(),
-                                        thread_proxy.dup(),
-                                    ) {
-                                        Ok(buffer) => buffer,
-                                        Err(e) => {
-                                            thread_proxy
-                                                .send(UserEvent::ShellResult(Err(e.into())));
-                                            return;
+                                            ));
                                         }
-                                    };
 
-                                    thread_proxy.send(UserEvent::ShellResult(Ok((pipe, buffer))));
-                                });
+                                        let buffer = Buffer::from_bytes(&stdout.unwrap())?;
+
+                                        Ok((pipe, buffer))
+                                    },
+                                    (),
+                                );
+                                self.shell_jobs.push(job);
                             }
                             Command::Delete => {
                                 let PaneKind::Buffer(buffer_id) =

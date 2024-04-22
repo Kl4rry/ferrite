@@ -127,8 +127,7 @@ impl TuiApp {
                 self.handle_crossterm_event(proxy, event, control_flow)
             }
             event_loop::TuiEvent::AppEvent(event) => {
-                self.engine
-                    .handle_app_event(Box::new(proxy.clone()), event, control_flow)
+                self.engine.handle_app_event(event, control_flow)
             }
             event_loop::TuiEvent::Render => {
                 self.engine.do_polling(control_flow);
