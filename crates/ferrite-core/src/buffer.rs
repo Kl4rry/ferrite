@@ -1186,6 +1186,8 @@ impl Buffer {
         } else {
             self.rope.byte_slice(start..end).to_string()
         };
+        #[cfg(target_os = "linux")]
+        clipboard::set_primary(copied.clone());
         clipboard::set_contents(copied);
     }
 
