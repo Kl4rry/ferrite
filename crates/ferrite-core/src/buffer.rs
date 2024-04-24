@@ -735,13 +735,23 @@ impl Buffer {
     pub fn insert_text(&mut self, text: &str) {
         // TODO collect multiple words/whitespace chars into single undo step
         self.history.begin(self.cursor, self.dirty);
+
+        let auto_pair = matches!(text, "{" | "[" | "(" | "'" | "\"" | "`" | "<");
+
         if self.cursor.has_selection() {
             let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
             let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
-            self.history
-                .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
-            self.cursor.position = self.cursor.position.min(self.cursor.anchor);
-            self.cursor.anchor = self.cursor.position;
+            if auto_pair {
+                self.history.insert(&mut self.rope, start_byte_idx, text);
+                self.history.insert(&mut self.rope, end_byte_idx + 1, text);
+                self.cursor.position = end_byte_idx;
+                self.cursor.anchor = end_byte_idx;
+            } else {
+                self.history
+                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
+                self.cursor.position = self.cursor.position.min(self.cursor.anchor);
+                self.cursor.anchor = self.cursor.position;
+            }
         } else {
             self.history
                 .insert(&mut self.rope, self.cursor.position, text);
@@ -752,26 +762,6 @@ impl Buffer {
 
         self.update_affinity();
         self.mark_dirty();
-
-        // Close pairs
-        /*match text {
-            "{" => self
-                .rope
-                .insert(self.rope.byte_to_char(self.cursor.position), "}"),
-            "[" => self
-                .rope
-                .insert(self.rope.byte_to_char(self.cursor.position), "]"),
-            "(" => self
-                .rope
-                .insert(self.rope.byte_to_char(self.cursor.position), ")"),
-            "'" => self
-                .rope
-                .insert(self.rope.byte_to_char(self.cursor.position), "'"),
-            "\"" => self
-                .rope
-                .insert(self.rope.byte_to_char(self.cursor.position), "\""),
-            _ => (),
-        }*/
 
         if self.clamp_cursor {
             self.center_on_cursor();
