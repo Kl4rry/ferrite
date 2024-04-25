@@ -68,7 +68,13 @@ impl CommandPalette {
     }
 
     pub fn set_error(&mut self, msg: impl fmt::Display) {
-        self.state = PaletteState::Error(msg.to_string());
+        match &mut self.state {
+            PaletteState::Error(error) => {
+                error.push('\n');
+                error.push_str(&msg.to_string());
+            }
+            state => *state = PaletteState::Error(msg.to_string()),
+        }
     }
 
     pub fn reset(&mut self) {
