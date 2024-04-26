@@ -346,6 +346,14 @@ impl Engine {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Url => {
+                                if let Some(buffer) = self.get_current_buffer() {
+                                    let selection = buffer.get_selection();
+                                    if let Err(err) = opener::open(selection) {
+                                        self.palette.set_error(err);
+                                    }
+                                }
+                            }
                             Command::Pwd => match env::current_dir() {
                                 Ok(path) => self.palette.set_msg(path.to_string_lossy()),
                                 Err(err) => self.palette.set_error(err),

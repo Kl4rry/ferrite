@@ -27,6 +27,7 @@ lexical-sort = { workspace = true }
 memchr = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }
+opener = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -37,8 +38,8 @@ subprocess = { workspace = true }
 toml = { workspace = true } 
 tracing = { workspace = true } 
 trash = { workspace = true } 
-tree-sitter = { workspace = true } 
 tree_magic_mini = { workspace = true, features = ["with-gpl-data"] }
+tree-sitter = { workspace = true } 
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }
 

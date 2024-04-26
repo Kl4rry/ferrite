@@ -21,6 +21,7 @@ pub enum Command {
     Logger,
     ForceQuit,
     Quit,
+    Url,
     Goto(i64),
     Indent(Option<String>),
     Theme(Option<String>),

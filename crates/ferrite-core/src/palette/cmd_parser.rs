@@ -57,6 +57,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("format-selection", [..]) => Command::FormatSelection,
         ("revert-buffer", [..]) => Command::RevertBuffer,
         ("delete", [..]) => Command::Delete,
+        ("url", [..]) => Command::Url,
         ("split", [direction, ..]) => {
             Command::Split(Direction::from_str(direction.take().unwrap().unwrap_string().as_str()).unwrap())
         },
@@ -128,6 +129,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("format", None, true),
         CommandTemplate::new("format-selection", None, true),
         CommandTemplate::new("delete", None, true),
+        CommandTemplate::new("url", None, true),
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
         CommandTemplate::new("pipe", Some(("arg", CommandTemplateArg::Path)), false),
         CommandTemplate::new("shell", Some(("arg", CommandTemplateArg::Path)), false).add_alias("sh"),
