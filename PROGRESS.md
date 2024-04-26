@@ -8,7 +8,7 @@
 - [x] Command palette
 - [x] Command palette auto complete
 - [x] Custom themes
-- [ ] Split panes
+- [x] Split panes
 - [x] Multiple buffers and buffer selection screen (maybe tabs for the gui version)
 - [x] Quick fuzzy file finding
 - [x] Undo/redo
@@ -17,7 +17,7 @@
 
 ### Micro features
 - [x] Highlighted line number
-- [ ] Loading spinner
+- [x] Loading spinner
 - [x] Tab detection
 - [ ] Indetation deletion like vscode
 - [x] Variable length tabs
@@ -41,9 +41,7 @@
 ### Big features
 - [x] tree sitter
 - [ ] lsp
-- [ ] sqlite
 - [ ] git integration
-- [ ] wasm/wasi plugins for formatting etc
 
 ### Gui
 - [ ] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
