@@ -44,6 +44,7 @@
 "punctuation.special" = { fg = "sky" }
 
 "keyword" = { fg = "mauve" }
+"key" = { fg = "mauve" }
 
 "operator" = { fg = "sky" }
 
