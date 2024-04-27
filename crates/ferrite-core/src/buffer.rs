@@ -736,14 +736,25 @@ impl Buffer {
         // TODO collect multiple words/whitespace chars into single undo step
         self.history.begin(self.cursor, self.dirty);
 
-        let auto_pair = matches!(text, "{" | "[" | "(" | "'" | "\"" | "`" | "<");
+        fn get_pair_char(s: &str) -> Option<&str> {
+            Some(match s {
+                "{" => "}",
+                "[" => "}",
+                "(" => ")",
+                "'" => "'",
+                "\"" => "\"",
+                "`" => "`",
+                "<" => ">",
+                _ => return None,
+            })
+        }
 
         if self.cursor.has_selection() {
             let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
             let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
-            if auto_pair {
+            if let Some(pair) = get_pair_char(text) {
                 self.history.insert(&mut self.rope, start_byte_idx, text);
-                self.history.insert(&mut self.rope, end_byte_idx + 1, text);
+                self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
                 self.cursor.position = end_byte_idx;
                 self.cursor.anchor = end_byte_idx;
             } else {
@@ -755,6 +766,10 @@ impl Buffer {
         } else {
             self.history
                 .insert(&mut self.rope, self.cursor.position, text);
+            if let Some(pair) = get_pair_char(text) {
+                self.history
+                    .insert(&mut self.rope, self.cursor.position + text.len(), pair);
+            }
         }
 
         self.cursor.position += text.len();
