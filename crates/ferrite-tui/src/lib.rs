@@ -18,6 +18,7 @@ use ferrite_core::{
 use ferrite_utility::point::Point;
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
 use tui::layout::{Margin, Position, Rect};
+use widgets::choord_widget::ChoordWidget;
 
 use self::{
     event_loop::{TuiEvent, TuiEventLoop, TuiEventLoopProxy},
@@ -227,6 +228,12 @@ impl TuiApp {
                     palette_size,
                     &mut self.engine.palette,
                 );
+
+                if self.engine.choord {
+                    let choord_widget =
+                        ChoordWidget::new(theme, self.engine.get_current_keymappings());
+                    f.render_widget(choord_widget, size);
+                }
             })
             .unwrap();
     }
@@ -246,7 +253,7 @@ impl TuiApp {
                             keymap::get_command_from_input(
                                 convert_keycode(event.code),
                                 convert_modifier(event.modifiers),
-                                &self.engine.key_mappings,
+                                self.engine.get_current_keymappings(),
                             )
                         } else {
                             None

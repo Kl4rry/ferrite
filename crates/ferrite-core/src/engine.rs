@@ -21,7 +21,7 @@ use crate::{
     indent::Indentation,
     job_manager::{JobHandle, JobManager},
     jobs::SaveBufferJob,
-    keymap::{get_default_mappings, Exclusiveness, InputCommand, Mapping},
+    keymap::{get_default_choords, get_default_mappings, Exclusiveness, InputCommand, Mapping},
     palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
     panes::{PaneKind, Panes, Rect},
     search_buffer::{
@@ -44,7 +44,7 @@ pub struct Engine {
     pub palette: CommandPalette,
     pub file_finder: Option<SearchBuffer<String>>,
     pub buffer_finder: Option<SearchBuffer<BufferItem>>,
-    pub key_mappings: Vec<(Mapping, InputCommand, Exclusiveness)>,
+    pub key_mappings: HashMap<String, Vec<(Mapping, InputCommand, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
     pub file_daemon: FileDaemon,
@@ -52,6 +52,7 @@ pub struct Engine {
     pub save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
     pub shell_jobs: Vec<JobHandle<Result<(bool, Buffer), anyhow::Error>>>,
     pub spinner: Spinner,
+    pub choord: bool,
 }
 
 impl Engine {
@@ -146,6 +147,10 @@ impl Engine {
 
         let branch_watcher = BranchWatcher::new(proxy.dup(), file_daemon.change_detector())?;
 
+        let mut key_mappings = HashMap::new();
+        key_mappings.insert(String::from("normal"), get_default_mappings());
+        key_mappings.insert(String::from("choord"), get_default_choords());
+
         Ok(Self {
             workspace,
             themes,
@@ -155,7 +160,7 @@ impl Engine {
             palette,
             file_finder,
             buffer_finder: None,
-            key_mappings: get_default_mappings(),
+            key_mappings,
             branch_watcher,
             proxy,
             file_daemon,
@@ -163,6 +168,7 @@ impl Engine {
             save_jobs: Default::default(),
             shell_jobs: Default::default(),
             spinner: Default::default(),
+            choord: false,
         })
     }
 
@@ -247,7 +253,32 @@ impl Engine {
         control_flow: &mut EventLoopControlFlow,
         buffer_area: Rect,
     ) {
+        if input != InputCommand::Choord {
+            self.choord = false;
+        }
         match input {
+            InputCommand::OpenUrl => {
+                self.open_selected_url();
+            }
+            InputCommand::Split { direction } => {
+                let buffer_id = self.insert_buffer(Buffer::new(), false).0;
+                self.workspace
+                    .panes
+                    .split(PaneKind::Buffer(buffer_id), direction);
+                self.open_file_picker();
+            }
+            InputCommand::Shell => {
+                self.file_finder = None;
+                self.buffer_finder = None;
+                self.palette
+                    .focus("$ ", "shell", CompleterContext::new(&self.themes));
+            }
+            InputCommand::Format => {
+                self.format_current_buffer();
+            }
+            InputCommand::Choord => {
+                self.choord = !self.choord;
+            }
             InputCommand::GrowPane => {
                 self.workspace.panes.grow_current(buffer_area);
             }
@@ -298,6 +329,9 @@ impl Engine {
                 self.file_finder = None;
                 self.buffer_finder = None;
             }
+            InputCommand::Escape if self.choord => {
+                self.choord = false;
+            }
             InputCommand::OpenFileBrowser => self.open_file_picker(),
             InputCommand::OpenBufferBrowser => self.open_buffer_picker(),
             InputCommand::Save => {
@@ -346,14 +380,7 @@ impl Engine {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
-                            Command::Url => {
-                                if let Some(buffer) = self.get_current_buffer() {
-                                    let selection = buffer.get_selection();
-                                    if let Err(err) = opener::open(selection) {
-                                        self.palette.set_error(err);
-                                    }
-                                }
-                            }
+                            Command::Url => self.open_selected_url(),
                             Command::Pwd => match env::current_dir() {
                                 Ok(path) => self.palette.set_msg(path.to_string_lossy()),
                                 Err(err) => self.palette.set_error(err),
@@ -413,40 +440,7 @@ impl Engine {
                                 self.open_file_picker();
                             }
                             Command::Shell { args, pipe } => {
-                                let job = self.job_manager.spawn_foreground_job(
-                                    move |()| -> Result<_, anyhow::Error> {
-                                        let mut cmd = String::new();
-                                        for arg in args
-                                            .into_iter()
-                                            .map(|path| path.to_string_lossy().to_string())
-                                        {
-                                            cmd.push_str(&arg);
-                                            cmd.push(' ');
-                                        }
-
-                                        let exec = Exec::shell(cmd)
-                                            .stdout(Redirection::Pipe)
-                                            .stderr(Redirection::Pipe);
-
-                                        let mut popen = exec.popen()?;
-
-                                        let (stdout, stderr) = popen.communicate_bytes(None)?;
-                                        let status = popen.wait()?;
-
-                                        if !status.success() {
-                                            return Err(anyhow::Error::msg(
-                                                String::from_utf8_lossy(&stderr.unwrap())
-                                                    .to_string(),
-                                            ));
-                                        }
-
-                                        let buffer = Buffer::from_bytes(&stdout.unwrap())?;
-
-                                        Ok((pipe, buffer))
-                                    },
-                                    (),
-                                );
-                                self.shell_jobs.push(job);
+                                self.run_shell_command(args, pipe);
                             }
                             Command::Delete => {
                                 let PaneKind::Buffer(buffer_id) =
@@ -687,6 +681,10 @@ impl Engine {
                         self.config.case_insensitive_search,
                     );
                     self.palette.unfocus();
+                }
+                "shell" => {
+                    let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
+                    self.run_shell_command(args, false);
                 }
                 _ => (),
             },
@@ -985,6 +983,59 @@ impl Engine {
         );
 
         self.save_jobs.push(job);
+    }
+
+    pub fn get_current_keymappings(&self) -> &[(Mapping, InputCommand, Exclusiveness)] {
+        if self.choord {
+            self.key_mappings.get("choord").unwrap()
+        } else {
+            self.key_mappings.get("normal").unwrap()
+        }
+    }
+
+    pub fn run_shell_command(&mut self, args: Vec<PathBuf>, pipe: bool) {
+        let job = self.job_manager.spawn_foreground_job(
+            move |()| -> Result<_, anyhow::Error> {
+                let mut cmd = String::new();
+                for arg in args
+                    .into_iter()
+                    .map(|path| path.to_string_lossy().to_string())
+                {
+                    cmd.push_str(&arg);
+                    cmd.push(' ');
+                }
+
+                let exec = Exec::shell(cmd)
+                    .stdout(Redirection::Pipe)
+                    .stderr(Redirection::Pipe);
+
+                let mut popen = exec.popen()?;
+
+                let (stdout, stderr) = popen.communicate_bytes(None)?;
+                let status = popen.wait()?;
+
+                if !status.success() {
+                    return Err(anyhow::Error::msg(
+                        String::from_utf8_lossy(&stderr.unwrap()).to_string(),
+                    ));
+                }
+
+                let buffer = Buffer::from_bytes(&stdout.unwrap())?;
+
+                Ok((pipe, buffer))
+            },
+            (),
+        );
+        self.shell_jobs.push(job);
+    }
+
+    pub fn open_selected_url(&mut self) {
+        if let Some(buffer) = self.get_current_buffer() {
+            let selection = buffer.get_selection();
+            if let Err(err) = opener::open(selection) {
+                self.palette.set_error(err);
+            }
+        }
     }
 }
 

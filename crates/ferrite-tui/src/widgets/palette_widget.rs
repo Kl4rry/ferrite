@@ -41,11 +41,11 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 mode,
                 ..
             } => {
-                let prompt_width = prompt.width() as u16;
+                let prompt_width = prompt.width() as u16 + 1;
                 buf.set_stringn(
                     area.x,
                     area.y,
-                    prompt,
+                    format!(" {}", prompt),
                     area.width.into(),
                     convert_style(&self.theme.text),
                 );

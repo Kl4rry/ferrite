@@ -1,3 +1,5 @@
+use core::fmt;
+
 bitflags::bitflags! {
     #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
     pub struct KeyModifiers: u8 {
@@ -8,6 +10,40 @@ bitflags::bitflags! {
         const HYPER = 0b0001_0000;
         const META = 0b0010_0000;
         const NONE = 0b0000_0000;
+    }
+}
+
+impl fmt::Display for KeyModifiers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self == Self::NONE {
+            return Ok(());
+        }
+
+        if self.contains(Self::SHIFT) {
+            " + Shift".fmt(f)?;
+        }
+
+        if self.contains(Self::CONTROL) {
+            " + Control".fmt(f)?;
+        }
+
+        if self.contains(Self::ALT) {
+            " + Alt".fmt(f)?;
+        }
+
+        if self.contains(Self::SUPER) {
+            " + Super".fmt(f)?;
+        }
+
+        if self.contains(Self::HYPER) {
+            " + Hyper".fmt(f)?;
+        }
+
+        if self.contains(Self::HYPER) {
+            " + Meta".fmt(f)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -81,4 +117,14 @@ pub enum KeyCode {
     KeypadBegin,
     Media(MediaKeyCode),
     Modifier(ModifierKeyCode),
+}
+
+impl fmt::Display for KeyCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeyCode::F(n) => write!(f, "F{n}"),
+            KeyCode::Char(ch) => ch.fmt(f),
+            keycode => write!(f, "{keycode:?}"),
+        }
+    }
 }

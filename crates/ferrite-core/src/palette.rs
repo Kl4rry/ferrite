@@ -215,7 +215,7 @@ impl CommandPalette {
                     InputCommand::Char(ch) if LineEnding::from_char(ch).is_some() => {
                         enter = true;
                     }
-                    InputCommand::Tab { back } if mode == "command" => {
+                    InputCommand::Tab { back } if mode == "command" || mode == "shell" => {
                         if back {
                             completer.backward(buffer)
                         } else {
@@ -241,7 +241,7 @@ impl CommandPalette {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),
                     });
-                } else if buffer.is_dirty() && mode == "command" {
+                } else if buffer.is_dirty() && mode == "command" || mode == "shell" {
                     completer.update_text(buffer, ctx);
                 }
             }

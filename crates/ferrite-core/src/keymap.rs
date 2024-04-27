@@ -1,12 +1,16 @@
+use core::fmt;
+
 use ferrite_utility::point::Point;
 
 pub mod keycode;
 use keycode::{KeyCode, KeyModifiers};
 
+use crate::panes::Direction;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mapping {
-    keycode: KeyCode,
-    modifiers: KeyModifiers,
+    pub keycode: KeyCode,
+    pub modifiers: KeyModifiers,
 }
 
 impl Mapping {
@@ -21,8 +25,9 @@ pub enum LineMoveDir {
     Down,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputCommand {
+    OpenUrl,
     MoveRight {
         shift: bool,
     },
@@ -96,6 +101,12 @@ pub enum InputCommand {
     Close,
     GrowPane,
     ShrinkPane,
+    Choord,
+    Format,
+    Shell,
+    Split {
+        direction: Direction,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -143,6 +154,64 @@ pub fn get_command_from_input(
     }
 
     None
+}
+
+pub fn get_default_choords() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
+    vec![
+        (
+            Mapping::new(KeyCode::Esc, KeyModifiers::NONE),
+            InputCommand::Escape,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            InputCommand::Choord,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            InputCommand::Format,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
+            InputCommand::Shell,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
+            InputCommand::OpenUrl,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+            InputCommand::Split {
+                direction: Direction::Right,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('l'), KeyModifiers::CONTROL),
+            InputCommand::Split {
+                direction: Direction::Left,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('u'), KeyModifiers::CONTROL),
+            InputCommand::Split {
+                direction: Direction::Up,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+            InputCommand::Split {
+                direction: Direction::Down,
+            },
+            Exclusiveness::Exclusive,
+        ),
+    ]
 }
 
 pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
@@ -461,5 +530,86 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             InputCommand::ShrinkPane,
             Exclusiveness::Exclusive,
         ),
+        (
+            Mapping::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            InputCommand::Choord,
+            Exclusiveness::Exclusive,
+        ),
     ]
+}
+
+impl InputCommand {
+    fn as_str(&self) -> &'static str {
+        match self {
+            InputCommand::MoveRight { .. } => "move right",
+            InputCommand::MoveLeft { .. } => "move left",
+            InputCommand::MoveUp { .. } => "move up",
+            InputCommand::MoveDown { .. } => "move down",
+            InputCommand::MoveRightWord { .. } => "move right word",
+            InputCommand::MoveLeftWord { .. } => "move left word",
+            InputCommand::Insert(_) => "insert",
+            InputCommand::Char(_) => "char",
+            InputCommand::NewLine => "insert newline",
+            InputCommand::MoveLine(LineMoveDir::Up) => "move line up",
+            InputCommand::MoveLine(LineMoveDir::Down) => "move line down",
+            InputCommand::Backspace => "backspace",
+            InputCommand::BackspaceWord => "backspace word",
+            InputCommand::Delete => "delete",
+            InputCommand::DeleteWord => "delete word",
+            InputCommand::SetCursorPos(_, _) => "set cursor pos",
+            InputCommand::SelectArea { .. } => "select area",
+            InputCommand::PromptGoto => "goto",
+            InputCommand::Home { .. } => "home",
+            InputCommand::End { .. } => "end",
+            InputCommand::Eof { .. } => "end of file",
+            InputCommand::Start { .. } => "start",
+            InputCommand::SelectAll => "select all",
+            InputCommand::SelectLine => "select line",
+            InputCommand::SelectWord => "select word",
+            InputCommand::Copy => "copy",
+            InputCommand::Cut => "cut",
+            InputCommand::Paste => "paste",
+            InputCommand::PastePrimary(_, _) => "paste primary",
+            InputCommand::Tab { .. } => "tab",
+            InputCommand::Undo => "undo",
+            InputCommand::Redo => "redo",
+            InputCommand::RevertBuffer => "revert buffer",
+            InputCommand::VerticalScroll(_) => "vertical scroll",
+            InputCommand::FileSearch => "search file",
+            InputCommand::CaseInsensitive => "case insensitive",
+            InputCommand::NextMatch => "next match",
+            InputCommand::PrevMatch => "prev match",
+            InputCommand::FocusPalette => "open palette",
+            InputCommand::OpenFileBrowser => "file browser",
+            InputCommand::OpenBufferBrowser => "buffer browser",
+            InputCommand::Escape => "escape",
+            InputCommand::Save => "save",
+            InputCommand::Quit => "quit",
+            InputCommand::Close => "close",
+            InputCommand::GrowPane => "grow pane",
+            InputCommand::ShrinkPane => "shrink pane",
+            InputCommand::Choord => "choord",
+            InputCommand::Format => "Format",
+            InputCommand::Shell => "Run shell command",
+            InputCommand::OpenUrl => "Open url in selection",
+            InputCommand::Split {
+                direction: Direction::Right,
+            } => "Split right",
+            InputCommand::Split {
+                direction: Direction::Left,
+            } => "Split left",
+            InputCommand::Split {
+                direction: Direction::Up,
+            } => "Split up",
+            InputCommand::Split {
+                direction: Direction::Down,
+            } => "Split down",
+        }
+    }
+}
+
+impl fmt::Display for InputCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_str().fmt(f)
+    }
 }
