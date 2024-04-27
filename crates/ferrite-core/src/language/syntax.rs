@@ -39,8 +39,6 @@ impl SyntaxProvider {
             let mut highlighter = Highlighter::default();
             let mut rope;
 
-            let mut old_tree: Option<Tree> = None;
-
             loop {
                 rope = match rope_rx.recv() {
                     Ok(rope) => rope,
@@ -55,20 +53,16 @@ impl SyntaxProvider {
                 }
 
                 let time = Instant::now();
-                if let Ok((iterator, tree)) = highlighter.highlight(
-                    &highlight_config.clone(),
-                    rope.slice(..),
-                    old_tree.as_ref(),
-                    |name| {
+                if let Ok(iterator) =
+                    highlighter.highlight(&highlight_config.clone(), rope.slice(..), |name| {
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
-                    },
-                ) {
+                    })
+                {
                     *result.lock().unwrap() = Some((
                         rope.clone(),
                         iterator.filter_map(|event| event.ok()).collect(),
                     ));
                     proxy.request_render();
-                    old_tree = tree;
                 }
                 tracing::trace!(
                     "highlight took: {}us or {}ms",
@@ -247,7 +241,7 @@ where
 }
 
 struct HighlightIterLayer<'a> {
-    pub tree: Tree,
+    _tree: Tree,
     cursor: QueryCursor,
     captures: iter::Peekable<QueryCaptures<'a, 'a, RopeProvider<'a>>>,
     config: &'a HighlightConfiguration,
@@ -277,18 +271,10 @@ impl Highlighter {
         &'a mut self,
         config: &'a HighlightConfiguration,
         source: RopeSlice<'a>,
-        old_tree: Option<&Tree>,
         mut injection_callback: impl FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a,
-    ) -> Result<
-        (
-            impl Iterator<Item = Result<HighlightEvent, Error>> + 'a,
-            Option<Tree>,
-        ),
-        Error,
-    > {
+    ) -> Result<impl Iterator<Item = Result<HighlightEvent, Error>> + 'a, Error> {
         let layers = HighlightIterLayer::new(
             source,
-            old_tree,
             self,
             &mut injection_callback,
             config,
@@ -300,7 +286,6 @@ impl Highlighter {
                 end_point: Point::new(usize::MAX, usize::MAX),
             }],
         )?;
-        let tree = layers.first().map(|layer| layer.tree.clone());
         assert_ne!(layers.len(), 0);
         let mut result = HighlightIter {
             source,
@@ -312,7 +297,7 @@ impl Highlighter {
             last_highlight_range: None,
         };
         result.sort_layers();
-        Ok((result, tree))
+        Ok(result)
     }
 }
 
@@ -443,7 +428,6 @@ impl<'a> HighlightIterLayer<'a> {
     /// added to the returned vector.
     fn new<F: FnMut(&str) -> Option<&'a HighlightConfiguration> + 'a>(
         source: RopeSlice<'a>,
-        old_tree: Option<&Tree>,
         highlighter: &mut Highlighter,
         injection_callback: &mut F,
         mut config: &'a HighlightConfiguration,
@@ -472,7 +456,7 @@ impl<'a> HighlightIterLayer<'a> {
                                 &[]
                             }
                         },
-                        old_tree,
+                        None,
                     )
                     .ok_or(Error::Cancelled)?;
                 tracing::trace!(
@@ -552,7 +536,7 @@ impl<'a> HighlightIterLayer<'a> {
                     }],
                     cursor,
                     depth,
-                    tree,
+                    _tree: tree,
                     captures,
                     config,
                     ranges,
@@ -839,7 +823,6 @@ where
                         if !ranges.is_empty() {
                             match HighlightIterLayer::new(
                                 self.source,
-                                None,
                                 self.highlighter,
                                 &mut self.injection_callback,
                                 config,
