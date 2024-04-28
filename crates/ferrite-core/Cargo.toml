@@ -10,6 +10,7 @@ bitflags = { workspace = true }
 blake3 = { workspace = true }
 cb = { workspace = true }
 chardetng = { workspace = true }
+content_inspector = { workspace = true }
 csscolorparser = { workspace = true, features = ["rgb"] }
 detect-indent = { workspace = true } 
 directories = { workspace = true }
@@ -38,7 +39,6 @@ subprocess = { workspace = true }
 toml = { workspace = true } 
 tracing = { workspace = true } 
 trash = { workspace = true } 
-tree_magic_mini = { workspace = true, features = ["with-gpl-data"] }
 tree-sitter = { workspace = true } 
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }

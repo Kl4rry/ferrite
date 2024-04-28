@@ -1,5 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
+    fs::File,
+    io::Read,
     path::{Path, PathBuf},
     thread,
     time::{Duration, Instant},
@@ -25,11 +27,17 @@ fn get_text_file_path(path: PathBuf) -> Option<PathBuf> {
 }
 
 fn is_text_file(path: impl AsRef<Path>) -> bool {
-    let Some(mime) = tree_magic_mini::from_filepath(path.as_ref()) else {
+    let Ok(mut file) = File::open(&path) else {
         return false;
     };
 
-    mime.starts_with("text")
+    let mut buf = [0; 1024];
+    let Ok(read) = file.read(&mut buf) else {
+        return false;
+    };
+
+    let content_type = content_inspector::inspect(&buf[..read]);
+    content_type.is_text()
 }
 
 fn trim_path(start: &str, path: &Path) -> String {
