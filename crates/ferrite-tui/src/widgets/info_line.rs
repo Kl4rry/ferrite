@@ -20,6 +20,7 @@ pub struct InfoLine<'a> {
     pub language: String,
     pub size: usize,
     pub spinner: Option<char>,
+    pub read_only: bool,
 }
 
 impl InfoLine<'_> {
@@ -43,6 +44,7 @@ impl InfoLine<'_> {
             "branch" => self.branch.clone(),
             "size" => Some(format_byte_size(self.size)),
             "spinner" => Some(self.spinner.unwrap_or(' ').to_string()),
+            "read_only" if self.read_only => Some("🔒".into()),
             _ => None,
         }
     }

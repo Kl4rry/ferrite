@@ -76,6 +76,7 @@ pub struct Buffer {
     file: Option<PathBuf>,
     dirty: bool,
     read_only: bool,
+    pub read_only_file: bool,
     last_edit: Instant,
     pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
@@ -104,6 +105,7 @@ impl Default for Buffer {
             dirty: false,
             last_edit: Instant::now(),
             read_only: false,
+            read_only_file: false,
             line_ending: DEFAULT_LINE_ENDING,
             clamp_cursor: true,
             view_lines: 10000,
@@ -154,6 +156,13 @@ impl Buffer {
 
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self, io::Error> {
         let path = path.as_ref();
+        #[cfg(not(unix))]
+        let read_only_file = {
+            let metadata = fs::metadata(path)?;
+            metadata.permissions().readonly()
+        };
+        #[cfg(unix)]
+        let read_only_file = nix::unistd::access(path, nix::unistd::AccessFlags::R_OK).is_ok();
         let (encoding, rope) = read::read_from_file(path)?;
 
         let mut syntax = Syntax::new(get_buffer_proxy());
@@ -167,6 +176,7 @@ impl Buffer {
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
+            read_only_file,
             file: Some(path.into()),
             encoding,
             syntax: Some(syntax),

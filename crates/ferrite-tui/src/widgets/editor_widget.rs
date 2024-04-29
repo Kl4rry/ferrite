@@ -386,6 +386,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 branch: &branch,
                 language: buffer.language_name(),
                 size: buffer.rope().len_bytes(),
+                read_only: buffer.read_only_file,
                 spinner,
             };
             info_line.render(
