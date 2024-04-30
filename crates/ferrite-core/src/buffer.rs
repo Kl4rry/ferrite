@@ -158,7 +158,7 @@ impl Buffer {
         let path = path.as_ref();
         #[cfg(not(unix))]
         let read_only_file = {
-            let metadata = fs::metadata(path)?;
+            let metadata = std::fs::metadata(path)?;
             metadata.permissions().readonly()
         };
         #[cfg(unix)]
