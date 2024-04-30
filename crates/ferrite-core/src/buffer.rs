@@ -162,7 +162,7 @@ impl Buffer {
             metadata.permissions().readonly()
         };
         #[cfg(unix)]
-        let read_only_file = nix::unistd::access(path, nix::unistd::AccessFlags::R_OK).is_ok();
+        let read_only_file = !nix::unistd::access(path, nix::unistd::AccessFlags::W_OK).is_ok();
         let (encoding, rope) = read::read_from_file(path)?;
 
         let mut syntax = Syntax::new(get_buffer_proxy());
