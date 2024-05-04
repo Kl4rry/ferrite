@@ -162,7 +162,7 @@ impl Buffer {
             metadata.permissions().readonly()
         };
         #[cfg(unix)]
-        let read_only_file = !nix::unistd::access(path, nix::unistd::AccessFlags::W_OK).is_ok();
+        let read_only_file = nix::unistd::access(path, nix::unistd::AccessFlags::W_OK).is_err();
         let (encoding, rope) = read::read_from_file(path)?;
 
         let mut syntax = Syntax::new(get_buffer_proxy());
@@ -776,10 +776,10 @@ impl Buffer {
         } else {
             self.history
                 .insert(&mut self.rope, self.cursor.position, text);
-            if let Some(pair) = get_pair_char(text) {
+            /*if let Some(pair) = get_pair_char(text) {
                 self.history
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
-            }
+            }*/
         }
 
         self.cursor.position += text.len();

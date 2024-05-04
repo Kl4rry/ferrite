@@ -8,6 +8,9 @@ version = "0.1.0"
 anyhow = "1.0.68" 
 arboard = "3.2.0" 
 bitflags = "2.5.0" 
+
+
+
 blake3 = "1.5.1" 
 cb = { package = "crossbeam-channel", version = "0.5.8" } 
 cc = "1.0.79" 
