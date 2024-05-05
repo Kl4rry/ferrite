@@ -15,6 +15,7 @@ pub enum Command {
     Shell { args: Vec<PathBuf>, pipe: bool },
     Case(Case),
     Split(Direction),
+    About,
     Pwd,
     New,
     Reload,

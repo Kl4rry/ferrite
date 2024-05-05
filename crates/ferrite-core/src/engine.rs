@@ -380,6 +380,13 @@ impl Engine {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::About => {
+                                self.palette.set_msg(format!(
+                                    "ferrite\nVersion: {}\nCommit: {}",
+                                    env!("CARGO_PKG_VERSION"),
+                                    env!("GIT_HASH"),
+                                ));
+                            }
                             Command::Url => self.open_selected_url(),
                             Command::Pwd => match env::current_dir() {
                                 Ok(path) => self.palette.set_msg(path.to_string_lossy()),
