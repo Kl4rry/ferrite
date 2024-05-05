@@ -312,11 +312,11 @@ impl TuiApp {
                                         let buffer = &self.engine.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
-                                        let column = (event.column as usize)
-                                            .saturating_sub(left_offset)
-                                            + buffer.col_pos();
-                                        let line = event.row as usize
-                                            + buffer.line_pos().saturating_sub(pane_rect.y);
+                                        let column = ((event.column as usize) + buffer.col_pos())
+                                            .saturating_sub(pane_rect.x)
+                                            .saturating_sub(left_offset);
+                                        let line = (event.row as usize + buffer.line_pos())
+                                            .saturating_sub(pane_rect.y);
                                         break 'block Some(InputCommand::SetCursorPos(
                                             column, line,
                                         ));
@@ -350,19 +350,21 @@ impl TuiApp {
                                                 lines_to_left_offset(buffer.len_lines());
 
                                             let anchor = {
-                                                let column = column.saturating_sub(left_offset)
-                                                    + buffer.col_pos();
-                                                let line = line
-                                                    + buffer.line_pos().saturating_sub(pane_rect.y);
+                                                let column = (column + buffer.col_pos())
+                                                    .saturating_sub(left_offset)
+                                                    .saturating_sub(pane_rect.x);
+                                                let line = (line + buffer.line_pos())
+                                                    .saturating_sub(pane_rect.y);
                                                 Point::new(column, line)
                                             };
 
                                             let cursor = {
-                                                let column = (event.column as usize)
-                                                    .saturating_sub(left_offset)
-                                                    + buffer.col_pos();
-                                                let line = event.row as usize
-                                                    + buffer.line_pos().saturating_sub(pane_rect.y);
+                                                let column = ((event.column as usize)
+                                                    + buffer.col_pos())
+                                                .saturating_sub(left_offset)
+                                                .saturating_sub(pane_rect.x);
+                                                let line = (event.row as usize + buffer.line_pos())
+                                                    .saturating_sub(pane_rect.y);
                                                 Point::new(column, line)
                                             };
 
