@@ -24,7 +24,7 @@ impl fmt::Display for KeyModifiers {
         }
 
         if self.contains(Self::CONTROL) {
-            " + Control".fmt(f)?;
+            " + Ctrl".fmt(f)?;
         }
 
         if self.contains(Self::ALT) {
@@ -39,7 +39,7 @@ impl fmt::Display for KeyModifiers {
             " + Hyper".fmt(f)?;
         }
 
-        if self.contains(Self::HYPER) {
+        if self.contains(Self::META) {
             " + Meta".fmt(f)?;
         }
 

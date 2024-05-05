@@ -33,15 +33,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-stable-debug-target-
 
-      - name: Install system deps
-        run: sudo apt-get update && sudo apt-get install libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libspeechd-dev libxkbcommon-dev libssl-dev
-
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update 
           rustup default ${{ matrix.rust }}
       - name: Build
-        run: cargo build --release
+        run: cargo build --release --all-features
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v1
@@ -134,7 +131,7 @@ jobs:
       - name: Build
         run: |
           source "$HOME/.cargo/env"
-          cargo build --release
+          cargo build --release --all-features
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v1
@@ -177,7 +174,7 @@ jobs:
           rustup update ${{ matrix.rust }} --no-self-update 
           rustup default ${{ matrix.rust }}
       - name: Build
-        run: cargo build --release
+        run: cargo build --release --all-features
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v1
@@ -220,7 +217,7 @@ jobs:
 #          rustup update ${{ matrix.rust }} --no-self-update 
 #          rustup default ${{ matrix.rust }}
 #      - name: Build
-#        run: cargo build --release
+#        run: cargo build --release --all-features
 #
 #      - name: Upload build artifacts
 #        uses: actions/upload-artifact@v1

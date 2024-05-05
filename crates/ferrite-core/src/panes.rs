@@ -156,7 +156,7 @@ impl Node {
                     let mut left = *pane_kind;
                     let mut right = new_pane;
 
-                    if matches!(direction, Direction::Right | Direction::Down) {
+                    if matches!(direction, Direction::Left | Direction::Up) {
                         mem::swap(&mut left, &mut right);
                     }
 
