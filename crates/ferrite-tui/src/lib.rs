@@ -278,9 +278,9 @@ impl TuiApp {
                                         let buffer = &self.engine.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
-                                        let column = (event.column as usize)
-                                            .saturating_sub(left_offset)
-                                            + buffer.col_pos().saturating_sub(pane_rect.x);
+                                        let column = ((event.column as usize) + buffer.col_pos())
+                                            .saturating_sub(pane_rect.x)
+                                            .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos())
                                             .saturating_sub(pane_rect.y);
                                         break 'block Some(InputCommand::PastePrimary(
@@ -317,9 +317,7 @@ impl TuiApp {
                                             .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos())
                                             .saturating_sub(pane_rect.y);
-                                        break 'block Some(InputCommand::SetCursorPos(
-                                            column, line,
-                                        ));
+                                        break 'block Some(InputCommand::ClickCell(column, line));
                                     }
                                 }
                             }

@@ -5,7 +5,7 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
     sync::OnceLock,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use encoding_rs::Encoding;
@@ -78,6 +78,9 @@ pub struct Buffer {
     read_only: bool,
     pub read_only_file: bool,
     last_edit: Instant,
+    last_click: Instant,
+    last_click_pos: Point<usize>,
+    clicks_in_a_row: u8,
     pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
@@ -104,6 +107,9 @@ impl Default for Buffer {
             indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
             last_edit: Instant::now(),
+            last_click: Instant::now(),
+            last_click_pos: Point::new(0, 0),
+            clicks_in_a_row: 0,
             read_only: false,
             read_only_file: false,
             line_ending: DEFAULT_LINE_ENDING,
@@ -1294,6 +1300,28 @@ impl Buffer {
                 self.center_on_cursor();
             }
         }
+    }
+
+    pub fn handle_click(&mut self, col: usize, line: usize) {
+        self.set_cursor_pos(col, line);
+        let click_point = Point::new(col, line);
+        let now = Instant::now();
+        if now.duration_since(self.last_click) < Duration::from_millis(500)
+            && click_point == self.last_click_pos
+        {
+            self.clicks_in_a_row += 1;
+            if self.clicks_in_a_row == 1 {
+                self.select_word();
+            } else if self.clicks_in_a_row == 2 {
+                self.select_line();
+            } else {
+                self.clicks_in_a_row = 0;
+            }
+        } else {
+            self.clicks_in_a_row = 0;
+        }
+        self.last_click = now;
+        self.last_click_pos = click_point;
     }
 
     pub fn set_cursor_pos(&mut self, col: usize, line: usize) {

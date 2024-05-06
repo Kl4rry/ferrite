@@ -56,7 +56,7 @@ pub enum InputCommand {
     BackspaceWord,
     Delete,
     DeleteWord,
-    SetCursorPos(usize, usize),
+    ClickCell(usize, usize),
     SelectArea {
         cursor: Point<usize>,
         anchor: Point<usize>,
@@ -556,7 +556,7 @@ impl InputCommand {
             InputCommand::BackspaceWord => "backspace word",
             InputCommand::Delete => "delete",
             InputCommand::DeleteWord => "delete word",
-            InputCommand::SetCursorPos(_, _) => "set cursor pos",
+            InputCommand::ClickCell(_, _) => "set cursor pos",
             InputCommand::SelectArea { .. } => "select area",
             InputCommand::PromptGoto => "goto",
             InputCommand::Home { .. } => "home",

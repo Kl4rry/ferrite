@@ -33,7 +33,7 @@ impl Buffer {
             Tab { back } if !self.read_only => self.tab(back),
             VerticalScroll(distance) => self.vertical_scroll(distance),
             Escape => self.escape(),
-            SetCursorPos(col, line) => self.set_cursor_pos(col, line),
+            ClickCell(col, line) => self.handle_click(col, line),
             SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
             NextMatch => self.next_match(),
             PrevMatch => self.prev_match(),

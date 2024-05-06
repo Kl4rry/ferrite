@@ -200,16 +200,17 @@ impl StatefulWidget for EditorWidget<'_> {
                         let column =
                             buffer.cursor_grapheme_column() as i64 - buffer.col_pos() as i64;
 
-                        if view.lines.get(row).is_some() {
-                            if column < text_area.width as i64 && column >= 0 {
-                                cursor_rect = Some(Rect {
-                                    x: text_area.x + column as u16,
-                                    y: text_area.y + row as u16,
-                                    width: 1,
-                                    height: 1,
-                                });
-                                break 'exit;
-                            }
+                        if view.lines.get(row).is_some()
+                            && column < text_area.width as i64
+                            && column >= 0
+                        {
+                            cursor_rect = Some(Rect {
+                                x: text_area.x + column as u16,
+                                y: text_area.y + row as u16,
+                                width: 1,
+                                height: 1,
+                            });
+                            break 'exit;
                         }
                     }
                 }
