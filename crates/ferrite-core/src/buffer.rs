@@ -749,6 +749,9 @@ impl Buffer {
     }
 
     pub fn insert_text(&mut self, text: &str) {
+        if text.is_empty() {
+            return;
+        }
         // TODO collect multiple words/whitespace chars into single undo step
         self.history.begin(self.cursor, self.dirty);
 
@@ -1312,8 +1315,10 @@ impl Buffer {
             self.clicks_in_a_row += 1;
             if self.clicks_in_a_row == 1 {
                 self.select_word();
+                self.copy_selection_to_primary();
             } else if self.clicks_in_a_row == 2 {
                 self.select_line();
+                self.copy_selection_to_primary();
             } else {
                 self.clicks_in_a_row = 0;
             }
@@ -1363,6 +1368,10 @@ impl Buffer {
         self.set_cursor_pos(cursor.column, cursor.line);
         self.set_anchor_pos(anchor.column, anchor.line);
 
+        self.copy_selection_to_primary();
+    }
+
+    pub fn copy_selection_to_primary(&mut self) {
         #[cfg(target_os = "linux")]
         {
             let start = self.cursor.position.min(self.cursor.anchor);

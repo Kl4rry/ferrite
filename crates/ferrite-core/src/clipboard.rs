@@ -31,8 +31,9 @@ pub fn set_contents(text: impl Into<String>) {
 
     let mut clipboard = CLIPBOARD.lock().unwrap();
     if let Some(clipboard) = &mut *clipboard {
-        if clipboard.set_text(&text).is_ok() {
-            return;
+        match clipboard.set_text(&text) {
+            Ok(_) => return,
+            Err(err) => tracing::error!("{err}"),
         }
     }
 
@@ -58,10 +59,13 @@ pub fn get_contents() -> String {
 pub fn set_primary(text: impl Into<String>) {
     use arboard::{LinuxClipboardKind, SetExtLinux};
     if let Some(clipboard) = CLIPBOARD.lock().unwrap().as_mut() {
-        let _ = clipboard
+        if let Err(err) = clipboard
             .set()
             .clipboard(LinuxClipboardKind::Primary)
-            .text(text.into());
+            .text(text.into())
+        {
+            tracing::error!("{err}");
+        }
     }
 }
 
