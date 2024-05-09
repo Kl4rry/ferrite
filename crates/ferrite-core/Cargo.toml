@@ -62,6 +62,7 @@ lang-fish = ["ferrite-tree-sitter/lang-fish"]
 lang-fortran = ["ferrite-tree-sitter/lang-fortran"]
 lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
 lang-html = ["ferrite-tree-sitter/lang-html"]
+lang-hyprlang = ["ferrite-tree-sitter/lang-hyprlang"]
 lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 lang-json = ["ferrite-tree-sitter/lang-json"]
 lang-md = ["ferrite-tree-sitter/lang-md"]
@@ -83,6 +84,7 @@ default = [
   "lang-css",
   "lang-glsl",
   "lang-html",
+  "lang-hyprlang",
   "lang-json",
   "lang-md",
   "lang-python",

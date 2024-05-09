@@ -80,6 +80,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("fortran", OnceCell::new());
     #[cfg(feature = "lang-zig")]
     langs.insert("zig", OnceCell::new());
+    #[cfg(feature = "lang-hyprlang")]
+    langs.insert("hyprlang", OnceCell::new());
     langs
 });
 
@@ -254,6 +256,14 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             include_str!("../../../queries/zig/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-hyprlang")]
+        "hyprlang" => LanguageConfig::new(
+            "hyprlang",
+            ferrite_tree_sitter::tree_sitter_hyprlang::language(),
+            include_str!("../../../queries/hyprlang/highlights.scm"),
+            include_str!("../../../queries/hyprlang/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -292,6 +302,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".ron"), "ron"),
             (Suffix(".f"), "fortran"),
             (Suffix(".zig"), "zig"),
+            (Name("hyprland.conf"), "hyprlang"),
             // cmake
             (Name("CMakeLists.txt"), "cmake"),
             (Suffix(".cmake"), "cmake"),

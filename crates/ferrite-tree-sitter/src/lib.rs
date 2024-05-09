@@ -20,6 +20,8 @@ pub use tree_sitter_fortran;
 pub use tree_sitter_glsl;
 #[cfg(feature = "lang-html")]
 pub use tree_sitter_html;
+#[cfg(feature = "lang-hyprlang")]
+pub use tree_sitter_hyprlang;
 #[cfg(feature = "lang-javascript")]
 pub use tree_sitter_javascript;
 #[cfg(feature = "lang-json")]

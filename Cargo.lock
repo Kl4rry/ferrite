@@ -991,6 +991,7 @@ dependencies = [
  "tree-sitter-fortran",
  "tree-sitter-glsl",
  "tree-sitter-html",
+ "tree-sitter-hyprlang",
  "tree-sitter-javascript",
  "tree-sitter-json",
  "tree-sitter-md",
@@ -3070,6 +3071,15 @@ name = "tree-sitter-html"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "184e6b77953a354303dc87bf5fe36558c83569ce92606e7b382a0dc1b7443443"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-hyprlang"
+version = "3.0.0"
+source = "git+https://github.com/tree-sitter-grammars/tree-sitter-hyprlang?rev=27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3#27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3"
 dependencies = [
  "cc",
  "tree-sitter",
