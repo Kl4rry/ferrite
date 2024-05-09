@@ -76,6 +76,10 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("bash", OnceCell::new());
     #[cfg(feature = "lang-ron")]
     langs.insert("ron", OnceCell::new());
+    #[cfg(feature = "lang-fortran")]
+    langs.insert("fortran", OnceCell::new());
+    #[cfg(feature = "lang-zig")]
+    langs.insert("zig", OnceCell::new());
     langs
 });
 
@@ -234,6 +238,22 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             include_str!("../../../queries/ron/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-fortran")]
+        "fortran" => LanguageConfig::new(
+            "fortran",
+            ferrite_tree_sitter::tree_sitter_fortran::language(),
+            include_str!("../../../queries/fortran/highlights.scm"),
+            include_str!("../../../queries/fortran/injections.scm"),
+            "",
+        ),
+        #[cfg(feature = "lang-zig")]
+        "zig" => LanguageConfig::new(
+            "zig",
+            ferrite_tree_sitter::tree_sitter_zig::language(),
+            include_str!("../../../queries/zig/highlights.scm"),
+            include_str!("../../../queries/zig/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -270,6 +290,8 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".fish"), "fish"),
             (Suffix(".js"), "javascript"),
             (Suffix(".ron"), "ron"),
+            (Suffix(".f"), "fortran"),
+            (Suffix(".zig"), "zig"),
             // cmake
             (Name("CMakeLists.txt"), "cmake"),
             (Suffix(".cmake"), "cmake"),

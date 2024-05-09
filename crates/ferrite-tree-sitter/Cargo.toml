@@ -1,7 +1,7 @@
 [package]
+edition = "2021"
 name = "ferrite-tree-sitter"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
@@ -13,9 +13,10 @@ tree-sitter-comment = { git = "https://github.com/stsewd/tree-sitter-comment", r
 tree-sitter-cpp = { git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "a90f170f92d5d70e7c2d4183c146e61ba5f3a457", optional = true }
 tree-sitter-css = { git = "https://github.com/syntacti/tree-sitter-css", rev = "397aa132b9982fcdd2d473ed69343762a557f10a", optional = true }
 tree-sitter-fish = { git = "https://github.com/ram02z/tree-sitter-fish", rev = "6675b56266b3f615fb112205b6b83a79315309c4", optional = true }
+tree-sitter-fortran = { git = "https://github.com/stadelmanma/tree-sitter-fortran", rev = "f73d473e3530862dee7cbb38520f28824e7804f6", optional = true }
 tree-sitter-glsl = { git = "https://github.com/theHamsta/tree-sitter-glsl", rev = "74329feb2605deccd32b1c644af507daa6fb82f1", optional = true }
 tree-sitter-html = { version = "0.19.0", optional = true }
-tree-sitter-javascript = { version = "0.20.0", optional = true }
+tree-sitter-javascript = { git = "https://github.com/tree-sitter/tree-sitter-javascript", rev = "f772967f7b7bc7c28f845be2420a38472b16a8ee", optional = true }
 tree-sitter-json = { version = "0.19.0", optional = true }
 tree-sitter-md = { git = "https://github.com/MDeiml/tree-sitter-markdown", rev = "272e080bca0efd19a06a7f4252d746417224959e", optional = true }
 tree-sitter-python = { version = "0.20.2", optional = true }
@@ -24,24 +25,27 @@ tree-sitter-rust = { version = "0.20.3", optional = true }
 tree-sitter-toml = { git = "https://github.com/Mathspy/tree-sitter-toml", optional = true }
 tree-sitter-xml = { git = "https://github.com/RenjiSann/tree-sitter-xml", rev = "422528a43630db6dcc1e222d1c5ee3babd559473", optional = true }
 tree-sitter-yaml = { git = "https://github.com/panekj/tree-sitter-yaml", rev = "80c8d76847f03e772c5c524cf29bafb56858a8d1", optional = true }
+tree-sitter-zig = { git = "https://github.com/maxxnino/tree-sitter-zig", rev = "0d08703e4c3f426ec61695d7617415fff97029bd", optional = true }
 
 [features]
 lang-bash = ["dep:tree-sitter-bash"]
 lang-c = ["dep:tree-sitter-c"]
 lang-c-sharp = ["dep:tree-sitter-c-sharp"]
 lang-cmake = ["dep:tree-sitter-cmake"]
+lang-comment = ["dep:tree-sitter-comment"]
 lang-cpp = ["dep:tree-sitter-cpp"]
 lang-css = ["dep:tree-sitter-css"]
+lang-fish = ["dep:tree-sitter-fish"]
+lang-fortran = ["dep:tree-sitter-fortran"]
 lang-glsl = ["dep:tree-sitter-glsl"]
 lang-html = ["dep:tree-sitter-html"]
+lang-javascript = ["dep:tree-sitter-javascript"]
 lang-json = ["dep:tree-sitter-json"]
 lang-md = ["dep:tree-sitter-md"]
 lang-python = ["dep:tree-sitter-python"]
+lang-ron = ["dep:tree-sitter-ron"]
 lang-rust = ["dep:tree-sitter-rust"]
 lang-toml = ["dep:tree-sitter-toml"]
 lang-xml = ["dep:tree-sitter-xml"]
 lang-yaml = ["dep:tree-sitter-yaml"]
-lang-fish = ["dep:tree-sitter-fish"]
-lang-comment = ["dep:tree-sitter-comment"]
-lang-javascript = ["dep:tree-sitter-javascript"]
-lang-ron = ["dep:tree-sitter-ron"]
+lang-zig = ["dep:tree-sitter-zig"]

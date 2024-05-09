@@ -14,6 +14,8 @@ pub use tree_sitter_cpp;
 pub use tree_sitter_css;
 #[cfg(feature = "lang-fish")]
 pub use tree_sitter_fish;
+#[cfg(feature = "lang-fortran")]
+pub use tree_sitter_fortran;
 #[cfg(feature = "lang-glsl")]
 pub use tree_sitter_glsl;
 #[cfg(feature = "lang-html")]
@@ -36,3 +38,5 @@ pub use tree_sitter_toml;
 pub use tree_sitter_xml;
 #[cfg(feature = "lang-yaml")]
 pub use tree_sitter_yaml;
+#[cfg(feature = "lang-zig")]
+pub use tree_sitter_zig;

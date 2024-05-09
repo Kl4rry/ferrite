@@ -137,12 +137,12 @@
   "${" @punctuation.special
   "}" @punctuation.special) @embedded
 
-[
-  ";"
-  "?."
-  "."
-  ","
-] @punctuation.delimiter
+;[
+;  ";"
+;  "?."
+;  "."
+;  ","
+;] @punctuation.delimiter
 
 [
   "-"
@@ -254,4 +254,4 @@
 [
   "import"
   "export"
-] @keyword.control.import 
+] @keyword.control.import

@@ -59,6 +59,7 @@ lang-comment = ["ferrite-tree-sitter/lang-comment"]
 lang-cpp = ["ferrite-tree-sitter/lang-cpp"]
 lang-css = ["ferrite-tree-sitter/lang-css"]
 lang-fish = ["ferrite-tree-sitter/lang-fish"]
+lang-fortran = ["ferrite-tree-sitter/lang-fortran"]
 lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
 lang-html = ["ferrite-tree-sitter/lang-html"]
 lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
@@ -70,6 +71,7 @@ lang-rust = ["ferrite-tree-sitter/lang-rust"]
 lang-toml = ["ferrite-tree-sitter/lang-toml"]
 lang-xml = ["ferrite-tree-sitter/lang-xml"]
 lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
+lang-zig = ["ferrite-tree-sitter/lang-zig"]
 
 default = [
   "embed-themes",
@@ -90,6 +92,8 @@ default = [
   "lang-yaml",
   "lang-fish",
   "lang-comment",
-  #"lang-javascript",
+  "lang-javascript",
   "lang-ron",
+  "lang-fortran",
+  "lang-zig",
 ]
