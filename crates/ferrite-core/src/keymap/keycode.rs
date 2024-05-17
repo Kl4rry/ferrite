@@ -87,8 +87,9 @@ pub enum ModifierKeyCode {
 }
 
 /// Represents a key.
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum KeyCode {
     Backspace,
     Enter,

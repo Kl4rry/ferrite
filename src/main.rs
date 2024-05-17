@@ -27,10 +27,7 @@ fn main() -> Result<ExitCode> {
                     Config::get_default_location()?.to_string_lossy()
                 );
 
-                #[cfg(feature = "embed-themes")]
-                {
-                    crate::ferrite_core::theme::init_themes()?;
-                }
+                ferrite_core::theme::init_themes()?;
 
                 return Ok(ExitCode::SUCCESS);
             }

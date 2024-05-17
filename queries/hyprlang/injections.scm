@@ -1,3 +1,3 @@
-;(exec
-;  (string) @injection.content
-;  (#set! injection.language "bash"))
+(exec
+  (string) @injection.content
+  (#set! injection.language "bash"))
