@@ -768,7 +768,7 @@ impl Buffer {
             })
         }
 
-        if self.cursor.has_selection() {
+        let inserted_bytes = if self.cursor.has_selection() {
             let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
             let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
             if let Some(pair) = get_pair_char(text) {
@@ -782,16 +782,32 @@ impl Buffer {
                 self.cursor.position = self.cursor.position.min(self.cursor.anchor);
                 self.cursor.anchor = self.cursor.position;
             }
+            text.len()
         } else {
+            let indent = self.get_prev_indent(self.cursor.position);
+
+            let mut input = String::new();
+            let mut first = true;
+            for line in Rope::from_str(&text).lines() {
+                let string = line.to_string();
+                if first {
+                    first = false;
+                } else {
+                    input.push_str(&indent);
+                }
+                input.push_str(&string);
+            }
+
             self.history
-                .insert(&mut self.rope, self.cursor.position, text);
+                .insert(&mut self.rope, self.cursor.position, &input);
             /*if let Some(pair) = get_pair_char(text) {
                 self.history
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
             }*/
-        }
+            input.len()
+        };
 
-        self.cursor.position += text.len();
+        self.cursor.position += inserted_bytes;
         self.cursor.anchor = self.cursor.position;
 
         self.update_affinity();
@@ -1514,6 +1530,30 @@ impl Buffer {
         let anchor = self.cursor.position.min(self.rope.len_bytes());
         self.cursor.position = self.rope().ensure_grapheme_boundary_next_byte(position);
         self.cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
+    }
+
+    pub fn get_prev_indent(&self, byte_index: usize) -> String {
+        let mut indent = String::new();
+        let mut line_idx = self.rope.byte_to_line(byte_index);
+
+        while line_idx > 0 {
+            let line = self.rope.line(line_idx);
+            line_idx -= 1;
+            if line.is_whitespace() {
+                continue;
+            }
+
+            for grapheme in line.grapehemes() {
+                if !grapheme.is_whitespace() {
+                    break;
+                }
+                indent.extend(grapheme.chunks());
+            }
+
+            break;
+        }
+
+        indent
     }
 }
 
