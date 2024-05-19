@@ -657,20 +657,14 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     fn get_text_start_byte(&self, line_idx: usize) -> usize {
         let line = self.line_without_line_ending(line_idx);
         let mut len = 0;
-        let mut has_text = false;
         for grapheme in line.grapehemes() {
             if !grapheme.is_whitespace() {
-                has_text = true;
                 break;
             }
             len += grapheme.len_bytes();
         }
 
-        if !has_text {
-            0
-        } else {
-            len
-        }
+        len
     }
 
     fn byte_to_col(&self, byte_idx: usize) -> usize {

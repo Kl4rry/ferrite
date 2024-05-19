@@ -748,7 +748,7 @@ impl Buffer {
         }
     }
 
-    pub fn insert_text(&mut self, text: &str) {
+    pub fn insert_text(&mut self, text: &str, auto_indent: bool) {
         if text.is_empty() {
             return;
         }
@@ -783,19 +783,24 @@ impl Buffer {
                 self.cursor.anchor = self.cursor.position;
             }
             text.len()
-        } else {
+        } else if auto_indent {
             let indent = self.get_prev_indent(self.cursor.position);
-
             let mut input = String::new();
             let mut first = true;
             for line in Rope::from_str(&text).lines() {
                 let string = line.to_string();
+                let trimmed = if LineEnding::from_rope_slice(&line).is_some() {
+                    string.as_str()
+                } else {
+                    string.trim_start()
+                };
+
                 if first {
                     first = false;
                 } else {
                     input.push_str(&indent);
                 }
-                input.push_str(&string);
+                input.push_str(trimmed);
             }
 
             self.history
@@ -805,6 +810,14 @@ impl Buffer {
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
             }*/
             input.len()
+        } else {
+            self.history
+                .insert(&mut self.rope, self.cursor.position, text);
+            /*if let Some(pair) = get_pair_char(text) {
+                self.history
+                    .insert(&mut self.rope, self.cursor.position + text.len(), pair);
+            }*/
+            text.len()
         };
 
         self.cursor.position += inserted_bytes;
@@ -1058,7 +1071,7 @@ impl Buffer {
 
         if !self.cursor.has_selection() && !back {
             let col = self.cursor_grapheme_column();
-            self.insert_text(&self.indent.to_next_ident(col));
+            self.insert_text(&self.indent.to_next_ident(col), false);
             return;
         }
 
@@ -1259,12 +1272,12 @@ impl Buffer {
     }
 
     pub fn paste(&mut self) {
-        self.insert_text(&clipboard::get_contents());
+        self.insert_text(&clipboard::get_contents(), true);
     }
 
     pub fn paste_primary(&mut self, col: usize, line: usize) {
         self.set_cursor_pos(col, line);
-        self.insert_text(&clipboard::get_primary());
+        self.insert_text(&clipboard::get_primary(), true);
     }
 
     // TODO make this not use eof
@@ -1534,8 +1547,8 @@ impl Buffer {
 
     pub fn get_prev_indent(&self, byte_index: usize) -> String {
         let mut indent = String::new();
-        let mut line_idx = self.rope.byte_to_line(byte_index);
 
+        let mut line_idx = self.rope.byte_to_line(byte_index);
         while line_idx > 0 {
             let line = self.rope.line(line_idx);
             line_idx -= 1;
@@ -1543,11 +1556,38 @@ impl Buffer {
                 continue;
             }
 
+            let mut new_indent = String::new();
             for grapheme in line.grapehemes() {
                 if !grapheme.is_whitespace() {
                     break;
                 }
-                indent.extend(grapheme.chunks());
+                new_indent.extend(grapheme.chunks());
+            }
+
+            indent = new_indent;
+            break;
+        }
+
+        let mut line_idx = self.rope.byte_to_line(byte_index) + 1;
+        while line_idx > 0 {
+            let Some(line) = self.rope.get_line(line_idx) else {
+                break;
+            };
+            line_idx += 1;
+            if line.is_whitespace() {
+                continue;
+            }
+
+            let mut new_indent = String::new();
+            for grapheme in line.grapehemes() {
+                if !grapheme.is_whitespace() {
+                    break;
+                }
+                new_indent.extend(grapheme.chunks());
+            }
+
+            if Rope::from_str(&new_indent).width(0) > Rope::from_str(&indent).width(0) {
+                indent = new_indent;
             }
 
             break;

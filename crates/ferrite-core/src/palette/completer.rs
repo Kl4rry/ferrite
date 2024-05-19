@@ -92,7 +92,7 @@ impl Completer {
 
         match get_completion_type(&text, &tokens) {
             CompletionType::NewCmd | CompletionType::NewArg => {
-                buffer.insert_text(&replacement);
+                buffer.insert_text(&replacement, false);
             }
             CompletionType::Cmd => {
                 buffer.replace(cmd.start..(cmd.start + cmd.len), &replacement);

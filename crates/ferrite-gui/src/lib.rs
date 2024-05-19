@@ -63,7 +63,7 @@ impl GuiApp {
 
         let mut backends = if cfg!(windows) {
             wgpu::Backends::DX12
-        } else if cfg!(macos) {
+        } else if cfg!(target_os = "macos") {
             wgpu::Backends::PRIMARY
         } else {
             wgpu::Backends::all()
