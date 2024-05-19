@@ -18,6 +18,8 @@ pub use tree_sitter_fish;
 pub use tree_sitter_fortran;
 #[cfg(feature = "lang-glsl")]
 pub use tree_sitter_glsl;
+#[cfg(feature = "lang-go")]
+pub use tree_sitter_go;
 #[cfg(feature = "lang-html")]
 pub use tree_sitter_html;
 #[cfg(feature = "lang-hyprlang")]
@@ -36,6 +38,8 @@ pub use tree_sitter_ron;
 pub use tree_sitter_rust;
 #[cfg(feature = "lang-toml")]
 pub use tree_sitter_toml;
+#[cfg(feature = "lang-typescript")]
+pub use tree_sitter_typescript;
 #[cfg(feature = "lang-xml")]
 pub use tree_sitter_xml;
 #[cfg(feature = "lang-yaml")]

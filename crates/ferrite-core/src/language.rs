@@ -82,6 +82,10 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("zig", OnceCell::new());
     #[cfg(feature = "lang-hyprlang")]
     langs.insert("hyprlang", OnceCell::new());
+    #[cfg(feature = "lang-go")]
+    langs.insert("go", OnceCell::new());
+    #[cfg(feature = "lang-typescript")]
+    langs.insert("typescript", OnceCell::new());
     langs
 });
 
@@ -264,6 +268,22 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             include_str!("../../../queries/hyprlang/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-go")]
+        "go" => LanguageConfig::new(
+            "go",
+            ferrite_tree_sitter::tree_sitter_go::language(),
+            include_str!("../../../queries/go/highlights.scm"),
+            include_str!("../../../queries/go/injections.scm"),
+            include_str!("../../../queries/go/locals.scm"),
+        ),
+        #[cfg(feature = "lang-typescript")]
+        "typescript" => LanguageConfig::new(
+            "typescript",
+            ferrite_tree_sitter::tree_sitter_typescript::language_typescript(),
+            include_str!("../../../queries/typescript/highlights.scm"),
+            include_str!("../../../queries/typescript/injections.scm"),
+            include_str!("../../../queries/typescript/locals.scm"),
+        ),
         _ => return None,
     })
 }
@@ -302,6 +322,8 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".ron"), "ron"),
             (Suffix(".f"), "fortran"),
             (Suffix(".zig"), "zig"),
+            (Suffix(".go"), "go"),
+            (Suffix(".ts"), "ts"),
             (Name("hyprland.conf"), "hyprlang"),
             // cmake
             (Name("CMakeLists.txt"), "cmake"),
