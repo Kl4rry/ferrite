@@ -789,7 +789,7 @@ impl Buffer {
             let mut first = true;
             for line in Rope::from_str(&text).lines() {
                 let string = line.to_string();
-                let trimmed = if LineEnding::from_rope_slice(&line).is_some() {
+                let trimmed = if line.is_whitespace() {
                     string.as_str()
                 } else {
                     string.trim_start()
