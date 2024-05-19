@@ -61,4 +61,15 @@ impl Indentation {
             }
         }
     }
+
+    pub fn from_width(&self, width: usize) -> String {
+        let single_indent_width = self.width();
+        let single_indent = match self {
+            Indentation::Tabs(_) => "\t".into(),
+            Indentation::Spaces(amount) => {
+                " ".repeat((*amount).into())
+            }
+        };
+        single_indent.repeat(width / single_indent_width)
+    }
 }

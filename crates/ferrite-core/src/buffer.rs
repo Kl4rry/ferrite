@@ -10,7 +10,7 @@ use std::{
 
 use encoding_rs::Encoding;
 use ferrite_utility::{
-    graphemes::RopeGraphemeExt as _,
+    graphemes::RopeGraphemeExt,
     line_ending::{rope_end_without_line_ending, LineEnding, DEFAULT_LINE_ENDING},
     point::Point,
 };
@@ -768,6 +768,8 @@ impl Buffer {
             })
         }
 
+        let lines = Rope::from_str(text).len_lines();
+
         let inserted_bytes = if self.cursor.has_selection() {
             let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
             let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
@@ -783,11 +785,26 @@ impl Buffer {
                 self.cursor.anchor = self.cursor.position;
             }
             text.len()
-        } else if auto_indent {
-            let indent = self.get_prev_indent(self.cursor.position);
+        } else if auto_indent && lines > 1 {
+            let indent = self.guess_indent(self.cursor.position);
+            let min_indent_width = Rope::from_str(&indent).width(0);
+
+            let mut smallest_indent_width = usize::MAX;
+            for line in Rope::from_str(&text).lines() {
+                if line.is_whitespace() {
+                    continue;
+                }
+                let text_start_col = line.get_text_start_col(0);
+                smallest_indent_width = smallest_indent_width.min(text_start_col);
+                tracing::warn!("smallest_indent_width: {smallest_indent_width}");
+            }
+
+
             let mut input = String::new();
             let mut first = true;
             for line in Rope::from_str(&text).lines() {
+                let line_text_start_col = line.get_text_start_col(0);
+                let extra_indent_width = line_text_start_col.saturating_sub(smallest_indent_width);
                 let string = line.to_string();
                 let trimmed = if line.is_whitespace() {
                     string.as_str()
@@ -795,13 +812,24 @@ impl Buffer {
                     string.trim_start()
                 };
 
+                let total_indent_width = min_indent_width + extra_indent_width;
                 if first {
+                    if !line.is_whitespace() {
+                        input.push_str(&self.indent.from_width(total_indent_width));
+                    }
                     first = false;
                 } else {
-                    input.push_str(&indent);
+                    input.push_str(&self.indent.from_width(total_indent_width));
                 }
+
                 input.push_str(trimmed);
             }
+
+            // TODO fix when first line already has content
+            // it should not ident if start is after the end
+            // of the indentation aka if there is indented
+            // text that is inserted after or inside of.
+            // If first line just whitespace it should just be removed first
 
             self.history
                 .insert(&mut self.rope, self.cursor.position, &input);
@@ -1545,7 +1573,7 @@ impl Buffer {
         self.cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
     }
 
-    pub fn get_prev_indent(&self, byte_index: usize) -> String {
+    pub fn guess_indent(&self, byte_index: usize) -> String {
         let mut indent = String::new();
 
         let mut line_idx = self.rope.byte_to_line(byte_index);
@@ -1593,7 +1621,7 @@ impl Buffer {
             break;
         }
 
-        indent
+        self.indent.from_width(Rope::from_str(&indent).width(0))
     }
 }
 
