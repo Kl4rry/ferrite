@@ -796,9 +796,11 @@ impl Buffer {
                 }
                 let text_start_col = line.get_text_start_col(0);
                 smallest_indent_width = smallest_indent_width.min(text_start_col);
-                tracing::warn!("smallest_indent_width: {smallest_indent_width}");
             }
 
+            let current_line = self.rope.line(self.rope.byte_to_line(self.cursor.position));
+            let current_line_is_whitespace = current_line.is_whitespace();
+            let current_line_text_start = current_line.get_text_start_col(0);
 
             let mut input = String::new();
             let mut first = true;
@@ -814,8 +816,10 @@ impl Buffer {
 
                 let total_indent_width = min_indent_width + extra_indent_width;
                 if first {
-                    if !line.is_whitespace() {
-                        input.push_str(&self.indent.from_width(total_indent_width));
+                    if !line.is_whitespace() && current_line_is_whitespace {
+                        input.push_str(&self.indent.from_width(
+                            total_indent_width.saturating_sub(current_line_text_start),
+                        ));
                     }
                     first = false;
                 } else {
@@ -824,12 +828,6 @@ impl Buffer {
 
                 input.push_str(trimmed);
             }
-
-            // TODO fix when first line already has content
-            // it should not ident if start is after the end
-            // of the indentation aka if there is indented
-            // text that is inserted after or inside of.
-            // If first line just whitespace it should just be removed first
 
             self.history
                 .insert(&mut self.rope, self.cursor.position, &input);

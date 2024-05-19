@@ -173,7 +173,11 @@ impl StatefulWidget for EditorWidget<'_> {
                         let Some(view_line) = view.lines.get((line - text_area.y) as usize) else {
                             break 'outer;
                         };
-                        let text_start = view_line.text_start_col;
+                        let text_start = if view_line.text.is_whitespace() {
+                            0
+                        } else {
+                            view_line.text_start_col
+                        };
                         let visual_text_start = text_start + text_area.x as usize;
                         if col as usize + buffer.col_pos() > visual_text_start || text_start == 0 {
                             break;
