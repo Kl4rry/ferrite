@@ -109,7 +109,7 @@ impl Default for PickerConfig {
     }
 }
 
-const DEFAULT_CONFIG: &str = include_str!("../../../config/default.toml");
+pub const DEFAULT_CONFIG: &str = include_str!("../../../config/default.toml");
 
 impl Config {
     pub fn create_default_config(overwrite: bool) -> Result<()> {

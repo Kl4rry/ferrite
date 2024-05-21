@@ -74,8 +74,9 @@ pub struct Buffer {
     col_pos: usize,
     rope: Rope,
     file: Option<PathBuf>,
+    name: String,
     dirty: bool,
-    read_only: bool,
+    pub read_only: bool,
     pub read_only_file: bool,
     last_edit: Instant,
     last_click: Instant,
@@ -103,6 +104,7 @@ impl Default for Buffer {
             col_pos: 0,
             rope: Rope::new(),
             file: None,
+            name: String::new(),
             encoding: encoding_rs::UTF_8,
             indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
@@ -143,7 +145,7 @@ impl Buffer {
         }
     }
 
-    pub fn with_path(path: impl Into<PathBuf>) -> Self {
+    pub fn with_path(path: impl Into<PathBuf>) -> Result<Self, anyhow::Error> {
         let path = path.into();
         let mut syntax = Syntax::new(get_buffer_proxy());
         if let Some(language) = get_language_from_path(&path) {
@@ -153,8 +155,32 @@ impl Buffer {
             syntax.update_text(Rope::new());
         }
 
-        Self {
+        let Some(name) = path.file_name() else {
+            anyhow::bail!("path has no filename name");
+        };
+        let name = name.to_string_lossy().into();
+
+        Ok(Self {
+            name,
             file: Some(path),
+            syntax: Some(syntax),
+            ..Default::default()
+        })
+    }
+
+    pub fn with_name(name: impl Into<String>) -> Self {
+        let name = name.into();
+        let path = Path::new(&name);
+        let mut syntax = Syntax::new(get_buffer_proxy());
+        if let Some(language) = get_language_from_path(path) {
+            if let Err(err) = syntax.set_language(language) {
+                tracing::error!("Error setting language: {err}");
+            }
+            syntax.update_text(Rope::new());
+        }
+
+        Self {
+            name,
             syntax: Some(syntax),
             ..Default::default()
         }
@@ -179,10 +205,13 @@ impl Buffer {
             syntax.update_text(rope.clone());
         }
 
+        let name = path.file_name().unwrap().to_string_lossy().into();
+
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             read_only_file,
+            name,
             file: Some(path.into()),
             encoding,
             syntax: Some(syntax),
@@ -206,6 +235,9 @@ impl Buffer {
 
     pub fn set_text(&mut self, text: &str) {
         self.rope = Rope::from(text);
+        if let Some(ref mut syntax) = self.syntax {
+            syntax.update_text(self.rope.clone());
+        }
     }
 
     #[allow(dead_code)]
@@ -233,14 +265,8 @@ impl Buffer {
         self.view_columns
     }
 
-    pub fn name(&self) -> Option<String> {
-        Some(
-            self.file
-                .as_ref()?
-                .file_name()?
-                .to_string_lossy()
-                .to_string(),
-        )
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     pub fn language_name(&self) -> String {

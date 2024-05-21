@@ -15,7 +15,7 @@ use crate::{
     buffer::{self, encoding::get_encoding, Buffer},
     byte_size::format_byte_size,
     clipboard,
-    config::{Config, ConfigWatcher},
+    config::{Config, ConfigWatcher, DEFAULT_CONFIG},
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
     git::branch::BranchWatcher,
     indent::Indentation,
@@ -93,7 +93,7 @@ impl Engine {
             let buffer = match Buffer::from_file(file) {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound => Buffer::with_path(file),
+                    io::ErrorKind::NotFound => Buffer::with_path(file)?,
                     _ => Err(err)?,
                 },
             };
@@ -627,6 +627,7 @@ impl Engine {
                             Command::BrowseBuffers => self.open_buffer_picker(),
                             Command::BrowseWorkspace => self.open_file_picker(),
                             Command::OpenConfig => self.open_config(),
+                            Command::DefaultConfig => self.open_default_config(),
                             Command::ForceClose => self.force_close_current_buffer(),
                             Command::Close => self.close_current_buffer(),
                             Command::Paste => {
@@ -808,7 +809,7 @@ impl Engine {
             .iter()
             .filter_map(|(_, buffer)| {
                 if buffer.is_dirty() {
-                    Some(buffer.name().unwrap_or_else(|| "scratch".into()))
+                    Some(buffer.name().to_string())
                 } else {
                     None
                 }
@@ -839,7 +840,6 @@ impl Engine {
     pub fn open_buffer_picker(&mut self) {
         self.palette.reset();
         self.file_finder = None;
-        let mut scratch_buffer_number = 1;
         let buffers: Vec<_> = self
             .workspace
             .buffers
@@ -847,13 +847,7 @@ impl Engine {
             .map(|(id, buffer)| BufferItem {
                 id,
                 dirty: buffer.is_dirty(),
-                name: buffer
-                    .file()
-                    .map(|path| path.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| {
-                        scratch_buffer_number += 1;
-                        format!("[Scratch] {scratch_buffer_number}")
-                    }),
+                name: buffer.name().to_string(),
             })
             .collect();
 
@@ -877,6 +871,12 @@ impl Engine {
             Some(path) => self.open_file(path.clone()),
             None => self.palette.set_error("Could not locate the config file"),
         }
+    }
+
+    pub fn open_default_config(&mut self) {
+        let mut buffer = Buffer::with_name("default_config.toml");
+        buffer.set_text(DEFAULT_CONFIG);
+        self.insert_buffer(buffer, true);
     }
 
     pub fn close_current_buffer(&mut self) {

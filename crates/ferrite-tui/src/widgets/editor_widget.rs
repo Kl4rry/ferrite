@@ -164,7 +164,6 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 line_buffer.clear();
             }
-
             let mut ruler_cells = Vec::new();
             if !view.lines.is_empty() && config.show_indent_rulers {
                 // TODO fix empty line gaps in blocks using tree-sitter indent queries
@@ -383,7 +382,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 config: &self.config.info_line,
                 focus: self.has_focus,
                 encoding: buffer.encoding,
-                file: buffer.file(),
+                name: buffer.name().to_string(),
                 line: buffer.cursor_pos().1 + 1,
                 column: buffer.cursor_grapheme_column() + 1,
                 dirty: buffer.is_dirty(),

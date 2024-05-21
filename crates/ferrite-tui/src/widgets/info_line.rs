@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use encoding_rs::Encoding;
 use ferrite_core::{byte_size::format_byte_size, config::InfoLineConfig, theme::EditorTheme};
 use tui::{style::Style, widgets::Widget};
@@ -12,7 +10,7 @@ pub struct InfoLine<'a> {
     pub config: &'a InfoLineConfig,
     pub focus: bool,
     pub encoding: &'static Encoding,
-    pub file: Option<&'a Path>,
+    pub name: String,
     pub column: usize,
     pub line: usize,
     pub dirty: bool,
@@ -27,12 +25,7 @@ impl InfoLine<'_> {
     pub fn get_info_item(&self, item: &str) -> Option<String> {
         match item {
             "file" => {
-                let mut file = self
-                    .file
-                    .map(|p| p.to_string_lossy())
-                    .unwrap_or_else(|| "[scratch]".into())
-                    .to_string();
-
+                let mut file = self.name.clone();
                 if self.dirty {
                     file += " *";
                 }

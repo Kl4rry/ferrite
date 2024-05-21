@@ -29,6 +29,7 @@ pub enum Command {
     BrowseBuffers,
     BrowseWorkspace,
     OpenConfig,
+    DefaultConfig,
     ForceClose,
     Close,
     Paste,
