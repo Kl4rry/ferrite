@@ -10,6 +10,7 @@ pub mod job_manager;
 pub mod jobs;
 pub mod keymap;
 pub mod language;
+pub mod logger;
 pub mod palette;
 pub mod panes;
 pub mod pubsub;

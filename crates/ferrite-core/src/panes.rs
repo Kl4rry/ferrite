@@ -25,7 +25,7 @@ impl Rect {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PaneKind {
     Buffer(usize),
-    _Logger,
+    Logger,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]

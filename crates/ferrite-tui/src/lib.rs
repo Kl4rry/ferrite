@@ -1,4 +1,8 @@
-use std::io::{self, IsTerminal, Read, Stdout};
+use std::{
+    io::{self, IsTerminal, Read, Stdout},
+    sync::mpsc,
+    time::Instant,
+};
 
 use anyhow::Result;
 use crossterm::{
@@ -12,13 +16,14 @@ use ferrite_core::{
     engine::Engine,
     event_loop_proxy::EventLoopControlFlow,
     keymap::{self, InputCommand},
+    logger::{self, LogMessage},
     panes::PaneKind,
     search_buffer::buffer_find::BufferItem,
 };
 use ferrite_utility::point::Point;
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
 use tui::layout::{Margin, Position, Rect};
-use widgets::choord_widget::ChoordWidget;
+use widgets::{choord_widget::ChoordWidget, logger_widget::LoggerWidget};
 
 use self::{
     event_loop::{TuiEvent, TuiEventLoop, TuiEventLoopProxy},
@@ -38,9 +43,9 @@ pub mod glue;
 pub mod rect_ext;
 mod widgets;
 
-pub fn run(args: &Args) -> Result<()> {
+pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
     let event_loop = TuiEventLoop::new();
-    let mut tui_app = TuiApp::new(args, event_loop.create_proxy())?;
+    let mut tui_app = TuiApp::new(args, event_loop.create_proxy(), recv)?;
     if !io::stdin().is_terminal() {
         let mut stdin = io::stdin().lock();
         let mut text = String::new();
@@ -65,8 +70,14 @@ pub struct TuiApp {
 }
 
 impl TuiApp {
-    pub fn new(args: &Args, proxy: TuiEventLoopProxy) -> Result<Self> {
-        let engine = Engine::new(args, Box::new(proxy))?;
+    pub fn new(
+        args: &Args,
+        proxy: TuiEventLoopProxy,
+        recv: mpsc::Receiver<LogMessage>,
+    ) -> Result<Self> {
+        let engine = Engine::new(args, Box::new(proxy), recv)?;
+
+        logger::set_proxy(engine.proxy.dup());
 
         let (width, height) = crossterm::terminal::size()?;
 
@@ -132,7 +143,9 @@ impl TuiApp {
             }
             event_loop::TuiEvent::Render => {
                 self.engine.do_polling(control_flow);
+                let before = Instant::now();
                 self.render();
+                self.engine.last_render_time = Instant::now().duration_since(before);
             }
         }
     }
@@ -159,35 +172,47 @@ impl TuiApp {
                     .panes
                     .get_pane_bounds(tui_to_ferrite_rect(editor_size))
                 {
-                    if let PaneKind::Buffer(buffer_id) = pane {
-                        f.render_stateful_widget(
-                            EditorWidget::new(
-                                theme,
-                                &self.engine.config,
-                                !self.engine.palette.has_focus()
-                                    && self.engine.file_finder.is_none()
-                                    && current_pane == pane,
-                                self.engine.branch_watcher.current_branch(),
-                                self.engine.spinner.current(),
-                            ),
-                            ferrite_to_tui_rect(pane_rect),
-                            &mut self.engine.workspace.buffers[buffer_id],
-                        );
+                    match pane {
+                        PaneKind::Buffer(buffer_id) => {
+                            f.render_stateful_widget(
+                                EditorWidget::new(
+                                    theme,
+                                    &self.engine.config,
+                                    !self.engine.palette.has_focus()
+                                        && self.engine.file_finder.is_none()
+                                        && current_pane == pane,
+                                    self.engine.branch_watcher.current_branch(),
+                                    self.engine.spinner.current(),
+                                ),
+                                ferrite_to_tui_rect(pane_rect),
+                                &mut self.engine.workspace.buffers[buffer_id],
+                            );
 
-                        if self.engine.config.show_splash
-                            && self.engine.workspace.panes.num_panes() == 1
-                        {
-                            let buffer = &mut self.engine.workspace.buffers[buffer_id];
-                            if buffer.len_bytes() == 0
-                                && !buffer.is_dirty()
-                                && buffer.file().is_none()
-                                && self.engine.workspace.buffers.len() == 1
+                            if self.engine.config.show_splash
+                                && self.engine.workspace.panes.num_panes() == 1
                             {
-                                f.render_widget(
-                                    SplashWidget::new(theme),
-                                    ferrite_to_tui_rect(pane_rect),
-                                );
+                                let buffer = &mut self.engine.workspace.buffers[buffer_id];
+                                if buffer.len_bytes() == 0
+                                    && !buffer.is_dirty()
+                                    && buffer.file().is_none()
+                                    && self.engine.workspace.buffers.len() == 1
+                                {
+                                    f.render_widget(
+                                        SplashWidget::new(theme),
+                                        ferrite_to_tui_rect(pane_rect),
+                                    );
+                                }
                             }
+                        }
+                        PaneKind::Logger => {
+                            let has_focus = !self.engine.palette.has_focus()
+                                && self.engine.file_finder.is_none()
+                                && current_pane == pane;
+                            f.render_stateful_widget(
+                                LoggerWidget::new(theme, self.engine.last_render_time, has_focus),
+                                ferrite_to_tui_rect(pane_rect),
+                                &mut self.engine.logger_state,
+                            );
                         }
                     }
                 }

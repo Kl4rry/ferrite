@@ -104,7 +104,7 @@ impl Default for Buffer {
             col_pos: 0,
             rope: Rope::new(),
             file: None,
-            name: String::new(),
+            name: String::from("[scratch]"),
             encoding: encoding_rs::UTF_8,
             indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
@@ -816,7 +816,7 @@ impl Buffer {
             let min_indent_width = Rope::from_str(&indent).width(0);
 
             let mut smallest_indent_width = usize::MAX;
-            for line in Rope::from_str(&text).lines() {
+            for line in Rope::from_str(text).lines() {
                 if line.is_whitespace() {
                     continue;
                 }
@@ -830,7 +830,7 @@ impl Buffer {
 
             let mut input = String::new();
             let mut first = true;
-            for line in Rope::from_str(&text).lines() {
+            for line in Rope::from_str(text).lines() {
                 let line_text_start_col = line.get_text_start_col(0);
                 let extra_indent_width = line_text_start_col.saturating_sub(smallest_indent_width);
                 let string = line.to_string();

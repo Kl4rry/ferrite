@@ -70,7 +70,7 @@ ferrite-gui = { workspace = true, optional = true }
 ferrite-tui = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["json"] }
 
 [features]
 default = ["tui"]

@@ -3,6 +3,8 @@ use std::{
     env, io,
     num::NonZeroUsize,
     path::{Path, PathBuf},
+    sync::mpsc,
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -22,6 +24,7 @@ use crate::{
     job_manager::{JobHandle, JobManager},
     jobs::SaveBufferJob,
     keymap::{get_default_choords, get_default_mappings, Exclusiveness, InputCommand, Mapping},
+    logger::{LogMessage, LoggerState},
     palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
     panes::{PaneKind, Panes, Rect},
     search_buffer::{
@@ -52,11 +55,17 @@ pub struct Engine {
     pub save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
     pub shell_jobs: Vec<JobHandle<Result<(bool, Buffer), anyhow::Error>>>,
     pub spinner: Spinner,
+    pub logger_state: LoggerState,
     pub choord: bool,
+    pub last_render_time: Duration,
 }
 
 impl Engine {
-    pub fn new(args: &Args, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
+    pub fn new(
+        args: &Args,
+        proxy: Box<dyn EventLoopProxy>,
+        recv: mpsc::Receiver<LogMessage>,
+    ) -> Result<Self> {
         buffer::set_buffer_proxy(proxy.dup());
         let mut palette = CommandPalette::new(proxy.dup());
         let config_path = Config::get_default_location().ok();
@@ -169,10 +178,14 @@ impl Engine {
             shell_jobs: Default::default(),
             spinner: Default::default(),
             choord: false,
+            logger_state: LoggerState::new(recv),
+            last_render_time: Duration::ZERO,
         })
     }
 
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
+        self.logger_state.update();
+
         if let Some(config_watcher) = &self.config_watcher {
             if config_watcher.has_changed() {
                 if let Some(path) = &self.config_path {
@@ -359,12 +372,14 @@ impl Engine {
                             .replace_current(PaneKind::Buffer(choice.id));
                     }
                 } else {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    if let Err(err) = self.workspace.buffers[buffer_id].handle_input(input) {
-                        self.palette.set_error(err);
+                    match self.workspace.panes.get_current_pane() {
+                        PaneKind::Buffer(buffer_id) => {
+                            if let Err(err) = self.workspace.buffers[buffer_id].handle_input(input)
+                            {
+                                self.palette.set_error(err);
+                            }
+                        }
+                        PaneKind::Logger => self.logger_state.handle_input(input),
                     }
                 }
             }
@@ -611,7 +626,10 @@ impl Engine {
                             }
                             Command::Quit => self.quit(control_flow),
                             Command::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
-                            Command::Logger => todo!(),
+                            Command::Logger => {
+                                self.logger_state.lines_scrolled_up = 0;
+                                self.workspace.panes.replace_current(PaneKind::Logger)
+                            }
                             Command::Theme(name) => match name {
                                 Some(name) => {
                                     if self.themes.contains_key(&name) {
@@ -880,7 +898,6 @@ impl Engine {
     }
 
     pub fn close_current_buffer(&mut self) {
-        // TODO make this close any buffer
         if let Some(buffer) = self.get_current_buffer() {
             if buffer.is_dirty() {
                 self.palette.set_prompt(
@@ -891,11 +908,12 @@ impl Engine {
             } else {
                 self.force_close_current_buffer();
             }
+        } else {
+            self.force_close_current_buffer();
         }
     }
 
     pub fn force_close_current_buffer(&mut self) {
-        // TODO make this close any buffer
         if let Some(buffer_id) = self.get_current_buffer_id() {
             if self.workspace.panes.num_panes() > 1 {
                 self.workspace
@@ -911,6 +929,8 @@ impl Engine {
             } else {
                 self.workspace.buffers[buffer_id] = Buffer::new();
             }
+        } else {
+            self.workspace.panes.remove_pane(PaneKind::Logger);
         }
     }
 

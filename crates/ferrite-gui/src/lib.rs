@@ -1,4 +1,8 @@
-use std::{env, iter, sync::Arc, time::Instant};
+use std::{
+    env, iter,
+    sync::{mpsc, Arc},
+    time::Instant,
+};
 
 use anyhow::Result;
 use event_loop_wrapper::EventLoopProxyWrapper;
@@ -6,6 +10,7 @@ use ferrite_cli::Args;
 use ferrite_core::{
     engine::Engine,
     event_loop_proxy::{EventLoopProxy, UserEvent},
+    logger::LogMessage,
 };
 use gui_renderer::GuiRenderer;
 use winit::{
@@ -17,7 +22,7 @@ use winit::{
 mod event_loop_wrapper;
 mod gui_renderer;
 
-pub fn run(args: &Args) -> Result<()> {
+pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     {
         let default_panic = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
@@ -28,7 +33,7 @@ pub fn run(args: &Args) -> Result<()> {
     }
 
     let event_loop = EventLoopBuilder::with_user_event().build()?;
-    let gui_app = pollster::block_on(GuiApp::new(args, &event_loop))?;
+    let gui_app = pollster::block_on(GuiApp::new(args, &event_loop, rx))?;
     gui_app.run(event_loop);
 
     Ok(())
@@ -49,9 +54,13 @@ struct GuiApp {
 }
 
 impl GuiApp {
-    pub async fn new(args: &Args, event_loop: &EventLoop<UserEvent>) -> Result<Self> {
+    pub async fn new(
+        args: &Args,
+        event_loop: &EventLoop<UserEvent>,
+        rx: mpsc::Receiver<LogMessage>,
+    ) -> Result<Self> {
         let proxy = Box::new(EventLoopProxyWrapper::new(event_loop.create_proxy()));
-        let engine = Engine::new(args, proxy.dup())?;
+        let engine = Engine::new(args, proxy.dup(), rx)?;
 
         let window = Arc::new(
             WindowBuilder::new()

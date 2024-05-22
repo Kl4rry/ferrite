@@ -24,10 +24,10 @@
 - [x] Command palette completion
 - [ ] Git mv aware rename/move command
 - [x] Open directory and browse
-- [ ] Auto indent
+- [x] Auto indent
 - [x] Indentation guides
 - [ ] Git file status tracked/untracked/modfied/moved using git status --porcelain
-- [ ] Mouse double click select word
+- [x] Mouse double click select word
 
 ### Less important features
 - [ ] Multiline comment

@@ -1,12 +1,13 @@
 use std::{
     fs::{self, OpenOptions},
     process::ExitCode,
+    sync::{mpsc, Mutex},
 };
 
 use anyhow::Result;
 use clap::Parser;
 use ferrite_cli::{Args, Subcommands, Ui};
-use ferrite_core::config::Config;
+use ferrite_core::{config::Config, logger::LoggerSink};
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
 
@@ -74,14 +75,24 @@ fn main() -> Result<ExitCode> {
         _ => Level::INFO,
     };
 
-    let subscriber = Registry::default().with(
-        fmt::layer()
-            .compact()
-            .without_time()
-            .with_ansi(true)
-            .with_writer(log_file)
-            .with_filter(filter::LevelFilter::from_level(log_level)),
-    );
+    let (tx, rx) = mpsc::channel();
+    let logger = LoggerSink::new(tx);
+
+    let subscriber = Registry::default()
+        .with(
+            fmt::layer()
+                .compact()
+                .without_time()
+                .with_ansi(true)
+                .with_writer(log_file)
+                .with_filter(filter::LevelFilter::from_level(log_level)),
+        )
+        .with(
+            fmt::layer()
+                .json()
+                .with_writer(Mutex::new(logger))
+                .with_filter(filter::LevelFilter::from_level(log_level)),
+        );
 
     tracing::subscriber::set_global_default(subscriber).unwrap();
     tracing_log::LogTracer::init().unwrap();
@@ -94,7 +105,7 @@ fn main() -> Result<ExitCode> {
     match args.ui {
         Some(Ui::Tui) => {
             #[cfg(feature = "tui")]
-            ferrite_tui::run(&args)?;
+            ferrite_tui::run(&args, rx)?;
             #[cfg(not(feature = "tui"))]
             {
                 eprintln!("Ferrite has not been compiled with tui");
@@ -103,7 +114,7 @@ fn main() -> Result<ExitCode> {
         }
         Some(Ui::Gui) => {
             #[cfg(feature = "gui")]
-            ferrite_gui::run(&args)?;
+            ferrite_gui::run(&args, rx)?;
             #[cfg(not(feature = "gui"))]
             {
                 eprintln!("Ferrite has not been compiled with gui");
@@ -112,7 +123,7 @@ fn main() -> Result<ExitCode> {
         }
         None => {
             #[cfg(feature = "tui")]
-            ferrite_tui::run(&args)?;
+            ferrite_tui::run(&args, rx)?;
             #[cfg(not(feature = "tui"))]
             ferrite_gui::run(&args)?;
         }
