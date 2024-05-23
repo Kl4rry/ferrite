@@ -329,7 +329,9 @@ impl Engine {
                         "search",
                         CompleterContext::new(&self.themes),
                     );
-                    self.palette.set_line(selection);
+                    if !selection.is_empty() {
+                        self.palette.set_line(selection);
+                    }
                 }
             }
             InputCommand::CaseInsensitive => {
