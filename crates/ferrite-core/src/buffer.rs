@@ -778,7 +778,7 @@ impl Buffer {
         if text.is_empty() {
             return;
         }
-        // TODO collect multiple words/whitespace chars into single undo step
+
         self.history.begin(self.cursor, self.dirty);
 
         fn get_pair_char(s: &str) -> Option<&str> {
@@ -796,7 +796,7 @@ impl Buffer {
 
         let lines = Rope::from_str(text).len_lines();
 
-        let inserted_bytes = if self.cursor.has_selection() {
+        let (inserted_bytes, finish) = if self.cursor.has_selection() {
             let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
             let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
             if let Some(pair) = get_pair_char(text) {
@@ -810,7 +810,7 @@ impl Buffer {
                 self.cursor.position = self.cursor.position.min(self.cursor.anchor);
                 self.cursor.anchor = self.cursor.position;
             }
-            text.len()
+            (text.len(), false)
         } else if auto_indent && lines > 1 {
             let indent = self.guess_indent(self.cursor.position);
             let min_indent_width = Rope::from_str(&indent).width(0);
@@ -861,7 +861,7 @@ impl Buffer {
                 self.history
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
             }*/
-            input.len()
+            (input.len(), true)
         } else {
             self.history
                 .insert(&mut self.rope, self.cursor.position, text);
@@ -869,7 +869,7 @@ impl Buffer {
                 self.history
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
             }*/
-            text.len()
+            (text.len(), false)
         };
 
         self.cursor.position += inserted_bytes;
@@ -881,7 +881,10 @@ impl Buffer {
         if self.clamp_cursor {
             self.center_on_cursor();
         }
-        self.history.finish();
+
+        if finish {
+            self.history.finish();
+        }
     }
 
     pub fn backspace(&mut self) {
@@ -939,7 +942,6 @@ impl Buffer {
         if self.clamp_cursor {
             self.center_on_cursor();
         }
-        self.history.finish();
     }
 
     pub fn backspace_word(&mut self) {
@@ -992,7 +994,6 @@ impl Buffer {
         if self.clamp_cursor {
             self.center_on_cursor();
         }
-        self.history.finish();
     }
 
     pub fn delete_word(&mut self) {
@@ -1116,6 +1117,7 @@ impl Buffer {
         if self.clamp_cursor {
             self.center_on_cursor();
         }
+        self.history.finish();
     }
 
     pub fn tab(&mut self, back: bool) {
@@ -1124,6 +1126,7 @@ impl Buffer {
         if !self.cursor.has_selection() && !back {
             let col = self.cursor_grapheme_column();
             self.insert_text(&self.indent.to_next_ident(col), false);
+            self.history.finish();
             return;
         }
 
@@ -1325,11 +1328,13 @@ impl Buffer {
 
     pub fn paste(&mut self) {
         self.insert_text(&clipboard::get_contents(), true);
+        self.history.finish();
     }
 
     pub fn paste_primary(&mut self, col: usize, line: usize) {
         self.set_cursor_pos(col, line);
         self.insert_text(&clipboard::get_primary(), true);
+        self.history.finish();
     }
 
     // TODO make this not use eof
@@ -1372,6 +1377,7 @@ impl Buffer {
         self.history.save();
         self.queue_syntax_update();
 
+        self.history.finish();
         Ok(())
     }
 

@@ -1,32 +1,64 @@
 use std::{mem, ops::Range};
 
-use ferrite_utility::graphemes::ensure_grapheme_boundary_next_byte;
+use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::Rope;
 
 use super::Cursor;
 
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+enum EditClass {
+    Word,
+    WhiteSpace,
+    Other,
+    Remove,
+}
+
+impl EditClass {
+    fn mergeable(first: &EditClass, second: &EditClass) -> bool {
+        match (first, second) {
+            (EditClass::WhiteSpace, EditClass::WhiteSpace) => true,
+            (EditClass::Word, EditClass::Word) => true,
+            (EditClass::Remove, EditClass::Remove) => true,
+            (EditClass::WhiteSpace, EditClass::Word) => true,
+            _ => false,
+        }
+    }
+}
+
+impl From<&str> for EditClass {
+    fn from(value: &str) -> Self {
+        if Rope::from_str(value).is_word_char() {
+            return EditClass::Word;
+        }
+        if Rope::from_str(value).is_whitespace() {
+            return EditClass::WhiteSpace;
+        }
+        EditClass::Other
+    }
+}
+
 #[derive(Debug, Clone)]
 enum EditKind {
     Insert { byte_idx: usize, text: String },
-    Remove { range: Range<usize> },
     Replace { range: Range<usize>, text: String },
+    Remove { range: Range<usize> },
 }
 
 impl EditKind {
+    fn get_class(&self) -> EditClass {
+        match self {
+            EditKind::Insert { text, .. } => EditClass::from(text.as_str()),
+            EditKind::Replace { text, .. } => EditClass::from(text.as_str()),
+            EditKind::Remove { .. } => EditClass::Remove,
+        }
+    }
+
     fn apply(&self, rope: &mut Rope) -> EditKind {
         match self {
             Self::Insert { byte_idx, text } => {
                 rope.insert(rope.byte_to_char(*byte_idx), text);
                 Self::Remove {
                     range: *byte_idx..(*byte_idx + text.len()),
-                }
-            }
-            Self::Remove { range } => {
-                let text = rope.byte_slice(range.clone()).to_string();
-                rope.remove(rope.byte_to_char(range.start)..rope.byte_to_char(range.end));
-                Self::Insert {
-                    byte_idx: range.start,
-                    text,
                 }
             }
             Self::Replace { range, text } => {
@@ -39,6 +71,14 @@ impl EditKind {
                     text: old,
                 }
             }
+            Self::Remove { range } => {
+                let text = rope.byte_slice(range.clone()).to_string();
+                rope.remove(rope.byte_to_char(range.start)..rope.byte_to_char(range.end));
+                Self::Insert {
+                    byte_idx: range.start,
+                    text,
+                }
+            }
         }
     }
 }
@@ -46,6 +86,7 @@ impl EditKind {
 #[derive(Debug, Clone)]
 struct Frame {
     finished: bool,
+    edit_class: EditClass,
     cursor: Cursor,
     edits: Vec<EditKind>,
     dirty: bool,
@@ -70,10 +111,9 @@ impl History {
     fn edit(&mut self, rope: &mut Rope, edit: EditKind) {
         match self.stack.last_mut() {
             Some(frame) => {
+                frame.edit_class = edit.get_class();
                 let inverse = edit.apply(rope);
-                if !frame.finished {
-                    frame.edits.push(inverse);
-                }
+                frame.edits.push(inverse);
             }
             None => tracing::error!("Edited rope before starting new edit frame"),
         }
@@ -105,6 +145,7 @@ impl History {
 
         self.stack.push(Frame {
             finished: false,
+            edit_class: EditClass::Other,
             cursor,
             edits: Vec::new(),
             dirty,
@@ -116,7 +157,7 @@ impl History {
 
     pub fn finish(&mut self) {
         // maybe should be current_frame
-        if let Some(frame) = self.stack.last_mut() {
+        if let Some(frame) = self.stack.get_mut(self.current_frame as usize) {
             if !frame.finished {
                 frame.finished = true;
             }
@@ -128,33 +169,66 @@ impl History {
             return;
         }
 
-        let frame = &mut self.stack[self.current_frame as usize];
-        for edit in frame.edits.iter_mut().rev() {
-            *edit = edit.apply(rope);
-        }
-        mem::swap(&mut frame.cursor, cursor);
-        mem::swap(&mut frame.dirty, dirty);
-        cursor.position = ensure_grapheme_boundary_next_byte(rope.slice(..), cursor.position);
-        cursor.anchor = ensure_grapheme_boundary_next_byte(rope.slice(..), cursor.anchor);
+        let mut last_class = None;
 
-        self.current_frame -= 1;
+        while let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize) {
+            for edit in frame.edits.iter_mut().rev() {
+                *edit = edit.apply(rope);
+            }
+            mem::swap(&mut frame.cursor, cursor);
+            mem::swap(&mut frame.dirty, dirty);
+            cursor.position = rope.ensure_grapheme_boundary_next_byte(cursor.position);
+            cursor.anchor = rope.ensure_grapheme_boundary_next_byte(cursor.anchor);
+            self.current_frame -= 1;
+
+            if frame.finished {
+                break;
+            }
+
+            if let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize) {
+                let earlier_class = frame.edit_class;
+                if let Some(last_class) = last_class {
+                    if !EditClass::mergeable(&earlier_class, &last_class) {
+                        break;
+                    }
+                }
+                last_class = Some(earlier_class);
+            }
+        }
     }
 
     pub fn redo(&mut self, rope: &mut Rope, cursor: &mut Cursor, dirty: &mut bool) {
-        if self.current_frame + 1 >= self.stack.len() as i64 {
-            return;
-        }
+        let mut last_class = None;
 
-        self.current_frame += 1;
+        loop {
+            if self.current_frame + 1 >= self.stack.len() as i64 {
+                return;
+            }
+            self.current_frame += 1;
+            let frame = &mut self.stack[self.current_frame as usize];
 
-        let frame = &mut self.stack[self.current_frame as usize];
-        for edit in &mut frame.edits {
-            *edit = edit.apply(rope);
+            for edit in &mut frame.edits {
+                *edit = edit.apply(rope);
+            }
+            mem::swap(&mut frame.cursor, cursor);
+            mem::swap(&mut frame.dirty, dirty);
+            cursor.position = rope.ensure_grapheme_boundary_next_byte(cursor.position);
+            cursor.anchor = rope.ensure_grapheme_boundary_next_byte(cursor.anchor);
+
+            if frame.finished {
+                break;
+            }
+
+            if let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize + 1) {
+                let earlier_class = frame.edit_class;
+                if let Some(last_class) = last_class {
+                    if !EditClass::mergeable(&last_class, &earlier_class) {
+                        break;
+                    }
+                }
+                last_class = Some(earlier_class);
+            }
         }
-        mem::swap(&mut frame.cursor, cursor);
-        mem::swap(&mut frame.dirty, dirty);
-        cursor.position = ensure_grapheme_boundary_next_byte(rope.slice(..), cursor.position);
-        cursor.anchor = ensure_grapheme_boundary_next_byte(rope.slice(..), cursor.anchor);
     }
 
     pub fn save(&mut self) {

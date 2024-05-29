@@ -267,7 +267,7 @@ pub fn ensure_grapheme_boundary_prev(slice: RopeSlice, char_idx: usize) -> usize
 /// or the next grapheme boundary byte index if not.
 #[must_use]
 #[inline]
-pub fn ensure_grapheme_boundary_next_byte(slice: RopeSlice, byte_idx: usize) -> usize {
+fn ensure_grapheme_boundary_next_byte(slice: RopeSlice, byte_idx: usize) -> usize {
     if byte_idx == 0 {
         byte_idx
     } else {

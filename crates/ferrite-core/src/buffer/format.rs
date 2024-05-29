@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ferrite_utility::graphemes::ensure_grapheme_boundary_next_byte;
+use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::Rope;
 use subprocess::{Exec, PopenError, Redirection};
 
@@ -98,10 +98,10 @@ impl Buffer {
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
-        let pos = ensure_grapheme_boundary_next_byte(
-            self.rope.slice(..),
-            self.cursor.position.min(self.rope.len_bytes()),
-        );
+        // TODO position curser better then using byte offset
+        let pos = self
+            .rope
+            .ensure_grapheme_boundary_next_byte(self.cursor.position.min(self.rope.len_bytes()));
 
         self.cursor.position = pos;
         self.cursor.anchor = pos;
@@ -128,10 +128,10 @@ impl Buffer {
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
-        let pos = ensure_grapheme_boundary_next_byte(
-            self.rope.slice(..),
-            self.cursor.position.min(self.rope.len_bytes()),
-        );
+        // TODO position curser better then using byte offset
+        let pos = self
+            .rope
+            .ensure_grapheme_boundary_next_byte(self.cursor.position.min(self.rope.len_bytes()));
 
         self.cursor.position = pos;
         self.cursor.anchor = pos;
