@@ -102,6 +102,7 @@ impl Completer {
                 buffer.replace(last.start..(last.start + last.len), &replacement);
             }
         }
+        buffer.eof(false);
 
         buffer.mark_clean();
     }

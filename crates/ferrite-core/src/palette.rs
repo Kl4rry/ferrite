@@ -185,6 +185,7 @@ impl CommandPalette {
                 .count(),
             _ => 1,
         }
+        .max(1)
     }
 }
 

@@ -1347,11 +1347,14 @@ impl Buffer {
         self.eof(false);
     }
 
-    // TODO make this not use eof
     pub fn replace(&mut self, byte_range: Range<usize>, text: &str) {
         self.history.begin(self.cursor, self.dirty);
+        let (cursor_col, cursor_line) = self.cursor_pos();
+        let (anchor_col, anchor_line) = self.anchor_pos();
         self.history.replace(&mut self.rope, byte_range, text);
-        self.eof(false);
+        self.set_cursor_pos(cursor_col, cursor_line);
+        self.set_anchor_pos(anchor_col, anchor_line);
+        self.ensure_cursor_is_valid();
         self.history.finish();
     }
 
