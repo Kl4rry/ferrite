@@ -15,13 +15,13 @@ enum EditClass {
 
 impl EditClass {
     fn mergeable(first: &EditClass, second: &EditClass) -> bool {
-        match (first, second) {
-            (EditClass::WhiteSpace, EditClass::WhiteSpace) => true,
-            (EditClass::Word, EditClass::Word) => true,
-            (EditClass::Remove, EditClass::Remove) => true,
-            (EditClass::WhiteSpace, EditClass::Word) => true,
-            _ => false,
-        }
+        matches!(
+            (first, second),
+            (EditClass::WhiteSpace, EditClass::WhiteSpace)
+                | (EditClass::Word, EditClass::Word)
+                | (EditClass::Remove, EditClass::Remove)
+                | (EditClass::WhiteSpace, EditClass::Word)
+        )
     }
 }
 

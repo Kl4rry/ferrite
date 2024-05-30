@@ -329,9 +329,9 @@ impl StatefulWidget for EditorWidget<'_> {
             let matches = buffer.get_searcher().map(|searcher| searcher.get_matches());
             if let Some(matches) = matches {
                 let matches = matches.lock().unwrap();
-                let matches = &*matches;
+                let matches = &*matches.0;
 
-                for SearchMatch { start, end } in matches {
+                for SearchMatch { start, end, .. } in matches {
                     if start.line >= buffer.line_pos()
                         && end.line + 2 < buffer.line_pos() + buffer.get_view_lines()
                     {

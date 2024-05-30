@@ -1533,9 +1533,15 @@ impl Buffer {
         case_insensitive: bool,
     ) {
         if let Some(searcher) = &mut self.searcher {
-            searcher.update_query(query, case_insensitive);
+            searcher.update_query(query, case_insensitive, self.cursor.position);
         } else {
-            let searcher = BufferSearcher::new(proxy, query, self.rope.clone(), case_insensitive);
+            let searcher = BufferSearcher::new(
+                proxy,
+                query,
+                self.rope.clone(),
+                case_insensitive,
+                self.cursor.position,
+            );
             self.searcher = Some(searcher);
         }
     }
