@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc, thread};
+use std::{borrow::Cow, path::PathBuf, sync::Arc, thread};
 
 use cb::select;
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -34,6 +34,7 @@ where
     pub fn new<T: SearchOptionProvider<Matchable = M> + Send + Sync + 'static>(
         option_provder: T,
         proxy: Box<dyn EventLoopProxy>,
+        path: Option<PathBuf>,
     ) -> Self {
         let mut search_field = Buffer::new();
         search_field.set_view_lines(1);
@@ -77,7 +78,7 @@ where
                     continue;
                 }
 
-                let output = fuzzy_match::fuzzy_match(&query, (*options).clone());
+                let output = fuzzy_match::fuzzy_match(&query, (*options).clone(), path.as_deref());
                 let result = SearchResult {
                     matches: output,
                     total: options.len(),
@@ -120,17 +121,19 @@ where
         self.choice.take()
     }
 
-    pub fn get_matches(&mut self) -> &[FuzzyMatch<M>] {
-        if let Ok(result) = self.rx.try_recv() {
+    fn poll_rx(&mut self) {
+        while let Ok(result) = self.rx.try_recv() {
             self.result = result;
         }
+    }
+
+    pub fn get_matches(&mut self) -> &[FuzzyMatch<M>] {
+        self.poll_rx();
         &self.result.matches
     }
 
     pub fn get_total(&mut self) -> usize {
-        if let Ok(result) = self.rx.try_recv() {
-            self.result = result;
-        }
+        self.poll_rx();
         self.result.total
     }
 

@@ -16,6 +16,7 @@ pub enum Command {
     Case(Case),
     Split(Direction),
     About,
+    Path,
     Pwd,
     New,
     Reload,

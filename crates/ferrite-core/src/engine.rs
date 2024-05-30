@@ -126,6 +126,7 @@ impl Engine {
                 file_finder = Some(SearchBuffer::new(
                     FileFindProvider(daemon.subscribe()),
                     proxy.dup(),
+                    None,
                 ));
                 file_daemon = Some(daemon);
             }
@@ -397,6 +398,12 @@ impl Engine {
                     self.palette.reset();
                     match cmd_parser::parse_cmd(&content) {
                         Ok(cmd) => match cmd {
+                            Command::Path => match self.try_get_current_buffer_path() {
+                                Some(path) => self.palette.set_msg(path.to_string_lossy()),
+                                None => self
+                                    .palette
+                                    .set_error("No path has been set for the current buffer"),
+                            },
                             Command::About => {
                                 self.palette.set_msg(format!(
                                     "ferrite\nVersion: {}\nCommit: {}",
@@ -874,6 +881,7 @@ impl Engine {
         self.buffer_finder = Some(SearchBuffer::new(
             BufferFindProvider(buffers.into()),
             self.proxy.dup(),
+            self.try_get_current_buffer_path(),
         ));
     }
 
@@ -883,6 +891,7 @@ impl Engine {
         self.file_finder = Some(SearchBuffer::new(
             FileFindProvider(self.file_daemon.subscribe()),
             self.proxy.dup(),
+            self.try_get_current_buffer_path(),
         ));
     }
 
@@ -1065,6 +1074,10 @@ impl Engine {
                 self.palette.set_error(err);
             }
         }
+    }
+
+    fn try_get_current_buffer_path(&self) -> Option<PathBuf> {
+        self.get_current_buffer()?.file().map(|p| p.to_owned())
     }
 }
 
