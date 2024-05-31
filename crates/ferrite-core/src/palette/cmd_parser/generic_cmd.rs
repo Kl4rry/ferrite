@@ -125,7 +125,7 @@ impl CommandTemplate {
 
     pub fn usage(&self) -> String {
         let mut usage = self.name.clone();
-        for (arg, _) in &self.args {
+        if let Some((arg, _)) = &self.args {
             usage.push(' ');
             usage.push_str(arg);
         }

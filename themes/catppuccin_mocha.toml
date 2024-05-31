@@ -58,6 +58,12 @@
 
 "special" = { fg = "blue" }
 
+"attribute" = { fg = "blue" }
+
+"diff.plus" = { fg = "green" }
+"diff.minus" = { fg = "red" }
+"diff.delta" = { fg = "blue" }
+
 # Special case for languages
 "rust.type.builtin" = { fg = "yellow" } 
 

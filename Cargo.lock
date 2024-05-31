@@ -992,8 +992,11 @@ dependencies = [
  "tree-sitter-comment",
  "tree-sitter-cpp",
  "tree-sitter-css",
+ "tree-sitter-diff",
  "tree-sitter-fish",
  "tree-sitter-fortran",
+ "tree-sitter-git-config",
+ "tree-sitter-gitcommit",
  "tree-sitter-glsl",
  "tree-sitter-go",
  "tree-sitter-html",
@@ -1003,6 +1006,7 @@ dependencies = [
  "tree-sitter-json",
  "tree-sitter-md",
  "tree-sitter-python",
+ "tree-sitter-rebase",
  "tree-sitter-ron",
  "tree-sitter-rust",
  "tree-sitter-toml",
@@ -3130,6 +3134,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-diff"
+version = "0.0.1"
+source = "git+https://github.com/the-mikedavis/tree-sitter-diff?rev=fd74c78fa88a20085dbc7bbeaba066f4d1692b63#fd74c78fa88a20085dbc7bbeaba066f4d1692b63"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
 name = "tree-sitter-fish"
 version = "3.5.1"
 source = "git+https://github.com/ram02z/tree-sitter-fish?rev=6675b56266b3f615fb112205b6b83a79315309c4#6675b56266b3f615fb112205b6b83a79315309c4"
@@ -3142,6 +3155,24 @@ dependencies = [
 name = "tree-sitter-fortran"
 version = "0.0.1"
 source = "git+https://github.com/stadelmanma/tree-sitter-fortran?rev=f73d473e3530862dee7cbb38520f28824e7804f6#f73d473e3530862dee7cbb38520f28824e7804f6"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-git-config"
+version = "0.0.1"
+source = "git+https://github.com/the-mikedavis/tree-sitter-git-config?rev=9c2a1b7894e6d9eedfe99805b829b4ecd871375e#9c2a1b7894e6d9eedfe99805b829b4ecd871375e"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-gitcommit"
+version = "0.0.1"
+source = "git+https://github.com/the-mikedavis/tree-sitter-git-commit?rev=6f193a66e9aa872760823dff020960c6cedc37b3#6f193a66e9aa872760823dff020960c6cedc37b3"
 dependencies = [
  "cc",
  "tree-sitter",
@@ -3226,6 +3257,15 @@ name = "tree-sitter-python"
 version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6c93b1b1fbd0d399db3445f51fd3058e43d0b4dcff62ddbdb46e66550978aa5"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-rebase"
+version = "0.0.1"
+source = "git+https://github.com/the-mikedavis/tree-sitter-git-rebase?rev=d8a4207ebbc47bd78bacdf48f883db58283f9fd8#d8a4207ebbc47bd78bacdf48f883db58283f9fd8"
 dependencies = [
  "cc",
  "tree-sitter",

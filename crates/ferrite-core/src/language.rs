@@ -88,6 +88,14 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("typescript", OnceCell::new());
     #[cfg(feature = "lang-ini")]
     langs.insert("ini", OnceCell::new());
+    #[cfg(feature = "lang-diff")]
+    langs.insert("diff", OnceCell::new());
+    #[cfg(feature = "lang-git-config")]
+    langs.insert("git-config", OnceCell::new());
+    #[cfg(feature = "lang-git-commit")]
+    langs.insert("git-commit", OnceCell::new());
+    #[cfg(feature = "lang-rebase")]
+    langs.insert("git-rebase", OnceCell::new());
     langs
 });
 
@@ -294,6 +302,38 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             "",
             "",
         ),
+        #[cfg(feature = "lang-diff")]
+        "diff" => LanguageConfig::new(
+            "diff",
+            ferrite_tree_sitter::tree_sitter_diff::language(),
+            include_str!("../../../queries/diff/highlights.scm"),
+            "",
+            "",
+        ),
+        #[cfg(feature = "lang-git-config")]
+        "git-config" => LanguageConfig::new(
+            "git-config",
+            ferrite_tree_sitter::tree_sitter_git_config::language(),
+            include_str!("../../../queries/git-config/highlights.scm"),
+            "",
+            "",
+        ),
+        #[cfg(feature = "lang-git-commit")]
+        "git-commit" => LanguageConfig::new(
+            "git-commit",
+            ferrite_tree_sitter::tree_sitter_gitcommit::language(),
+            include_str!("../../../queries/git-commit/highlights.scm"),
+            include_str!("../../../queries/git-commit/injections.scm"),
+            "",
+        ),
+        #[cfg(feature = "lang-rebase")]
+        "git-rebase" => LanguageConfig::new(
+            "git-rebase",
+            ferrite_tree_sitter::tree_sitter_rebase::language(),
+            include_str!("../../../queries/git-rebase/highlights.scm"),
+            include_str!("../../../queries/git-rebase/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -335,6 +375,8 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".go"), "go"),
             (Suffix(".ts"), "ts"),
             (Name("hyprland.conf"), "hyprlang"),
+            (Name("COMMIT_EDITMSG"), "git-commit"),
+            (Name("git-rebase-todo"), "git-rebase"),
             // cmake
             (Name("CMakeLists.txt"), "cmake"),
             (Suffix(".cmake"), "cmake"),

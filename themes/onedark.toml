@@ -62,6 +62,10 @@
 "markup.link.url" = { fg = "cyan" }
 "markup.link.text" = { fg = "purple" }
 
+"diff.plus" = { fg = "green" }
+"diff.delta" = { fg = "gold" }
+"diff.minus" = { fg = "red" }
+
 # Special case for languages
 "type.builtin.rust" = { fg = "yellow" } 
 

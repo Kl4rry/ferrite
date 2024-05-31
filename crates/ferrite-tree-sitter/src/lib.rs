@@ -12,10 +12,16 @@ pub use tree_sitter_comment;
 pub use tree_sitter_cpp;
 #[cfg(feature = "lang-css")]
 pub use tree_sitter_css;
+#[cfg(feature = "lang-diff")]
+pub use tree_sitter_diff;
 #[cfg(feature = "lang-fish")]
 pub use tree_sitter_fish;
 #[cfg(feature = "lang-fortran")]
 pub use tree_sitter_fortran;
+#[cfg(feature = "lang-git-config")]
+pub use tree_sitter_git_config;
+#[cfg(feature = "lang-git-commit")]
+pub use tree_sitter_gitcommit;
 #[cfg(feature = "lang-glsl")]
 pub use tree_sitter_glsl;
 #[cfg(feature = "lang-go")]
@@ -34,6 +40,8 @@ pub use tree_sitter_json;
 pub use tree_sitter_md;
 #[cfg(feature = "lang-python")]
 pub use tree_sitter_python;
+#[cfg(feature = "lang-rebase")]
+pub use tree_sitter_rebase;
 #[cfg(feature = "lang-ron")]
 pub use tree_sitter_ron;
 #[cfg(feature = "lang-rust")]

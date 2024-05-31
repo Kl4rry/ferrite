@@ -59,8 +59,11 @@ lang-cmake = ["ferrite-tree-sitter/lang-cmake"]
 lang-comment = ["ferrite-tree-sitter/lang-comment"]
 lang-cpp = ["ferrite-tree-sitter/lang-cpp"]
 lang-css = ["ferrite-tree-sitter/lang-css"]
+lang-diff = ["ferrite-tree-sitter/lang-diff"]
 lang-fish = ["ferrite-tree-sitter/lang-fish"]
 lang-fortran = ["ferrite-tree-sitter/lang-fortran"]
+lang-git-commit = ["ferrite-tree-sitter/lang-git-commit"]
+lang-git-config = ["ferrite-tree-sitter/lang-git-config"]
 lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
 lang-go = ["ferrite-tree-sitter/lang-go"]
 lang-html = ["ferrite-tree-sitter/lang-html"]
@@ -70,6 +73,7 @@ lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 lang-json = ["ferrite-tree-sitter/lang-json"]
 lang-md = ["ferrite-tree-sitter/lang-md"]
 lang-python = ["ferrite-tree-sitter/lang-python"]
+lang-rebase =  ["ferrite-tree-sitter/lang-rebase"]
 lang-ron = ["ferrite-tree-sitter/lang-ron"]
 lang-rust = ["ferrite-tree-sitter/lang-rust"]
 lang-toml = ["ferrite-tree-sitter/lang-toml"]
@@ -81,28 +85,32 @@ lang-zig = ["ferrite-tree-sitter/lang-zig"]
 default = [
   "embed-themes",
   "lang-bash",
-  "lang-c",
   "lang-c-sharp",
+  "lang-c",
   "lang-cmake",
+  "lang-comment",
   "lang-cpp",
   "lang-css",
+  "lang-diff",
+  "lang-fish",
+  "lang-fortran",
+  "lang-git-commit",
+  "lang-git-config",
   "lang-glsl",
   "lang-go",
   "lang-html",
   "lang-hyprlang",
   "lang-ini",
+  "lang-javascript",
   "lang-json",
   "lang-md",
   "lang-python",
+  "lang-rebase",
+  "lang-ron",
   "lang-rust",
   "lang-toml",
   "lang-typescript",
   "lang-xml",
   "lang-yaml",
-  "lang-fish",
-  "lang-comment",
-  "lang-javascript",
-  "lang-ron",
-  "lang-fortran",
   "lang-zig",
 ]

@@ -57,6 +57,11 @@ impl Workspace {
             .iter()
             .filter_map(|(_, buffer)| buffer.file().map(|path| (path, buffer)))
         {
+            let language = &buffer.language_name();
+            if language.starts_with("git-") && language != "git-config" {
+                continue;
+            }
+
             let buffer_data = BufferData {
                 path: path.to_path_buf(),
                 cursor: buffer.cursor(),
