@@ -65,6 +65,7 @@ lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
 lang-go = ["ferrite-tree-sitter/lang-go"]
 lang-html = ["ferrite-tree-sitter/lang-html"]
 lang-hyprlang = ["ferrite-tree-sitter/lang-hyprlang"]
+lang-ini = ["ferrite-tree-sitter/lang-ini"]
 lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 lang-json = ["ferrite-tree-sitter/lang-json"]
 lang-md = ["ferrite-tree-sitter/lang-md"]
@@ -89,6 +90,7 @@ default = [
   "lang-go",
   "lang-html",
   "lang-hyprlang",
+  "lang-ini",
   "lang-json",
   "lang-md",
   "lang-python",

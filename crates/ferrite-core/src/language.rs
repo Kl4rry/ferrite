@@ -86,6 +86,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("go", OnceCell::new());
     #[cfg(feature = "lang-typescript")]
     langs.insert("typescript", OnceCell::new());
+    #[cfg(feature = "lang-ini")]
+    langs.insert("ini", OnceCell::new());
     langs
 });
 
@@ -284,6 +286,14 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             include_str!("../../../queries/typescript/injections.scm"),
             include_str!("../../../queries/typescript/locals.scm"),
         ),
+        #[cfg(feature = "lang-ini")]
+        "ini" => LanguageConfig::new(
+            "ini",
+            ferrite_tree_sitter::tree_sitter_ini::language(),
+            include_str!("../../../queries/ini/highlights.scm"),
+            "",
+            "",
+        ),
         _ => return None,
     })
 }
@@ -372,6 +382,28 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Name(".zprofile"), "bash"),
             (Name(".zshrc"), "bash"),
             (Name("PKGBUILD"), "bash"),
+            // ini
+            (Suffix(".ini"), "ini"),
+            (Suffix(".service"), "ini"),
+            (Suffix(".automount"), "ini"),
+            (Suffix(".device"), "ini"),
+            (Suffix(".mount"), "ini"),
+            (Suffix(".path"), "ini"),
+            (Suffix(".service"), "ini"),
+            (Suffix(".slice"), "ini"),
+            (Suffix(".socket"), "ini"),
+            (Suffix(".swap"), "ini"),
+            (Suffix(".target"), "ini"),
+            (Suffix(".timer"), "ini"),
+            (Suffix(".container"), "ini"),
+            (Suffix(".volume"), "ini"),
+            (Suffix(".kube"), "ini"),
+            (Suffix(".network"), "ini"),
+            (Suffix(".properties"), "ini"),
+            (Suffix(".cfg"), "ini"),
+            (Suffix(".directory"), "ini"),
+            (Name(".editorconfig"), "ini"),
+            (Name("rclone.conf"), "ini"),
         ]
     });
 

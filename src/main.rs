@@ -61,6 +61,7 @@ fn main() -> Result<ExitCode> {
     const GB: u64 = 1_000_000_000;
     if log_file.metadata()?.len() > GB {
         log_file.set_len(0)?;
+        tracing::warn!("Log file was truncated as it reached 1Gb in size");
     }
 
     let var = args

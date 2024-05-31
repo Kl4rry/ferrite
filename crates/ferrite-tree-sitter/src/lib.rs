@@ -24,6 +24,8 @@ pub use tree_sitter_go;
 pub use tree_sitter_html;
 #[cfg(feature = "lang-hyprlang")]
 pub use tree_sitter_hyprlang;
+#[cfg(feature = "lang-ini")]
+pub use tree_sitter_ini;
 #[cfg(feature = "lang-javascript")]
 pub use tree_sitter_javascript;
 #[cfg(feature = "lang-json")]

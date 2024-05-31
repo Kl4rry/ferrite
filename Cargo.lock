@@ -998,6 +998,7 @@ dependencies = [
  "tree-sitter-go",
  "tree-sitter-html",
  "tree-sitter-hyprlang",
+ "tree-sitter-ini",
  "tree-sitter-javascript",
  "tree-sitter-json",
  "tree-sitter-md",
@@ -3178,6 +3179,15 @@ dependencies = [
 name = "tree-sitter-hyprlang"
 version = "3.0.0"
 source = "git+https://github.com/tree-sitter-grammars/tree-sitter-hyprlang?rev=27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3#27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-ini"
+version = "0.0.1"
+source = "git+https://github.com/justinmk/tree-sitter-ini?rev=4d247fb876b4ae6b347687de4a179511bf67fcbc#4d247fb876b4ae6b347687de4a179511bf67fcbc"
 dependencies = [
  "cc",
  "tree-sitter",
