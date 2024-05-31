@@ -58,6 +58,11 @@ fn main() -> Result<ExitCode> {
         .create(true)
         .open(&log_file_path)?;
 
+    const GB: u64 = 1_000_000_000;
+    if log_file.metadata()?.len() > GB {
+        log_file.set_len(0)?;
+    } 
+
     let var = args
         .log_level
         .as_ref()
