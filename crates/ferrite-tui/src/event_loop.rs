@@ -6,6 +6,7 @@ use std::{
 use ferrite_core::event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent};
 
 pub enum TuiEvent {
+    StartOfEvents,
     Render,
     AppEvent(UserEvent),
     Crossterm(crossterm::event::Event),
@@ -69,6 +70,7 @@ impl TuiEventLoop {
 
         'main: loop {
             let mut control_flow = EventLoopControlFlow::Wait;
+            handler(&proxy, TuiEvent::StartOfEvents, &mut control_flow);
 
             while let Ok(event) = crossterm_rx.try_recv() {
                 handler(&proxy, TuiEvent::Crossterm(event), &mut control_flow);

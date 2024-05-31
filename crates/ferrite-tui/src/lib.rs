@@ -135,6 +135,7 @@ impl TuiApp {
         control_flow: &mut EventLoopControlFlow,
     ) {
         match event {
+            event_loop::TuiEvent::StartOfEvents => self.engine.start_of_events = Instant::now(),
             event_loop::TuiEvent::Crossterm(event) => {
                 self.handle_crossterm_event(proxy, event, control_flow)
             }
@@ -143,9 +144,9 @@ impl TuiApp {
             }
             event_loop::TuiEvent::Render => {
                 self.engine.do_polling(control_flow);
-                let before = Instant::now();
                 self.render();
-                self.engine.last_render_time = Instant::now().duration_since(before);
+                self.engine.last_render_time =
+                    Instant::now().duration_since(self.engine.start_of_events);
             }
         }
     }

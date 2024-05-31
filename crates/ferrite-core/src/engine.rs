@@ -4,7 +4,7 @@ use std::{
     num::NonZeroUsize,
     path::{Path, PathBuf},
     sync::mpsc,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
@@ -58,6 +58,7 @@ pub struct Engine {
     pub logger_state: LoggerState,
     pub choord: bool,
     pub last_render_time: Duration,
+    pub start_of_events: Instant,
 }
 
 impl Engine {
@@ -181,6 +182,7 @@ impl Engine {
             choord: false,
             logger_state: LoggerState::new(recv),
             last_render_time: Duration::ZERO,
+            start_of_events: Instant::now(),
         })
     }
 

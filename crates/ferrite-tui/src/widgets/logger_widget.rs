@@ -65,7 +65,7 @@ impl StatefulWidget for LoggerWidget<'_> {
         });
 
         buf.set_style(line_area, style);
-        let line = format!(" Render time: {:?}", self.render_time);
+        let line = format!(" Frame time: {:?}", self.render_time);
         buf.set_stringn(
             line_area.x,
             line_area.y,
