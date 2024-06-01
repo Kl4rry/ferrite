@@ -194,7 +194,7 @@ impl Buffer {
             metadata.permissions().readonly()
         };
         #[cfg(unix)]
-        let read_only_file = nix::unistd::access(path, nix::unistd::AccessFlags::W_OK).is_err();
+        let read_only_file = rustix::fs::access(path, rustix::fs::Access::WRITE_OK).is_err();
         let (encoding, rope) = read::read_from_file(path)?;
 
         let mut syntax = Syntax::new(get_buffer_proxy());
