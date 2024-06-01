@@ -59,6 +59,7 @@ pub struct Engine {
     pub choord: bool,
     pub last_render_time: Duration,
     pub start_of_events: Instant,
+    pub closed_buffers: Vec<PathBuf>,
 }
 
 impl Engine {
@@ -183,6 +184,7 @@ impl Engine {
             logger_state: LoggerState::new(recv),
             last_render_time: Duration::ZERO,
             start_of_events: Instant::now(),
+            closed_buffers: Vec::new(),
         })
     }
 
@@ -273,9 +275,8 @@ impl Engine {
             self.choord = false;
         }
         match input {
-            InputCommand::OpenUrl => {
-                self.open_selected_url();
-            }
+            InputCommand::ReopenBuffer => self.reopen_last_closed_buffer(),
+            InputCommand::OpenUrl => self.open_selected_url(),
             InputCommand::Split { direction } => {
                 let buffer_id = self.insert_buffer(Buffer::new(), false).0;
                 self.workspace
@@ -928,19 +929,42 @@ impl Engine {
                 self.workspace
                     .panes
                     .remove_pane(PaneKind::Buffer(buffer_id));
-                self.workspace.buffers.remove(buffer_id);
+                if let Some(path) = self.workspace.buffers.remove(buffer_id).file() {
+                    self.insert_removed_buffer(path.to_path_buf());
+                }
             } else if self.workspace.buffers.len() > 1 {
-                self.workspace.buffers.remove(buffer_id);
+                if let Some(path) = self.workspace.buffers.remove(buffer_id).file() {
+                    self.insert_removed_buffer(path.to_path_buf());
+                }
                 let (buffer_id, _) = self.workspace.buffers.iter().next().unwrap();
                 self.workspace
                     .panes
                     .replace_current(PaneKind::Buffer(buffer_id));
             } else {
+                if let Some(path) = self.workspace.buffers[buffer_id].file() {
+                    self.insert_removed_buffer(path.to_path_buf());
+                }
                 self.workspace.buffers[buffer_id] = Buffer::new();
             }
         } else {
             self.workspace.panes.remove_pane(PaneKind::Logger);
         }
+    }
+
+    pub fn reopen_last_closed_buffer(&mut self) {
+        while let Some(path) = self.closed_buffers.pop() {
+            if let Some(buffer) = self.get_current_buffer() {
+                if buffer.file() == Some(&path) {
+                    continue;
+                }
+            }
+            self.open_file(path);
+        }
+    }
+
+    fn insert_removed_buffer(&mut self, new: PathBuf) {
+        self.closed_buffers.retain(|path| &new != path);
+        self.closed_buffers.push(new);
     }
 
     pub fn get_search_prompt(&self) -> String {

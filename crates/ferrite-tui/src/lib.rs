@@ -6,7 +6,10 @@ use std::{
 
 use anyhow::Result;
 use crossterm::{
-    event::{self, Event, KeyEventKind, MouseButton, MouseEventKind},
+    event::{
+        self, Event, KeyEventKind, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+    },
     execute, terminal,
 };
 use ferrite_cli::Args;
@@ -67,6 +70,7 @@ pub struct TuiApp {
     buffer_area: Rect,
     drag_start: Option<Point<usize>>,
     engine: Engine,
+    keyboard_enhancement: bool,
 }
 
 impl TuiApp {
@@ -91,6 +95,7 @@ impl TuiApp {
             },
             drag_start: None,
             engine,
+            keyboard_enhancement: false,
         })
     }
 
@@ -111,6 +116,13 @@ impl TuiApp {
             terminal::Clear(terminal::ClearType::Purge),
             event::EnableMouseCapture,
         )?;
+
+        if terminal::supports_keyboard_enhancement()? {
+            execute!(
+                stdout,
+                PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+            )?;
+        }
 
         // Reset terminal to non raw mode on panic
         {
@@ -423,6 +435,9 @@ impl TuiApp {
 
 impl Drop for TuiApp {
     fn drop(&mut self) {
+        if self.keyboard_enhancement {
+            let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags,);
+        }
         let _ = terminal::disable_raw_mode();
         let _ = execute!(
             self.terminal.backend_mut(),

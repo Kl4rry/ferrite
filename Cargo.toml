@@ -14,7 +14,7 @@ cc = "1.0.79"
 chardetng = "0.1.17" 
 clap = { version = "4.1.4", features = ["derive", "cargo"] } 
 content_inspector = "0.2.4"
-crossterm = "0.25.0" # Pinned to 0.25.0 because emoji are broken in newer versions
+crossterm = "0.27.0" # Emoji are broken after 0.25.0 on windows
 csscolorparser = { version = "0.6.2", features = ["rgb"] } 
 detect-indent = { git = "https://github.com/stefanpenner/detect-indent-rs", rev = "f645bcc" } 
 directories = "5.0.0" 

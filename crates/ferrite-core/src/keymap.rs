@@ -107,6 +107,7 @@ pub enum InputCommand {
     Split {
         direction: Direction,
     },
+    ReopenBuffer,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,6 +123,10 @@ pub fn get_command_from_input(
     modifiers: KeyModifiers,
     mappings: &[(Mapping, InputCommand, Exclusiveness)],
 ) -> Option<InputCommand> {
+    let keycode = match keycode {
+        KeyCode::Char(ch) => KeyCode::Char(ch.to_ascii_lowercase()),
+        keycode => keycode,
+    };
     for (mapping, cmd, exclusiveness) in mappings {
         match exclusiveness {
             Exclusiveness::Exclusive => {
@@ -219,6 +224,14 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Esc, KeyModifiers::NONE),
             InputCommand::Escape,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(
+                KeyCode::Char('t'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ),
+            InputCommand::ReopenBuffer,
             Exclusiveness::Exclusive,
         ),
         (
@@ -604,6 +617,7 @@ impl InputCommand {
             InputCommand::Split {
                 direction: Direction::Down,
             } => "Split down",
+            InputCommand::ReopenBuffer => "Reopen buffer",
         }
     }
 }
