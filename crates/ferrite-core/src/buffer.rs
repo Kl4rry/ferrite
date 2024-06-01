@@ -147,6 +147,13 @@ impl Buffer {
 
     pub fn with_path(path: impl Into<PathBuf>) -> Result<Self, anyhow::Error> {
         let path = path.into();
+        let path = if path.has_root() {
+            path
+        } else {
+            let cwd = std::env::current_dir()?;
+            cwd.join(path)
+        };
+
         let mut syntax = Syntax::new(get_buffer_proxy());
         if let Some(language) = get_language_from_path(&path) {
             if let Err(err) = syntax.set_language(language) {
@@ -331,8 +338,16 @@ impl Buffer {
         self.file.as_deref()
     }
 
-    pub fn set_file(&mut self, path: impl Into<PathBuf>) {
-        self.file = Some(path.into());
+    pub fn set_file(&mut self, path: impl Into<PathBuf>) -> Result<(), std::io::Error> {
+        let path = path.into();
+        let path = if path.has_root() {
+            path
+        } else {
+            let cwd = std::env::current_dir()?;
+            cwd.join(path)
+        };
+        self.file = Some(path);
+        Ok(())
     }
 
     pub fn line_pos(&self) -> usize {
