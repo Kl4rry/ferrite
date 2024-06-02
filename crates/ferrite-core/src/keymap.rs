@@ -123,26 +123,26 @@ pub fn get_command_from_input(
     modifiers: KeyModifiers,
     mappings: &[(Mapping, InputCommand, Exclusiveness)],
 ) -> Option<InputCommand> {
-    let keycode = match keycode {
+    let normalized_keycode = match keycode {
         KeyCode::Char(ch) => KeyCode::Char(ch.to_ascii_lowercase()),
         keycode => keycode,
     };
     for (mapping, cmd, exclusiveness) in mappings {
         match exclusiveness {
             Exclusiveness::Exclusive => {
-                if *mapping == (Mapping { keycode, modifiers }) {
+                if *mapping == (Mapping { keycode: normalized_keycode, modifiers }) {
                     return Some(cmd.clone());
                 }
             }
             Exclusiveness::NonExclusive => {
-                if mapping.keycode == keycode && modifiers.contains(mapping.modifiers) {
+                if mapping.keycode == normalized_keycode && modifiers.contains(mapping.modifiers) {
                     return Some(cmd.clone());
                 }
             }
             Exclusiveness::Ignores(ignored) => {
                 let mut non_ignored = modifiers;
                 non_ignored.remove(*ignored);
-                if mapping.keycode == keycode && non_ignored == mapping.modifiers {
+                if mapping.keycode == normalized_keycode && non_ignored == mapping.modifiers {
                     return Some(cmd.clone());
                 }
             }
