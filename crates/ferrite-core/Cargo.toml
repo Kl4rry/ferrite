@@ -60,6 +60,7 @@ lang-comment = ["ferrite-tree-sitter/lang-comment"]
 lang-cpp = ["ferrite-tree-sitter/lang-cpp"]
 lang-css = ["ferrite-tree-sitter/lang-css"]
 lang-diff = ["ferrite-tree-sitter/lang-diff"]
+lang-dockerfile = ["ferrite-tree-sitter/lang-dockerfile"]
 lang-fish = ["ferrite-tree-sitter/lang-fish"]
 lang-fortran = ["ferrite-tree-sitter/lang-fortran"]
 lang-git-commit = ["ferrite-tree-sitter/lang-git-commit"]
@@ -92,6 +93,7 @@ default = [
   "lang-cpp",
   "lang-css",
   "lang-diff",
+  "lang-dockerfile",
   "lang-fish",
   "lang-fortran",
   "lang-git-commit",

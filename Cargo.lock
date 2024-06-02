@@ -962,6 +962,7 @@ dependencies = [
  "tree-sitter-cpp",
  "tree-sitter-css",
  "tree-sitter-diff",
+ "tree-sitter-dockerfile",
  "tree-sitter-fish",
  "tree-sitter-fortran",
  "tree-sitter-git-config",
@@ -3106,6 +3107,15 @@ dependencies = [
 name = "tree-sitter-diff"
 version = "0.0.1"
 source = "git+https://github.com/the-mikedavis/tree-sitter-diff?rev=fd74c78fa88a20085dbc7bbeaba066f4d1692b63#fd74c78fa88a20085dbc7bbeaba066f4d1692b63"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-dockerfile"
+version = "0.1.0"
+source = "git+https://github.com/camdencheek/tree-sitter-dockerfile?rev=8ee3a0f7587b2bd8c45c8cb7d28bd414604aec62#8ee3a0f7587b2bd8c45c8cb7d28bd414604aec62"
 dependencies = [
  "cc",
  "tree-sitter",

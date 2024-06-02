@@ -96,6 +96,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<LanguageConfig>>> = Lazy::
     langs.insert("git-commit", OnceCell::new());
     #[cfg(feature = "lang-rebase")]
     langs.insert("git-rebase", OnceCell::new());
+    #[cfg(feature = "lang-dockerfile")]
+    langs.insert("dockerfile", OnceCell::new());
     langs
 });
 
@@ -334,6 +336,14 @@ fn get_lang_config(name: &str) -> Option<LanguageConfig> {
             include_str!("../../../queries/git-rebase/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-dockerfile")]
+        "dockerfile" => LanguageConfig::new(
+            "dockerfile",
+            ferrite_tree_sitter::tree_sitter_dockerfile::language(),
+            include_str!("../../../queries/dockerfile/highlights.scm"),
+            include_str!("../../../queries/dockerfile/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -383,6 +393,9 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             // toml
             (Suffix(".toml"), "toml"),
             (Name("Cargo.lock"), "toml"),
+            // dockerfile
+            (Name("Dockerfile"), "dockerfile"),
+            (Name("Containerfile"), "dockerfile"),
             // glsl
             (Suffix(".glsl"), "glsl"),
             (Suffix(".vert"), "glsl"),

@@ -130,7 +130,12 @@ pub fn get_command_from_input(
     for (mapping, cmd, exclusiveness) in mappings {
         match exclusiveness {
             Exclusiveness::Exclusive => {
-                if *mapping == (Mapping { keycode: normalized_keycode, modifiers }) {
+                if *mapping
+                    == (Mapping {
+                        keycode: normalized_keycode,
+                        modifiers,
+                    })
+                {
                     return Some(cmd.clone());
                 }
             }

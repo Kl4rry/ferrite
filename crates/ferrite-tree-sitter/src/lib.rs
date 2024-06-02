@@ -14,6 +14,8 @@ pub use tree_sitter_cpp;
 pub use tree_sitter_css;
 #[cfg(feature = "lang-diff")]
 pub use tree_sitter_diff;
+#[cfg(feature = "lang-dockerfile")]
+pub use tree_sitter_dockerfile;
 #[cfg(feature = "lang-fish")]
 pub use tree_sitter_fish;
 #[cfg(feature = "lang-fortran")]

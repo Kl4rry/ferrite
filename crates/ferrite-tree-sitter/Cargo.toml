@@ -13,6 +13,7 @@ tree-sitter-comment = { git = "https://github.com/stsewd/tree-sitter-comment", r
 tree-sitter-cpp = { git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "a90f170f92d5d70e7c2d4183c146e61ba5f3a457", optional = true }
 tree-sitter-css = { git = "https://github.com/syntacti/tree-sitter-css", rev = "397aa132b9982fcdd2d473ed69343762a557f10a", optional = true }
 tree-sitter-diff = { git = "https://github.com/the-mikedavis/tree-sitter-diff", rev = "fd74c78fa88a20085dbc7bbeaba066f4d1692b63", optional = true }
+tree-sitter-dockerfile = { git = "https://github.com/camdencheek/tree-sitter-dockerfile", rev = "8ee3a0f7587b2bd8c45c8cb7d28bd414604aec62", optional = true }
 tree-sitter-fish = { git = "https://github.com/ram02z/tree-sitter-fish", rev = "6675b56266b3f615fb112205b6b83a79315309c4", optional = true }
 tree-sitter-fortran = { git = "https://github.com/stadelmanma/tree-sitter-fortran", rev = "f73d473e3530862dee7cbb38520f28824e7804f6", optional = true }
 tree-sitter-git-config = { git = "https://github.com/the-mikedavis/tree-sitter-git-config", rev = "9c2a1b7894e6d9eedfe99805b829b4ecd871375e", optional = true }
@@ -44,6 +45,7 @@ lang-comment = ["dep:tree-sitter-comment"]
 lang-cpp = ["dep:tree-sitter-cpp"]
 lang-css = ["dep:tree-sitter-css"]
 lang-diff = ["dep:tree-sitter-diff"]
+lang-dockerfile = ["dep:tree-sitter-dockerfile"]
 lang-fish = ["dep:tree-sitter-fish"]
 lang-fortran = ["dep:tree-sitter-fortran"]
 lang-git-commit = ["dep:tree-sitter-gitcommit"]
