@@ -61,6 +61,7 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         ("revert-buffer", [..]) => Command::RevertBuffer,
         ("delete", [..]) => Command::Delete,
         ("url", [..]) => Command::Url,
+        ("sort", [order, ..]) => Command::SortLines(order.take().map(|o|o.unwrap_string() == "asc").unwrap_or(true)),
         ("split", [direction, ..]) => {
             Command::Split(Direction::from_str(direction.take().unwrap().unwrap_string().as_str()).unwrap())
         },
@@ -139,6 +140,7 @@ static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
         CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
         CommandTemplate::new("pipe", Some(("arg", CommandTemplateArg::Path)), false),
         CommandTemplate::new("shell", Some(("arg", CommandTemplateArg::Path)), false).add_alias("sh"),
+        CommandTemplate::new("sort", Some(("order", CommandTemplateArg::Alternatives(["asc", "desc"].iter().map(|s| s.to_string()).collect()))), true),
         CommandTemplate::new("split", Some(("direction", CommandTemplateArg::Alternatives(["up", "down", "left", "right"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("case", Some(("encoding", CommandTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false),
         CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)

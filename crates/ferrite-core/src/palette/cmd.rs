@@ -27,6 +27,7 @@ pub enum Command {
     Goto(i64),
     Indent(Option<String>),
     Theme(Option<String>),
+    SortLines(bool),
     BrowseBuffers,
     BrowseWorkspace,
     OpenConfig,

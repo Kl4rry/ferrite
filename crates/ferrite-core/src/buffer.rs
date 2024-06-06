@@ -1622,7 +1622,7 @@ impl Buffer {
 
     pub fn ensure_cursor_is_valid(&mut self) {
         let position = self.cursor.position.min(self.rope.len_bytes());
-        let anchor = self.cursor.position.min(self.rope.len_bytes());
+        let anchor = self.cursor.anchor.min(self.rope.len_bytes());
         self.cursor.position = self.rope().ensure_grapheme_boundary_next_byte(position);
         self.cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
     }
@@ -1676,6 +1676,74 @@ impl Buffer {
         }
 
         self.indent.from_width(Rope::from_str(&indent).width(0))
+    }
+
+    pub fn sort_lines(&mut self, asc: bool) {
+        self.history.begin(self.cursor, self.dirty);
+        let start = self
+            .rope
+            .byte_to_line(self.cursor.position.min(self.cursor.anchor));
+        let end = self
+            .rope
+            .byte_to_line(self.cursor.position.max(self.cursor.anchor));
+
+        let last_line_at_start =
+            self.cursor.position.max(self.cursor.anchor) == self.rope.line_to_byte(end);
+
+        let end = if last_line_at_start {
+            end.saturating_sub(1).max(start)
+        } else {
+            end
+        };
+
+        if end == start {
+            return;
+        }
+
+        let start_byte = self.rope.line_to_byte(start);
+        let end_byte = self.rope.end_of_line_byte(end);
+
+        let cloned_rope = self.rope.clone();
+        let mut lines: Vec<RopeSlice> = cloned_rope
+            .byte_slice(start_byte..end_byte)
+            .lines()
+            .collect();
+        lines.sort_by(|lhs, rhs| {
+            let lhs = lhs.trim_start_whitespace();
+            let rhs = rhs.trim_start_whitespace();
+            for (lhs, rhs) in lhs.chunks().zip(rhs.chunks()) {
+                match lexical_sort::natural_lexical_cmp(lhs, rhs) {
+                    cmp::Ordering::Equal => continue,
+                    ordering if asc => return ordering.reverse(),
+                    ordering => return ordering,
+                }
+            }
+            cmp::Ordering::Equal
+        });
+
+        let cursor_line = self.cursor_line_idx();
+        let anchor_line = self.anchor_line_idx();
+        let cursor_col = self.cursor_grapheme_column();
+        let anchor_col = self.anchor_grapheme_column();
+
+        self.history.remove(&mut self.rope, start_byte..end_byte);
+        let inserted_bytes = 0;
+        for line in lines {
+            self.history
+                .insert(&mut self.rope, start_byte + inserted_bytes, line);
+        }
+
+        self.set_cursor_pos(cursor_col, cursor_line);
+        self.set_anchor_pos(anchor_col, anchor_line);
+
+        self.ensure_cursor_is_valid();
+        self.mark_dirty();
+
+        if self.clamp_cursor {
+            self.center_on_cursor();
+        }
+
+        self.history.finish();
     }
 }
 

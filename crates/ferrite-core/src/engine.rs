@@ -397,6 +397,11 @@ impl Engine {
         self.palette.reset();
         match cmd_parser::parse_cmd(&content) {
             Ok(cmd) => match cmd {
+                Command::SortLines(asc) => {
+                    if let Some(buffer) = self.get_current_buffer_mut() {
+                        buffer.sort_lines(asc);
+                    }
+                }
                 Command::Path => match self.try_get_current_buffer_path() {
                     Some(path) => self.palette.set_msg(path.to_string_lossy()),
                     None => self
@@ -992,7 +997,7 @@ impl Engine {
         self.workspace.buffers.get(buffer)
     }
 
-    pub fn _get_current_buffer_mut(&mut self) -> Option<&mut Buffer> {
+    pub fn get_current_buffer_mut(&mut self) -> Option<&mut Buffer> {
         let PaneKind::Buffer(buffer) = self.workspace.panes.get_current_pane() else {
             return None;
         };

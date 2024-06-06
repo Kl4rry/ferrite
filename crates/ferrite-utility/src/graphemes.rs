@@ -534,6 +534,8 @@ pub trait RopeGraphemeExt {
     fn byte_to_point(&self, byte_idx: usize) -> Point<usize>;
 
     fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize;
+
+    fn trim_start_whitespace(&self) -> RopeSlice;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
@@ -686,6 +688,19 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize {
         ensure_grapheme_boundary_next_byte(*self, byte_idx)
     }
+
+    fn trim_start_whitespace(&self) -> RopeSlice {
+        let mut start = 0;
+        for grapheme in self.grapehemes() {
+            if grapheme.is_whitespace() {
+                start += grapheme.len_bytes();
+            } else {
+                break;
+            }
+        }
+
+        self.byte_slice(start..)
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -779,5 +794,18 @@ impl RopeGraphemeExt for Rope {
 
     fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize {
         self.slice(..).ensure_grapheme_boundary_next_byte(byte_idx)
+    }
+
+    fn trim_start_whitespace(&self) -> RopeSlice {
+        let mut start = 0;
+        for grapheme in self.grapehemes() {
+            if grapheme.is_whitespace() {
+                start += grapheme.len_bytes();
+            } else {
+                break;
+            }
+        }
+
+        self.byte_slice(start..)
     }
 }
