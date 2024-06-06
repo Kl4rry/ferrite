@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ubuntu-build-artifacts
-          path: target/release/fe
+          path: target/release/ferrite
 
   build-linux-musl:
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ubuntu-musl-build-artifacts
-          path: target/x86_64-unknown-linux-musl/release/fe
+          path: target/x86_64-unknown-linux-musl/release/ferrite
 
   build-linux-old-glibc:
     runs-on: ubuntu-latest
@@ -137,7 +137,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: ubuntu-old-glibc-build-artifacts
-          path: target/release/fe
+          path: target/release/ferrite
 
   build-win:
     runs-on: windows-latest
@@ -180,7 +180,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: windows-build-artifacts
-          path: target/release/fe.exe
+          path: target/release/ferrite.exe
 
 #  build-mac:
 #    runs-on: macos-latest
@@ -223,4 +223,4 @@ jobs:
 #        uses: actions/upload-artifact@v1
 #        with:
 #          name: macos-build-artifacts
-#          path: target/release/fe
+#          path: target/release/ferrite
