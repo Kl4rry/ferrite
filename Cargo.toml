@@ -81,7 +81,3 @@ opt-level = 3
 [workspace]
 resolver = "2"
 members = ["crates/*"]
-
-[[bin]]
-name = "fe"
-path = "src/main.rs"
