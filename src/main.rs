@@ -5,8 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use clap::Parser;
-use ferrite_cli::{Args, Subcommands, Ui};
+use ferrite_cli::{Subcommands, Ui};
 use ferrite_core::{config::Config, logger::LoggerSink};
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
@@ -18,7 +17,7 @@ fn main() -> Result<ExitCode> {
     };
     let log_file_path = dirs.data_dir().join(".log.txt");
 
-    let args = Args::parse();
+    let args = ferrite_cli::parse();
     if let Some(subcmd) = &args.subcommands {
         match subcmd {
             Subcommands::Init { overwrite } => {

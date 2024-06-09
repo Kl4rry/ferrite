@@ -29,7 +29,6 @@ memchr = { workspace = true }
 notify = { workspace = true }
 once_cell = { workspace = true }
 opener = { workspace = true }
-proximity-sort = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

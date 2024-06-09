@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 /// A text editor
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "ferrite", version, about, long_about = None)]
 pub struct Args {
     /// Path to files that will be opened
     pub files: Vec<PathBuf>,
@@ -43,4 +43,8 @@ pub enum Subcommands {
     },
     /// Tail log file
     Log,
+}
+
+pub fn parse() -> Args {
+    Args::parse()
 }
