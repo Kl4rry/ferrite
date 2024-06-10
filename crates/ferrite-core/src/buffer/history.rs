@@ -156,7 +156,6 @@ impl History {
     }
 
     pub fn finish(&mut self) {
-        // maybe should be current_frame
         if let Some(frame) = self.stack.get_mut(self.current_frame as usize) {
             if !frame.finished {
                 frame.finished = true;
@@ -186,6 +185,9 @@ impl History {
             }
 
             if let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize) {
+                if frame.finished {
+                    break;
+                }
                 let earlier_class = frame.edit_class;
                 if let Some(last_class) = last_class {
                     if !EditClass::mergeable(&earlier_class, &last_class) {

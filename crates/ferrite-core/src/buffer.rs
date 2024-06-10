@@ -467,6 +467,7 @@ impl Buffer {
         }
 
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -486,6 +487,7 @@ impl Buffer {
         }
 
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -520,6 +522,8 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
 
+        self.history.finish();
+
         if self.clamp_cursor {
             self.center_on_cursor();
         }
@@ -553,6 +557,8 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
 
+        self.history.finish();
+
         if self.clamp_cursor {
             self.center_on_cursor();
         }
@@ -583,6 +589,8 @@ impl Buffer {
 
             self.cursor.position = end_byte_idx;
             self.cursor.anchor = start_byte_idx;
+
+            self.history.finish();
         }
     }
 
@@ -691,6 +699,7 @@ impl Buffer {
         }
 
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -706,6 +715,7 @@ impl Buffer {
         }
 
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -719,6 +729,7 @@ impl Buffer {
             .max(0) as usize;
 
         self.set_cursor_pos(0, line_idx);
+        self.history.finish();
     }
 
     pub fn home(&mut self, shift: bool) {
@@ -745,6 +756,7 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -760,6 +772,7 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -772,6 +785,7 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -784,6 +798,7 @@ impl Buffer {
             self.cursor.anchor = self.cursor.position;
         }
         self.update_affinity();
+        self.history.finish();
 
         if self.clamp_cursor {
             self.center_on_cursor();
@@ -1265,6 +1280,8 @@ impl Buffer {
         self.cursor.position = self.rope.len_bytes();
 
         self.update_affinity();
+        self.history.finish();
+
         if self.clamp_cursor {
             self.center_on_cursor();
         }
@@ -1282,6 +1299,9 @@ impl Buffer {
             let line_start = self.rope.line_to_byte(line_idx);
             self.cursor.anchor = line_start;
         }
+
+        self.update_affinity();
+        self.history.finish();
     }
 
     pub fn undo(&mut self) {
@@ -1383,6 +1403,7 @@ impl Buffer {
         let Some(path) = &self.file else {
             return Err(BufferError::NoPathSet);
         };
+        self.history.finish();
 
         let (encoding, rope) = read::read_from_file(path)?;
         self.encoding = encoding;
@@ -1475,6 +1496,8 @@ impl Buffer {
         self.set_anchor_pos(anchor.column, anchor.line);
 
         self.copy_selection_to_primary();
+        self.update_affinity();
+        self.history.finish();
     }
 
     pub fn copy_selection_to_primary(&mut self) {
