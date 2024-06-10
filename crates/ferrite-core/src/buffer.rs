@@ -324,6 +324,7 @@ impl Buffer {
                 text: line,
                 col_start_offset: width.saturating_sub(self.col_pos),
                 text_start_col: self.rope.get_text_start_col(line_idx),
+                text_end_col: self.rope.get_text_end_col(line_idx),
             });
         }
 
@@ -1751,6 +1752,7 @@ pub struct ViewLine<'a> {
     pub text: RopeSlice<'a>,
     pub col_start_offset: usize,
     pub text_start_col: usize,
+    pub text_end_col: usize,
 }
 
 pub struct BufferView<'a> {

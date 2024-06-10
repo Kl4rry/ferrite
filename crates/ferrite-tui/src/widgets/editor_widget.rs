@@ -1,6 +1,6 @@
 use ferrite_core::{
     buffer::{search::SearchMatch, Buffer, Selection},
-    config::Config,
+    config::{self, Config},
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
@@ -14,6 +14,7 @@ use tui::{
     layout::Rect,
     widgets::{StatefulWidget, Widget},
 };
+use unicode_width::UnicodeWidthStr;
 
 use super::info_line::InfoLine;
 use crate::{glue::convert_style, rect_ext::RectExt};
@@ -98,10 +99,13 @@ impl StatefulWidget for EditorWidget<'_> {
 
         let current_line_number = buffer.cursor_line_idx() + 1;
 
+        // We have to overwrite all rendered whitespace with the correct color
+        let mut dim_cells = Vec::new();
+
+        let mut grapheme_buffer = String::new();
+
         let view = buffer.get_buffer_view();
         {
-            let mut line_buffer = String::with_capacity(text_area.width.into());
-
             for (i, (line, line_number)) in view
                 .lines
                 .iter()
@@ -128,41 +132,85 @@ impl StatefulWidget for EditorWidget<'_> {
                     line_nr_theme,
                 );
 
-                let text = line.text.line_without_line_ending(0);
-                line_buffer.push_str(&" ".repeat(line.col_start_offset));
-                let mut current_width = 0;
-                for grapheme in text.grapehemes() {
-                    if grapheme.starts_width_char('\t') {
-                        let tab_width = tab_width_at(current_width, TAB_WIDTH);
-                        line_buffer.push_str(&" ".repeat(tab_width));
-                        current_width += tab_width;
-                        continue;
-                    }
-
-                    for ch in grapheme.chars() {
-                        if ch.is_ascii_control() {
-                            line_buffer.push('�');
-                        } else {
-                            line_buffer.push(ch);
-                        }
-                    }
-
-                    current_width += grapheme.width(current_width);
-                }
-
-                line_buffer.push(' ');
-
+                let start_offset = " ".repeat(line.col_start_offset);
                 if text_area.width > 0 {
                     buf.set_stringn(
                         text_area.x,
                         text_area.y + i as u16,
-                        &line_buffer,
+                        &start_offset,
                         text_area.width as usize,
                         convert_style(&theme.text),
                     );
                 }
 
-                line_buffer.clear();
+                let mut current_width: usize = 0;
+
+                let mut render_text = |text: &str, theme, current_width: usize| -> usize {
+                    buf.set_stringn(
+                        text_area.x + current_width as u16,
+                        text_area.y + i as u16,
+                        &text,
+                        text_area.width as usize,
+                        theme,
+                    );
+                    text.width()
+                };
+
+                let render_whitespace = |col: usize, text_end_col: usize| -> bool {
+                    match self.config.render_whitespace {
+                        config::RenderWhitespace::All => true,
+                        config::RenderWhitespace::None => false,
+                        config::RenderWhitespace::Trailing => col >= text_end_col,
+                    }
+                };
+
+                let text = line.text.line_without_line_ending(0);
+                for grapheme in text.grapehemes() {
+                    if grapheme.starts_width_char('\t') {
+                        let tab_width = tab_width_at(current_width, TAB_WIDTH);
+                        if render_whitespace(current_width, line.text_end_col) {
+                            dim_cells.push((current_width, i));
+                            grapheme_buffer.push_str("→");
+                        } else {
+                            grapheme_buffer.push_str(" ");
+                        }
+                        grapheme_buffer
+                            .extend(std::iter::repeat(" ").take(tab_width.saturating_sub(1)));
+                        render_text(
+                            &grapheme_buffer,
+                            convert_style(&theme.dim_text),
+                            current_width,
+                        );
+                        grapheme_buffer.clear();
+                        current_width += tab_width;
+                        continue;
+                    }
+
+                    if grapheme.chars().any(|ch| ch.is_ascii_control()) {
+                        render_text("�", convert_style(&theme.text), current_width);
+                    } else if grapheme.is_whitespace() {
+                        let width = grapheme.width(current_width);
+                        if render_whitespace(current_width, line.text_end_col) {
+                            dim_cells.push((current_width, i));
+                            current_width +=
+                                render_text("·", convert_style(&theme.dim_text), current_width);
+                        } else {
+                            current_width +=
+                                render_text(" ", convert_style(&theme.text), current_width);
+                        }
+                        for _ in 0..width.saturating_sub(1) {
+                            current_width +=
+                                render_text(" ", convert_style(&theme.dim_text), current_width);
+                        }
+                    } else {
+                        for ch in grapheme.chars() {
+                            grapheme_buffer.push(ch);
+                        }
+                        render_text(&grapheme_buffer, convert_style(&theme.text), current_width);
+                        grapheme_buffer.clear();
+                        current_width += grapheme.width(current_width);
+                    }
+                }
             }
             let mut ruler_cells = Vec::new();
             if !view.lines.is_empty() && config.show_indent_rulers {
@@ -233,7 +281,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             match event {
                                 HighlightEvent::Source { start, end } => {
                                     if range.contains(start) || range.contains(end) {
-                                        let mut style = convert_style(&theme.text);
+                                        let mut style = convert_style(&theme.dim_text);
                                         if let Some(highlight) = &highlight {
                                             if let Some(name) = highlight
                                                 .query
@@ -297,6 +345,17 @@ impl StatefulWidget for EditorWidget<'_> {
                 for (area, style) in highlights {
                     buf.set_style(area, *style);
                 }
+            }
+
+            // Stupid hack to fix tree sitter writing over rendered whitespace
+            for (col, line) in dim_cells {
+                let cell_area = Rect {
+                    x: col as u16 + text_area.x,
+                    y: line as u16 + text_area.y,
+                    width: 1,
+                    height: 1,
+                };
+                buf.set_style(cell_area, convert_style(&theme.dim_text));
             }
 
             for ruler in config.rulers.iter().copied() {

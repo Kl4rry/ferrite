@@ -7,6 +7,7 @@ watch_workspace = true
 show_indent_rulers = false
 always_prompt_on_exit = false
 case_insensitive_search = true
+render_whitespace = "none"
 
 [picker]
 show_hidden = false

@@ -50,11 +50,22 @@ pub struct Config {
     #[serde(default = "get_true")]
     pub case_insensitive_search: bool,
     #[serde(default)]
+    pub render_whitespace: RenderWhitespace,
+    #[serde(default)]
     pub picker: PickerConfig,
     #[serde(default)]
     pub info_line: InfoLineConfig,
     #[serde(default)]
     pub language: Vec<Language>,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum RenderWhitespace {
+    All,
+    #[default]
+    None,
+    Trailing,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

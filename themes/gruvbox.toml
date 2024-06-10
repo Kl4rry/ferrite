@@ -2,6 +2,7 @@
 "editor.line_nr" = { fg = "fg4", bg = "bg2" }
 "editor.current_line_nr" = { fg = "fg1", bg = "bg2" }
 "editor.text" = { fg = "fg1" }
+"editor.dim_text" = { fg = "ruler" }
 "editor.info_line" = { fg = "fg2", bg = "bg1" }
 "editor.info_line.unfocused" = { fg = "fg4", bg = "bg1" }
 "editor.background" = { bg = "bg0", fg = "fg1" }

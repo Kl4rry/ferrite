@@ -530,6 +530,8 @@ pub trait RopeGraphemeExt {
     fn get_text_start_col(&self, line_idx: usize) -> usize;
     fn get_text_start_byte(&self, line_idx: usize) -> usize;
 
+    fn get_text_end_col(&self, line_idx: usize) -> usize;
+
     fn byte_to_col(&self, byte_idx: usize) -> usize;
     fn byte_to_point(&self, byte_idx: usize) -> Point<usize>;
 
@@ -663,6 +665,24 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         len
     }
 
+    fn get_text_end_col(&self, line_idx: usize) -> usize {
+        let line = self.line_without_line_ending(line_idx);
+        let mut width = 0;
+        let mut text_width = 0;
+        let mut has_text = false;
+        for grapheme in line.grapehemes() {
+            if !grapheme.is_whitespace() {
+                has_text = true;
+            }
+            width += grapheme.width(width);
+            if has_text && !grapheme.is_whitespace() {
+                text_width = width;
+            }
+        }
+
+        text_width
+    }
+
     fn byte_to_col(&self, byte_idx: usize) -> usize {
         let mut bytes = 0;
         let mut width = 0;
@@ -782,6 +802,10 @@ impl RopeGraphemeExt for Rope {
 
     fn get_text_start_byte(&self, line_idx: usize) -> usize {
         self.slice(..).get_text_start_byte(line_idx)
+    }
+
+    fn get_text_end_col(&self, line_idx: usize) -> usize {
+        self.slice(..).get_text_end_col(line_idx)
     }
 
     fn byte_to_col(&self, byte_idx: usize) -> usize {

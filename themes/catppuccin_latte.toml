@@ -1,6 +1,7 @@
 "editor.line_nr" = { fg = "surface1", bg = "mantle" }
 "editor.current_line_nr" = { fg = "text", bg = "mantle" }
 "editor.text" = { fg = "text" }
+"editor.dim_text" = { fg = "surface0" }
 "editor.info_line" = { fg = "subtext1", bg = "mantle" }
 "editor.info_line.unfocused" = { fg = "surface1", bg = "mantle" }
 "editor.background" = { fg = "text", bg = "base" }
