@@ -149,7 +149,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     buf.set_stringn(
                         text_area.x + current_width as u16,
                         text_area.y + i as u16,
-                        &text,
+                        text,
                         text_area.width as usize,
                         theme,
                     );
@@ -170,9 +170,9 @@ impl StatefulWidget for EditorWidget<'_> {
                         let tab_width = tab_width_at(current_width, TAB_WIDTH);
                         if render_whitespace(current_width, line.text_end_col) {
                             dim_cells.push((current_width, i));
-                            grapheme_buffer.push_str("→");
+                            grapheme_buffer.push('→');
                         } else {
-                            grapheme_buffer.push_str(" ");
+                            grapheme_buffer.push(' ');
                         }
                         grapheme_buffer
                             .extend(std::iter::repeat(" ").take(tab_width.saturating_sub(1)));
@@ -281,7 +281,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             match event {
                                 HighlightEvent::Source { start, end } => {
                                     if range.contains(start) || range.contains(end) {
-                                        let mut style = convert_style(&theme.dim_text);
+                                        let mut style = convert_style(&theme.text);
                                         if let Some(highlight) = &highlight {
                                             if let Some(name) = highlight
                                                 .query
