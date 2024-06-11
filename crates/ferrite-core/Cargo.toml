@@ -40,8 +40,6 @@ toml = { workspace = true, features = ["parse"] }
 tracing = { workspace = true } 
 trash = { workspace = true } 
 tree-sitter = { workspace = true } 
-unicode-segmentation = { workspace = true }
-unicode-width = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["fs"] }

@@ -879,8 +879,6 @@ dependencies = [
  "tracing",
  "trash",
  "tree-sitter",
- "unicode-segmentation",
- "unicode-width",
 ]
 
 [[package]]
@@ -940,7 +938,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "crossterm",
- "dunce",
  "encoding_rs",
  "ferrite-cli",
  "ferrite-core",
@@ -948,8 +945,6 @@ dependencies = [
  "ratatui",
  "rayon",
  "ropey",
- "slab",
- "subprocess",
  "tracing",
  "unicode-width",
 ]
