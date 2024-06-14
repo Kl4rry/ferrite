@@ -282,7 +282,6 @@ impl Engine {
                 self.workspace
                     .panes
                     .split(PaneKind::Buffer(buffer_id), direction);
-                self.open_file_picker();
             }
             InputCommand::Shell => {
                 self.file_finder = None;
@@ -477,7 +476,6 @@ impl Engine {
                     self.workspace
                         .panes
                         .split(PaneKind::Buffer(buffer_id), direction);
-                    self.open_file_picker();
                 }
                 Command::Shell { args, pipe } => {
                     self.run_shell_command(args, pipe);
