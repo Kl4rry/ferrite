@@ -1,0 +1,77 @@
+"editor.line_nr" = { fg = "base0", bg = "base02" }
+"editor.current_line_nr" = { fg = "base3", bg = "base02" }
+"editor.text" = { fg = "base1" }
+"editor.dim_text" = { fg = "base02" }
+"editor.info_line" = { fg = "base2", bg = "base02" }
+"editor.info_line.unfocused" = { fg = "base0", bg = "base02" }
+"editor.background" = { bg = "base03", fg = "base1" }
+"editor.selection" = { bg = "base0175"}
+"editor.border" = { bg = "base03", fg = "base1" }
+"editor.ruler" = { fg = "base02" }
+"editor.error_text" = { fg = "red" }
+"editor.search.match" = { bg = "base015" }
+"editor.fuzzy.match" = { fg = "red" }
+"editor.completer" = { bg = "base02", fg = "base1" }
+"editor.completer.selected" = { bg = "base02", fg = "base2" }
+
+[syntax]
+"attribute" = { fg = "violet" }
+"keyword" = { fg = "green" }
+"keyword.directive" = { fg = "orange" }
+"namespace" = { fg = "violet" }
+"operator" = { fg = "green" }
+"special" = { fg = "orange" }
+"variable.builtin" = { fg = "cyan" }
+"variable.function" = { fg = "blue" }
+"type" = { fg = "yellow" }
+"type.builtin" = { fg = "yellow" }
+"constructor" = { fg = "blue" }
+"function" = { fg = "blue" }
+"function.macro" = { fg = "magenta" }
+"function.builtin" = { fg = "blue" }
+"function.special" = { fg = "magenta" }
+"comment" = { fg = "base01" }
+"string" = { fg = "cyan" }
+"constant" = { fg = "cyan" }
+"constant.builtin" = { fg = "cyan" }
+"constant.character.escape" = { fg = "red" }
+"label" = { fg = "green" }
+"module" = { fg = "violet" }
+"tag" = { fg = "magenta" }
+"variable" =  { fg = "blue"}
+"punctuation" = { fg = "base1" }
+
+"markup.heading" = { fg = "blue" }
+"markup.list" = { fg = "red" }
+"markup.bold" = { fg = "yellow" }
+"markup.italic" = { fg = "magenta" }
+"markup.link.url" = { fg = "yellow" }
+"markup.link.text" = { fg = "red" }
+"markup.quote" = { fg = "cyan" }
+"markup.raw" = { fg = "green" }
+
+"diff.plus" = { fg = "green" }
+"diff.delta" = { fg = "orange" }
+"diff.minus" = { fg = "red" }
+
+[palette]
+base03   = "#002b36"
+base025  = "#03303b"
+base02   = "#073642"
+base0175 = "#16404b"
+base015  = "#2c4f59"
+base01   = "#586e75"
+base00   = "#657b83"
+base0    = "#839496"
+base1    = "#93a1a1"
+base2    = "#eee8d5"
+base3    = "#fdf6e3"
+
+yellow  = "#b58900"
+orange  = "#cb4b16"
+red     = "#dc322f"
+magenta = "#d33682"
+violet  = "#6c71c4"
+blue    = "#268bd2"
+cyan    = "#2aa198"
+green   = "#859900"
