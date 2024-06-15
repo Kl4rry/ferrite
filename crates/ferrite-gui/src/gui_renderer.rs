@@ -22,9 +22,7 @@ impl GuiRenderer {
         height: f32,
     ) -> Self {
         let mut font_system = FontSystem::new();
-        font_system
-            .db_mut()
-            .set_monospace_family("CaskaydiaCove Nerd Font Mono");
+        font_system.db_mut().set_monospace_family("9x15");
         let cache = SwashCache::new();
         let mut atlas = TextAtlas::new(device, queue, surface_format);
         let text_renderer = TextRenderer::new(
@@ -54,7 +52,7 @@ impl GuiRenderer {
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, text: String) {
         let mut text_areas = Vec::new();
-        let mut buffer = Buffer::new(&mut self.font_system, Metrics::new(15.0, 15.0));
+        let mut buffer = Buffer::new(&mut self.font_system, Metrics::new(15.0, 19.0));
         buffer.set_size(&mut self.font_system, self.width, self.height);
         buffer.set_wrap(&mut self.font_system, glyphon::Wrap::None);
         buffer.set_text(
@@ -76,7 +74,7 @@ impl GuiRenderer {
                 right: self.width as i32,
                 bottom: self.height as i32,
             },
-            default_color: Color::rgb(255, 255, 255),
+            default_color: Color::rgb(205, 214, 244),
         });
 
         self.text_renderer
