@@ -12,7 +12,7 @@
 "editor.search.match" = { bg = "search_match" }
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "surface1", fg = "text" }
-"editor.completer.selected" = { bg = "surface1", fg = "text" }
+"editor.completer.selected" = { bg = "blue", fg = "surface0" }
 
 
 

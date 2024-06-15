@@ -12,7 +12,7 @@
 "editor.search.match" = { bg = "base015" }
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "base02", fg = "base1" }
-"editor.completer.selected" = { bg = "base02", fg = "base2" }
+"editor.completer.selected" = { bg = "base00", fg = "base03" }
 
 [syntax]
 "attribute" = { fg = "violet" }
