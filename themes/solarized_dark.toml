@@ -31,6 +31,8 @@
 "function.builtin" = { fg = "blue" }
 "function.special" = { fg = "magenta" }
 "comment" = { fg = "base01" }
+"info" = { fg = "yellow" }
+"hint" = { fg = "yellow" }
 "string" = { fg = "cyan" }
 "constant" = { fg = "cyan" }
 "constant.builtin" = { fg = "cyan" }
