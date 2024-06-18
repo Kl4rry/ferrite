@@ -14,19 +14,19 @@ use tree_sitter::{
     Range, TextProvider, Tree,
 };
 
-use super::{get_tree_sitter_language, LanguageConfig};
+use super::{get_tree_sitter_language, TreeSitterConfig};
 use crate::event_loop_proxy::EventLoopProxy;
 
 type HighlightResult = Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>;
 
 struct SyntaxProvider {
-    pub language: &'static LanguageConfig,
+    pub language: &'static TreeSitterConfig,
     pub rope_tx: Sender<Rope>,
 }
 
 impl SyntaxProvider {
     pub fn new(
-        language: &'static LanguageConfig,
+        language: &'static TreeSitterConfig,
         proxy: Box<dyn EventLoopProxy>,
         result: HighlightResult,
     ) -> Result<Self> {
