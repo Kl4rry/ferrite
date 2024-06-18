@@ -261,6 +261,7 @@ impl CommandPalette {
                     _ => (),
                 }
                 for ch in chars {
+                    let ch = ch.to_ascii_lowercase();
                     if ch == *alt1_char {
                         *selected = SelectedPrompt::Alt1;
                     }
