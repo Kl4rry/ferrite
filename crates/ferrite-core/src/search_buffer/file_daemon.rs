@@ -3,6 +3,7 @@ use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
+    sync::{Arc, Condvar, Mutex},
     thread,
     time::{Duration, Instant},
 };
@@ -64,32 +65,48 @@ impl FileDaemon {
         let watch_workspace = config.watch_workspace;
 
         thread::spawn(move || {
+            let pair = Arc::new((Mutex::new(false), Condvar::new()));
+            let watch_pair = pair.clone();
             let (update_tx, update_rx) = cb::unbounded();
-            let mut watcher = match notify::recommended_watcher(
-                move |event: std::result::Result<notify::event::Event, notify::Error>| {
-                    if let Ok(event) = event {
-                        let _ = update_tx.send(event);
+            let watcher_thread = thread::spawn(move || {
+                let mut watcher = match notify::recommended_watcher(
+                    move |event: std::result::Result<notify::event::Event, notify::Error>| {
+                        if let Ok(event) = event {
+                            let _ = update_tx.send(event);
+                        }
+                    },
+                ) {
+                    Ok(watcher) => watcher,
+                    Err(err) => {
+                        tracing::error!("Error starting file watcher {err}");
+                        return;
                     }
-                },
-            ) {
-                Ok(watcher) => watcher,
-                Err(err) => {
-                    tracing::error!("Error starting file watcher {err}");
-                    return;
+                };
+
+                if watch_workspace {
+                    let mode = match recursive {
+                        true => RecursiveMode::Recursive,
+                        false => RecursiveMode::NonRecursive,
+                    };
+                    tracing::info!("watching workspace: {:?} using {:?}", path, mode);
+
+                    if let Err(err) = watcher.watch(&path, mode) {
+                        tracing::error!("Error starting file watcher {err}");
+                    };
                 }
-            };
+                let (lock, cvar) = &*watch_pair;
+                drop(
+                    cvar.wait_while(lock.lock().unwrap(), |exit| !*exit)
+                        .unwrap(),
+                );
+            });
 
-            if watch_workspace {
-                let mode = match recursive {
-                    true => RecursiveMode::Recursive,
-                    false => RecursiveMode::NonRecursive,
-                };
-                tracing::info!("watching workspace: {:?} using {:?}", path, mode);
-
-                if let Err(err) = watcher.watch(&path, mode) {
-                    tracing::error!("Error starting file watcher {err}");
-                };
-            }
+            let _guard = Defer::new(|| {
+                let (lock, cvar) = &*pair;
+                *lock.lock().unwrap() = true;
+                cvar.notify_all();
+                watcher_thread.join().unwrap();
+            });
 
             let mut tracked_files = HashSet::new();
 
@@ -285,5 +302,24 @@ impl FileDaemon {
 impl Drop for FileDaemon {
     fn drop(&mut self) {
         let _ = self.exit_tx.send(());
+    }
+}
+
+struct Defer<F: FnOnce()> {
+    closure: Option<F>,
+}
+
+impl<F: FnOnce()> Defer<F> {
+    fn new(closure: F) -> Self {
+        Self {
+            closure: Some(closure),
+        }
+    }
+}
+
+impl<F: FnOnce()> Drop for Defer<F> {
+    fn drop(&mut self) {
+        let closure = self.closure.take().unwrap();
+        (closure)()
     }
 }
