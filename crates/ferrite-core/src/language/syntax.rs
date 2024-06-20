@@ -192,6 +192,7 @@ pub struct HighlightConfiguration {
     pub language: Language,
     pub query: &'static Query,
     combined_injections_query: &'static Option<Query>,
+    indent_query: &'static Query,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
     non_local_variable_patterns: Vec<bool>,
@@ -321,6 +322,7 @@ impl HighlightConfiguration {
         highlights_query: &str,
         injection_query: &str,
         locals_query: &str,
+        indents_query: &str,
     ) -> Result<Self, QueryError> {
         // Concatenate the query strings, keeping track of the start offset of each section.
         let mut query_source = String::new();
@@ -346,6 +348,8 @@ impl HighlightConfiguration {
                 }
             }
         }
+
+        let indent_query = Query::new(language, indents_query)?;
 
         // Construct a separate query just for dealing with the 'combined injections'.
         // Disable the combined injection patterns in the main query.
@@ -401,6 +405,7 @@ impl HighlightConfiguration {
             language,
             query: Box::leak(Box::new(query)),
             combined_injections_query: Box::leak(Box::new(combined_injections_query)),
+            indent_query: Box::leak(Box::new(indent_query)),
             locals_pattern_index,
             highlights_pattern_index,
             non_local_variable_patterns,
