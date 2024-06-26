@@ -212,6 +212,8 @@ impl Buffer {
             syntax.update_text(rope.clone());
         }
 
+        // TODO add parsing of shebang and other heuristics
+
         let name = path.file_name().unwrap().to_string_lossy().into();
 
         Ok(Self {
