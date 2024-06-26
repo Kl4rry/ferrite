@@ -1,8 +1,8 @@
 use std::{
-    collections::HashMap,
+    cell::RefCell,
+    collections::{HashMap, HashSet},
     error::Error,
-    fmt::{self},
-    fs,
+    fmt, fs,
     path::{Path, PathBuf},
 };
 
@@ -148,7 +148,19 @@ impl EditorTheme {
                 },
             }
         }
-        tracing::warn!("missing in theme: {}", name);
+
+        thread_local! {
+            static MISSING: RefCell<HashSet<String>> = RefCell::new(HashSet::new());
+        }
+
+        MISSING.with(|missing| {
+            let mut missing = missing.borrow_mut();
+            if !missing.contains(name) {
+                tracing::warn!("missing in theme: {}", name);
+                missing.insert(name.to_string());
+            }
+        });
+
         self.text.clone()
     }
 
