@@ -5,6 +5,7 @@ use tree_sitter::Language;
 
 use self::syntax::HighlightConfiguration;
 
+pub mod detect;
 pub mod syntax;
 
 #[derive(Clone)]

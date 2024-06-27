@@ -22,7 +22,10 @@ use super::{
     indent::Indentation,
     language::{get_language_from_path, syntax::Syntax},
 };
-use crate::{clipboard, event_loop_proxy::EventLoopProxy, keymap::LineMoveDir};
+use crate::{
+    clipboard, event_loop_proxy::EventLoopProxy, keymap::LineMoveDir,
+    language::detect::detect_language,
+};
 
 pub mod case;
 pub mod encoding;
@@ -212,7 +215,13 @@ impl Buffer {
             syntax.update_text(rope.clone());
         }
 
-        // TODO add parsing of shebang and other heuristics
+        if let Some(language) = detect_language(syntax.get_language_name().as_deref(), rope.clone())
+        {
+            if let Err(err) = syntax.set_language(language) {
+                tracing::error!("Error setting language: {err}");
+            }
+            syntax.update_text(rope.clone());
+        }
 
         let name = path.file_name().unwrap().to_string_lossy().into();
 
