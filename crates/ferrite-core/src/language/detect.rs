@@ -2,7 +2,7 @@ use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::{Rope, RopeSlice};
 
 pub fn detect_language(inital_guess: Option<&str>, content: Rope) -> Option<&'static str> {
-    tracing::info!("inital_guess: {inital_guess:?}");
+    tracing::trace!("inital_guess: {inital_guess:?}");
     if inital_guess == Some("c") {
         let cpp_markers = [
             "public",

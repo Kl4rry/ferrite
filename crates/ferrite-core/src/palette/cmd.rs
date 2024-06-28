@@ -39,6 +39,7 @@ pub enum Command {
     Format,
     FormatSelection,
     GitReload,
+    GitDiff,
     RevertBuffer,
     Delete,
 }

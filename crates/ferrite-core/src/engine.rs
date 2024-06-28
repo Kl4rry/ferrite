@@ -478,7 +478,7 @@ impl Engine {
                         .split(PaneKind::Buffer(buffer_id), direction);
                 }
                 Command::Shell { args, pipe } => {
-                    self.run_shell_command(args, pipe);
+                    self.run_shell_command(args, pipe, false);
                 }
                 Command::Delete => {
                     let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
@@ -687,6 +687,9 @@ impl Engine {
                         self.workspace.buffers[buffer_id].handle_input(InputCommand::RevertBuffer);
                 }
                 Command::GitReload => self.branch_watcher.force_reload(),
+                Command::GitDiff => {
+                    self.run_shell_command(vec!["git".into(), "diff".into()], true, true);
+                }
             },
             Err(err) => self.palette.set_error(err),
         }
@@ -721,7 +724,7 @@ impl Engine {
                 }
                 "shell" => {
                     let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
-                    self.run_shell_command(args, false);
+                    self.run_shell_command(args, false, false);
                 }
                 _ => (),
             },
@@ -1059,7 +1062,7 @@ impl Engine {
         }
     }
 
-    pub fn run_shell_command(&mut self, args: Vec<PathBuf>, pipe: bool) {
+    pub fn run_shell_command(&mut self, args: Vec<PathBuf>, pipe: bool, read_only: bool) {
         let job = self.job_manager.spawn_foreground_job(
             move |()| -> Result<_, anyhow::Error> {
                 let mut cmd = String::new();
@@ -1086,7 +1089,15 @@ impl Engine {
                     ));
                 }
 
-                let buffer = Buffer::from_bytes(&stdout.unwrap())?;
+                let mut buffer = Buffer::from_bytes(&stdout.unwrap())?;
+                let first_line = buffer.rope().line(0);
+                let name = if first_line.len_chars() > 15 {
+                    format!("{}...", first_line.slice(..15))
+                } else {
+                    first_line.to_string()
+                };
+                buffer.set_name(name);
+                buffer.read_only = read_only;
 
                 Ok((pipe, buffer))
             },

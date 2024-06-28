@@ -294,6 +294,10 @@ impl Buffer {
         &self.name
     }
 
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
     pub fn language_name(&self) -> String {
         match &self.syntax {
             Some(syntax) => syntax
