@@ -1,3 +1,4 @@
+use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::{Rope, RopeSlice};
 
 pub fn detect_language(inital_guess: Option<&str>, content: Rope) -> Option<&'static str> {
@@ -32,9 +33,15 @@ pub fn detect_language(inital_guess: Option<&str>, content: Rope) -> Option<&'st
 }
 
 fn detect_shebang(content: RopeSlice) -> Option<&'static str> {
-    let first_line = content
-        .slice(..content.len_chars().min(1000))
-        .get_line(0)?
+    for line in content.lines() {
+        if line.is_whitespace() {
+            continue;
+        }
+    }
+
+    let first_non_empty = content.lines().find(|line| !line.is_whitespace())?;
+    let first_line = first_non_empty
+        .slice(..first_non_empty.len_chars().min(1000))
         .to_string();
 
     let shebangs = [
@@ -46,6 +53,9 @@ fn detect_shebang(content: RopeSlice) -> Option<&'static str> {
         ("#!/bin/sh", "bash"),
         ("#!/usr/bin/env bash", "bash"),
         ("zsh", "bash"),
+        ("<?xml", "xml"),
+        ("<!DOCTYPE html>", "html"),
+        ("diff", "diff"),
     ];
 
     for (shebang, language) in shebangs {

@@ -51,10 +51,11 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
     let mut tui_app = TuiApp::new(args, event_loop.create_proxy(), recv)?;
     if !io::stdin().is_terminal() {
         let mut stdin = io::stdin().lock();
-        let mut text = String::new();
-        stdin.read_to_string(&mut text)?;
-        let buffer = tui_app.new_buffer_with_text(&text);
+        let mut bytes = Vec::new();
+        stdin.read_to_end(&mut bytes)?;
+        let mut buffer = Buffer::from_bytes(&bytes)?;
         buffer.goto(args.line as i64);
+        tui_app.engine.insert_buffer(buffer, true);
     }
 
     if !io::stdout().is_terminal() {
@@ -97,12 +98,6 @@ impl TuiApp {
             engine,
             keyboard_enhancement: false,
         })
-    }
-
-    pub fn new_buffer_with_text(&mut self, text: &str) -> &mut Buffer {
-        let mut buffer = Buffer::new();
-        buffer.set_text(text);
-        self.engine.insert_buffer(buffer, true).1
     }
 
     pub fn run(mut self, event_loop: TuiEventLoop) -> Result<()> {

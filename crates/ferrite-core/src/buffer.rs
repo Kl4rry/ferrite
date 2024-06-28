@@ -239,7 +239,14 @@ impl Buffer {
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, io::Error> {
         let (encoding, rope) = read::read(bytes)?;
-        let syntax = Syntax::new(get_buffer_proxy());
+        let mut syntax = Syntax::new(get_buffer_proxy());
+
+        if let Some(language) = detect_language(None, rope.clone()) {
+            if let Err(err) = syntax.set_language(language) {
+                tracing::error!("Error setting language: {err}");
+            }
+            syntax.update_text(rope.clone());
+        }
 
         Ok(Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
