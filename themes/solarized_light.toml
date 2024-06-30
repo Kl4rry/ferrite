@@ -16,6 +16,7 @@
 
 [syntax]
 "attribute" = { fg = "violet" }
+"key" = { fg = "green" }
 "keyword" = { fg = "green" }
 "keyword.directive" = { fg = "orange" }
 "namespace" = { fg = "violet" }
