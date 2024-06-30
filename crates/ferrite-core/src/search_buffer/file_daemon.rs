@@ -12,7 +12,6 @@ use cb::select;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
-use rayon::prelude::*;
 
 use crate::{
     config::Config,
@@ -61,13 +60,13 @@ impl FileDaemon {
         let (change_broadcaster, change_detector) = pubsub::create(());
         let path_to_search = path.clone();
         let picker_config = config.picker;
-        let recursive = config.watch_recursive;
         let watch_workspace = config.watch_workspace;
 
         thread::spawn(move || {
             let pair = Arc::new((Mutex::new(false), Condvar::new()));
             let watch_pair = pair.clone();
             let (update_tx, update_rx) = cb::unbounded();
+            let (inital_tx, inital_rx) = cb::unbounded();
             let watcher_thread = thread::spawn(move || {
                 let mut watcher = match notify::recommended_watcher(
                     move |event: std::result::Result<notify::event::Event, notify::Error>| {
@@ -83,17 +82,27 @@ impl FileDaemon {
                     }
                 };
 
-                if watch_workspace {
-                    let mode = match recursive {
-                        true => RecursiveMode::Recursive,
-                        false => RecursiveMode::NonRecursive,
-                    };
-                    tracing::info!("watching workspace: {:?} using {:?}", path, mode);
+                let iterator = ignore::WalkBuilder::new(&path)
+                    .follow_links(false)
+                    .ignore(picker_config.follow_ignore)
+                    .git_global(picker_config.follow_git_global)
+                    .git_ignore(picker_config.follow_gitignore)
+                    .git_exclude(picker_config.follow_git_exclude)
+                    .build()
+                    .filter_map(|result| result.ok());
 
-                    if let Err(err) = watcher.watch(&path, mode) {
-                        tracing::error!("Error starting file watcher {err}");
-                    };
+                for entry in iterator {
+                    if watch_workspace {
+                        tracing::info!("watching {path:?}");
+                        if let Err(err) = watcher.watch(entry.path(), RecursiveMode::NonRecursive) {
+                            tracing::error!("Error starting file watcher {err}");
+                        };
+                    }
+                    let _ = inital_tx.send(entry);
                 }
+
+                drop(inital_tx);
+
                 let (lock, cvar) = &*watch_pair;
                 drop(
                     cvar.wait_while(lock.lock().unwrap(), |exit| !*exit)
@@ -101,7 +110,7 @@ impl FileDaemon {
                 );
             });
 
-            let _guard = Defer::new(|| {
+            let _defer = Defer::new(|| {
                 let (lock, cvar) = &*pair;
                 *lock.lock().unwrap() = true;
                 cvar.notify_all();
@@ -113,36 +122,30 @@ impl FileDaemon {
             let path: PathBuf = path_to_search;
             let path_str = path.to_string_lossy().into_owned();
 
-            let mut iterator = ignore::WalkBuilder::new(&path)
-                .follow_links(false)
-                .ignore(picker_config.follow_ignore)
-                .git_global(picker_config.follow_git_global)
-                .git_ignore(picker_config.follow_gitignore)
-                .git_exclude(picker_config.follow_git_exclude)
-                .build()
-                .filter_map(|result| result.ok());
-
             {
+                let mut iterator = inital_rx.iter();
                 loop {
                     let start = Instant::now();
-                    let entries: Vec<_> = iterator.by_ref().take(1000).collect();
+
+                    // TODO: Do not reallocate this Vec every time
+                    let entries: Vec<PathBuf> = iterator
+                        .by_ref()
+                        .filter(|entry| entry.file_type().map(|f| f.is_file()).unwrap_or(false))
+                        .filter_map(|entry| {
+                            if picker_config.show_only_text_files {
+                                get_text_file_path(entry.path().to_path_buf())
+                            } else {
+                                Some(entry.path().to_path_buf())
+                            }
+                        })
+                        .take(1000)
+                        .collect();
 
                     if entries.is_empty() {
                         break;
                     }
 
-                    tracked_files.par_extend(
-                        entries
-                            .par_iter()
-                            .filter(|entry| entry.file_type().map(|f| f.is_file()).unwrap_or(false))
-                            .filter_map(|entry| {
-                                if picker_config.show_only_text_files {
-                                    get_text_file_path(entry.path().to_path_buf())
-                                } else {
-                                    Some(entry.path().to_path_buf())
-                                }
-                            }),
-                    );
+                    tracked_files.extend(entries);
 
                     let mut files: Vec<_> = tracked_files
                         .iter()

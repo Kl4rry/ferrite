@@ -40,8 +40,6 @@ pub struct Config {
     #[serde(default = "get_true")]
     pub show_splash: bool,
     #[serde(default = "get_true")]
-    pub watch_recursive: bool,
-    #[serde(default = "get_true")]
     pub watch_workspace: bool,
     #[serde(default = "get_false")]
     pub show_indent_rulers: bool,
