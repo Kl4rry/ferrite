@@ -921,6 +921,7 @@ dependencies = [
  "tree-sitter-javascript",
  "tree-sitter-json",
  "tree-sitter-md",
+ "tree-sitter-protobuf",
  "tree-sitter-python",
  "tree-sitter-rebase",
  "tree-sitter-ron",
@@ -3169,6 +3170,15 @@ dependencies = [
 name = "tree-sitter-md"
 version = "0.1.2"
 source = "git+https://github.com/MDeiml/tree-sitter-markdown?rev=272e080bca0efd19a06a7f4252d746417224959e#272e080bca0efd19a06a7f4252d746417224959e"
+dependencies = [
+ "cc",
+ "tree-sitter",
+]
+
+[[package]]
+name = "tree-sitter-protobuf"
+version = "0.0.1"
+source = "git+https://github.com/yusdacra/tree-sitter-protobuf?rev=19c211a01434d9f03efff99f85e19f967591b175#19c211a01434d9f03efff99f85e19f967591b175"
 dependencies = [
  "cc",
  "tree-sitter",

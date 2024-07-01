@@ -40,6 +40,8 @@ pub use tree_sitter_javascript;
 pub use tree_sitter_json;
 #[cfg(feature = "lang-md")]
 pub use tree_sitter_md;
+#[cfg(feature = "lang-protobuf")]
+pub use tree_sitter_protobuf;
 #[cfg(feature = "lang-python")]
 pub use tree_sitter_python;
 #[cfg(feature = "lang-rebase")]

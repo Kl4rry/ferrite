@@ -99,6 +99,8 @@ static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<TreeSitterConfig>>> = Lazy
     langs.insert("git-rebase", OnceCell::new());
     #[cfg(feature = "lang-dockerfile")]
     langs.insert("dockerfile", OnceCell::new());
+    #[cfg(feature = "lang-protobuf")]
+    langs.insert("protobuf", OnceCell::new());
     langs
 });
 
@@ -345,6 +347,14 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
             include_str!("../../../queries/dockerfile/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-protobuf")]
+        "protobuf" => TreeSitterConfig::new(
+            "protobuf",
+            ferrite_tree_sitter::tree_sitter_protobuf::language(),
+            include_str!("../../../queries/protobuf/highlights.scm"),
+            include_str!("../../../queries/protobuf/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -385,6 +395,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".zig"), "zig"),
             (Suffix(".go"), "go"),
             (Suffix(".ts"), "ts"),
+            (Suffix(".proto"), "protobuf"),
             (Name("hyprland.conf"), "hyprlang"),
             (Name("COMMIT_EDITMSG"), "git-commit"),
             (Name("git-rebase-todo"), "git-rebase"),
