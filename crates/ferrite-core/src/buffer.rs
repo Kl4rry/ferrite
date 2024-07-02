@@ -1676,13 +1676,13 @@ impl Buffer {
     pub fn guess_indent(&self, byte_index: usize) -> String {
         let mut indent = String::new();
 
-        let mut line_idx = self.rope.byte_to_line(byte_index);
+        let line_idx = self.rope.byte_to_line(byte_index);
         while line_idx > 0 {
             let line = self.rope.line(line_idx);
-            line_idx -= 1;
+            /*line_idx -= 1;
             if line.is_whitespace() {
                 continue;
-            }
+            }*/
 
             let mut new_indent = String::new();
             for grapheme in line.grapehemes() {
@@ -1696,15 +1696,15 @@ impl Buffer {
             break;
         }
 
-        let mut line_idx = self.rope.byte_to_line(byte_index) + 1;
+        let line_idx = self.rope.byte_to_line(byte_index) + 1;
         while line_idx > 0 {
             let Some(line) = self.rope.get_line(line_idx) else {
                 break;
             };
-            line_idx += 1;
+            /*line_idx += 1;
             if line.is_whitespace() {
                 continue;
-            }
+            }*/
 
             let mut new_indent = String::new();
             for grapheme in line.grapehemes() {
