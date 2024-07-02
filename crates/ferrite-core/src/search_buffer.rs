@@ -1,4 +1,9 @@
-use std::{borrow::Cow, path::PathBuf, sync::Arc, thread};
+use std::{
+    borrow::Cow,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+    thread,
+};
 
 use cb::select;
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -40,10 +45,10 @@ where
         search_field.set_view_lines(1);
 
         let (search_tx, search_rx): (_, cb::Receiver<String>) = cb::unbounded();
-        let (result_tx, result_rx): (_, cb::Receiver<SearchResult<_>>) = cb::unbounded();
+        let (result_tx, result_rx): (_, cb::Receiver<SearchResult<M>>) = cb::unbounded();
 
         thread::spawn(move || {
-            let mut options = Arc::new(Vec::new());
+            let mut options = Arc::new(RwLock::new(Vec::new()));
             let mut query = String::new();
             let options_recv = option_provder.get_options_reciver();
 
@@ -78,13 +83,17 @@ where
                     continue;
                 }
 
-                let output = fuzzy_match::fuzzy_match(&query, (*options).clone(), path.as_deref());
-                let result = SearchResult {
-                    matches: output,
-                    total: options.len(),
-                };
-                if result_tx.send(result).is_err() {
-                    break;
+                {
+                    let options = options.read().unwrap();
+                    let options = &*options;
+                    let output = fuzzy_match::fuzzy_match::<M>(&query, options, path.as_deref());
+                    let result = SearchResult {
+                        matches: output,
+                        total: options.len(),
+                    };
+                    if result_tx.send(result).is_err() {
+                        break;
+                    }
                 }
 
                 proxy.request_render();
@@ -185,7 +194,7 @@ pub trait Matchable: Clone {
 
 pub trait SearchOptionProvider {
     type Matchable: Matchable;
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<Vec<Self::Matchable>>>;
+    fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>>;
 }
 
 impl Matchable for String {

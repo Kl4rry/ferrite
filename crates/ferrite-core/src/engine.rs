@@ -3,7 +3,7 @@ use std::{
     env, io,
     num::NonZeroUsize,
     path::{Path, PathBuf},
-    sync::mpsc,
+    sync::{mpsc, Arc, RwLock},
     time::{Duration, Instant},
 };
 
@@ -884,7 +884,7 @@ impl Engine {
             .collect();
 
         self.buffer_finder = Some(SearchBuffer::new(
-            BufferFindProvider(buffers.into()),
+            BufferFindProvider(Arc::new(RwLock::new(buffers))),
             self.proxy.dup(),
             self.try_get_current_buffer_path(),
         ));

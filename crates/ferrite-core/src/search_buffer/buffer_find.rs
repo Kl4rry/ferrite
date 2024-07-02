@@ -1,13 +1,16 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{
+    borrow::Cow,
+    sync::{Arc, RwLock},
+};
 
 use super::{Matchable, SearchOptionProvider};
 
-pub struct BufferFindProvider(pub Arc<Vec<BufferItem>>);
+pub struct BufferFindProvider(pub Arc<RwLock<Vec<BufferItem>>>);
 
 impl SearchOptionProvider for BufferFindProvider {
     type Matchable = BufferItem;
 
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<Vec<Self::Matchable>>> {
+    fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>> {
         let (tx, rx) = cb::bounded(1);
         let _ = tx.send(self.0.clone());
         rx

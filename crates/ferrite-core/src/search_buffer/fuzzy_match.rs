@@ -59,15 +59,16 @@ impl<T: Matchable> Ord for FuzzyMatch<T> {
     }
 }
 
-pub fn fuzzy_match<T: Send + Sync + Matchable>(
-    term: &str,
-    items: Vec<T>,
-    path: Option<&Path>,
-) -> Vec<FuzzyMatch<T>> {
+pub fn fuzzy_match<'a, T>(term: &str, items: &'a [T], path: Option<&Path>) -> Vec<FuzzyMatch<T>>
+where
+    &'a T: Send + Sync,
+    T: Matchable + Send + Sync,
+{
     let scoring = Scoring::emphasize_distance();
     let mut matches: Vec<_> = items
         .into_par_iter()
         .filter_map(|item| {
+            let item = item.clone();
             if term.is_empty() {
                 return Some(FuzzyMatch {
                     score: 0,

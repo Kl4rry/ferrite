@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io::Read,
     path::{Path, PathBuf},
@@ -10,13 +10,13 @@ use std::{
 
 use cb::select;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
-use lexical_sort::StringSort;
 use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
+use sorted_vec::SortedSet;
 
 use crate::{
     config::Config,
-    pubsub::{self, Subscriber},
+    pubsub::{self, Publisher, Subscriber},
 };
 
 fn get_text_file_path(path: PathBuf) -> Option<PathBuf> {
@@ -48,8 +48,36 @@ fn trim_path(start: &str, path: &Path) -> String {
         .to_string()
 }
 
+#[repr(transparent)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LexicallySortedString(pub String);
+
+impl From<String> for LexicallySortedString {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<LexicallySortedString> for String {
+    fn from(value: LexicallySortedString) -> Self {
+        value.0
+    }
+}
+
+impl PartialOrd for LexicallySortedString {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for LexicallySortedString {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        lexical_sort::natural_lexical_cmp(&self.0, &other.0)
+    }
+}
+
 pub struct FileDaemon {
-    subscriber: Subscriber<Vec<String>>,
+    subscriber: Subscriber<SortedSet<LexicallySortedString>>,
     change_detector: Subscriber<()>,
     exit_tx: cb::Sender<()>,
 }
@@ -57,7 +85,8 @@ pub struct FileDaemon {
 impl FileDaemon {
     pub fn new(path: PathBuf, config: &Config) -> anyhow::Result<Self> {
         let (exit_tx, exit_rx) = cb::bounded::<()>(1);
-        let (publisher, subscriber) = pubsub::create(Vec::new());
+        let (publisher, subscriber): (Publisher<SortedSet<LexicallySortedString>>, _) =
+            pubsub::create(SortedSet::new());
         let (change_broadcaster, change_detector) = pubsub::create(());
         let path_to_search = path.clone();
         let picker_config = config.picker;
@@ -108,8 +137,6 @@ impl FileDaemon {
                 watcher_thread.join().unwrap();
             });
 
-            let mut tracked_files = HashSet::new();
-
             let path: PathBuf = path_to_search;
             let path_str = path.to_string_lossy().into_owned();
 
@@ -124,6 +151,7 @@ impl FileDaemon {
 
             {
                 loop {
+                    let mut tracked_files = Vec::new();
                     let start = Instant::now();
                     let entries: Vec<_> = iterator.by_ref().take(1000).collect();
 
@@ -144,12 +172,15 @@ impl FileDaemon {
                             }),
                     );
 
-                    let mut files: Vec<_> = tracked_files
-                        .iter()
-                        .map(|path| trim_path(&path_str, path))
-                        .collect();
-                    files.string_sort(lexical_sort::natural_lexical_cmp);
-                    if publisher.publish(files).is_err() {
+                    publisher.modify(|published_files| {
+                        for file in tracked_files
+                            .iter()
+                            .map(|path| trim_path(&path_str, path).into())
+                        {
+                            published_files.replace(file);
+                        }
+                    });
+                    if publisher.publish().is_err() {
                         return;
                     }
 
@@ -166,7 +197,6 @@ impl FileDaemon {
             let mut gitignore_cache: HashMap<PathBuf, Gitignore> = HashMap::new();
             let mut last_clear = Instant::now();
 
-            let mut updated = false;
             loop {
                 {
                     let now = Instant::now();
@@ -213,7 +243,9 @@ impl FileDaemon {
                                         match gitignore_cache.get(&path) {
                                             Some(ignore) => {
                                                 if ignore.matched(&path, false).is_ignore() {
-                                                    updated |= tracked_files.insert(path);
+                                                    publisher.modify(|files| {
+                                                        files.replace(trim_path(&path_str, &path).into());
+                                                    });
                                                 }
                                             }
                                             None => {
@@ -239,7 +271,9 @@ impl FileDaemon {
                                                             .matched_path_or_any_parents(&path, false)
                                                             .is_ignore()
                                                         {
-                                                            updated |= tracked_files.insert(path.clone());
+                                                            publisher.modify(|files| {
+                                                                files.replace(trim_path(&path_str, &path).into());
+                                                            });
                                                         }
                                                         if let Some(parent) = path.parent() {
                                                             gitignore_cache
@@ -247,13 +281,17 @@ impl FileDaemon {
                                                         }
                                                     }
                                                     Err(_) => {
-                                                        updated |= tracked_files.insert(path);
+                                                        publisher.modify(|files| {
+                                                            files.replace(trim_path(&path_str, &path).into());
+                                                        });
                                                     }
                                                 }
                                             }
                                         }
                                     } else {
-                                        updated |= tracked_files.remove(&path);
+                                        publisher.modify(|files| {
+                                            files.replace(trim_path(&path_str, &path).into());
+                                        });
                                     };
                                 }
                             }
@@ -266,17 +304,11 @@ impl FileDaemon {
                     }
                 }
 
-                if update_rx.is_empty() && updated {
-                    updated = false;
-                    let mut files: Vec<_> = tracked_files
-                        .iter()
-                        .map(|path| trim_path(&path_str, path))
-                        .collect();
-                    files.string_sort(lexical_sort::natural_lexical_cmp);
-                    if publisher.publish(files).is_err() {
+                if update_rx.is_empty() {
+                    if publisher.publish().is_err() {
                         return;
                     }
-                    if change_broadcaster.publish(()).is_err() {
+                    if change_broadcaster.publish().is_err() {
                         return;
                     }
                 }
@@ -290,7 +322,7 @@ impl FileDaemon {
         })
     }
 
-    pub fn subscribe(&self) -> Subscriber<Vec<String>> {
+    pub fn subscribe(&self) -> Subscriber<SortedSet<LexicallySortedString>> {
         self.subscriber.clone()
     }
 

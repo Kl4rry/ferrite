@@ -1,13 +1,19 @@
-use std::{sync::Arc, thread};
+use std::{
+    mem,
+    sync::{Arc, RwLock},
+    thread,
+};
 
-use super::SearchOptionProvider;
+use sorted_vec::SortedSet;
+
+use super::{file_daemon::LexicallySortedString, SearchOptionProvider};
 use crate::pubsub::Subscriber;
 
-pub struct FileFindProvider(pub Subscriber<Vec<String>>);
+pub struct FileFindProvider(pub Subscriber<SortedSet<LexicallySortedString>>);
 
 impl SearchOptionProvider for FileFindProvider {
     type Matchable = String;
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<Vec<Self::Matchable>>> {
+    fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>> {
         // TODO fix
         let mut subscriber = self.0.clone();
         let (tx, rx) = cb::bounded(1);
@@ -20,6 +26,8 @@ impl SearchOptionProvider for FileFindProvider {
                 break;
             }
         });
-        rx
+
+        // SAFE because both Sorted and LexicallySortedString are repr transparent to Vec and String
+        unsafe { mem::transmute::<_, cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>>>(rx) }
     }
 }
