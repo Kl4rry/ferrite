@@ -25,6 +25,7 @@ tree-sitter-hyprlang = { git = "https://github.com/tree-sitter-grammars/tree-sit
 tree-sitter-ini = { git = "https://github.com/justinmk/tree-sitter-ini", rev = "4d247fb876b4ae6b347687de4a179511bf67fcbc", optional = true }
 tree-sitter-javascript = { git = "https://github.com/tree-sitter/tree-sitter-javascript", rev = "f772967f7b7bc7c28f845be2420a38472b16a8ee", optional = true }
 tree-sitter-json = { version = "0.19.0", optional = true }
+tree-sitter-lua = { git = "https://github.com/tree-sitter-grammars/tree-sitter-lua", rev = "88e446476a1e97a8724dff7a23e2d709855077f2", optional = true }
 tree-sitter-md = { git = "https://github.com/MDeiml/tree-sitter-markdown", rev = "272e080bca0efd19a06a7f4252d746417224959e", optional = true }
 tree-sitter-protobuf = { git = "https://github.com/yusdacra/tree-sitter-protobuf", rev = "19c211a01434d9f03efff99f85e19f967591b175", optional = true }
 tree-sitter-python = { version = "0.20.2", optional = true }
@@ -58,6 +59,7 @@ lang-hyprlang = ["dep:tree-sitter-hyprlang"]
 lang-ini = ["dep:tree-sitter-ini"]
 lang-javascript = ["dep:tree-sitter-javascript"]
 lang-json = ["dep:tree-sitter-json"]
+lang-lua = ["dep:tree-sitter-lua"]
 lang-md = ["dep:tree-sitter-md"]
 lang-protobuf = ["dep:tree-sitter-protobuf"]
 lang-python = ["dep:tree-sitter-python"]

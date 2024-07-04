@@ -41,7 +41,7 @@
 "label" = { fg = "green" }
 "module" = { fg = "violet" }
 "tag" = { fg = "magenta" }
-"variable" =  { fg = "blue"}
+"variable" =  { fg = "magenta"}
 "punctuation" = { fg = "base1" }
 "markup.heading" = { fg = "blue" }
 "markup.list" = { fg = "red" }

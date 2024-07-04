@@ -70,6 +70,7 @@ lang-hyprlang = ["ferrite-tree-sitter/lang-hyprlang"]
 lang-ini = ["ferrite-tree-sitter/lang-ini"]
 lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
 lang-json = ["ferrite-tree-sitter/lang-json"]
+lang-lua = ["ferrite-tree-sitter/lang-lua"]
 lang-md = ["ferrite-tree-sitter/lang-md"]
 lang-protobuf = ["ferrite-tree-sitter/lang-protobuf"]
 lang-python = ["ferrite-tree-sitter/lang-python"]
@@ -104,6 +105,7 @@ default = [
   "lang-ini",
   "lang-javascript",
   "lang-json",
+  "lang-lua",
   "lang-md",
   "lang-protobuf",
   "lang-python",

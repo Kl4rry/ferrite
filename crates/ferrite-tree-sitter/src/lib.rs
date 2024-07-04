@@ -38,6 +38,8 @@ pub use tree_sitter_ini;
 pub use tree_sitter_javascript;
 #[cfg(feature = "lang-json")]
 pub use tree_sitter_json;
+#[cfg(feature = "lang-lua")]
+pub use tree_sitter_lua;
 #[cfg(feature = "lang-md")]
 pub use tree_sitter_md;
 #[cfg(feature = "lang-protobuf")]
