@@ -283,6 +283,9 @@ impl Engine {
                     .panes
                     .split(PaneKind::Buffer(buffer_id), direction);
             }
+            InputCommand::New => {
+                self.insert_buffer(Buffer::new(), true);
+            }
             InputCommand::Shell => {
                 self.file_finder = None;
                 self.buffer_finder = None;

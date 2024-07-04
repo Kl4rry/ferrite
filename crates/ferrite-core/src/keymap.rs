@@ -108,6 +108,7 @@ pub enum InputCommand {
         direction: Direction,
     },
     ReopenBuffer,
+    New,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -242,6 +243,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
             InputCommand::Close,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('n'), KeyModifiers::CONTROL),
+            InputCommand::New,
             Exclusiveness::Exclusive,
         ),
         (
@@ -623,6 +629,7 @@ impl InputCommand {
                 direction: Direction::Down,
             } => "Split down",
             InputCommand::ReopenBuffer => "Reopen buffer",
+            InputCommand::New => "New",
         }
     }
 }
