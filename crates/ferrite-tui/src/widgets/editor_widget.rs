@@ -215,16 +215,19 @@ impl StatefulWidget for EditorWidget<'_> {
             let mut ruler_cells = Vec::new();
             if !view.lines.is_empty() && config.show_indent_rulers {
                 // TODO fix empty line gaps in blocks using tree-sitter indent queries
+                let mut last_text_start_col = 0;
                 'outer: for line in text_area.top()..text_area.bottom() {
                     for col in text_area.left()..text_area.right() {
                         let Some(view_line) = view.lines.get((line - text_area.y) as usize) else {
                             break 'outer;
                         };
                         let text_start = if view_line.text.is_whitespace() {
-                            0
+                            last_text_start_col
                         } else {
                             view_line.text_start_col
                         };
+                        last_text_start_col = text_start;
+
                         let visual_text_start = text_start + text_area.x as usize;
                         if col as usize + buffer.col_pos() > visual_text_start || text_start == 0 {
                             break;
