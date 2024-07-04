@@ -9,6 +9,7 @@ use std::{
 };
 
 use cb::select;
+use ferrite_utility::trim::trim_path;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use notify::{RecursiveMode, Watcher};
 use rayon::prelude::*;
@@ -39,13 +40,6 @@ fn is_text_file(path: impl AsRef<Path>) -> bool {
 
     let content_type = content_inspector::inspect(&buf[..read]);
     content_type.is_text()
-}
-
-fn trim_path(start: &str, path: &Path) -> String {
-    path.to_string_lossy()
-        .trim_start_matches(start)
-        .trim_start_matches(std::path::MAIN_SEPARATOR)
-        .to_string()
 }
 
 #[repr(transparent)]

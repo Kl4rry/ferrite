@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_utility::line_ending;
+use ferrite_utility::{line_ending, trim::trim_path};
 use slab::Slab;
 use subprocess::{Exec, Redirection};
 
@@ -879,7 +879,14 @@ impl Engine {
             .map(|(id, buffer)| BufferItem {
                 id,
                 dirty: buffer.is_dirty(),
-                name: buffer.name().to_string(),
+                name: {
+                    let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::new());
+                    let current_dir = current_dir.to_string_lossy();
+                    buffer
+                        .file()
+                        .map(|path| trim_path(&current_dir, path))
+                        .unwrap_or_else(|| buffer.name().to_string())
+                },
             })
             .collect();
 
