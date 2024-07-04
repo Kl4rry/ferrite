@@ -183,6 +183,8 @@ pub enum HighlightEvent {
     Source { start: usize, end: usize },
     HighlightStart(Highlight),
     HighlightEnd,
+    Indent,
+    Outdent,
 }
 
 /// Contains the data needed to highlight code written in a particular language.
@@ -192,6 +194,7 @@ pub struct HighlightConfiguration {
     pub language: Language,
     pub query: &'static Query,
     combined_injections_query: &'static Option<Query>,
+    indent_query: &'static Query,
     locals_pattern_index: usize,
     highlights_pattern_index: usize,
     non_local_variable_patterns: Vec<bool>,
@@ -244,6 +247,8 @@ struct HighlightIterLayer<'a> {
     _tree: Tree,
     cursor: QueryCursor,
     captures: iter::Peekable<QueryCaptures<'a, 'a, RopeProvider<'a>>>,
+    indent_cursor: QueryCursor,
+    indent_captures: iter::Peekable<QueryCaptures<'a, 'a, RopeProvider<'a>>>,
     config: &'a HighlightConfiguration,
     highlight_end_stack: Vec<usize>,
     scope_stack: Vec<LocalScope<'a>>,
@@ -321,6 +326,7 @@ impl HighlightConfiguration {
         highlights_query: &str,
         injection_query: &str,
         locals_query: &str,
+        indents_query: &str,
     ) -> Result<Self, QueryError> {
         // Concatenate the query strings, keeping track of the start offset of each section.
         let mut query_source = String::new();
@@ -329,7 +335,6 @@ impl HighlightConfiguration {
         query_source.push_str(locals_query);
         let highlights_query_offset = query_source.len();
         query_source.push_str(highlights_query);
-
         // Construct a single query by concatenating the three query strings, but record the
         // range of pattern indices that belong to each individual string.
         let mut query = Query::new(language, &query_source)?;
@@ -346,6 +351,8 @@ impl HighlightConfiguration {
                 }
             }
         }
+
+        let indent_query = Query::new(language, indents_query)?;
 
         // Construct a separate query just for dealing with the 'combined injections'.
         // Disable the combined injection patterns in the main query.
@@ -401,6 +408,7 @@ impl HighlightConfiguration {
             language,
             query: Box::leak(Box::new(query)),
             combined_injections_query: Box::leak(Box::new(combined_injections_query)),
+            indent_query: Box::leak(Box::new(indent_query)),
             locals_pattern_index,
             highlights_pattern_index,
             non_local_variable_patterns,
@@ -517,6 +525,37 @@ impl<'a> HighlightIterLayer<'a> {
                     mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut cursor)
                 };
 
+                let mut indent_cursor = QueryCursor::new();
+
+                let indent_cursor_ref = unsafe {
+                    mem::transmute::<&mut QueryCursor, &'static mut QueryCursor>(&mut indent_cursor)
+                };
+
+                indent_cursor_ref.set_match_limit(300);
+                let indent_captures = indent_cursor_ref.captures(
+                    config.indent_query,
+                    tree_ref.root_node(),
+                    RopeProvider(source.clone().slice(..)),
+                ).peekable();
+
+                /*{
+                    //let mut cursor = QueryCursor::new();
+                    cursor_ref.set_match_limit(300);
+                    let captures = cursor_ref.captures(
+                        config.indent_query,
+                        tree_ref.root_node(),
+                        RopeProvider(source.clone().slice(..)),
+                    );
+                    let captures: Vec<_> = captures.collect();
+                    for (query_match, _) in captures {
+                        for query_capture in query_match.captures {
+                            let name =
+                                &config.indent_query.capture_names()[query_capture.index as usize];
+                            tracing::info!("name: {:?}", name);
+                        }
+                    }
+                }*/
+
                 cursor_ref.set_match_limit(300);
 
                 let captures = cursor_ref
@@ -535,9 +574,11 @@ impl<'a> HighlightIterLayer<'a> {
                         local_defs: Vec::new(),
                     }],
                     cursor,
+                    captures,
+                    indent_cursor,
+                    indent_captures,
                     depth,
                     _tree: tree,
-                    captures,
                     config,
                     ranges,
                 });
