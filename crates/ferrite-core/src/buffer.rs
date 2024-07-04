@@ -1674,51 +1674,15 @@ impl Buffer {
     }
 
     pub fn guess_indent(&self, byte_index: usize) -> String {
-        let mut indent = String::new();
-
         let line_idx = self.rope.byte_to_line(byte_index);
-        while line_idx > 0 {
-            let line = self.rope.line(line_idx);
-            /*line_idx -= 1;
-            if line.is_whitespace() {
-                continue;
-            }*/
+        let line = self.rope.line(line_idx);
 
-            let mut new_indent = String::new();
-            for grapheme in line.grapehemes() {
-                if !grapheme.is_whitespace() {
-                    break;
-                }
-                new_indent.extend(grapheme.chunks());
-            }
-
-            indent = new_indent;
-            break;
-        }
-
-        let line_idx = self.rope.byte_to_line(byte_index) + 1;
-        while line_idx > 0 {
-            let Some(line) = self.rope.get_line(line_idx) else {
+        let mut indent = String::new();
+        for grapheme in line.grapehemes() {
+            if !grapheme.is_whitespace() {
                 break;
-            };
-            /*line_idx += 1;
-            if line.is_whitespace() {
-                continue;
-            }*/
-
-            let mut new_indent = String::new();
-            for grapheme in line.grapehemes() {
-                if !grapheme.is_whitespace() {
-                    break;
-                }
-                new_indent.extend(grapheme.chunks());
             }
-
-            if Rope::from_str(&new_indent).width(0) > Rope::from_str(&indent).width(0) {
-                indent = new_indent;
-            }
-
-            break;
+            indent.extend(grapheme.chunks());
         }
 
         self.indent.from_width(Rope::from_str(&indent).width(0))
