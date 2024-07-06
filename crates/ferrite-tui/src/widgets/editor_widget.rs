@@ -65,6 +65,13 @@ impl StatefulWidget for EditorWidget<'_> {
             return;
         }
 
+        for x in 0..area.width {
+            for y in 0..area.height {
+                let cell = buf.get_mut(x + area.x, y + area.y);
+                cell.set_symbol(" ");
+            }
+        }
+
         let Self {
             theme,
             config,

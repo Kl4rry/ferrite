@@ -34,6 +34,13 @@ impl StatefulWidget for LoggerWidget<'_> {
             return;
         }
 
+        for x in 0..area.width {
+            for y in 0..area.height {
+                let cell = buf.get_mut(x + area.x, y + area.y);
+                cell.set_symbol(" ");
+            }
+        }
+
         buf.set_style(area, convert_style(&self.theme.background));
         for y in 0..area.height.saturating_sub(1) {
             match state.messages.get(y as usize + state.lines_scrolled_up) {
