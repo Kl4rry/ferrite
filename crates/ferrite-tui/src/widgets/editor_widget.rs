@@ -32,6 +32,8 @@ pub struct EditorWidget<'a> {
     has_focus: bool,
     branch: Option<String>,
     spinner: Option<char>,
+    pub line_nr: bool,
+    pub info_line: bool,
 }
 
 impl<'a> EditorWidget<'a> {
@@ -48,6 +50,8 @@ impl<'a> EditorWidget<'a> {
             has_focus,
             branch,
             spinner,
+            line_nr: true,
+            info_line: true,
         }
     }
 }
@@ -78,15 +82,22 @@ impl StatefulWidget for EditorWidget<'_> {
             has_focus,
             branch,
             spinner,
+            line_nr,
+            info_line,
         } = self;
 
-        let (line_number_max_width, left_offset) = lines_to_left_offset(buffer.len_lines());
+        let (line_number_max_width, left_offset) = if line_nr {
+            lines_to_left_offset(buffer.len_lines())
+        } else {
+            // TODO remove 4 magic number
+            (0, 0)
+        };
 
         let text_area = Rect {
             x: area.x + left_offset as u16,
             y: area.y,
             width: area.width.saturating_sub(left_offset as u16),
-            height: area.height - 1,
+            height: area.height - info_line as u16,
         };
 
         buffer.set_view_lines(text_area.height.into());
@@ -94,15 +105,17 @@ impl StatefulWidget for EditorWidget<'_> {
         buffer.set_view_columns((text_area.width as usize).saturating_sub(left_offset));
         buf.set_style(area, convert_style(&theme.background));
 
-        buf.set_style(
-            Rect {
-                x: area.left(),
-                y: area.top(),
-                width: (line_number_max_width as u16 + 2).min(area.width),
-                height: area.height,
-            },
-            convert_style(&theme.line_nr),
-        );
+        if line_nr {
+            buf.set_style(
+                Rect {
+                    x: area.left(),
+                    y: area.top(),
+                    width: (line_number_max_width as u16 + 2).min(area.width),
+                    height: area.height,
+                },
+                convert_style(&theme.line_nr),
+            );
+        }
 
         let current_line_number = buffer.cursor_line_idx() + 1;
 
@@ -119,35 +132,37 @@ impl StatefulWidget for EditorWidget<'_> {
                 .zip((buffer.line_pos() + 1)..=buffer.line_pos() + buffer.len_lines())
                 .enumerate()
             {
-                let line_number_str = line_number.to_string();
-                let line_number_str = format!(
-                    " {}{} ",
-                    " ".repeat(line_number_max_width - line_number_str.len()),
-                    line_number
-                );
-                let line_nr_theme = if line_number == current_line_number {
-                    convert_style(&theme.current_line_nr)
-                } else {
-                    convert_style(&theme.line_nr)
-                };
-
-                buf.set_stringn(
-                    area.x,
-                    area.y + i as u16,
-                    &line_number_str,
-                    area.width.into(),
-                    line_nr_theme,
-                );
-
-                let start_offset = " ".repeat(line.col_start_offset);
-                if text_area.width > 0 {
-                    buf.set_stringn(
-                        text_area.x,
-                        text_area.y + i as u16,
-                        &start_offset,
-                        text_area.width as usize,
-                        convert_style(&theme.text),
+                if line_nr {
+                    let line_number_str = line_number.to_string();
+                    let line_number_str = format!(
+                        " {}{} ",
+                        " ".repeat(line_number_max_width - line_number_str.len()),
+                        line_number
                     );
+                    let line_nr_theme = if line_number == current_line_number {
+                        convert_style(&theme.current_line_nr)
+                    } else {
+                        convert_style(&theme.line_nr)
+                    };
+
+                    buf.set_stringn(
+                        area.x,
+                        area.y + i as u16,
+                        &line_number_str,
+                        area.width.into(),
+                        line_nr_theme,
+                    );
+
+                    let start_offset = " ".repeat(line.col_start_offset);
+                    if text_area.width > 0 {
+                        buf.set_stringn(
+                            text_area.x,
+                            text_area.y + i as u16,
+                            &start_offset,
+                            text_area.width as usize,
+                            convert_style(&theme.text),
+                        );
+                    }
                 }
 
                 let mut current_width: usize = 0;
@@ -173,6 +188,10 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 let text = line.text.line_without_line_ending(0);
                 for grapheme in text.grapehemes() {
+                    if current_width >= text_area.width as usize {
+                        break;
+                    }
+
                     if grapheme.starts_width_char('\t') {
                         let tab_width = tab_width_at(current_width, TAB_WIDTH);
                         if render_whitespace(current_width, line.text_end_col) {
@@ -446,25 +465,27 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            let info_line = InfoLine {
-                theme,
-                config: &self.config.info_line,
-                focus: self.has_focus,
-                encoding: buffer.encoding,
-                name: buffer.name().to_string(),
-                line: buffer.cursor_pos().1 + 1,
-                column: buffer.cursor_grapheme_column() + 1,
-                dirty: buffer.is_dirty(),
-                branch: &branch,
-                language: buffer.language_name(),
-                size: buffer.rope().len_bytes(),
-                read_only: buffer.read_only_file,
-                spinner,
-            };
-            info_line.render(
-                Rect::new(area.x, text_area.height + text_area.y, area.width, 1),
-                buf,
-            );
+            if info_line {
+                let info_line = InfoLine {
+                    theme,
+                    config: &self.config.info_line,
+                    focus: self.has_focus,
+                    encoding: buffer.encoding,
+                    name: buffer.name().to_string(),
+                    line: buffer.cursor_pos().1 + 1,
+                    column: buffer.cursor_grapheme_column() + 1,
+                    dirty: buffer.is_dirty(),
+                    branch: &branch,
+                    language: buffer.language_name(),
+                    size: buffer.rope().len_bytes(),
+                    read_only: buffer.read_only_file,
+                    spinner,
+                };
+                info_line.render(
+                    Rect::new(area.x, text_area.height + text_area.y, area.width, 1),
+                    buf,
+                );
+            }
         }
     }
 }

@@ -31,6 +31,7 @@ use crate::{
         buffer_find::{BufferFindProvider, BufferItem},
         file_daemon::FileDaemon,
         file_find::FileFindProvider,
+        file_previewer::FilePreviewer,
         SearchBuffer,
     },
     spinner::Spinner,
@@ -127,6 +128,7 @@ impl Engine {
                 let daemon = FileDaemon::new(std::env::current_dir()?, &config)?;
                 file_finder = Some(SearchBuffer::new(
                     FileFindProvider(daemon.subscribe()),
+                    Some(Box::new(FilePreviewer::new(proxy.dup()))),
                     proxy.dup(),
                     None,
                 ));
@@ -895,6 +897,7 @@ impl Engine {
 
         self.buffer_finder = Some(SearchBuffer::new(
             BufferFindProvider(Arc::new(RwLock::new(buffers))),
+            Some(Box::new(self.workspace.buffers.clone())),
             self.proxy.dup(),
             self.try_get_current_buffer_path(),
         ));
@@ -905,6 +908,7 @@ impl Engine {
         self.buffer_finder = None;
         self.file_finder = Some(SearchBuffer::new(
             FileFindProvider(self.file_daemon.subscribe()),
+            Some(Box::new(FilePreviewer::new(self.proxy.dup()))),
             self.proxy.dup(),
             self.try_get_current_buffer_path(),
         ));

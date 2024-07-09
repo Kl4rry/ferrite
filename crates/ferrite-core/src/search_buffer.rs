@@ -16,7 +16,19 @@ use crate::{event_loop_proxy::EventLoopProxy, keymap::InputCommand};
 pub mod buffer_find;
 pub mod file_daemon;
 pub mod file_find;
+pub mod file_previewer;
 pub mod fuzzy_match;
+
+pub enum Preview<'a> {
+    Buffer(&'a mut Buffer),
+    Loading,
+    Binary, // TODO add hex preview
+    Err,
+}
+
+pub trait Previewer<M: Matchable> {
+    fn request_preview(&mut self, m: &M) -> Preview;
+}
 
 pub struct SearchResult<M: Matchable> {
     matches: Vec<FuzzyMatch<M>>,
@@ -26,6 +38,7 @@ pub struct SearchResult<M: Matchable> {
 pub struct SearchBuffer<M: Matchable> {
     search_field: Buffer,
     selected: usize,
+    previewer: Option<Box<dyn Previewer<M>>>,
     result: SearchResult<M>,
     choice: Option<M>,
     tx: cb::Sender<String>,
@@ -38,6 +51,7 @@ where
 {
     pub fn new<T: SearchOptionProvider<Matchable = M> + Send + Sync + 'static>(
         option_provder: T,
+        previewer: Option<Box<dyn Previewer<M>>>,
         proxy: Box<dyn EventLoopProxy>,
         path: Option<PathBuf>,
     ) -> Self {
@@ -104,6 +118,7 @@ where
             search_field,
             selected: 0,
             choice: None,
+            previewer,
             tx: search_tx,
             rx: result_rx,
             result: SearchResult {
@@ -185,6 +200,17 @@ where
         }
         Ok(())
     }
+
+    pub fn get_current_preview(&mut self) -> Option<Preview> {
+        let selected = self.selected;
+        let choice = &self.result.matches.get(selected)?;
+        let choice = &choice.item;
+        Some(self.previewer.as_mut()?.request_preview(choice))
+    }
+
+    pub fn has_previewer(&self) -> bool {
+        self.previewer.is_some()
+    }
 }
 
 pub trait Matchable: Clone {
@@ -207,7 +233,7 @@ impl Matchable for String {
     }
 }
 
-impl Matchable for &str {
+/*impl Matchable for &str {
     fn as_match_str(&self) -> Cow<str> {
         Cow::Borrowed(self)
     }
@@ -215,4 +241,4 @@ impl Matchable for &str {
     fn display(&self) -> Cow<str> {
         Cow::Borrowed(self)
     }
-}
+}*/

@@ -13,6 +13,7 @@ pub mod language;
 pub mod logger;
 pub mod palette;
 pub mod panes;
+pub mod promise;
 pub mod pubsub;
 pub mod search_buffer;
 pub mod spinner;

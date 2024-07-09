@@ -3,7 +3,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use slab::Slab;
+
 use super::{Matchable, SearchOptionProvider};
+use crate::{
+    buffer::Buffer,
+    search_buffer::{Preview, Previewer},
+};
 
 pub struct BufferFindProvider(pub Arc<RwLock<Vec<BufferItem>>>);
 
@@ -35,5 +41,14 @@ impl Matchable for BufferItem {
             output += " (*)";
         }
         output
+    }
+}
+
+impl Previewer<BufferItem> for Slab<Buffer> {
+    fn request_preview(&mut self, m: &BufferItem) -> Preview {
+        match self.get_mut(m.id) {
+            Some(buffer) => Preview::Buffer(buffer),
+            None => Preview::Err,
+        }
     }
 }

@@ -99,6 +99,42 @@ pub struct Buffer {
     searcher: Option<BufferSearcher>,
 }
 
+impl Clone for Buffer {
+    fn clone(&self) -> Self {
+        let rope = self.rope.clone();
+        let mut syntax = Syntax::new(get_buffer_proxy());
+        if let Err(err) = syntax.set_language(&self.language_name()) {
+            tracing::error!("Error setting language: {err}");
+        }
+        syntax.update_text(rope.clone());
+
+        Self {
+            cursor: self.cursor,
+            line_pos: self.line_pos,
+            col_pos: self.col_pos,
+            rope,
+            file: self.file.clone(),
+            name: self.name.clone(),
+            dirty: self.dirty,
+            read_only: self.read_only,
+            read_only_file: self.read_only_file,
+            last_edit: self.last_edit,
+            last_click: self.last_click,
+            last_click_pos: self.last_click_pos,
+            clicks_in_a_row: self.clicks_in_a_row,
+            line_ending: self.line_ending,
+            encoding: self.encoding,
+            indent: self.indent,
+            clamp_cursor: self.clamp_cursor,
+            view_lines: self.view_lines,
+            view_columns: self.view_columns,
+            syntax: Some(syntax),
+            history: self.history.clone(),
+            searcher: None, // TODO fix clone this correctly
+        }
+    }
+}
+
 impl Default for Buffer {
     fn default() -> Self {
         Self {

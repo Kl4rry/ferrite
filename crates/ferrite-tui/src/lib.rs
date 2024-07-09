@@ -231,7 +231,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        SearchWidget::new(theme, "Open file"),
+                        SearchWidget::new(theme, &self.engine.config, "Open file"),
                         size,
                         file_finder,
                     );
@@ -243,7 +243,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        SearchWidget::<BufferItem>::new(theme, "Open buffer"),
+                        SearchWidget::<BufferItem>::new(theme, &self.engine.config, "Open buffer"),
                         size,
                         buffer_finder,
                     );

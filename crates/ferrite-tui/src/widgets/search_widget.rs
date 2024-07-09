@@ -1,7 +1,8 @@
 use std::{borrow::Cow, marker::PhantomData};
 
 use ferrite_core::{
-    search_buffer::{Matchable, SearchBuffer},
+    config::Config,
+    search_buffer::{Matchable, Preview, SearchBuffer},
     theme::EditorTheme,
 };
 use ferrite_utility::graphemes::RopeGraphemeExt;
@@ -13,19 +14,21 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use super::one_line_input_widget::OneLineInputWidget;
+use super::{editor_widget::EditorWidget, one_line_input_widget::OneLineInputWidget};
 use crate::glue::convert_style;
 
 pub struct SearchWidget<'a, M> {
     theme: &'a EditorTheme,
+    config: &'a Config,
     title: &'a str,
     _phantom: PhantomData<M>,
 }
 
 impl<'a, M> SearchWidget<'a, M> {
-    pub fn new(theme: &'a EditorTheme, title: &'a str) -> Self {
+    pub fn new(theme: &'a EditorTheme, config: &'a Config, title: &'a str) -> Self {
         Self {
             theme,
+            config,
             title,
             _phantom: PhantomData,
         }
@@ -56,6 +59,8 @@ where
             vertical: 1,
         });
 
+        // TODO use same method as editor_widget to clear background
+        // TODO clear background color not just foreground color
         // clear inner area
         for i in 0..inner_area.height {
             buf.set_stringn(
@@ -116,11 +121,27 @@ where
             return;
         }
 
-        {
+        let (result_area, preview_area) = {
             let mut result_area = inner_area;
             result_area.y += 2;
             result_area.height -= 2;
 
+            if inner_area.width > 60 && state.has_previewer() {
+                let total_width = result_area.width;
+                result_area.width /= 2;
+                let rem = total_width - result_area.width * 2;
+                let mut preview_area = result_area;
+                preview_area.x += result_area.width + 1;
+                if rem == 0 {
+                    preview_area.width -= 1;
+                }
+                (result_area, preview_area)
+            } else {
+                (result_area, Rect::new(0, 0, 0, 0))
+            }
+        };
+
+        {
             let selected = state.selected();
             let result = state.get_matches();
 
@@ -222,6 +243,29 @@ where
                         convert_style(&self.theme.selection),
                     );
                 }
+            }
+        }
+
+        if preview_area.area() > 0 {
+            {
+                let line_area =
+                    Rect::new(preview_area.x - 1, preview_area.y, 1, preview_area.height);
+                let preview_block = Block::default()
+                    .borders(Borders::LEFT)
+                    .border_style(convert_style(&self.theme.border))
+                    .border_type(BorderType::Plain)
+                    .style(convert_style(&self.theme.background));
+                preview_block.render(line_area, buf);
+            }
+
+            match state.get_current_preview() {
+                Some(Preview::Buffer(buffer)) => {
+                    let mut preview = EditorWidget::new(self.theme, self.config, false, None, None);
+                    preview.line_nr = false;
+                    preview.info_line = false;
+                    preview.render(preview_area, buf, buffer);
+                }
+                _ => (),
             }
         }
     }
