@@ -2,7 +2,7 @@ use std::{borrow::Cow, marker::PhantomData};
 
 use ferrite_core::{
     config::Config,
-    search_buffer::{Matchable, Preview, SearchBuffer},
+    picker::{Matchable, Picker, Preview},
     theme::EditorTheme,
 };
 use ferrite_utility::graphemes::RopeGraphemeExt;
@@ -17,14 +17,14 @@ use unicode_width::UnicodeWidthStr;
 use super::{editor_widget::EditorWidget, one_line_input_widget::OneLineInputWidget};
 use crate::glue::convert_style;
 
-pub struct SearchWidget<'a, M> {
+pub struct PickerWidget<'a, M> {
     theme: &'a EditorTheme,
     config: &'a Config,
     title: &'a str,
     _phantom: PhantomData<M>,
 }
 
-impl<'a, M> SearchWidget<'a, M> {
+impl<'a, M> PickerWidget<'a, M> {
     pub fn new(theme: &'a EditorTheme, config: &'a Config, title: &'a str) -> Self {
         Self {
             theme,
@@ -35,11 +35,11 @@ impl<'a, M> SearchWidget<'a, M> {
     }
 }
 
-impl<M> StatefulWidget for SearchWidget<'_, M>
+impl<M> StatefulWidget for PickerWidget<'_, M>
 where
     M: Matchable,
 {
-    type State = SearchBuffer<M>;
+    type State = Picker<M>;
 
     fn render(
         self,

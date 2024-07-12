@@ -6,5 +6,5 @@ pub mod info_line;
 pub mod logger_widget;
 pub mod one_line_input_widget;
 pub mod palette_widget;
-pub mod search_widget;
+pub mod picker_widget;
 pub mod splash;

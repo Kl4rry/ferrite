@@ -30,26 +30,26 @@ pub trait Previewer<M: Matchable> {
     fn request_preview(&mut self, m: &M) -> Preview;
 }
 
-pub struct SearchResult<M: Matchable> {
+pub struct PickerResult<M: Matchable> {
     matches: Vec<FuzzyMatch<M>>,
     total: usize,
 }
 
-pub struct SearchBuffer<M: Matchable> {
+pub struct Picker<M: Matchable> {
     search_field: Buffer,
     selected: usize,
     previewer: Option<Box<dyn Previewer<M>>>,
-    result: SearchResult<M>,
+    result: PickerResult<M>,
     choice: Option<M>,
     tx: cb::Sender<String>,
-    rx: cb::Receiver<SearchResult<M>>,
+    rx: cb::Receiver<PickerResult<M>>,
 }
 
-impl<M> SearchBuffer<M>
+impl<M> Picker<M>
 where
     M: Matchable + Send + Sync + Clone + 'static,
 {
-    pub fn new<T: SearchOptionProvider<Matchable = M> + Send + Sync + 'static>(
+    pub fn new<T: PickerOptionProvider<Matchable = M> + Send + Sync + 'static>(
         option_provder: T,
         previewer: Option<Box<dyn Previewer<M>>>,
         proxy: Box<dyn EventLoopProxy>,
@@ -59,7 +59,7 @@ where
         search_field.set_view_lines(1);
 
         let (search_tx, search_rx): (_, cb::Receiver<String>) = cb::unbounded();
-        let (result_tx, result_rx): (_, cb::Receiver<SearchResult<M>>) = cb::unbounded();
+        let (result_tx, result_rx): (_, cb::Receiver<PickerResult<M>>) = cb::unbounded();
 
         thread::spawn(move || {
             let mut options = Arc::new(RwLock::new(Vec::new()));
@@ -101,7 +101,7 @@ where
                     let options = options.read().unwrap();
                     let options = &*options;
                     let output = fuzzy_match::fuzzy_match::<M>(&query, options, path.as_deref());
-                    let result = SearchResult {
+                    let result = PickerResult {
                         matches: output,
                         total: options.len(),
                     };
@@ -121,7 +121,7 @@ where
             previewer,
             tx: search_tx,
             rx: result_rx,
-            result: SearchResult {
+            result: PickerResult {
                 matches: Vec::new(),
                 total: 0,
             },
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<M> SearchBuffer<M>
+impl<M> Picker<M>
 where
     M: Matchable,
 {
@@ -218,7 +218,7 @@ pub trait Matchable: Clone {
     fn display(&self) -> Cow<str>;
 }
 
-pub trait SearchOptionProvider {
+pub trait PickerOptionProvider {
     type Matchable: Matchable;
     fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>>;
 }
@@ -232,13 +232,3 @@ impl Matchable for String {
         self.as_str().into()
     }
 }
-
-/*impl Matchable for &str {
-    fn as_match_str(&self) -> Cow<str> {
-        Cow::Borrowed(self)
-    }
-
-    fn display(&self) -> Cow<str> {
-        Cow::Borrowed(self)
-    }
-}*/

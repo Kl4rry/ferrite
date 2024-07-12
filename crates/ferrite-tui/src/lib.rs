@@ -21,7 +21,7 @@ use ferrite_core::{
     keymap::{self, InputCommand},
     logger::{self, LogMessage},
     panes::PaneKind,
-    search_buffer::buffer_find::BufferItem,
+    picker::buffer_find::BufferItem,
 };
 use ferrite_utility::point::Point;
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
@@ -34,7 +34,7 @@ use self::{
         background_widget::BackgroundWidget,
         editor_widget::{lines_to_left_offset, EditorWidget},
         palette_widget::CmdPaletteWidget,
-        search_widget::SearchWidget,
+        picker_widget::PickerWidget,
         splash::SplashWidget,
     },
 };
@@ -231,7 +231,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        SearchWidget::new(theme, &self.engine.config, "Open file"),
+                        PickerWidget::new(theme, &self.engine.config, "Open file"),
                         size,
                         file_finder,
                     );
@@ -243,7 +243,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        SearchWidget::<BufferItem>::new(theme, &self.engine.config, "Open buffer"),
+                        PickerWidget::<BufferItem>::new(theme, &self.engine.config, "Open buffer"),
                         size,
                         buffer_finder,
                     );

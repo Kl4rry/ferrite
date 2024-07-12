@@ -27,12 +27,12 @@ use crate::{
     logger::{LogMessage, LoggerState},
     palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
     panes::{PaneKind, Panes, Rect},
-    search_buffer::{
+    picker::{
         buffer_find::{BufferFindProvider, BufferItem},
         file_daemon::FileDaemon,
         file_find::FileFindProvider,
         file_previewer::FilePreviewer,
-        SearchBuffer,
+        Picker,
     },
     spinner::Spinner,
     theme::EditorTheme,
@@ -46,8 +46,8 @@ pub struct Engine {
     pub config_path: Option<PathBuf>,
     pub config_watcher: Option<ConfigWatcher>,
     pub palette: CommandPalette,
-    pub file_finder: Option<SearchBuffer<String>>,
-    pub buffer_finder: Option<SearchBuffer<BufferItem>>,
+    pub file_finder: Option<Picker<String>>,
+    pub buffer_finder: Option<Picker<BufferItem>>,
     pub key_mappings: HashMap<String, Vec<(Mapping, InputCommand, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
@@ -126,7 +126,7 @@ impl Engine {
             if path.is_dir() {
                 std::env::set_current_dir(path)?;
                 let daemon = FileDaemon::new(std::env::current_dir()?, &config)?;
-                file_finder = Some(SearchBuffer::new(
+                file_finder = Some(Picker::new(
                     FileFindProvider(daemon.subscribe()),
                     Some(Box::new(FilePreviewer::new(proxy.dup()))),
                     proxy.dup(),
@@ -895,7 +895,7 @@ impl Engine {
             })
             .collect();
 
-        self.buffer_finder = Some(SearchBuffer::new(
+        self.buffer_finder = Some(Picker::new(
             BufferFindProvider(Arc::new(RwLock::new(buffers))),
             Some(Box::new(self.workspace.buffers.clone())),
             self.proxy.dup(),
@@ -906,7 +906,7 @@ impl Engine {
     pub fn open_file_picker(&mut self) {
         self.palette.reset();
         self.buffer_finder = None;
-        self.file_finder = Some(SearchBuffer::new(
+        self.file_finder = Some(Picker::new(
             FileFindProvider(self.file_daemon.subscribe()),
             Some(Box::new(FilePreviewer::new(self.proxy.dup()))),
             self.proxy.dup(),

@@ -5,15 +5,15 @@ use std::{
 
 use slab::Slab;
 
-use super::{Matchable, SearchOptionProvider};
+use super::{Matchable, PickerOptionProvider};
 use crate::{
     buffer::Buffer,
-    search_buffer::{Preview, Previewer},
+    picker::{Preview, Previewer},
 };
 
 pub struct BufferFindProvider(pub Arc<RwLock<Vec<BufferItem>>>);
 
-impl SearchOptionProvider for BufferFindProvider {
+impl PickerOptionProvider for BufferFindProvider {
     type Matchable = BufferItem;
 
     fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>> {

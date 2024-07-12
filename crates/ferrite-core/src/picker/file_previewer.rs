@@ -6,8 +6,8 @@ use std::{
 use crate::{
     buffer::Buffer,
     event_loop_proxy::EventLoopProxy,
+    picker::{Preview, Previewer},
     promise::Promise,
-    search_buffer::{Preview, Previewer},
 };
 
 pub struct FilePreviewer {

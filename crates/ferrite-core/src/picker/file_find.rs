@@ -6,12 +6,12 @@ use std::{
 
 use sorted_vec::SortedSet;
 
-use super::{file_daemon::LexicallySortedString, SearchOptionProvider};
+use super::{file_daemon::LexicallySortedString, PickerOptionProvider};
 use crate::pubsub::Subscriber;
 
 pub struct FileFindProvider(pub Subscriber<SortedSet<LexicallySortedString>>);
 
-impl SearchOptionProvider for FileFindProvider {
+impl PickerOptionProvider for FileFindProvider {
     type Matchable = String;
     fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>> {
         // TODO fix
