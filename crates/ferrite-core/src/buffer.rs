@@ -652,7 +652,7 @@ impl Buffer {
         }
     }
 
-    fn next_word_end(&self) -> usize {
+    fn next_word_end(&self, greedy: bool) -> usize {
         let mut current_idx = self.cursor.position;
         let mut skipping = Skipping::None;
         loop {
@@ -665,15 +665,21 @@ impl Buffer {
             match skipping {
                 Skipping::Whitespace => {
                     skipping = if grapheme.is_word_char() {
-                        Skipping::WordChar
+                        if greedy {
+                            Skipping::WordChar
+                        } else {
+                            break;
+                        }
                     } else if grapheme.is_whitespace() {
                         if grapheme.get_line_ending().is_some() {
                             break;
                         }
                         Skipping::Whitespace
-                    } else {
+                    } else if greedy {
                         Skipping::Other
-                    };
+                    } else {
+                        break;
+                    }
                 }
                 Skipping::WordChar => {
                     if !grapheme.is_word_char() {
@@ -700,7 +706,7 @@ impl Buffer {
         current_idx
     }
 
-    fn prev_word_start(&self) -> usize {
+    fn prev_word_start(&self, greedy: bool) -> usize {
         let mut current_idx = self.cursor.position;
         let mut skipping = Skipping::None;
         loop {
@@ -713,15 +719,21 @@ impl Buffer {
             match skipping {
                 Skipping::Whitespace => {
                     skipping = if grapheme.is_word_char() {
-                        Skipping::WordChar
+                        if greedy {
+                            Skipping::WordChar
+                        } else {
+                            break;
+                        }
                     } else if grapheme.is_whitespace() {
                         if grapheme.get_line_ending().is_some() {
                             break;
                         }
                         Skipping::Whitespace
-                    } else {
+                    } else if greedy {
                         Skipping::Other
-                    };
+                    } else {
+                        break;
+                    }
                 }
                 Skipping::WordChar => {
                     if !grapheme.is_word_char() {
@@ -749,7 +761,7 @@ impl Buffer {
     }
 
     pub fn move_right_word(&mut self, shift: bool) {
-        let next_word = self.next_word_end();
+        let next_word = self.next_word_end(true);
         self.cursor.position = next_word;
 
         if !shift {
@@ -765,7 +777,7 @@ impl Buffer {
     }
 
     pub fn move_left_word(&mut self, shift: bool) {
-        let prev_word = self.prev_word_start();
+        let prev_word = self.prev_word_start(true);
         self.cursor.position = prev_word;
 
         if !shift {
@@ -1040,7 +1052,7 @@ impl Buffer {
         }
 
         self.history.begin(self.cursor, self.dirty);
-        let prev_word = self.prev_word_start();
+        let prev_word = self.prev_word_start(false);
         self.history
             .remove(&mut self.rope, prev_word..self.cursor.position);
 
@@ -1092,7 +1104,7 @@ impl Buffer {
         }
 
         self.history.begin(self.cursor, self.dirty);
-        let next_word = self.next_word_end();
+        let next_word = self.next_word_end(false);
 
         self.history
             .remove(&mut self.rope, self.cursor.position..next_word);
