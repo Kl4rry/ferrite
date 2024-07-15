@@ -71,7 +71,7 @@ impl Widget for ChoordWidget<'_> {
             .style(convert_style(&self.theme.background))
             .render(area, buf);
 
-        let inner_area = area.inner(&layout::Margin::new(1, 1));
+        let inner_area = area.inner(layout::Margin::new(1, 1));
         for (i, (mapping, cmd)) in lines.into_iter().enumerate() {
             let mut line = format!(" {mapping}");
             line.push_str(&" ".repeat(left_col_width - mapping.width() + 1));

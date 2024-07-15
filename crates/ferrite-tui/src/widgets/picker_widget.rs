@@ -57,7 +57,7 @@ where
             .border_type(BorderType::Plain)
             .style(convert_style(&self.theme.background));
         main_block.render(area, buf);
-        let inner_area = area.inner(&Margin {
+        let inner_area = area.inner(Margin {
             horizontal: 1,
             vertical: 1,
         });

@@ -89,7 +89,6 @@ impl StatefulWidget for EditorWidget<'_> {
         let (line_number_max_width, left_offset) = if line_nr {
             lines_to_left_offset(buffer.len_lines())
         } else {
-            // TODO remove 4 magic number
             (0, 0)
         };
 

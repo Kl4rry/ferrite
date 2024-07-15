@@ -226,7 +226,7 @@ impl TuiApp {
                 }
 
                 if let Some(file_finder) = &mut self.engine.file_finder {
-                    let size = size.inner(&Margin {
+                    let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
                     });
@@ -238,7 +238,7 @@ impl TuiApp {
                 }
 
                 if let Some(buffer_finder) = &mut self.engine.buffer_finder {
-                    let size = size.inner(&Margin {
+                    let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
                     });
