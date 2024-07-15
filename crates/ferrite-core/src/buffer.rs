@@ -795,7 +795,7 @@ impl Buffer {
     /// Move cursor to line. Line is indexed from 1
     pub fn goto(&mut self, line: i64) {
         let line_idx = (self.rope.len_lines().saturating_sub(1) as i64)
-            .min(line)
+            .min(line.saturating_sub(1))
             .max(0) as usize;
 
         self.set_cursor_pos(0, line_idx);
