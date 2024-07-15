@@ -1791,6 +1791,46 @@ impl Buffer {
 
         self.history.finish();
     }
+
+    pub fn replace_all(&mut self, replacement: String) {
+        if let Some(searcher) = &mut self.searcher {
+            self.history.begin(self.cursor, self.dirty);
+            let matches = searcher.get_matches();
+            let guard = matches.lock().unwrap();
+            let (matches, _) = &*guard;
+
+            let mut diff: i64 = 0;
+            for m in matches {
+                let start_byte_idx = (m.start_byte as i64 + diff) as usize;
+                let end_byte_idx = (m.end_byte as i64 + diff) as usize;
+                self.history
+                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, &replacement);
+                let match_len = (end_byte_idx - start_byte_idx) as i64;
+                let replacement_diff = replacement.len() as i64 - match_len;
+                diff += replacement_diff;
+
+                if self.cursor.position > start_byte_idx {
+                    self.cursor.position =
+                        (self.cursor.position as i64 + replacement_diff) as usize;
+                }
+
+                if self.cursor.anchor > start_byte_idx {
+                    self.cursor.anchor = (self.cursor.anchor as i64 + replacement_diff) as usize;
+                }
+            }
+
+            searcher.update_buffer(self.rope.clone(), None);
+
+            self.ensure_cursor_is_valid();
+            self.mark_dirty();
+
+            if self.clamp_cursor {
+                self.center_on_cursor();
+            }
+
+            self.history.finish();
+        }
+    }
 }
 
 pub struct ViewLine<'a> {

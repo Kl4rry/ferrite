@@ -401,6 +401,11 @@ impl Engine {
         self.palette.reset();
         match cmd_parser::parse_cmd(&content) {
             Ok(cmd) => match cmd {
+                Command::ReplaceAll(replacement) => {
+                    if let Some(buffer) = self.get_current_buffer_mut() {
+                        buffer.replace_all(replacement);
+                    }
+                }
                 Command::SortLines(asc) => {
                     if let Some(buffer) = self.get_current_buffer_mut() {
                         buffer.sort_lines(asc);
