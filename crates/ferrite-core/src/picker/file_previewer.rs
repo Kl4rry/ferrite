@@ -1,6 +1,8 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
-    fs, io,
+    fs::{self, File},
+    io::{self, Read},
+    path::Path,
 };
 
 use crate::{
@@ -10,9 +12,19 @@ use crate::{
     promise::Promise,
 };
 
+fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
+    let mut file = File::open(&path)?;
+
+    let mut buf = [0; 1024];
+    let read = file.read(&mut buf)?;
+
+    let content_type = content_inspector::inspect(&buf[..read]);
+    Ok(content_type.is_text())
+}
+
 pub struct FilePreviewer {
-    files: HashMap<String, Result<Buffer, io::Error>>,
-    loading: HashMap<String, Promise<Result<Buffer, io::Error>>>,
+    files: HashMap<String, Result<Option<Buffer>, io::Error>>,
+    loading: HashMap<String, Promise<Result<Option<Buffer>, io::Error>>>,
     proxy: Box<dyn EventLoopProxy>,
 }
 
@@ -36,7 +48,8 @@ impl Previewer<String> for FilePreviewer {
         }
 
         match self.files.get_mut(m) {
-            Some(Ok(buffer)) => return Preview::Buffer(buffer),
+            Some(Ok(Some(buffer))) => return Preview::Buffer(buffer),
+            Some(Ok(None)) => return Preview::Binary,
             Some(Err(_)) => return Preview::Err,
             None => (),
         }
@@ -51,7 +64,12 @@ impl Previewer<String> for FilePreviewer {
 
         self.loading.insert(
             m.clone(),
-            Promise::spawn(self.proxy.dup(), move || Buffer::from_file(path)),
+            Promise::spawn(self.proxy.dup(), move || {
+                if !is_text_file(&path)? {
+                    return Ok(None);
+                }
+                Ok(Some(Buffer::from_file(&path)?))
+            }),
         );
         Preview::Loading
     }
