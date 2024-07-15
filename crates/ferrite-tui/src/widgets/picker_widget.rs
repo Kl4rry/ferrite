@@ -10,7 +10,7 @@ use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
+    widgets::{Block, BorderType, Borders, Clear, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -50,6 +50,8 @@ where
         buf: &mut tui::buffer::Buffer,
         state: &mut Self::State,
     ) {
+        Clear.render(area, buf);
+
         let main_block = Block::default()
             .title(self.title)
             .borders(Borders::all())
@@ -61,19 +63,6 @@ where
             horizontal: 1,
             vertical: 1,
         });
-
-        // TODO use same method as editor_widget to clear background
-        // TODO clear background color not just foreground color
-        // clear inner area
-        for i in 0..inner_area.height {
-            buf.set_stringn(
-                inner_area.x,
-                inner_area.y + i,
-                " ".repeat(inner_area.width.into()),
-                inner_area.width.into(),
-                convert_style(&self.theme.text),
-            );
-        }
 
         let search_field_block = Block::default()
             .borders(Borders::BOTTOM)

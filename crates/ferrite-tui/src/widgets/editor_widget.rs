@@ -12,7 +12,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use ropey::RopeSlice;
 use tui::{
     layout::Rect,
-    widgets::{StatefulWidget, Widget},
+    widgets::{Clear, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -69,12 +69,7 @@ impl StatefulWidget for EditorWidget<'_> {
             return;
         }
 
-        for x in 0..area.width {
-            for y in 0..area.height {
-                let cell = buf.get_mut(x + area.x, y + area.y);
-                cell.set_symbol(" ");
-            }
-        }
+        Clear.render(area, buf);
 
         let Self {
             theme,

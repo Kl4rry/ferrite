@@ -1,6 +1,9 @@
 use encoding_rs::Encoding;
 use ferrite_core::{byte_size::format_byte_size, config::InfoLineConfig, theme::EditorTheme};
-use tui::{style::Style, widgets::Widget};
+use tui::{
+    style::Style,
+    widgets::{Clear, Widget},
+};
 use unicode_width::UnicodeWidthStr;
 
 use crate::glue::convert_style;
@@ -49,6 +52,8 @@ impl Widget for InfoLine<'_> {
             true => convert_style(&self.theme.info_line),
             false => convert_style(&self.theme.info_line_unfocused),
         };
+
+        Clear.render(area, buf);
 
         let mut left = String::from(" ");
         for item in &self.config.left {

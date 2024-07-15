@@ -4,7 +4,7 @@ use ferrite_core::{
 };
 use tui::{
     layout,
-    widgets::{Block, BorderType, Borders, Widget},
+    widgets::{Block, BorderType, Borders, Clear, Widget},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -62,6 +62,8 @@ impl Widget for ChoordWidget<'_> {
         let left = total_area.width - width;
         let top = total_area.height - height;
         let area = layout::Rect::new(left, top, width, height);
+
+        Clear.render(area, buf);
 
         Block::default()
             .title("Choords")

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use ferrite_core::{logger::LoggerState, theme::EditorTheme};
-use tui::widgets::StatefulWidget;
+use tui::widgets::{Clear, StatefulWidget, Widget};
 
 use crate::glue::convert_style;
 
@@ -34,12 +34,7 @@ impl StatefulWidget for LoggerWidget<'_> {
             return;
         }
 
-        for x in 0..area.width {
-            for y in 0..area.height {
-                let cell = buf.get_mut(x + area.x, y + area.y);
-                cell.set_symbol(" ");
-            }
-        }
+        Clear.render(area, buf);
 
         buf.set_style(area, convert_style(&self.theme.background));
         for y in 0..area.height.saturating_sub(1) {

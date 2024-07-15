@@ -15,8 +15,9 @@ impl<'a> BackgroundWidget<'a> {
 
 impl Widget for BackgroundWidget<'_> {
     fn render(self, _: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+        let style = convert_style(&self.theme.background);
         for cell in &mut buf.content {
-            cell.set_style(convert_style(&self.theme.background));
+            cell.set_style(style);
             cell.set_symbol(" ");
         }
     }
