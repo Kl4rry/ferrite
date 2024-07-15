@@ -1,6 +1,6 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
-    io,
+    fs, io,
 };
 
 use crate::{
@@ -42,6 +42,13 @@ impl Previewer<String> for FilePreviewer {
         }
 
         let path = m.clone();
+        if let Ok(metadata) = fs::metadata(&path) {
+            const MAX_PREVIEW_SIZE: u64 = 1_000_000;
+            if metadata.len() > MAX_PREVIEW_SIZE {
+                return Preview::TooLarge;
+            }
+        }
+
         self.loading.insert(
             m.clone(),
             Promise::spawn(self.proxy.dup(), move || Buffer::from_file(path)),

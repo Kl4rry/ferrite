@@ -14,7 +14,10 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use super::{editor_widget::EditorWidget, one_line_input_widget::OneLineInputWidget};
+use super::{
+    centered_text_widget::CenteredTextWidget, editor_widget::EditorWidget,
+    one_line_input_widget::OneLineInputWidget,
+};
 use crate::glue::convert_style;
 
 pub struct PickerWidget<'a, M> {
@@ -264,6 +267,18 @@ where
                     preview.line_nr = false;
                     preview.info_line = false;
                     preview.render(preview_area, buf, buffer);
+                }
+                Some(Preview::TooLarge) => {
+                    let text = CenteredTextWidget::new(self.theme, "Too large");
+                    text.render(preview_area, buf);
+                }
+                Some(Preview::Binary) => {
+                    let text = CenteredTextWidget::new(self.theme, "Binary file");
+                    text.render(preview_area, buf);
+                }
+                Some(Preview::Err) => {
+                    let text = CenteredTextWidget::new(self.theme, "Error loading preview");
+                    text.render(preview_area, buf);
                 }
                 _ => (),
             }

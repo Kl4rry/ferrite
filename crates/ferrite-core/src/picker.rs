@@ -23,6 +23,7 @@ pub enum Preview<'a> {
     Buffer(&'a mut Buffer),
     Loading,
     Binary, // TODO add hex preview
+    TooLarge,
     Err,
 }
 

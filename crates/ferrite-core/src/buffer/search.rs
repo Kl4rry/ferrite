@@ -150,12 +150,10 @@ impl BufferSearcher {
         let mut guard = self.matches.lock().unwrap();
         if let Some(index) = guard.1.take() {
             self.match_index = index.min(guard.0.len().saturating_sub(1));
+        } else if self.match_index == 0 {
+            self.match_index = guard.0.len().saturating_sub(1);
         } else {
-            if self.match_index == 0 {
-                self.match_index = guard.0.len().saturating_sub(1);
-            } else {
-                self.match_index = self.match_index.saturating_sub(1);
-            }
+            self.match_index = self.match_index.saturating_sub(1);
         }
         guard.0.get(self.match_index).copied()
     }
