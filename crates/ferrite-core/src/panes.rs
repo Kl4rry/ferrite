@@ -332,13 +332,15 @@ impl Panes {
         self.current_pane
     }
 
-    pub fn replace_current(&mut self, pane: PaneKind) {
+    pub fn replace_current(&mut self, pane: PaneKind) -> PaneKind {
         if self.node.contains(pane) {
             self.node.remove(pane);
         }
 
         self.node.replace(self.current_pane, pane);
+        let old = self.current_pane;
         self.current_pane = pane;
+        old
     }
 
     pub fn remove_pane(&mut self, pane: PaneKind) -> bool {

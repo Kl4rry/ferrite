@@ -377,9 +377,16 @@ impl Engine {
                     let _ = finder.handle_input(input);
                     if let Some(choice) = finder.get_choice() {
                         self.buffer_finder = None;
-                        self.workspace
+                        let old = self
+                            .workspace
                             .panes
                             .replace_current(PaneKind::Buffer(choice.id));
+                        if let PaneKind::Buffer(id) = old {
+                            let buffer = &self.workspace.buffers[id];
+                            if buffer.is_disposable() {
+                                self.workspace.buffers.remove(id);
+                            }
+                        }
                     }
                 } else {
                     match self.workspace.panes.get_current_pane() {
@@ -646,7 +653,7 @@ impl Engine {
                 Command::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
                 Command::Logger => {
                     self.logger_state.lines_scrolled_up = 0;
-                    self.workspace.panes.replace_current(PaneKind::Logger)
+                    self.workspace.panes.replace_current(PaneKind::Logger);
                 }
                 Command::Theme(name) => match name {
                     Some(name) => {
@@ -827,12 +834,14 @@ impl Engine {
                 .as_deref()
                 == Some(&real_path)
         }) {
-            Some((id, _)) => self.workspace.panes.replace_current(PaneKind::Buffer(id)),
+            Some((id, _)) => {
+                self.workspace.panes.replace_current(PaneKind::Buffer(id));
+            }
             None => match Buffer::from_file(path) {
                 Ok(buffer) => {
                     if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
                         let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
-                        if !current_buf.is_dirty() && current_buf.rope().len_bytes() == 0 {
+                        if current_buf.is_disposable() {
                             *current_buf = buffer;
                             return;
                         }

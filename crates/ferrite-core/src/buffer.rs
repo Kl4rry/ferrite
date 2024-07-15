@@ -1843,6 +1843,10 @@ impl Buffer {
             self.history.finish();
         }
     }
+
+    pub fn is_disposable(&self) -> bool {
+        !self.is_dirty() && self.rope().len_bytes() == 0 && self.file.is_none()
+    }
 }
 
 pub struct ViewLine<'a> {
