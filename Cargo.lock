@@ -871,7 +871,7 @@ dependencies = [
  "rustix",
  "serde",
  "serde_json",
- "slab",
+ "slotmap",
  "sorted-vec",
  "sublime_fuzzy",
  "subprocess",

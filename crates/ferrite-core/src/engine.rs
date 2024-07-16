@@ -10,7 +10,7 @@ use std::{
 use anyhow::Result;
 use ferrite_cli::Args;
 use ferrite_utility::{line_ending, trim::trim_path};
-use slab::Slab;
+use slotmap::{Key, SlotMap};
 use subprocess::{Exec, Redirection};
 
 use crate::{
@@ -36,7 +36,7 @@ use crate::{
     },
     spinner::Spinner,
     theme::EditorTheme,
-    workspace::Workspace,
+    workspace::{BufferId, Workspace},
 };
 
 pub struct Engine {
@@ -94,8 +94,8 @@ impl Engine {
             config.theme = "default".into();
         }
 
-        let mut buffers = Slab::new();
-        let mut current_buffer_id = 0;
+        let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
+        let mut current_buffer_id = BufferId::null();
 
         for (i, file) in args.files.iter().enumerate() {
             if i == 0 && file.is_dir() {
@@ -963,11 +963,11 @@ impl Engine {
                 self.workspace
                     .panes
                     .remove_pane(PaneKind::Buffer(buffer_id));
-                if let Some(path) = self.workspace.buffers.remove(buffer_id).file() {
+                if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
             } else if self.workspace.buffers.len() > 1 {
-                if let Some(path) = self.workspace.buffers.remove(buffer_id).file() {
+                if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
                 let (buffer_id, _) = self.workspace.buffers.iter().next().unwrap();
@@ -1011,7 +1011,7 @@ impl Engine {
         prompt
     }
 
-    pub fn get_current_buffer_id(&self) -> Option<usize> {
+    pub fn get_current_buffer_id(&self) -> Option<BufferId> {
         match self.workspace.panes.get_current_pane() {
             PaneKind::Buffer(id) => Some(id),
             _ => None,
@@ -1034,7 +1034,7 @@ impl Engine {
         self.workspace.buffers.get_mut(buffer)
     }
 
-    pub fn insert_buffer(&mut self, buffer: Buffer, make_current: bool) -> (usize, &mut Buffer) {
+    pub fn insert_buffer(&mut self, buffer: Buffer, make_current: bool) -> (BufferId, &mut Buffer) {
         let buffer_id = self.workspace.buffers.insert(buffer);
         if make_current {
             self.workspace
@@ -1044,7 +1044,7 @@ impl Engine {
         (buffer_id, &mut self.workspace.buffers[buffer_id])
     }
 
-    pub fn save_buffer(&mut self, buffer_id: usize, path: Option<PathBuf>) {
+    pub fn save_buffer(&mut self, buffer_id: BufferId, path: Option<PathBuf>) {
         let buffer = &mut self.workspace.buffers[buffer_id];
 
         if let Some(path) = path {

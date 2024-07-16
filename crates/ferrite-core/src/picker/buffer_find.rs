@@ -3,12 +3,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use slab::Slab;
+use slotmap::SlotMap;
 
 use super::{Matchable, PickerOptionProvider};
 use crate::{
     buffer::Buffer,
     picker::{Preview, Previewer},
+    workspace::BufferId,
 };
 
 pub struct BufferFindProvider(pub Arc<RwLock<Vec<BufferItem>>>);
@@ -25,7 +26,7 @@ impl PickerOptionProvider for BufferFindProvider {
 
 #[derive(Debug, Clone)]
 pub struct BufferItem {
-    pub id: usize,
+    pub id: BufferId,
     pub name: String,
     pub dirty: bool,
 }
@@ -44,7 +45,7 @@ impl Matchable for BufferItem {
     }
 }
 
-impl Previewer<BufferItem> for Slab<Buffer> {
+impl Previewer<BufferItem> for SlotMap<BufferId, Buffer> {
     fn request_preview(&mut self, m: &BufferItem) -> Preview {
         match self.get_mut(m.id) {
             Some(buffer) => Preview::Buffer(buffer),

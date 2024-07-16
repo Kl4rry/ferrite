@@ -33,7 +33,7 @@ rayon = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true } 
-slab = { workspace = true } 
+slotmap = { workspace = true } 
 sorted-vec = { workspace = true }
 sublime_fuzzy = { workspace = true } 
 subprocess = { workspace = true } 

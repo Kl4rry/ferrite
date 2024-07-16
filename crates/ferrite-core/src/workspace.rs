@@ -6,13 +6,17 @@ use std::{
 use anyhow::Result;
 use ferrite_utility::graphemes::RopeGraphemeExt;
 use serde::{Deserialize, Serialize};
-use slab::Slab;
+use slotmap::{Key, SlotMap};
 
 use super::buffer::{Buffer, Cursor};
 use crate::panes::{PaneKind, Panes};
 
+slotmap::new_key_type! {
+    pub struct BufferId;
+}
+
 pub struct Workspace {
-    pub buffers: Slab<Buffer>,
+    pub buffers: SlotMap<BufferId, Buffer>,
     pub panes: Panes,
 }
 
@@ -31,7 +35,7 @@ pub struct BufferData {
 
 impl Default for Workspace {
     fn default() -> Self {
-        let mut buffers = Slab::new();
+        let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
         let buffer_id = buffers.insert(Buffer::new());
         Self {
             buffers,
@@ -80,8 +84,8 @@ impl Workspace {
     }
 
     pub fn load_workspace() -> Result<Self> {
-        let mut buffers = Slab::new();
-        let mut panes = Panes::new(0);
+        let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
+        let mut panes = Panes::new(BufferId::null());
 
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
@@ -117,6 +121,12 @@ impl Workspace {
         if buffers.is_empty() {
             let buffer_id = buffers.insert(Buffer::new());
             panes.replace_current(PaneKind::Buffer(buffer_id));
+        }
+
+        if let PaneKind::Buffer(buffer_id) = panes.get_current_pane() {
+            if buffers.get(buffer_id).is_none() {
+                panes.replace_current(PaneKind::Buffer(buffers.keys().next().unwrap()));
+            }
         }
 
         Ok(Self { buffers, panes })

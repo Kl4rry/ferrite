@@ -2,6 +2,9 @@ use std::{mem, str::FromStr};
 
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
+use slotmap::Key;
+
+use crate::workspace::BufferId;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
@@ -22,9 +25,9 @@ impl Rect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaneKind {
-    Buffer(usize),
+    Buffer(BufferId),
     Logger,
 }
 
@@ -65,7 +68,7 @@ impl FromStr for Direction {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 enum Node {
     Leaf(PaneKind),
     Internal {
@@ -108,7 +111,7 @@ impl Node {
                     match &mut **left {
                         Node::Leaf(leaf) => {
                             if *leaf == pane {
-                                let mut dummy = Node::Leaf(PaneKind::Buffer(0));
+                                let mut dummy = Node::Leaf(PaneKind::Buffer(BufferId::null()));
                                 mem::swap(&mut dummy, &mut **right);
                                 output = Some(dummy.get_first_leaf());
                                 new = Some(dummy);
@@ -126,7 +129,7 @@ impl Node {
                     match &mut **right {
                         Node::Leaf(leaf) => {
                             if *leaf == pane {
-                                let mut dummy = Node::Leaf(PaneKind::Buffer(0));
+                                let mut dummy = Node::Leaf(PaneKind::Buffer(BufferId::null()));
                                 mem::swap(&mut dummy, &mut **left);
                                 output = Some(dummy.get_first_leaf());
                                 new = Some(dummy);
@@ -314,14 +317,14 @@ impl Node {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Panes {
     node: Node,
     current_pane: PaneKind,
 }
 
 impl Panes {
-    pub fn new(buffer_id: usize) -> Panes {
+    pub fn new(buffer_id: BufferId) -> Panes {
         Self {
             node: Node::Leaf(PaneKind::Buffer(buffer_id)),
             current_pane: PaneKind::Buffer(buffer_id),
