@@ -399,7 +399,20 @@ impl Buffer {
 
     pub fn set_file(&mut self, path: impl Into<PathBuf>) -> Result<(), std::io::Error> {
         let path = path.into();
-        let path = if path.has_root() {
+        if path.to_string_lossy().ends_with(std::path::MAIN_SEPARATOR) {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "File must have filename",
+            ));
+        }
+        let Some(name) = path.file_name() else {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "File must have filename",
+            ));
+        };
+        self.name = name.to_string_lossy().into();
+        let path = if path.is_absolute() {
             path
         } else {
             let cwd = std::env::current_dir()?;
