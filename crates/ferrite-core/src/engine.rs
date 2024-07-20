@@ -635,6 +635,21 @@ impl Engine {
                         self.palette.set_error(err)
                     };
                 }
+                Command::ReloadAll => {
+                    for buffer in self.workspace.buffers.values_mut() {
+                        if buffer.file().is_some() && buffer.is_dirty() {
+                            self.palette
+                                .set_error(format!("`{}` is dirty cannot reload", buffer.name()));
+                            continue;
+                        }
+
+                        if buffer.file().is_some() {
+                            if let Err(err) = buffer.reload() {
+                                self.palette.set_error(err);
+                            }
+                        }
+                    }
+                }
                 Command::Goto(line) => {
                     let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
                     else {

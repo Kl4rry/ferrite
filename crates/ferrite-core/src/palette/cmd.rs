@@ -21,6 +21,7 @@ pub enum Command {
     Pwd,
     New(Option<PathBuf>),
     Reload,
+    ReloadAll,
     Logger,
     ForceQuit,
     Quit,
