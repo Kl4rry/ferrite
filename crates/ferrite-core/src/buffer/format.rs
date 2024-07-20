@@ -7,7 +7,15 @@ use subprocess::{Exec, PopenError, Redirection};
 use super::{Buffer, Cursor};
 
 fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
-    let mut child = Exec::cmd(formatter)
+    let mut parts = formatter.split_whitespace();
+    let Some(first) = parts.next() else {
+        return Err(
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid formatter").into(),
+        );
+    };
+
+    let mut child = Exec::cmd(first)
+        .args(&parts.collect::<Vec<_>>())
         .stdin(Redirection::Pipe)
         .stdout(Redirection::Pipe)
         .stderr(Redirection::Pipe)

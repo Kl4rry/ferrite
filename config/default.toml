@@ -7,7 +7,7 @@ watch_workspace = true
 show_indent_rulers = true
 always_prompt_on_exit = false
 case_insensitive_search = true
-render_whitespace = "none"
+render_whitespace = "trailing"
 
 [picker]
 show_hidden = false
@@ -25,7 +25,7 @@ padding = 1
 
 [[language]]
 name = "rust"
-format = "rustfmt"
+format = "rustfmt --edition 2021"
 
 [[language]]
 name = "cpp"
