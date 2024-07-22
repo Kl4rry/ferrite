@@ -3,6 +3,7 @@
 - [ ] Multicursor
 - [x] Search
 - [ ] Replace
+- [x] Replace all
 - [ ] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
 - [x] Mouse jumping and selection
 - [x] Command palette
