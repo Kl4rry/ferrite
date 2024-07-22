@@ -127,13 +127,14 @@ impl StatefulWidget for EditorWidget<'_> {
                 .enumerate()
             {
                 if line_nr {
+                    let is_current_line = line_number == current_line_number;
                     let line_number_str = line_number.to_string();
                     let line_number_str = format!(
                         " {}{} ",
-                        " ".repeat(line_number_max_width - line_number_str.len()),
+                        " ".repeat(line_number_max_width - line_number_str.len() - is_current_line as usize),
                         line_number
                     );
-                    let line_nr_theme = if line_number == current_line_number {
+                    let line_nr_theme = if is_current_line {
                         convert_style(&theme.current_line_nr)
                     } else {
                         convert_style(&theme.line_nr)
