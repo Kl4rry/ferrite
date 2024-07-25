@@ -1,7 +1,6 @@
-use std::str::FromStr;
+use std::{str::FromStr, sync::LazyLock};
 
 use ferrite_utility::line_ending::LineEnding;
-use once_cell::sync::Lazy;
 
 use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
 use super::cmd::Command;
@@ -111,7 +110,7 @@ pub fn get_command_input_type(name: &str) -> Option<&'static CommandTemplateArg>
 }
 
 #[rustfmt::skip]
-static COMMANDS: Lazy<Vec<CommandTemplate>> = Lazy::new(|| {
+static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
     let mut cmds = vec![
         CommandTemplate::new("open", Some(("path", CommandTemplateArg::Path)), false).add_alias("o"),
         CommandTemplate::new("cd", Some(("path", CommandTemplateArg::Path)), false),

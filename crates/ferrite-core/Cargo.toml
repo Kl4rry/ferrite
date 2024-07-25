@@ -27,7 +27,6 @@ include_dir = { workspace = true, optional = true }
 lexical-sort = { workspace = true }
 memchr = { workspace = true }
 notify = { workspace = true }
-once_cell = { workspace = true }
 opener = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }

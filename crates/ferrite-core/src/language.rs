@@ -1,6 +1,9 @@
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, LazyLock, OnceLock},
+};
 
-use once_cell::sync::{Lazy, OnceCell};
 use tree_sitter::Language;
 
 use self::syntax::HighlightConfiguration;
@@ -37,74 +40,75 @@ impl TreeSitterConfig {
     }
 }
 
-static LANGUAGES: Lazy<HashMap<&'static str, OnceCell<TreeSitterConfig>>> = Lazy::new(|| {
-    let mut langs = HashMap::new();
-    #[cfg(feature = "lang-rust")]
-    langs.insert("rust", OnceCell::new());
-    #[cfg(feature = "lang-json")]
-    langs.insert("json", OnceCell::new());
-    #[cfg(feature = "lang-c")]
-    langs.insert("c", OnceCell::new());
-    #[cfg(feature = "lang-cpp")]
-    langs.insert("cpp", OnceCell::new());
-    #[cfg(feature = "lang-cmake")]
-    langs.insert("cmake", OnceCell::new());
-    #[cfg(feature = "lang-css")]
-    langs.insert("css", OnceCell::new());
-    #[cfg(feature = "lang-glsl")]
-    langs.insert("glsl", OnceCell::new());
-    #[cfg(feature = "lang-html")]
-    langs.insert("html", OnceCell::new());
-    #[cfg(feature = "lang-md")]
-    langs.insert("markdown", OnceCell::new());
-    #[cfg(feature = "lang-python")]
-    langs.insert("python", OnceCell::new());
-    #[cfg(feature = "lang-toml")]
-    langs.insert("toml", OnceCell::new());
-    #[cfg(feature = "lang-xml")]
-    langs.insert("xml", OnceCell::new());
-    #[cfg(feature = "lang-yaml")]
-    langs.insert("yaml", OnceCell::new());
-    #[cfg(feature = "lang-c-sharp")]
-    langs.insert("c-sharp", OnceCell::new());
-    #[cfg(feature = "lang-fish")]
-    langs.insert("fish", OnceCell::new());
-    #[cfg(feature = "lang-comment")]
-    langs.insert("comment", OnceCell::new());
-    #[cfg(feature = "lang-javascript")]
-    langs.insert("javascript", OnceCell::new());
-    #[cfg(feature = "lang-bash")]
-    langs.insert("bash", OnceCell::new());
-    #[cfg(feature = "lang-ron")]
-    langs.insert("ron", OnceCell::new());
-    #[cfg(feature = "lang-fortran")]
-    langs.insert("fortran", OnceCell::new());
-    #[cfg(feature = "lang-zig")]
-    langs.insert("zig", OnceCell::new());
-    #[cfg(feature = "lang-hyprlang")]
-    langs.insert("hyprlang", OnceCell::new());
-    #[cfg(feature = "lang-go")]
-    langs.insert("go", OnceCell::new());
-    #[cfg(feature = "lang-typescript")]
-    langs.insert("typescript", OnceCell::new());
-    #[cfg(feature = "lang-ini")]
-    langs.insert("ini", OnceCell::new());
-    #[cfg(feature = "lang-diff")]
-    langs.insert("diff", OnceCell::new());
-    #[cfg(feature = "lang-git-config")]
-    langs.insert("git-config", OnceCell::new());
-    #[cfg(feature = "lang-git-commit")]
-    langs.insert("git-commit", OnceCell::new());
-    #[cfg(feature = "lang-rebase")]
-    langs.insert("git-rebase", OnceCell::new());
-    #[cfg(feature = "lang-dockerfile")]
-    langs.insert("dockerfile", OnceCell::new());
-    #[cfg(feature = "lang-protobuf")]
-    langs.insert("protobuf", OnceCell::new());
-    #[cfg(feature = "lang-lua")]
-    langs.insert("lua", OnceCell::new());
-    langs
-});
+static LANGUAGES: LazyLock<HashMap<&'static str, OnceLock<TreeSitterConfig>>> =
+    LazyLock::new(|| {
+        let mut langs = HashMap::new();
+        #[cfg(feature = "lang-rust")]
+        langs.insert("rust", OnceLock::new());
+        #[cfg(feature = "lang-json")]
+        langs.insert("json", OnceLock::new());
+        #[cfg(feature = "lang-c")]
+        langs.insert("c", OnceLock::new());
+        #[cfg(feature = "lang-cpp")]
+        langs.insert("cpp", OnceLock::new());
+        #[cfg(feature = "lang-cmake")]
+        langs.insert("cmake", OnceLock::new());
+        #[cfg(feature = "lang-css")]
+        langs.insert("css", OnceLock::new());
+        #[cfg(feature = "lang-glsl")]
+        langs.insert("glsl", OnceLock::new());
+        #[cfg(feature = "lang-html")]
+        langs.insert("html", OnceLock::new());
+        #[cfg(feature = "lang-md")]
+        langs.insert("markdown", OnceLock::new());
+        #[cfg(feature = "lang-python")]
+        langs.insert("python", OnceLock::new());
+        #[cfg(feature = "lang-toml")]
+        langs.insert("toml", OnceLock::new());
+        #[cfg(feature = "lang-xml")]
+        langs.insert("xml", OnceLock::new());
+        #[cfg(feature = "lang-yaml")]
+        langs.insert("yaml", OnceLock::new());
+        #[cfg(feature = "lang-c-sharp")]
+        langs.insert("c-sharp", OnceLock::new());
+        #[cfg(feature = "lang-fish")]
+        langs.insert("fish", OnceLock::new());
+        #[cfg(feature = "lang-comment")]
+        langs.insert("comment", OnceLock::new());
+        #[cfg(feature = "lang-javascript")]
+        langs.insert("javascript", OnceLock::new());
+        #[cfg(feature = "lang-bash")]
+        langs.insert("bash", OnceLock::new());
+        #[cfg(feature = "lang-ron")]
+        langs.insert("ron", OnceLock::new());
+        #[cfg(feature = "lang-fortran")]
+        langs.insert("fortran", OnceLock::new());
+        #[cfg(feature = "lang-zig")]
+        langs.insert("zig", OnceLock::new());
+        #[cfg(feature = "lang-hyprlang")]
+        langs.insert("hyprlang", OnceLock::new());
+        #[cfg(feature = "lang-go")]
+        langs.insert("go", OnceLock::new());
+        #[cfg(feature = "lang-typescript")]
+        langs.insert("typescript", OnceLock::new());
+        #[cfg(feature = "lang-ini")]
+        langs.insert("ini", OnceLock::new());
+        #[cfg(feature = "lang-diff")]
+        langs.insert("diff", OnceLock::new());
+        #[cfg(feature = "lang-git-config")]
+        langs.insert("git-config", OnceLock::new());
+        #[cfg(feature = "lang-git-commit")]
+        langs.insert("git-commit", OnceLock::new());
+        #[cfg(feature = "lang-rebase")]
+        langs.insert("git-rebase", OnceLock::new());
+        #[cfg(feature = "lang-dockerfile")]
+        langs.insert("dockerfile", OnceLock::new());
+        #[cfg(feature = "lang-protobuf")]
+        langs.insert("protobuf", OnceLock::new());
+        #[cfg(feature = "lang-lua")]
+        langs.insert("lua", OnceLock::new());
+        langs
+    });
 
 fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
     tracing::info!("Loading tree-sitter syntax for: `{name}`");
@@ -385,7 +389,7 @@ impl Pattern {
 
 pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
     use Pattern::*;
-    static LANGUAGES: Lazy<Vec<(Pattern, &'static str)>> = Lazy::new(|| {
+    static LANGUAGES: LazyLock<Vec<(Pattern, &'static str)>> = LazyLock::new(|| {
         vec![
             (Suffix(".rs"), "rust"),
             (Suffix(".json"), "json"),

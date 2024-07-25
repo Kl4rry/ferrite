@@ -864,7 +864,6 @@ dependencies = [
  "lexical-sort",
  "memchr",
  "notify",
- "once_cell",
  "opener",
  "rayon",
  "ropey",
