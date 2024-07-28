@@ -165,7 +165,13 @@ where
     pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
         let mut enter = false;
         match input {
-            InputCommand::MoveUp { .. } => self.selected = self.selected.saturating_sub(1),
+            InputCommand::MoveUp { .. } => {
+                if self.selected == 0 {
+                    self.selected = self.get_matches().len().saturating_sub(1);
+                } else {
+                    self.selected = self.selected.saturating_sub(1);
+                }
+            }
             InputCommand::MoveDown { .. } | InputCommand::Tab { .. } => self.selected += 1,
             InputCommand::Insert(string) => {
                 let rope = RopeSlice::from(string.as_str());
