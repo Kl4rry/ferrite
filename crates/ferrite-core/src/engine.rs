@@ -17,7 +17,7 @@ use crate::{
     buffer::{self, encoding::get_encoding, Buffer},
     byte_size::format_byte_size,
     clipboard,
-    config::{Config, ConfigWatcher, DEFAULT_CONFIG},
+    config::{Config, DEFAULT_CONFIG},
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
     git::branch::BranchWatcher,
     indent::Indentation,
@@ -36,6 +36,7 @@ use crate::{
     },
     spinner::Spinner,
     theme::EditorTheme,
+    watcher::FileWatcher,
     workspace::{BufferId, Workspace},
 };
 
@@ -44,7 +45,7 @@ pub struct Engine {
     pub themes: HashMap<String, EditorTheme>,
     pub config: Config,
     pub config_path: Option<PathBuf>,
-    pub config_watcher: Option<ConfigWatcher>,
+    pub config_watcher: Option<FileWatcher<Config>>,
     pub palette: CommandPalette,
     pub file_finder: Option<Picker<String>>,
     pub buffer_finder: Option<Picker<BufferItem>>,
@@ -82,7 +83,7 @@ impl Engine {
 
         let mut config_watcher = None;
         if let Some(ref config_path) = config_path {
-            config_watcher = Some(ConfigWatcher::watch(config_path, proxy.dup())?);
+            config_watcher = Some(FileWatcher::new(config_path, proxy.dup())?);
         }
 
         if config.local_clipboard {
@@ -193,19 +194,17 @@ impl Engine {
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
         self.logger_state.update();
 
-        if let Some(config_watcher) = &self.config_watcher {
-            if config_watcher.has_changed() {
-                if let Some(path) = &self.config_path {
-                    match Config::load(path) {
-                        Ok(config) => {
-                            self.config = config;
-                            if !self.themes.contains_key(&self.config.theme) {
-                                self.config.theme = "default".into();
-                            }
-                            self.palette.set_msg("Reloaded config");
+        if let Some(config_watcher) = &mut self.config_watcher {
+            if let Some(result) = config_watcher.poll_update() {
+                match result {
+                    Ok(config) => {
+                        self.config = config;
+                        if !self.themes.contains_key(&self.config.theme) {
+                            self.config.theme = "default".into();
                         }
-                        Err(err) => self.palette.set_error(err),
+                        self.palette.set_msg("Reloaded config");
                     }
+                    Err(err) => self.palette.set_error(err),
                 }
             }
         }

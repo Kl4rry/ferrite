@@ -1,17 +1,12 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
 };
 
 use anyhow::Result;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::watcher::FromTomlFile;
 
 pub fn default_theme() -> String {
     "default".into()
@@ -171,42 +166,12 @@ impl Default for Config {
     }
 }
 
-pub struct ConfigWatcher {
-    changed: Arc<AtomicBool>,
-    _watcher: RecommendedWatcher,
-}
-
-impl ConfigWatcher {
-    pub fn watch(path: impl AsRef<Path>, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
-        let path = path.as_ref();
-
-        let changed = Arc::new(AtomicBool::new(false));
-        let watcher_changed = changed.clone();
-
-        let mut watcher = notify::recommended_watcher(
-            move |event: std::result::Result<notify::event::Event, notify::Error>| {
-                if let Ok(event) = event {
-                    match event.kind {
-                        notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
-                            watcher_changed.store(true, Ordering::SeqCst);
-                            proxy.request_render();
-                        }
-                        _ => (),
-                    }
-                }
-            },
-        )?;
-
-        let _ = watcher.watch(path, RecursiveMode::NonRecursive);
-
-        Ok(Self {
-            _watcher: watcher,
-            changed,
-        })
-    }
-
-    pub fn has_changed(&self) -> bool {
-        self.changed.swap(false, Ordering::SeqCst)
+impl FromTomlFile for Config {
+    fn from_toml_file(path: impl AsRef<Path>) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Self::load(path)
     }
 }
 

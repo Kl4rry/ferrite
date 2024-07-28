@@ -18,4 +18,5 @@ pub mod promise;
 pub mod pubsub;
 pub mod spinner;
 pub mod theme;
+pub mod watcher;
 pub mod workspace;
