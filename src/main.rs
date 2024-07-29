@@ -110,7 +110,10 @@ fn main() -> Result<ExitCode> {
     match args.ui {
         Some(Ui::Tui) => {
             #[cfg(feature = "tui")]
-            ferrite_tui::run(&args, rx)?;
+            if let Err(err) = ferrite_tui::run(&args, rx) {
+                tracing::error!("{err}");
+                return Err(err);
+            }
             #[cfg(not(feature = "tui"))]
             {
                 eprintln!("Ferrite has not been compiled with tui");
@@ -119,7 +122,10 @@ fn main() -> Result<ExitCode> {
         }
         Some(Ui::Gui) => {
             #[cfg(feature = "gui")]
-            ferrite_gui::run(&args, rx)?;
+            if let Err(err) = ferrite_gui::run(&args, rx) {
+                tracing::error!("{err}");
+                return Err(err);
+            }
             #[cfg(not(feature = "gui"))]
             {
                 eprintln!("Ferrite has not been compiled with gui");

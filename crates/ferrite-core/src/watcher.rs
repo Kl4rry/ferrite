@@ -1,4 +1,7 @@
-use std::{path::{Path, PathBuf}, sync::mpsc};
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc,
+};
 
 use anyhow::Result;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};

@@ -83,7 +83,10 @@ impl Engine {
 
         let mut config_watcher = None;
         if let Some(ref config_path) = config_path {
-            config_watcher = Some(FileWatcher::new(config_path, proxy.dup())?);
+            match FileWatcher::new(config_path, proxy.dup()) {
+                Ok(watcher) => config_watcher = Some(watcher),
+                Err(err) => tracing::error!("Error starting config watcher: {err}"),
+            }
         }
 
         if config.local_clipboard {
@@ -106,8 +109,17 @@ impl Engine {
             let buffer = match Buffer::from_file(file) {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound => Buffer::with_path(file)?,
-                    _ => Err(err)?,
+                    io::ErrorKind::NotFound => match Buffer::with_path(file) {
+                        Ok(buffer) => buffer,
+                        Err(err) => {
+                            palette.set_error(err);
+                            continue;
+                        }
+                    },
+                    _ => {
+                        palette.set_error(err);
+                        continue;
+                    }
                 },
             };
             current_buffer_id = buffers.insert(buffer);
@@ -116,7 +128,9 @@ impl Engine {
         for (_, buffer) in &mut buffers {
             buffer.goto(args.line as i64);
             if let Some(language) = &args.language {
-                buffer.set_langauge(language, proxy.dup())?;
+                if let Err(err) = buffer.set_langauge(language, proxy.dup()) {
+                    palette.set_error(err);
+                }
             }
         }
 

@@ -90,6 +90,7 @@ impl Workspace {
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
         for buffer_data in &workspace.buffers {
+            tracing::info!("Loaded workspace buffer: {}", buffer_data.path.display());
             match Buffer::from_file(&buffer_data.path) {
                 Ok(mut buffer) => {
                     let cursor = buffer_data.cursor;
