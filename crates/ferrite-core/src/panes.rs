@@ -390,12 +390,17 @@ impl Panes {
 
 #[cfg(test)]
 mod tests {
+    use slotmap::KeyData;
+
     use super::*;
 
     #[test]
     fn replace_current() {
-        let mut panes = Panes::new(0);
-        panes.replace_current(PaneKind::Buffer(1));
-        assert_eq!(panes.get_current_pane(), PaneKind::Buffer(1));
+        let mut panes = Panes::new(BufferId::from(KeyData::from_ffi(0)));
+        panes.replace_current(PaneKind::Buffer(BufferId::from(KeyData::from_ffi(1))));
+        assert_eq!(
+            panes.get_current_pane(),
+            PaneKind::Buffer(BufferId::from(KeyData::from_ffi(1)))
+        );
     }
 }
