@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use crossterm::{
     event::{
         self, Event, KeyEventKind, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
@@ -62,7 +62,7 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
         return Ok(());
     }
 
-    tui_app.run(event_loop)?;
+    tui_app.run(event_loop);
     Ok(())
 }
 
@@ -86,6 +86,10 @@ impl TuiApp {
 
         let (width, height) = crossterm::terminal::size()?;
 
+        if !io::stdout().is_terminal() {
+            bail!("Stdout must be a terminal");
+        }
+
         Ok(Self {
             terminal: tui::Terminal::new(tui::backend::CrosstermBackend::new(std::io::stdout()))?,
             buffer_area: Rect {
@@ -100,23 +104,25 @@ impl TuiApp {
         })
     }
 
-    pub fn run(mut self, event_loop: TuiEventLoop) -> Result<()> {
+    pub fn run(mut self, event_loop: TuiEventLoop) {
         tracing::info!("Starting tui app");
         let mut stdout = std::io::stdout();
-        terminal::enable_raw_mode()?;
+        terminal::enable_raw_mode().unwrap();
         execute!(
             stdout,
             event::EnableBracketedPaste,
             terminal::EnterAlternateScreen,
             terminal::Clear(terminal::ClearType::Purge),
             event::EnableMouseCapture,
-        )?;
+        )
+        .unwrap();
 
-        if terminal::supports_keyboard_enhancement()? {
+        if terminal::supports_keyboard_enhancement().unwrap() {
             execute!(
                 stdout,
                 PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
-            )?;
+            )
+            .unwrap();
         }
 
         // Reset terminal to non raw mode on panic
@@ -131,8 +137,6 @@ impl TuiApp {
         }
 
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
-
-        Ok(())
     }
 
     pub fn handle_event(
