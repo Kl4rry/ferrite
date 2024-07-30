@@ -15,6 +15,7 @@
 "editor.completer.selected" = { bg = "base00", fg = "base03" }
 
 [syntax]
+"text" = { fg = "base1" }
 "attribute" = { fg = "violet" }
 "key" = { fg = "green" }
 "keyword" = { fg = "green" }
