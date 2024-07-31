@@ -1,5 +1,7 @@
 use std::{
-    io::{self, IsTerminal, Read, Stdout}, sync::mpsc, time::Instant
+    io::{self, IsTerminal, Read, Stdout},
+    sync::mpsc,
+    time::Instant,
 };
 
 use anyhow::{bail, Result};

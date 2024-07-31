@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use ferrite_core::{
     buffer::{search::SearchMatch, Buffer, Selection},
     config::{self, Config},
@@ -20,7 +22,7 @@ use super::info_line::InfoLine;
 use crate::{glue::convert_style, rect_ext::RectExt};
 
 pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
-    let line_number_max_width = lines.to_string().len().max(4);
+    let line_number_max_width = lines.to_string().len().add(1).max(4);
     const MAGIC_NUMBER: usize = 4;
     let left_offset = MAGIC_NUMBER + line_number_max_width;
     (line_number_max_width, left_offset)
