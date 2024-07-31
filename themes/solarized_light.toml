@@ -1,7 +1,7 @@
 "editor.line_nr" = { fg = "base0", bg = "base02" }
 "editor.current_line_nr" = { fg = "base3", bg = "base02" }
 "editor.text" = { fg = "base1" }
-"editor.dim_text" = { fg = "base02" }
+"editor.dim_text" = { fg = "base1" }
 "editor.info_line" = { fg = "base2", bg = "base02" }
 "editor.info_line.unfocused" = { fg = "base0", bg = "base02" }
 "editor.background" = { bg = "base03", fg = "base1" }
