@@ -1,7 +1,5 @@
 use std::{
-    io::{self, IsTerminal, Read, Stdout},
-    sync::mpsc,
-    time::Instant,
+    io::{self, IsTerminal, Read, Stdout}, sync::mpsc, time::Instant
 };
 
 use anyhow::{bail, Result};
@@ -127,12 +125,19 @@ impl TuiApp {
 
         // Reset terminal to non raw mode on panic
         {
-            let default_panic = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |info| {
+                let _ = execute!(
+                    io::stdout(),
+                    event::DisableMouseCapture,
+                    event::DisableBracketedPaste,
+                    terminal::LeaveAlternateScreen,
+                );
                 _ = terminal::disable_raw_mode();
                 println!();
-                let _ = std::fs::write("./panic.txt", format!("{info:?}"));
-                default_panic(info);
+                let backtrace = std::backtrace::Backtrace::force_capture();
+                let panic_info = format!("{backtrace}\n{info}");
+                let _ = std::fs::write("panic.txt", &panic_info);
+                println!("{}", panic_info);
             }));
         }
 
