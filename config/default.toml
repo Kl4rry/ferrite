@@ -8,6 +8,7 @@ show_indent_rulers = true
 always_prompt_on_exit = false
 case_insensitive_search = true
 render_whitespace = "trailing"
+line_number = "absolute"
 
 [picker]
 show_hidden = false

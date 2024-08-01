@@ -463,13 +463,35 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Mapping::new(KeyCode::Right, KeyModifiers::NONE),
-            InputCommand::MoveRight { shift: false },
+            Mapping::new(KeyCode::Up, KeyModifiers::CONTROL),
+            InputCommand::MoveUp {
+                shift: false,
+                distance: 10,
+            },
             Exclusiveness::Exclusive,
         ),
         (
-            Mapping::new(KeyCode::Left, KeyModifiers::NONE),
-            InputCommand::MoveLeft { shift: false },
+            Mapping::new(KeyCode::Down, KeyModifiers::CONTROL),
+            InputCommand::MoveDown {
+                shift: false,
+                distance: 10,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+            InputCommand::MoveUp {
+                shift: true,
+                distance: 10,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+            InputCommand::MoveDown {
+                shift: true,
+                distance: 10,
+            },
             Exclusiveness::Exclusive,
         ),
         (
@@ -489,16 +511,6 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Mapping::new(KeyCode::Right, KeyModifiers::SHIFT),
-            InputCommand::MoveRight { shift: true },
-            Exclusiveness::Exclusive,
-        ),
-        (
-            Mapping::new(KeyCode::Left, KeyModifiers::SHIFT),
-            InputCommand::MoveLeft { shift: true },
-            Exclusiveness::Exclusive,
-        ),
-        (
             Mapping::new(KeyCode::Up, KeyModifiers::SHIFT),
             InputCommand::MoveUp {
                 shift: true,
@@ -512,6 +524,64 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
                 shift: true,
                 distance: 1,
             },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('i'), KeyModifiers::CONTROL),
+            InputCommand::MoveUp {
+                shift: false,
+                distance: 1,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('j'), KeyModifiers::CONTROL),
+            InputCommand::MoveDown {
+                shift: false,
+                distance: 1,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(
+                KeyCode::Char('i'),
+                KeyModifiers::SHIFT | KeyModifiers::CONTROL,
+            ),
+            InputCommand::MoveUp {
+                shift: true,
+                distance: 1,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(
+                KeyCode::Char('j'),
+                KeyModifiers::SHIFT | KeyModifiers::CONTROL,
+            ),
+            InputCommand::MoveDown {
+                shift: true,
+                distance: 1,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Right, KeyModifiers::NONE),
+            InputCommand::MoveRight { shift: false },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Left, KeyModifiers::NONE),
+            InputCommand::MoveLeft { shift: false },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Right, KeyModifiers::SHIFT),
+            InputCommand::MoveRight { shift: true },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Left, KeyModifiers::SHIFT),
+            InputCommand::MoveLeft { shift: true },
             Exclusiveness::Exclusive,
         ),
         (

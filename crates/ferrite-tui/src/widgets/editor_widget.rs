@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use ferrite_core::{
     buffer::{search::SearchMatch, Buffer, Selection},
-    config::{self, Config},
+    config::{self, Config, LineNumber},
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
@@ -83,11 +83,12 @@ impl StatefulWidget for EditorWidget<'_> {
             info_line,
         } = self;
 
-        let (line_number_max_width, left_offset) = if line_nr {
-            lines_to_left_offset(buffer.len_lines())
-        } else {
-            (0, 0)
-        };
+        let (line_number_max_width, left_offset) =
+            if line_nr && config.line_number != LineNumber::None {
+                lines_to_left_offset(buffer.len_lines())
+            } else {
+                (0, 0)
+            };
 
         let text_area = Rect {
             x: area.x + left_offset as u16,
@@ -130,6 +131,12 @@ impl StatefulWidget for EditorWidget<'_> {
             {
                 if line_nr {
                     let is_current_line = line_number == current_line_number;
+                    let line_number =
+                        if (config.line_number == LineNumber::Absolute) || is_current_line {
+                            line_number
+                        } else {
+                            (line_number as i64 - current_line_number as i64).abs() as usize
+                        };
                     let line_number_str = line_number.to_string();
                     let line_number_str = format!(
                         " {}{} ",
