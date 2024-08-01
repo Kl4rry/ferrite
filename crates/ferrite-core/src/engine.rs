@@ -59,6 +59,7 @@ pub struct Engine {
     pub spinner: Spinner,
     pub logger_state: LoggerState,
     pub choord: bool,
+    pub repeat: Option<String>,
     pub last_render_time: Duration,
     pub start_of_events: Instant,
     pub closed_buffers: Vec<PathBuf>,
@@ -198,6 +199,7 @@ impl Engine {
             shell_jobs: Default::default(),
             spinner: Default::default(),
             choord: false,
+            repeat: None,
             logger_state: LoggerState::new(recv),
             last_render_time: Duration::ZERO,
             start_of_events: Instant::now(),
@@ -286,10 +288,62 @@ impl Engine {
         control_flow: &mut EventLoopControlFlow,
         buffer_area: Rect,
     ) {
+        if let Some(repeat) = &mut self.repeat {
+            match input {
+                InputCommand::Char(ch) if ch.is_digit(10) => {
+                    repeat.push(ch);
+                }
+                _ => {
+                    let number = match self
+                        .repeat
+                        .take()
+                        .map(|s| if s.is_empty() { String::from("0") } else { s })
+                        .unwrap()
+                        .parse::<u16>()
+                    {
+                        Ok(number) => number,
+                        Err(err) => {
+                            self.palette.set_error(err);
+                            return;
+                        }
+                    };
+                    if input.is_repeatable() {
+                        self.palette.set_msg(format!("Repeated: {input}"));
+                        for _ in 0..number {
+                            self.handle_single_input_command(
+                                input.clone(),
+                                control_flow,
+                                buffer_area,
+                            );
+                        }
+                    } else {
+                        self.handle_single_input_command(input, control_flow, buffer_area);
+                        self.repeat = None;
+                    }
+                }
+            }
+        } else {
+            self.handle_single_input_command(input, control_flow, buffer_area);
+        }
+
+        if let Some(repeat) = &self.repeat {
+            self.palette.set_msg(format!("Repeat: {repeat}"));
+        }
+    }
+
+    pub fn handle_single_input_command(
+        &mut self,
+        input: InputCommand,
+        control_flow: &mut EventLoopControlFlow,
+        buffer_area: Rect,
+    ) {
         if input != InputCommand::Choord {
             self.choord = false;
         }
         match input {
+            InputCommand::Repeat => {
+                self.repeat = Some(String::new());
+            }
             InputCommand::ReopenBuffer => self.reopen_last_closed_buffer(),
             InputCommand::OpenUrl => self.open_selected_url(),
             InputCommand::Split { direction } => {
@@ -324,6 +378,9 @@ impl Engine {
             }
             InputCommand::Quit => {
                 self.quit(control_flow);
+            }
+            InputCommand::Escape if self.repeat.is_some() => {
+                self.repeat = None;
             }
             InputCommand::Escape if self.palette.has_focus() => {
                 self.palette.reset();

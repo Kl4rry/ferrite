@@ -27,6 +27,7 @@ pub enum LineMoveDir {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputCommand {
+    Repeat,
     OpenUrl,
     MoveRight {
         shift: bool,
@@ -238,6 +239,11 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
                 KeyModifiers::CONTROL | KeyModifiers::SHIFT,
             ),
             InputCommand::ReopenBuffer,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+            InputCommand::Repeat,
             Exclusiveness::Exclusive,
         ),
         (
@@ -633,17 +639,18 @@ pub fn get_default_mappings() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
 }
 
 impl InputCommand {
-    fn as_str(&self) -> &'static str {
+    fn as_str(&self) -> &str {
         match self {
+            InputCommand::Repeat { .. } => "repeat",
             InputCommand::MoveRight { .. } => "move right",
             InputCommand::MoveLeft { .. } => "move left",
             InputCommand::MoveUp { .. } => "move up",
             InputCommand::MoveDown { .. } => "move down",
             InputCommand::MoveRightWord { .. } => "move right word",
             InputCommand::MoveLeftWord { .. } => "move left word",
-            InputCommand::Insert(_) => "insert",
-            InputCommand::Char(_) => "char",
-            InputCommand::NewLine => "insert newline",
+            InputCommand::Insert(s) => s.as_str(),
+            InputCommand::Char(..) => "char",
+            InputCommand::NewLine => "newline",
             InputCommand::MoveLine(LineMoveDir::Up) => "move line up",
             InputCommand::MoveLine(LineMoveDir::Down) => "move line down",
             InputCommand::Backspace => "backspace",
@@ -700,6 +707,66 @@ impl InputCommand {
             } => "Split down",
             InputCommand::ReopenBuffer => "Reopen buffer",
             InputCommand::New => "New",
+        }
+    }
+
+    pub fn is_repeatable(&self) -> bool {
+        use InputCommand::*;
+        match self {
+            Repeat => false,
+            OpenUrl => false,
+            MoveRight { .. } => true,
+            MoveLeft { .. } => true,
+            MoveUp { .. } => true,
+            MoveDown { .. } => true,
+            MoveRightWord { .. } => true,
+            MoveLeftWord { .. } => true,
+            Insert(..) => true,
+            Char(..) => true,
+            NewLine => true,
+            MoveLine(..) => true,
+            Backspace => true,
+            BackspaceWord => true,
+            Delete => true,
+            DeleteWord => true,
+            ClickCell(..) => false,
+            SelectArea { .. } => false,
+            PromptGoto => false,
+            Home { .. } => true,
+            End { .. } => true,
+            Eof { .. } => false,
+            Start { .. } => false,
+            SelectAll => false,
+            SelectLine => true,
+            SelectWord => true,
+            Copy => false,
+            Cut => false,
+            Paste => true,
+            PastePrimary(..) => true,
+            Tab { .. } => true,
+            Undo => true,
+            Redo => true,
+            RevertBuffer => false,
+            VerticalScroll(..) => true,
+            FileSearch => false,
+            CaseInsensitive => false,
+            NextMatch => true,
+            PrevMatch => true,
+            FocusPalette => false,
+            OpenFileBrowser => false,
+            OpenBufferBrowser => false,
+            Escape => false,
+            Save => false,
+            Quit => false,
+            Close => false,
+            GrowPane => true,
+            ShrinkPane => true,
+            Choord => false,
+            Format => false,
+            Shell => false,
+            Split { .. } => false,
+            ReopenBuffer => false,
+            New => true,
         }
     }
 }
