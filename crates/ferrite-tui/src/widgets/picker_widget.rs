@@ -201,7 +201,7 @@ where
                     }
 
                     // TODO: this min call is wierd and should not be needed
-                    let end = (start + m.len).min(current_idx);
+                    let end = (start + m.len).max(current_idx);
                     let s: String = chars[current_idx..end].iter().collect();
                     spans.push(Span {
                         content: s.into(),
