@@ -131,12 +131,13 @@ impl StatefulWidget for EditorWidget<'_> {
             {
                 if line_nr {
                     let is_current_line = line_number == current_line_number;
-                    let line_number =
-                        if (config.line_number == LineNumber::Absolute) || is_current_line {
-                            line_number
-                        } else {
-                            (line_number as i64 - current_line_number as i64).abs() as usize
-                        };
+                    let line_number = if (config.line_number == LineNumber::Absolute)
+                        || is_current_line
+                    {
+                        line_number
+                    } else {
+                        (line_number as i64 - current_line_number as i64).unsigned_abs() as usize
+                    };
                     let line_number_str = line_number.to_string();
                     let line_number_str = format!(
                         " {}{} ",

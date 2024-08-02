@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use ferrite_cli::{Subcommands, Ui};
+use ferrite_cli::Ui;
 use ferrite_core::{config::Config, logger::LoggerSink};
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
@@ -18,36 +18,34 @@ fn main() -> Result<ExitCode> {
     let log_file_path = dirs.data_dir().join(".log.txt");
 
     let args = ferrite_cli::parse();
-    if let Some(subcmd) = &args.subcommands {
-        match subcmd {
-            Subcommands::Init { overwrite } => {
-                Config::create_default_config(*overwrite)?;
-                println!(
-                    "Created default config at: `{}`",
-                    Config::get_default_location()?.to_string_lossy()
-                );
 
-                ferrite_core::theme::init_themes()?;
+    if args.init {
+        Config::create_default_config(args.overwrite)?;
+        println!(
+            "Created default config at: `{}`",
+            Config::get_default_location()?.to_string_lossy()
+        );
 
-                return Ok(ExitCode::SUCCESS);
-            }
-            Subcommands::Log => {
-                let mut cmd = std::process::Command::new("tail");
-                cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
+        ferrite_core::theme::init_themes()?;
 
-                #[cfg(not(target_family = "unix"))]
-                {
-                    let mut child = cmd.spawn()?;
-                    let exit_status = child.wait()?;
-                    return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
-                }
+        return Ok(ExitCode::SUCCESS);
+    }
 
-                #[cfg(target_family = "unix")]
-                {
-                    use std::os::unix::process::CommandExt;
-                    Err(cmd.exec())?;
-                }
-            }
+    if args.log {
+        let mut cmd = std::process::Command::new("tail");
+        cmd.args(["-fn", "1000", &log_file_path.to_string_lossy()]);
+
+        #[cfg(not(target_family = "unix"))]
+        {
+            let mut child = cmd.spawn()?;
+            let exit_status = child.wait()?;
+            return Ok(ExitCode::from(exit_status.code().unwrap_or(0) as u8));
+        }
+
+        #[cfg(target_family = "unix")]
+        {
+            use std::os::unix::process::CommandExt;
+            Err(cmd.exec())?;
         }
     }
 

@@ -290,7 +290,7 @@ impl Engine {
     ) {
         if let Some(repeat) = &mut self.repeat {
             match input {
-                InputCommand::Char(ch) if ch.is_digit(10) => {
+                InputCommand::Char(ch) if ch.is_ascii_digit() => {
                     repeat.push(ch);
                 }
                 _ => {

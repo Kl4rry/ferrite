@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, ValueEnum};
 
 /// A text editor
 #[derive(Parser, Debug)]
@@ -23,26 +23,21 @@ pub struct Args {
     /// Type UI to use
     #[arg(long)]
     pub ui: Option<Ui>,
-    #[command(subcommand)]
-    pub subcommands: Option<Subcommands>,
+    /// Tail log file
+    #[arg(long)]
+    pub log: bool,
+    /// Initialize default config
+    #[arg(long)]
+    pub init: bool,
+    /// Overwrite existing config
+    #[arg(long)]
+    pub overwrite: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum Ui {
     Tui,
     Gui,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum Subcommands {
-    /// Initialize default config
-    Init {
-        /// Overwrite existing config
-        #[arg(long)]
-        overwrite: bool,
-    },
-    /// Tail log file
-    Log,
 }
 
 pub fn parse() -> Args {
