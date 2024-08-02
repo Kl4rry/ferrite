@@ -175,7 +175,7 @@ impl Engine {
             }
         };
 
-        let branch_watcher = BranchWatcher::new(proxy.dup(), file_daemon.change_detector())?;
+        let branch_watcher = BranchWatcher::new(proxy.dup())?;
 
         let mut key_mappings = HashMap::new();
         key_mappings.insert(String::from("normal"), get_default_mappings());
@@ -529,7 +529,6 @@ impl Engine {
 
                                 match BranchWatcher::new(
                                     self.proxy.dup(),
-                                    self.file_daemon.change_detector(),
                                 ) {
                                     Ok(branch_watcher) => self.branch_watcher = branch_watcher,
                                     Err(err) => {
