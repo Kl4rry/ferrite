@@ -35,7 +35,10 @@ fn get_git_directory() -> Option<String> {
     {
         Ok(output) => {
             if output.status.success() {
-                Some(format!("{}/.git", String::from_utf8_lossy(&output.stdout).trim()))
+                Some(format!(
+                    "{}/.git",
+                    String::from_utf8_lossy(&output.stdout).trim()
+                ))
             } else {
                 None
             }
@@ -89,7 +92,9 @@ impl BranchWatcher {
                 };
 
                 if let Some(watcher) = &mut watcher {
-                    if let Err(err) = watcher.watch(&PathBuf::from(git_dir), notify::RecursiveMode::NonRecursive) {
+                    if let Err(err) =
+                        watcher.watch(&PathBuf::from(git_dir), notify::RecursiveMode::NonRecursive)
+                    {
                         tracing::error!("Error starting branch watcher {err}");
                     }
                 }

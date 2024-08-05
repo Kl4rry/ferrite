@@ -314,13 +314,13 @@ impl StatefulWidget for EditorWidget<'_> {
                 if let Some(syntax) = buffer.get_syntax() {
                     if let Some((rope, events)) = &*syntax.get_highlight_events() {
                         syntax_rope = Some(rope.clone());
-                        let mut highlight: Option<Highlight> = None;
+                        let mut highlight_stack: Vec<Highlight> = Vec::new();
                         for event in events {
                             match event {
                                 HighlightEvent::Source { start, end } => {
                                     if range.contains(start) || range.contains(end) {
                                         let mut style = convert_style(&theme.text);
-                                        if let Some(highlight) = &highlight {
+                                        if let Some(highlight) = highlight_stack.last() {
                                             if let Some(name) = highlight
                                                 .query
                                                 .capture_names()
@@ -332,8 +332,8 @@ impl StatefulWidget for EditorWidget<'_> {
                                         highlights.push((*start, *end, style));
                                     }
                                 }
-                                HighlightEvent::HighlightStart(h) => highlight = Some(*h),
-                                HighlightEvent::HighlightEnd => highlight = None,
+                                HighlightEvent::HighlightStart(h) => highlight_stack.push(*h),
+                                HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
                             }
                         }
                     }

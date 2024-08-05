@@ -527,9 +527,7 @@ impl Engine {
                                     }
                                 }
 
-                                match BranchWatcher::new(
-                                    self.proxy.dup(),
-                                ) {
+                                match BranchWatcher::new(self.proxy.dup()) {
                                     Ok(branch_watcher) => self.branch_watcher = branch_watcher,
                                     Err(err) => {
                                         let msg = format!("Error creating branch watcher: {err}");
