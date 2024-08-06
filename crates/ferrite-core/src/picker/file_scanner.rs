@@ -12,7 +12,6 @@ use std::{
 
 use ferrite_utility::trim::trim_path;
 use rayon::prelude::*;
-use rustix::path::Arg;
 
 use crate::{
     config::{Config, PickerConfig},
