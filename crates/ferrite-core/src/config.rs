@@ -76,12 +76,20 @@ pub enum LineNumber {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct PickerConfig {
+    #[serde(default = "get_true")]
     pub show_hidden: bool,
+    #[serde(default = "get_true")]
     pub follow_gitignore: bool,
+    #[serde(default = "get_true")]
     pub follow_git_exclude: bool,
+    #[serde(default = "get_true")]
     pub follow_ignore: bool,
+    #[serde(default = "get_true")]
     pub follow_git_global: bool,
+    #[serde(default = "get_true")]
     pub show_only_text_files: bool,
+    #[serde(default = "get_true")]
+    pub file_picker_auto_reload: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -122,6 +130,7 @@ impl Default for PickerConfig {
             follow_ignore: true,
             follow_git_global: true,
             show_only_text_files: true,
+            file_picker_auto_reload: true,
         }
     }
 }

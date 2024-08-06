@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    sync::{Arc, RwLock},
-};
+use std::{borrow::Cow, sync::Arc};
 
 use slotmap::SlotMap;
 
@@ -12,12 +9,12 @@ use crate::{
     workspace::BufferId,
 };
 
-pub struct BufferFindProvider(pub Arc<RwLock<Vec<BufferItem>>>);
+pub struct BufferFindProvider(pub Arc<boxcar::Vec<BufferItem>>);
 
 impl PickerOptionProvider for BufferFindProvider {
     type Matchable = BufferItem;
 
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>> {
+    fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>> {
         let (tx, rx) = cb::bounded(1);
         let _ = tx.send(self.0.clone());
         rx

@@ -22,6 +22,7 @@ pub enum Command {
     New(Option<PathBuf>),
     Reload,
     ReloadAll,
+    ReloadFilePicker,
     Logger,
     ForceQuit,
     Quit,

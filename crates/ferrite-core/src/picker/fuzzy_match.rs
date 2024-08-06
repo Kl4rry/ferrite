@@ -59,23 +59,31 @@ impl<T: Matchable> Ord for FuzzyMatch<T> {
     }
 }
 
-pub fn fuzzy_match<'a, T>(term: &str, items: &'a [T], path: Option<&Path>) -> Vec<FuzzyMatch<T>>
+pub fn fuzzy_match<'a, T>(
+    term: &str,
+    items: &'a boxcar::Vec<T>,
+    path: Option<&Path>,
+) -> Vec<(FuzzyMatch<T>, usize)>
 where
     &'a T: Send + Sync,
     T: Matchable + Send + Sync,
 {
     let scoring = Scoring::emphasize_distance();
     let mut matches: Vec<_> = items
-        .into_par_iter()
-        .filter_map(|item| {
+        .iter()
+        .par_bridge()
+        .filter_map(|(i, item)| {
             let item = item.clone();
             if term.is_empty() {
-                return Some(FuzzyMatch {
-                    score: 0,
-                    proximity: 0,
-                    item,
-                    matches: Vec::new(),
-                });
+                return Some((
+                    FuzzyMatch {
+                        score: 0,
+                        proximity: 0,
+                        item,
+                        matches: Vec::new(),
+                    },
+                    i,
+                ));
             }
 
             FuzzySearch::new(term, &item.as_match_str())
@@ -113,16 +121,19 @@ where
                         None => 0,
                     };
 
-                    FuzzyMatch {
-                        score: m.score() as i64,
-                        proximity,
-                        item,
-                        matches: m.continuous_matches().map(|m| m.into()).collect(),
-                    }
+                    (
+                        FuzzyMatch {
+                            score: m.score() as i64,
+                            proximity,
+                            item,
+                            matches: m.continuous_matches().map(|m| m.into()).collect(),
+                        },
+                        i,
+                    )
                 })
         })
         .collect();
 
-    matches.sort();
+    matches.par_sort();
     matches
 }

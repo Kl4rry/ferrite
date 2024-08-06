@@ -1,9 +1,4 @@
-use std::{
-    borrow::Cow,
-    path::PathBuf,
-    sync::{Arc, RwLock},
-    thread,
-};
+use std::{borrow::Cow, path::PathBuf, sync::Arc, thread};
 
 use cb::select;
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -32,7 +27,7 @@ pub trait Previewer<M: Matchable> {
 }
 
 pub struct PickerResult<M: Matchable> {
-    matches: Vec<FuzzyMatch<M>>,
+    matches: Vec<(FuzzyMatch<M>, usize)>,
     total: usize,
 }
 
@@ -63,7 +58,7 @@ where
         let (result_tx, result_rx): (_, cb::Receiver<PickerResult<M>>) = cb::unbounded();
 
         thread::spawn(move || {
-            let mut options = Arc::new(RwLock::new(Vec::new()));
+            let mut options = Arc::new(boxcar::Vec::new());
             let mut query = String::new();
             let options_recv = option_provder.get_options_reciver();
 
@@ -99,12 +94,10 @@ where
                 }
 
                 {
-                    let options = options.read().unwrap();
-                    let options = &*options;
-                    let output = fuzzy_match::fuzzy_match::<M>(&query, options, path.as_deref());
+                    let output = fuzzy_match::fuzzy_match::<M>(&query, &*options, path.as_deref());
                     let result = PickerResult {
                         matches: output,
-                        total: options.len(),
+                        total: options.count(),
                     };
                     if result_tx.send(result).is_err() {
                         break;
@@ -152,7 +145,7 @@ where
         }
     }
 
-    pub fn get_matches(&mut self) -> &[FuzzyMatch<M>] {
+    pub fn get_matches(&mut self) -> &[(FuzzyMatch<M>, usize)] {
         self.poll_rx();
         &self.result.matches
     }
@@ -202,7 +195,7 @@ where
             self.choice = self
                 .get_matches()
                 .get(selected)
-                .map(|FuzzyMatch { item, .. }| item)
+                .map(|(FuzzyMatch { item, .. }, _)| item)
                 .cloned();
         }
         Ok(())
@@ -210,7 +203,7 @@ where
 
     pub fn get_current_preview(&mut self) -> Option<Preview> {
         let selected = self.selected;
-        let choice = &self.result.matches.get(selected)?;
+        let (choice, _) = &self.result.matches.get(selected)?;
         let choice = &choice.item;
         Some(self.previewer.as_mut()?.request_preview(choice))
     }
@@ -227,7 +220,7 @@ pub trait Matchable: Clone {
 
 pub trait PickerOptionProvider {
     type Matchable: Matchable;
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<RwLock<Vec<Self::Matchable>>>>;
+    fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>>;
 }
 
 impl Matchable for String {

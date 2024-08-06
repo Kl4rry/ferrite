@@ -140,7 +140,7 @@ where
             let start = selected / result_area.height as usize;
             let cursor_pos = selected % result_area.height as usize;
 
-            for (i, fuzzy_match) in result
+            for (i, (fuzzy_match, _)) in result
                 .iter()
                 .skip(start * result_area.height as usize)
                 .take(result_area.height as usize)

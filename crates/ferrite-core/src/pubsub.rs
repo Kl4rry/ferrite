@@ -1,16 +1,15 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use flume::{Receiver, RecvError, SendError, Sender};
 
 pub struct Publisher<T> {
     sender: Sender<()>,
-    data: Arc<RwLock<T>>,
+    data: Arc<T>,
 }
 
 impl<T> Publisher<T> {
-    pub fn modify(&self, f: impl FnOnce(&mut T)) {
-        let mut mut_ref = self.data.write().unwrap();
-        (f)(&mut *mut_ref);
+    pub fn modify(&self, f: impl FnOnce(&T)) {
+        (f)(&*self.data);
     }
 
     pub fn publish(&self) -> Result<(), SendError<()>> {
@@ -19,13 +18,13 @@ impl<T> Publisher<T> {
 }
 
 pub struct Subscriber<T> {
-    data: Arc<RwLock<T>>,
+    data: Arc<T>,
     reciver: Receiver<()>,
     has_recived: bool,
 }
 
 impl<T> Subscriber<T> {
-    pub fn recive(&mut self) -> Result<Arc<RwLock<T>>, RecvError> {
+    pub fn recive(&mut self) -> Result<Arc<T>, RecvError> {
         if !self.has_recived {
             self.has_recived = true;
             return Ok(self.data.clone());
@@ -35,7 +34,7 @@ impl<T> Subscriber<T> {
         Ok(self.data.clone())
     }
 
-    pub fn get(&self) -> Arc<RwLock<T>> {
+    pub fn get(&self) -> Arc<T> {
         self.data.clone()
     }
 }
@@ -52,7 +51,7 @@ impl<T> Clone for Subscriber<T> {
 
 pub fn create<T>(value: T) -> (Publisher<T>, Subscriber<T>) {
     let (sender, reciver) = flume::unbounded::<()>();
-    let data = Arc::new(RwLock::new(value));
+    let data = Arc::new(value);
     (
         Publisher {
             sender,
