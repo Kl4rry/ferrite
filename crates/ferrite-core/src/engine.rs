@@ -28,10 +28,10 @@ use crate::{
     palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
     panes::{PaneKind, Panes, Rect},
     picker::{
-        buffer_find::{BufferFindProvider, BufferItem},
-        file_daemon::FileDaemon,
-        file_find::FileFindProvider,
+        buffer::{BufferFindProvider, BufferItem},
+        file::FileFindProvider,
         file_previewer::FilePreviewer,
+        file_scanner::FileDaemon,
         Picker,
     },
     spinner::Spinner,
@@ -478,7 +478,7 @@ impl Engine {
         self.palette.reset();
         match cmd_parser::parse_cmd(&content) {
             Ok(cmd) => match cmd {
-                Command::ReloadFilePicker => {
+                Command::FilePickerReload => {
                     self.file_daemon = FileDaemon::new(
                         env::current_dir().unwrap_or(PathBuf::from(".")),
                         &self.config,
@@ -748,8 +748,8 @@ impl Engine {
                         self.palette.set_msg(&self.config.theme);
                     }
                 },
-                Command::BrowseBuffers => self.open_buffer_picker(),
-                Command::BrowseWorkspace => {
+                Command::BufferPickerOpen => self.open_buffer_picker(),
+                Command::FilePickerOpen => {
                     if self.config.picker.file_picker_auto_reload {
                         self.file_daemon = FileDaemon::new(
                             env::current_dir().unwrap_or(PathBuf::from(".")),

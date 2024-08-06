@@ -21,7 +21,7 @@ use ferrite_core::{
     keymap::{self, InputCommand},
     logger::{self, LogMessage},
     panes::PaneKind,
-    picker::buffer_find::BufferItem,
+    picker::buffer::BufferItem,
 };
 use ferrite_utility::point::Point;
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
