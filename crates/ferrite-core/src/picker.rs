@@ -8,10 +8,10 @@ use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
 use crate::{event_loop_proxy::EventLoopProxy, keymap::InputCommand};
 
-pub mod buffer_find;
-pub mod file_daemon;
-pub mod file_find;
+pub mod buffer;
+pub mod file;
 pub mod file_previewer;
+pub mod file_scanner;
 pub mod fuzzy_match;
 
 pub enum Preview<'a> {
