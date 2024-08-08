@@ -15,6 +15,7 @@ use subprocess::{Exec, Redirection};
 
 use crate::{
     buffer::{self, encoding::get_encoding, Buffer},
+    buffer_watcher::BufferWatcher,
     byte_size::format_byte_size,
     clipboard,
     config::{Config, DEFAULT_CONFIG},
@@ -31,7 +32,7 @@ use crate::{
         buffer::{BufferFindProvider, BufferItem},
         file::FileFindProvider,
         file_previewer::FilePreviewer,
-        file_scanner::FileDaemon,
+        file_scanner::FileScanner,
         Picker,
     },
     spinner::Spinner,
@@ -52,7 +53,7 @@ pub struct Engine {
     pub key_mappings: HashMap<String, Vec<(Mapping, InputCommand, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
-    pub file_daemon: FileDaemon,
+    pub file_scanner: FileScanner,
     pub job_manager: JobManager,
     pub save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
     pub shell_jobs: Vec<JobHandle<Result<(bool, Buffer), anyhow::Error>>>,
@@ -63,6 +64,7 @@ pub struct Engine {
     pub last_render_time: Duration,
     pub start_of_events: Instant,
     pub closed_buffers: Vec<PathBuf>,
+    pub buffer_watcher: Option<BufferWatcher>,
 }
 
 impl Engine {
@@ -141,7 +143,7 @@ impl Engine {
         if let Some(path) = args.files.first() {
             if path.is_dir() {
                 std::env::set_current_dir(path)?;
-                let daemon = FileDaemon::new(std::env::current_dir()?, &config);
+                let daemon = FileScanner::new(std::env::current_dir()?, &config);
                 file_finder = Some(Picker::new(
                     FileFindProvider(daemon.subscribe()),
                     Some(Box::new(FilePreviewer::new(proxy.dup()))),
@@ -155,7 +157,7 @@ impl Engine {
         let file_daemon = if let Some(daemon) = file_daemon {
             daemon
         } else {
-            FileDaemon::new(std::env::current_dir()?, &config)
+            FileScanner::new(std::env::current_dir()?, &config)
         };
 
         let job_manager = JobManager::new(proxy.dup());
@@ -181,6 +183,12 @@ impl Engine {
         key_mappings.insert(String::from("normal"), get_default_mappings());
         key_mappings.insert(String::from("choord"), get_default_choords());
 
+        let buffer_watcher = if config.watch_open_files {
+            BufferWatcher::new(proxy.dup()).ok()
+        } else {
+            None
+        };
+
         Ok(Self {
             workspace,
             themes,
@@ -193,7 +201,7 @@ impl Engine {
             key_mappings,
             branch_watcher,
             proxy,
-            file_daemon,
+            file_scanner: file_daemon,
             job_manager,
             save_jobs: Default::default(),
             shell_jobs: Default::default(),
@@ -204,11 +212,20 @@ impl Engine {
             last_render_time: Duration::ZERO,
             start_of_events: Instant::now(),
             closed_buffers: Vec::new(),
+            buffer_watcher,
         })
     }
 
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
         self.logger_state.update();
+
+        if !self.config.watch_open_files {
+            self.buffer_watcher = None;
+        } else if let Some(buffer_watcher) = &mut self.buffer_watcher {
+            buffer_watcher.update(&mut self.workspace.buffers);
+        } else {
+            self.buffer_watcher = BufferWatcher::new(self.proxy.dup()).ok();
+        }
 
         if let Some(config_watcher) = &mut self.config_watcher {
             if let Some(result) = config_watcher.poll_update() {
@@ -479,7 +496,7 @@ impl Engine {
         match cmd_parser::parse_cmd(&content) {
             Ok(cmd) => match cmd {
                 Command::FilePickerReload => {
-                    self.file_daemon = FileDaemon::new(
+                    self.file_scanner = FileScanner::new(
                         env::current_dir().unwrap_or(PathBuf::from(".")),
                         &self.config,
                     );
@@ -521,7 +538,7 @@ impl Engine {
                                 self.buffer_finder = None;
                                 self.file_finder = None;
 
-                                self.file_daemon = FileDaemon::new(
+                                self.file_scanner = FileScanner::new(
                                     env::current_dir().unwrap_or(PathBuf::from(".")),
                                     &self.config,
                                 );
@@ -751,7 +768,7 @@ impl Engine {
                 Command::BufferPickerOpen => self.open_buffer_picker(),
                 Command::FilePickerOpen => {
                     if self.config.picker.file_picker_auto_reload {
-                        self.file_daemon = FileDaemon::new(
+                        self.file_scanner = FileScanner::new(
                             env::current_dir().unwrap_or(PathBuf::from(".")),
                             &self.config,
                         );
@@ -1009,12 +1026,12 @@ impl Engine {
     pub fn open_file_picker(&mut self) {
         self.palette.reset();
         self.buffer_finder = None;
-        self.file_daemon = FileDaemon::new(
+        self.file_scanner = FileScanner::new(
             env::current_dir().unwrap_or(PathBuf::from(".")),
             &self.config,
         );
         self.file_finder = Some(Picker::new(
-            FileFindProvider(self.file_daemon.subscribe()),
+            FileFindProvider(self.file_scanner.subscribe()),
             Some(Box::new(FilePreviewer::new(self.proxy.dup()))),
             self.proxy.dup(),
             self.try_get_current_buffer_path(),

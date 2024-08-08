@@ -467,7 +467,9 @@ impl StatefulWidget for EditorWidget<'_> {
                             line: y.into(),
                         };
                         if current >= start && current < end {
-                            let cell = buf.cell_mut((x + text_area.left(), y + text_area.top())).unwrap();
+                            let cell = buf
+                                .cell_mut((x + text_area.left(), y + text_area.top()))
+                                .unwrap();
                             cell.bg = bg;
                         }
                     }

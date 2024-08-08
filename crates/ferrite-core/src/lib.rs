@@ -1,4 +1,5 @@
 pub mod buffer;
+pub mod buffer_watcher;
 pub mod byte_size;
 pub mod clipboard;
 pub mod config;

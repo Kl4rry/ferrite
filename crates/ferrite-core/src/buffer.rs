@@ -266,7 +266,7 @@ impl Buffer {
             rope,
             read_only_file,
             name,
-            file: Some(path.into()),
+            file: Some(dunce::canonicalize(path)?),
             encoding,
             syntax: Some(syntax),
             ..Default::default()

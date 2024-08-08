@@ -40,12 +40,12 @@ fn is_text_file(path: impl AsRef<Path>) -> bool {
     content_type.is_text()
 }
 
-pub struct FileDaemon {
+pub struct FileScanner {
     subscriber: Subscriber<boxcar::Vec<String>>,
     running: Arc<AtomicBool>,
 }
 
-impl FileDaemon {
+impl FileScanner {
     pub fn new(path: PathBuf, config: &Config) -> Self {
         let (publisher, subscriber): (Publisher<boxcar::Vec<String>>, _) =
             pubsub::create(boxcar::Vec::new());
@@ -74,7 +74,7 @@ impl FileDaemon {
     }
 }
 
-impl Drop for FileDaemon {
+impl Drop for FileScanner {
     fn drop(&mut self) {
         self.running.store(false, Ordering::Relaxed);
     }

@@ -35,9 +35,7 @@ pub struct Config {
     #[serde(default = "get_true")]
     pub show_splash: bool,
     #[serde(default = "get_true")]
-    pub watch_recursive: bool,
-    #[serde(default = "get_true")]
-    pub watch_workspace: bool,
+    pub watch_open_files: bool,
     #[serde(default = "get_true")]
     pub show_indent_rulers: bool,
     #[serde(default = "get_false")]
