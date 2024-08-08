@@ -173,8 +173,8 @@ impl TuiApp {
         self.terminal
             .draw(|f| {
                 let theme = &self.engine.themes[&self.engine.config.theme];
-                f.render_widget(BackgroundWidget::new(theme), f.size());
-                let size = f.size();
+                f.render_widget(BackgroundWidget::new(theme), f.area());
+                let size = f.area();
                 let editor_size = Rect::new(
                     size.x,
                     size.y,

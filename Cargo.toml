@@ -15,7 +15,7 @@ cc = "1.0.79"
 chardetng = "0.1.17" 
 clap = { version = "4.5.6", default-features = false } 
 content_inspector = "0.2.4"
-crossterm = "0.27.0" # Emoji are broken after 0.25.0 on windows
+crossterm = "0.28.0" # Emoji are broken after 0.25.0 on windows
 csscolorparser = { version = "0.6.2", features = ["rgb"] } 
 detect-indent = "0.1.0" 
 directories = "5.0.0" 
@@ -52,7 +52,7 @@ tracing-log = "0.2.0"
 tracing-subscriber = "0.3.18" 
 trash = "4.0.0" 
 tree-sitter = "0.20.10" 
-tui = { package = "ratatui", version = "0.27.0" } 
+tui = { package = "ratatui", version = "0.28.0" } 
 unicode-general-category = "0.6.0" 
 unicode-segmentation = "1.10.0" 
 unicode-width = "0.1.10" 

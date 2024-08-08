@@ -268,7 +268,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             break;
                         }
 
-                        let cell = buf.get_mut(col, line);
+                        let cell = buf.cell_mut((col, line)).unwrap();
                         if !RopeSlice::from(cell.symbol()).is_whitespace()
                             || (col as usize - text_area.left() as usize + buffer.col_pos())
                                 % buffer.indent.width()
@@ -401,7 +401,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     ruler as i64 - buffer.col_pos() as i64 + area.x as i64 + left_offset as i64 + 1;
                 if (area.left().into()..area.right().into()).contains(&real_col) {
                     for y in area.top()..(area.bottom() - 1) {
-                        let cell = buf.get_mut(real_col as u16, y);
+                        let cell = buf.cell_mut((real_col as u16, y)).unwrap();
                         if cell.symbol().chars().all(|ch| ch.is_whitespace()) {
                             cell.set_symbol("│");
                             cell.set_style(convert_style(&theme.ruler));
@@ -411,7 +411,7 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             for (col, line) in ruler_cells {
-                let cell = buf.get_mut(col, line);
+                let cell = buf.cell_mut((col, line)).unwrap();
                 cell.set_char('│');
                 cell.set_style(convert_style(&self.theme.ruler));
             }
@@ -467,7 +467,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             line: y.into(),
                         };
                         if current >= start && current < end {
-                            let cell = buf.get_mut(x + text_area.left(), y + text_area.top());
+                            let cell = buf.cell_mut((x + text_area.left(), y + text_area.top())).unwrap();
                             cell.bg = bg;
                         }
                     }
