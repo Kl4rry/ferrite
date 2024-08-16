@@ -86,51 +86,66 @@ where
                 ));
             }
 
-            FuzzySearch::new(term, &item.as_match_str())
-                .score_with(&scoring)
-                .best_match()
-                .map(|m| {
-                    let proximity = match path {
-                        Some(path) => {
-                            let mut missed = false;
-                            let mut path = path.iter();
-                            Path::new(&*item.as_match_str())
-                                .components()
-                                .skip_while(|c| matches!(c, std::path::Component::CurDir))
-                                .map(|c| {
-                                    // if we've already missed, each additional dir is one further away
-                                    if missed {
-                                        return -1;
-                                    }
+            let proximity = match path {
+                Some(path) => {
+                    let mut missed = false;
+                    let mut path = path.iter();
+                    Path::new(&*item.as_match_str())
+                        .components()
+                        .skip_while(|c| matches!(c, std::path::Component::CurDir))
+                        .map(|c| {
+                            // if we've already missed, each additional dir is one further away
+                            if missed {
+                                return -1;
+                            }
 
-                                    // we want to score positively if c matches the next segment from target path
-                                    if let Some(p) = path.next() {
-                                        if p == c.as_os_str() {
-                                            // matching path segment!
-                                            return 1;
-                                        } else {
-                                            // non-matching path segment
-                                            missed = true;
-                                        }
-                                    }
+                            // we want to score positively if c matches the next segment from target path
+                            if let Some(p) = path.next() {
+                                if p == c.as_os_str() {
+                                    // matching path segment!
+                                    return 1;
+                                } else {
+                                    // non-matching path segment
+                                    missed = true;
+                                }
+                            }
 
-                                    -1
-                                })
-                                .sum()
-                        }
-                        None => 0,
-                    };
+                            -1
+                        })
+                        .sum()
+                }
+                None => 0,
+            };
 
-                    (
-                        FuzzyMatch {
-                            score: m.score() as i64,
-                            proximity,
-                            item,
-                            matches: m.continuous_matches().map(|m| m.into()).collect(),
-                        },
-                        i,
-                    )
-                })
+            let mut score = 0;
+            let mut matches = Vec::new();
+
+            for term in term.split_ascii_whitespace() {
+                if term.is_empty() {
+                    continue;
+                }
+                if let Some(m) = FuzzySearch::new(term, &item.as_match_str())
+                    .score_with(&scoring)
+                    .best_match()
+                {
+                    score += m.score() as i64;
+                    matches.extend(m.continuous_matches().map(|m| MatchIndex::from(m)));
+                } else {
+                    return None;
+                }
+            }
+
+            matches.sort_by(|a, b| a.start.cmp(&b.start));
+
+            Some((
+                FuzzyMatch {
+                    score,
+                    proximity,
+                    item,
+                    matches,
+                },
+                i,
+            ))
         })
         .collect();
 
