@@ -358,6 +358,16 @@ impl Engine {
             self.choord = false;
         }
         match input {
+            InputCommand::RotateFile => {
+                if let Some(buffer) = self.get_current_buffer() {
+                    match buffer.get_next_file() {
+                        Ok(file) => {
+                            self.open_file(file);
+                        }
+                        Err(err) => self.palette.set_error(err),
+                    };
+                };
+            }
             InputCommand::Repeat => {
                 self.repeat = Some(String::new());
             }

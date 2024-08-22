@@ -129,7 +129,7 @@ where
                     .best_match()
                 {
                     score += m.score() as i64;
-                    matches.extend(m.continuous_matches().map(|m| MatchIndex::from(m)));
+                    matches.extend(m.continuous_matches().map(MatchIndex::from));
                 } else {
                     return None;
                 }

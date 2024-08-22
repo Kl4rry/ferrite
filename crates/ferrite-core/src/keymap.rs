@@ -110,6 +110,7 @@ pub enum InputCommand {
     },
     ReopenBuffer,
     New,
+    RotateFile,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -221,6 +222,11 @@ pub fn get_default_choords() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
             InputCommand::Split {
                 direction: Direction::Down,
             },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('j'), KeyModifiers::CONTROL),
+            InputCommand::RotateFile,
             Exclusiveness::Exclusive,
         ),
     ]
@@ -707,6 +713,7 @@ impl InputCommand {
             } => "Split down",
             InputCommand::ReopenBuffer => "Reopen buffer",
             InputCommand::New => "New",
+            InputCommand::RotateFile => "RotateFile",
         }
     }
 
@@ -767,6 +774,7 @@ impl InputCommand {
             Split { .. } => false,
             ReopenBuffer => false,
             New => true,
+            RotateFile => false,
         }
     }
 }

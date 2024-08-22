@@ -1,6 +1,6 @@
 use core::fmt;
 use std::{
-    cmp, io,
+    cmp, fs, io,
     num::NonZeroUsize,
     ops::Range,
     path::{Path, PathBuf},
@@ -1859,6 +1859,64 @@ impl Buffer {
 
     pub fn is_disposable(&self) -> bool {
         !self.is_dirty() && self.rope().len_bytes() == 0 && self.file.is_none()
+    }
+
+    pub fn get_next_file(&self) -> Result<PathBuf, anyhow::Error> {
+        let Some(file) = &self.file else {
+            anyhow::bail!("Cannot rotate buffer has no path");
+        };
+
+        if file.extension().is_none() {
+            anyhow::bail!("Cannot rotate buffer has no file extension");
+        };
+
+        let Some(name) = file.file_name() else {
+            anyhow::bail!("Cannot rotate buffer has no file name");
+        };
+        let current_file_name = name.to_string_lossy();
+
+        let Some(stem) = file.file_stem() else {
+            anyhow::bail!("Cannot rotate buffer has no file name");
+        };
+        let current_file_stem = stem.to_string_lossy();
+
+        let Some(parent) = file.parent() else {
+            anyhow::bail!("Cannot rotate path has no parent directory");
+        };
+
+        let mut entries = Vec::new();
+
+        for entry in fs::read_dir(parent)? {
+            let Ok(entry) = entry else {
+                continue;
+            };
+
+            let path = entry.path();
+
+            let Some(stem) = path.file_stem() else {
+                continue;
+            };
+
+            let Some(name) = path.file_name() else {
+                continue;
+            };
+
+            let stem = stem.to_string_lossy();
+            let name: String = name.to_string_lossy().into();
+
+            if stem == current_file_stem {
+                entries.push((name, path));
+            }
+        }
+
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        let index = entries
+            .iter()
+            .position(|(name, _)| *name == current_file_name)
+            .unwrap_or_default();
+
+        Ok(entries[(index + 1) % entries.len()].1.clone())
     }
 }
 
