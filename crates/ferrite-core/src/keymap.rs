@@ -713,7 +713,7 @@ impl InputCommand {
             } => "Split down",
             InputCommand::ReopenBuffer => "Reopen buffer",
             InputCommand::New => "New",
-            InputCommand::RotateFile => "RotateFile",
+            InputCommand::RotateFile => "Rotate file",
         }
     }
 
