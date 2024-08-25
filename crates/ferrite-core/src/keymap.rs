@@ -698,7 +698,7 @@ impl InputCommand {
             InputCommand::Choord => "choord",
             InputCommand::Format => "Format",
             InputCommand::Shell => "Run shell command",
-            InputCommand::OpenUrl => "Open url in selection",
+            InputCommand::OpenUrl => "Open urls in selection",
             InputCommand::Split {
                 direction: Direction::Right,
             } => "Split right",

@@ -13,7 +13,7 @@ cb = { workspace = true }
 chardetng = { workspace = true }
 content_inspector = { workspace = true }
 csscolorparser = { workspace = true, features = ["rgb"] }
-detect-indent = { workspace = true } 
+detect-indent = { workspace = true }
 directories = { workspace = true }
 dunce = { workspace = true }
 encoding_rs = { workspace = true }
@@ -26,20 +26,21 @@ humansize = { workspace = true }
 ignore = { workspace = true }
 include_dir = { workspace = true, optional = true }
 lexical-sort = { workspace = true }
+linkify = { workspace = true }
 memchr = { workspace = true }
 notify = { workspace = true }
 opener = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true } 
-slotmap = { workspace = true } 
-sublime_fuzzy = { workspace = true } 
-subprocess = { workspace = true } 
-toml = { workspace = true, features = ["parse"] } 
-tracing = { workspace = true } 
-trash = { workspace = true } 
-tree-sitter = { workspace = true } 
+serde_json = { workspace = true }
+slotmap = { workspace = true }
+sublime_fuzzy = { workspace = true }
+subprocess = { workspace = true }
+toml = { workspace = true, features = ["parse"] }
+tracing = { workspace = true }
+trash = { workspace = true }
+tree-sitter = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { workspace = true, features = ["fs"] }

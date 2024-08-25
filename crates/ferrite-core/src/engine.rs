@@ -10,6 +10,7 @@ use std::{
 use anyhow::Result;
 use ferrite_cli::Args;
 use ferrite_utility::{line_ending, trim::trim_path};
+use linkify::{LinkFinder, LinkKind};
 use slotmap::{Key, SlotMap};
 use subprocess::{Exec, Redirection};
 
@@ -1257,8 +1258,19 @@ impl Engine {
     pub fn open_selected_url(&mut self) {
         if let Some(buffer) = self.get_current_buffer() {
             let selection = buffer.get_selection();
-            if let Err(err) = opener::open(selection) {
-                self.palette.set_error(err);
+            let mut finder = LinkFinder::new();
+            finder.kinds(&[LinkKind::Url]);
+            let spans: Vec<_> = finder.spans(&selection).collect();
+            if spans.is_empty() {
+                if let Err(err) = opener::open(selection) {
+                    self.palette.set_error(err);
+                }
+            } else {
+                for span in spans {
+                    if let Err(err) = opener::open(span.as_str()) {
+                        self.palette.set_error(err);
+                    }
+                }
             }
         }
     }
