@@ -38,7 +38,21 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
         None => ("", path.as_str()),
     };
 
-    let dir_path = Path::new(dir_name);
+    let home_dir = if let Some(directories) = directories::UserDirs::new() {
+        directories.home_dir().into()
+    } else {
+        PathBuf::new()
+    };
+
+    let expanded_dir_name = if dir_name.starts_with("~") {
+        let mut dir_name = dir_name.to_string();
+        dir_name.replace_range(..1, &home_dir.to_string_lossy());
+        dir_name
+    } else {
+        dir_name.to_string()
+    };
+
+    let dir_path = Path::new(&expanded_dir_name);
     let dir = if dir_path.is_relative() {
         std::env::current_dir().unwrap().join(dir_path)
     } else {

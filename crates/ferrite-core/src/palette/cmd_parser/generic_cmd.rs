@@ -24,7 +24,19 @@ impl CommandTemplateArg {
             CommandTemplateArg::Int => Ok(CommandArg::Int(token.parse()?)),
             CommandTemplateArg::String => Ok(CommandArg::String(token)),
             CommandTemplateArg::Theme => Ok(CommandArg::String(token)),
-            CommandTemplateArg::Path => Ok(CommandArg::Path(token.into())),
+            CommandTemplateArg::Path => {
+                let home_dir = if let Some(directories) = directories::UserDirs::new() {
+                    directories.home_dir().into()
+                } else {
+                    PathBuf::new()
+                };
+
+                let mut token = token;
+                if token.starts_with("~") {
+                    token.replace_range(..1, &home_dir.to_string_lossy());
+                }
+                Ok(CommandArg::Path(token.into()))
+            }
         }
     }
 }
