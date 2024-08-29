@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use ferrite_utility::line_ending::LineEnding;
+use sublime_fuzzy::{FuzzySearch, Scoring};
 
 use self::path_completer::complete_file_path;
 use super::cmd_parser::{
@@ -165,7 +166,12 @@ impl Completer {
                             self.options.extend(
                                 alternatives
                                     .iter()
-                                    .filter(|alternative| alternative.starts_with(text))
+                                    .filter(|alternative| {
+                                        FuzzySearch::new(&text, alternative)
+                                            .score_with(&Scoring::emphasize_distance())
+                                            .best_match()
+                                            .is_some()
+                                    })
                                     .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                             );
                         }
@@ -173,7 +179,12 @@ impl Completer {
                             self.options.extend(
                                 ctx.themes
                                     .keys()
-                                    .filter(|theme| theme.starts_with(text))
+                                    .filter(|alternative| {
+                                        FuzzySearch::new(&text, alternative)
+                                            .score_with(&Scoring::emphasize_distance())
+                                            .best_match()
+                                            .is_some()
+                                    })
                                     .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                             );
                         }

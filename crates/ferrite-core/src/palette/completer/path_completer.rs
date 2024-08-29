@@ -4,6 +4,8 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
+use sublime_fuzzy::{FuzzySearch, Scoring};
+
 #[cfg(any(windows, target_os = "macos"))]
 fn normalize(s: &str) -> Cow<str> {
     // case insensitive
@@ -59,31 +61,36 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
         dir_path.to_path_buf()
     };
 
-    let mut entries: Vec<PathBuf> = Vec::new();
-
     // if dir doesn't exist, then don't offer any completions
     if !dir.exists() {
-        return entries;
+        return Vec::new();
     }
+
+    let mut entries: Vec<(isize, PathBuf)> = Vec::new();
+    let scoring = Scoring::emphasize_distance();
 
     if let Ok(read_dir) = dir.read_dir() {
         let file_name = normalize(file_name);
         for entry in read_dir.flatten() {
             if let Some(s) = entry.file_name().to_str() {
                 let ns = normalize(s);
-                if ns.starts_with(file_name.as_ref()) {
+                if let Some(m) = FuzzySearch::new(&file_name, &ns)
+                    .score_with(&scoring)
+                    .best_match()
+                {
                     if let Ok(metadata) = fs::metadata(entry.path()) {
                         let mut path = String::from(dir_name) + s;
                         if metadata.is_dir() {
                             path.push(sep);
                         }
 
-                        entries.push(path.into());
+                        entries.push((m.score(), path.into()));
                     }
                 }
             }
         }
     }
 
-    entries
+    entries.sort();
+    entries.into_iter().map(|(_, p)| p).collect()
 }
