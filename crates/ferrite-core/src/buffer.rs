@@ -97,6 +97,7 @@ pub struct Buffer {
     history: History,
     // file searching
     searcher: Option<BufferSearcher>,
+    pub replacement: Option<String>,
 }
 
 impl Clone for Buffer {
@@ -130,7 +131,8 @@ impl Clone for Buffer {
             view_columns: self.view_columns,
             syntax: Some(syntax),
             history: self.history.clone(),
-            searcher: None, // TODO fix clone this correctly
+            searcher: None,    // TODO fix clone this correctly
+            replacement: None, // TODO fix clone this correctly
         }
     }
 }
@@ -160,6 +162,7 @@ impl Default for Buffer {
             syntax: None,
             history: History::default(),
             searcher: None,
+            replacement: None,
         }
     }
 }
@@ -1502,8 +1505,9 @@ impl Buffer {
     }
 
     pub fn escape(&mut self) {
-        if self.searcher.is_some() {
+        if self.searcher.is_some() || self.replacement.is_some() {
             self.searcher = None;
+            self.replacement = None;
             return;
         }
 
@@ -1917,6 +1921,18 @@ impl Buffer {
             .unwrap_or_default();
 
         Ok(entries[(index + 1) % entries.len()].1.clone())
+    }
+
+    pub fn replace_current_match(&mut self) {
+        if let (Some(searcher), Some(replacement)) = (&mut self.searcher, self.replacement.clone())
+        {
+            if let Some(search_match) = searcher.get_current_match() {
+                self.select_area(search_match.end, search_match.start);
+                self.insert_text(&replacement, false);
+            } else {
+                searcher.get_next_match();
+            }
+        }
     }
 }
 

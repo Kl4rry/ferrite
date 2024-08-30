@@ -158,6 +158,15 @@ impl BufferSearcher {
         guard.0.get(self.match_index).copied()
     }
 
+    pub fn get_current_match(&mut self) -> Option<SearchMatch> {
+        self.matches
+            .lock()
+            .unwrap()
+            .0
+            .get(self.match_index)
+            .copied()
+    }
+
     pub fn update_query(&mut self, query: String, case_insensitive: bool, cursor_pos: usize) {
         let _ = self
             .tx

@@ -425,21 +425,8 @@ impl Engine {
                 self.palette
                     .focus("goto: ", "goto", CompleterContext::new(&self.themes));
             }
-            InputCommand::FileSearch => {
-                if let Some(buffer) = self.get_current_buffer() {
-                    let selection = buffer.get_selection();
-                    self.file_finder = None;
-                    self.buffer_finder = None;
-                    self.palette.focus(
-                        self.get_search_prompt(),
-                        "search",
-                        CompleterContext::new(&self.themes),
-                    );
-                    if !selection.is_empty() {
-                        self.palette.set_line(selection);
-                    }
-                }
-            }
+            InputCommand::Search => self.search(),
+            InputCommand::Replace => self.start_replace(),
             InputCommand::CaseInsensitive => {
                 self.config.case_insensitive_search = !self.config.case_insensitive_search;
                 if let Some("search") = self.palette.mode() {
@@ -517,6 +504,8 @@ impl Engine {
                         buffer.replace_all(replacement);
                     }
                 }
+                Command::Replace => self.start_replace(),
+                Command::Search => self.search(),
                 Command::SortLines(asc) => {
                     if let Some(buffer) = self.get_current_buffer_mut() {
                         buffer.sort_lines(asc);
@@ -855,6 +844,15 @@ impl Engine {
                         self.config.case_insensitive_search,
                     );
                     self.palette.unfocus();
+                }
+                "replace" => {
+                    self.palette.unfocus();
+                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                    else {
+                        return;
+                    };
+                    let buffer = &mut self.workspace.buffers[buffer_id];
+                    buffer.replacement = Some(content);
                 }
                 "shell" => {
                     let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
@@ -1272,6 +1270,33 @@ impl Engine {
                     }
                 }
             }
+        }
+    }
+
+    pub fn search(&mut self) {
+        if let Some(buffer) = self.get_current_buffer() {
+            let selection = buffer.get_selection();
+            self.file_finder = None;
+            self.buffer_finder = None;
+            self.palette.focus(
+                self.get_search_prompt(),
+                "search",
+                CompleterContext::new(&self.themes),
+            );
+            if !selection.is_empty() {
+                self.palette.set_line(selection);
+            }
+        }
+    }
+
+    pub fn start_replace(&mut self) {
+        let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+            return;
+        };
+        let buffer = &mut self.workspace.buffers[buffer_id];
+        if buffer.get_searcher().is_some() {
+            self.palette
+                .focus("replace: ", "replace", CompleterContext::new(&self.themes));
         }
     }
 

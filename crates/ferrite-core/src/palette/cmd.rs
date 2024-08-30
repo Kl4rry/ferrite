@@ -16,6 +16,8 @@ pub enum Command {
     Case(Case),
     Split(Direction),
     ReplaceAll(String),
+    Replace,
+    Search,
     About,
     Path,
     Pwd,
