@@ -167,7 +167,7 @@ impl Completer {
                                 alternatives
                                     .iter()
                                     .filter(|alternative| {
-                                        FuzzySearch::new(&text, alternative)
+                                        FuzzySearch::new(text, alternative)
                                             .score_with(&Scoring::emphasize_distance())
                                             .best_match()
                                             .is_some()
@@ -180,7 +180,7 @@ impl Completer {
                                 ctx.themes
                                     .keys()
                                     .filter(|alternative| {
-                                        FuzzySearch::new(&text, alternative)
+                                        FuzzySearch::new(text, alternative)
                                             .score_with(&Scoring::emphasize_distance())
                                             .best_match()
                                             .is_some()
