@@ -782,6 +782,7 @@ impl Engine {
                 Command::DefaultConfig => self.open_default_config(),
                 Command::ForceClose => self.force_close_current_buffer(),
                 Command::Close => self.close_current_buffer(),
+                Command::ClosePane => self.close_pane(),
                 Command::Paste => {
                     let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
                     else {

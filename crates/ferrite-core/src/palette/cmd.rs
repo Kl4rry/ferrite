@@ -39,6 +39,7 @@ pub enum Command {
     DefaultConfig,
     ForceClose,
     Close,
+    ClosePane,
     Paste,
     Copy,
     Format,
