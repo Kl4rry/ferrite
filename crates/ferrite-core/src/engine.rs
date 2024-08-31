@@ -404,6 +404,9 @@ impl Engine {
             InputCommand::Close => {
                 self.close_current_buffer();
             }
+            InputCommand::ClosePane => {
+                self.close_pane();
+            }
             InputCommand::Quit => {
                 self.quit(control_flow);
             }
@@ -1076,15 +1079,52 @@ impl Engine {
         }
     }
 
-    pub fn force_close_current_buffer(&mut self) {
-        if let Some(buffer_id) = self.get_current_buffer_id() {
-            if self.workspace.panes.num_panes() > 1 {
+    /// Gets a buffer that can be used to replace the current pane with
+    fn get_next_buffer(&mut self) -> BufferId {
+        let mut next_buffer = None;
+        for (buffer_id, _) in &self.workspace.buffers {
+            if !self.workspace.panes.contains(PaneKind::Buffer(buffer_id)) {
+                next_buffer = Some(buffer_id);
+            }
+        }
+
+        next_buffer.unwrap_or_else(|| self.workspace.buffers.insert(Buffer::new()))
+    }
+
+    pub fn close_pane(&mut self) {
+        if self.workspace.panes.num_panes() > 1 {
+            if let Some(buffer_id) = self.get_current_buffer_id() {
                 self.workspace
                     .panes
                     .remove_pane(PaneKind::Buffer(buffer_id));
+            } else {
+                let buffer_id = self.get_next_buffer();
+                self.workspace
+                    .panes
+                    .replace_current(PaneKind::Buffer(buffer_id));
+            }
+        }
+    }
+
+    pub fn force_close_current_buffer(&mut self) {
+        if let Some(buffer_id) = self.get_current_buffer_id() {
+            if self.workspace.panes.num_panes() > 1 {
                 if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
+
+                let mut next_buffer = None;
+                for (buffer_id, _) in &self.workspace.buffers {
+                    if !self.workspace.panes.contains(PaneKind::Buffer(buffer_id)) {
+                        next_buffer = Some(buffer_id);
+                    }
+                }
+
+                let next_buffer_id =
+                    next_buffer.unwrap_or_else(|| self.workspace.buffers.insert(Buffer::new()));
+                self.workspace
+                    .panes
+                    .replace_current(PaneKind::Buffer(next_buffer_id));
             } else if self.workspace.buffers.len() > 1 {
                 if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
@@ -1100,7 +1140,10 @@ impl Engine {
                 self.workspace.buffers[buffer_id] = Buffer::new();
             }
         } else {
-            self.workspace.panes.remove_pane(PaneKind::Logger);
+            let buffer_id = self.get_next_buffer();
+            self.workspace
+                .panes
+                .replace_current(PaneKind::Buffer(buffer_id));
         }
     }
 

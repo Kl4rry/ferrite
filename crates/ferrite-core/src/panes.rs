@@ -386,6 +386,10 @@ impl Panes {
     pub fn shrink_current(&mut self, rect: Rect) {
         self.node.resize_pane(self.current_pane, rect, -1.0);
     }
+
+    pub fn contains(&self, pane: PaneKind) -> bool {
+        self.node.contains(pane)
+    }
 }
 
 #[cfg(test)]

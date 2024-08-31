@@ -102,6 +102,7 @@ pub enum InputCommand {
     Save,
     Quit,
     Close,
+    ClosePane,
     GrowPane,
     ShrinkPane,
     Choord,
@@ -229,6 +230,11 @@ pub fn get_default_choords() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('j'), KeyModifiers::CONTROL),
             InputCommand::RotateFile,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
+            InputCommand::ClosePane,
             Exclusiveness::Exclusive,
         ),
     ]
@@ -706,7 +712,8 @@ impl InputCommand {
             InputCommand::Escape => "escape",
             InputCommand::Save => "save",
             InputCommand::Quit => "quit",
-            InputCommand::Close => "close",
+            InputCommand::Close => "close buffer",
+            InputCommand::ClosePane => "close pane",
             InputCommand::GrowPane => "grow pane",
             InputCommand::ShrinkPane => "shrink pane",
             InputCommand::Choord => "choord",
@@ -782,6 +789,7 @@ impl InputCommand {
             Save => false,
             Quit => false,
             Close => false,
+            ClosePane => false,
             GrowPane => true,
             ShrinkPane => true,
             Choord => false,
