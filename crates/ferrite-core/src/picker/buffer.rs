@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use slotmap::SlotMap;
 
@@ -26,6 +26,7 @@ pub struct BufferItem {
     pub id: BufferId,
     pub name: String,
     pub dirty: bool,
+    pub order: Instant,
 }
 
 impl Matchable for BufferItem {

@@ -49,8 +49,8 @@ pub struct Engine {
     pub config_path: Option<PathBuf>,
     pub config_watcher: Option<FileWatcher<Config>>,
     pub palette: CommandPalette,
-    pub file_finder: Option<Picker<String>>,
-    pub buffer_finder: Option<Picker<BufferItem>>,
+    pub file_picker: Option<Picker<String>>,
+    pub buffer_picker: Option<Picker<BufferItem>>,
     pub key_mappings: HashMap<String, Vec<(Mapping, InputCommand, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
@@ -197,8 +197,8 @@ impl Engine {
             config_path,
             config_watcher,
             palette,
-            file_finder,
-            buffer_finder: None,
+            file_picker: file_finder,
+            buffer_picker: None,
             key_mappings,
             branch_watcher,
             proxy,
@@ -384,8 +384,8 @@ impl Engine {
                 self.insert_buffer(Buffer::new(), true);
             }
             InputCommand::Shell => {
-                self.file_finder = None;
-                self.buffer_finder = None;
+                self.file_picker = None;
+                self.buffer_picker = None;
                 self.palette
                     .focus("$ ", "shell", CompleterContext::new(&self.themes));
             }
@@ -417,14 +417,14 @@ impl Engine {
                 self.palette.reset();
             }
             InputCommand::FocusPalette if !self.palette.has_focus() => {
-                self.file_finder = None;
-                self.buffer_finder = None;
+                self.file_picker = None;
+                self.buffer_picker = None;
                 self.palette
                     .focus("> ", "command", CompleterContext::new(&self.themes));
             }
             InputCommand::PromptGoto => {
-                self.file_finder = None;
-                self.buffer_finder = None;
+                self.file_picker = None;
+                self.buffer_picker = None;
                 self.palette
                     .focus("goto: ", "goto", CompleterContext::new(&self.themes));
             }
@@ -436,9 +436,9 @@ impl Engine {
                     self.palette.update_prompt(self.get_search_prompt());
                 }
             }
-            InputCommand::Escape if self.file_finder.is_some() | self.buffer_finder.is_some() => {
-                self.file_finder = None;
-                self.buffer_finder = None;
+            InputCommand::Escape if self.file_picker.is_some() | self.buffer_picker.is_some() => {
+                self.file_picker = None;
+                self.buffer_picker = None;
             }
             InputCommand::Escape if self.choord => {
                 self.choord = false;
@@ -455,16 +455,17 @@ impl Engine {
                     let _ = self
                         .palette
                         .handle_input(input, CompleterContext::new(&self.themes));
-                } else if let Some(finder) = &mut self.file_finder {
-                    let _ = finder.handle_input(input);
-                    if let Some(path) = finder.get_choice() {
-                        self.file_finder = None;
+                } else if let Some(picker) = &mut self.file_picker {
+                    let _ = picker.handle_input(input);
+                    if let Some(path) = picker.get_choice() {
+                        self.file_picker = None;
                         self.open_file(path);
                     }
-                } else if let Some(finder) = &mut self.buffer_finder {
-                    let _ = finder.handle_input(input);
-                    if let Some(choice) = finder.get_choice() {
-                        self.buffer_finder = None;
+                } else if let Some(picker) = &mut self.buffer_picker {
+                    let _ = picker.handle_input(input);
+                    if let Some(choice) = picker.get_choice() {
+                        self.workspace.buffers[choice.id].update_interact();
+                        self.buffer_picker = None;
                         let old = self
                             .workspace
                             .panes
@@ -538,8 +539,8 @@ impl Engine {
                     } else {
                         match env::set_current_dir(&path) {
                             Ok(_) => {
-                                self.buffer_finder = None;
-                                self.file_finder = None;
+                                self.buffer_picker = None;
+                                self.file_picker = None;
 
                                 self.file_scanner = FileScanner::new(
                                     env::current_dir().unwrap_or(PathBuf::from(".")),
@@ -946,14 +947,15 @@ impl Engine {
             }
         };
 
-        match self.workspace.buffers.iter().find(|(_, buffer)| {
+        match self.workspace.buffers.iter_mut().find(|(_, buffer)| {
             buffer
                 .file()
                 .and_then(|path| dunce::canonicalize(path).ok())
                 .as_deref()
                 == Some(&real_path)
         }) {
-            Some((id, _)) => {
+            Some((id, buffer)) => {
+                buffer.update_interact();
                 self.workspace.panes.replace_current(PaneKind::Buffer(id));
             }
             None => match Buffer::from_file(path) {
@@ -1009,8 +1011,8 @@ impl Engine {
 
     pub fn open_buffer_picker(&mut self) {
         self.palette.reset();
-        self.file_finder = None;
-        let buffers: boxcar::Vec<_> = self
+        self.file_picker = None;
+        let mut buffers: Vec<_> = self
             .workspace
             .buffers
             .iter()
@@ -1025,10 +1027,14 @@ impl Engine {
                         .map(|path| trim_path(&current_dir, path))
                         .unwrap_or_else(|| buffer.name().to_string())
                 },
+                order: buffer.get_last_interact(),
             })
             .collect();
 
-        self.buffer_finder = Some(Picker::new(
+        buffers.sort_by(|a, b| b.order.cmp(&a.order));
+        let buffers: boxcar::Vec<_> = buffers.into_iter().collect();
+
+        self.buffer_picker = Some(Picker::new(
             BufferFindProvider(Arc::new(buffers)),
             Some(Box::new(self.workspace.buffers.clone())),
             self.proxy.dup(),
@@ -1038,12 +1044,12 @@ impl Engine {
 
     pub fn open_file_picker(&mut self) {
         self.palette.reset();
-        self.buffer_finder = None;
+        self.buffer_picker = None;
         self.file_scanner = FileScanner::new(
             env::current_dir().unwrap_or(PathBuf::from(".")),
             &self.config,
         );
-        self.file_finder = Some(Picker::new(
+        self.file_picker = Some(Picker::new(
             FileFindProvider(self.file_scanner.subscribe()),
             Some(Box::new(FilePreviewer::new(self.proxy.dup()))),
             self.proxy.dup(),
@@ -1320,8 +1326,8 @@ impl Engine {
     pub fn search(&mut self) {
         if let Some(buffer) = self.get_current_buffer() {
             let selection = buffer.get_selection();
-            self.file_finder = None;
-            self.buffer_finder = None;
+            self.file_picker = None;
+            self.buffer_picker = None;
             self.palette.focus(
                 self.get_search_prompt(),
                 "search",

@@ -198,7 +198,7 @@ impl TuiApp {
                                     theme,
                                     &self.engine.config,
                                     !self.engine.palette.has_focus()
-                                        && self.engine.file_finder.is_none()
+                                        && self.engine.file_picker.is_none()
                                         && current_pane == pane,
                                     self.engine.branch_watcher.current_branch(),
                                     self.engine.spinner.current(),
@@ -225,7 +225,7 @@ impl TuiApp {
                         }
                         PaneKind::Logger => {
                             let has_focus = !self.engine.palette.has_focus()
-                                && self.engine.file_finder.is_none()
+                                && self.engine.file_picker.is_none()
                                 && current_pane == pane;
                             f.render_stateful_widget(
                                 LoggerWidget::new(theme, self.engine.last_render_time, has_focus),
@@ -236,7 +236,7 @@ impl TuiApp {
                     }
                 }
 
-                if let Some(file_finder) = &mut self.engine.file_finder {
+                if let Some(file_finder) = &mut self.engine.file_picker {
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
@@ -248,7 +248,7 @@ impl TuiApp {
                     );
                 }
 
-                if let Some(buffer_finder) = &mut self.engine.buffer_finder {
+                if let Some(buffer_finder) = &mut self.engine.buffer_picker {
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,

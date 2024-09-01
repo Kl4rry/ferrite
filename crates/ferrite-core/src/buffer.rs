@@ -98,6 +98,7 @@ pub struct Buffer {
     // file searching
     searcher: Option<BufferSearcher>,
     pub replacement: Option<String>,
+    last_interact: Instant,
 }
 
 impl Clone for Buffer {
@@ -133,6 +134,7 @@ impl Clone for Buffer {
             history: self.history.clone(),
             searcher: None,    // TODO fix clone this correctly
             replacement: None, // TODO fix clone this correctly
+            last_interact: self.last_interact.clone(),
         }
     }
 }
@@ -163,6 +165,7 @@ impl Default for Buffer {
             history: History::default(),
             searcher: None,
             replacement: None,
+            last_interact: Instant::now(),
         }
     }
 }
@@ -1631,6 +1634,14 @@ impl Buffer {
 
     pub fn get_last_edit(&self) -> Instant {
         self.last_edit
+    }
+
+    pub fn get_last_interact(&self) -> Instant {
+        self.last_interact
+    }
+
+    pub fn update_interact(&mut self) {
+        self.last_interact = Instant::now();
     }
 
     pub fn queue_syntax_update(&mut self) {
