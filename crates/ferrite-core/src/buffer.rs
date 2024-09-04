@@ -134,7 +134,7 @@ impl Clone for Buffer {
             history: self.history.clone(),
             searcher: None,    // TODO fix clone this correctly
             replacement: None, // TODO fix clone this correctly
-            last_interact: self.last_interact.clone(),
+            last_interact: self.last_interact,
         }
     }
 }

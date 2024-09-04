@@ -73,18 +73,28 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
         let file_name = normalize(file_name);
         for entry in read_dir.flatten() {
             if let Some(s) = entry.file_name().to_str() {
-                let ns = normalize(s);
-                if let Some(m) = FuzzySearch::new(&file_name, &ns)
-                    .score_with(&scoring)
-                    .best_match()
-                {
+                if file_name.is_empty() {
                     if let Ok(metadata) = fs::metadata(entry.path()) {
                         let mut path = String::from(dir_name) + s;
                         if metadata.is_dir() {
                             path.push(sep);
                         }
+                        entries.push((0, path.into()));
+                    }
+                } else {
+                    let ns = normalize(s);
+                    if let Some(m) = FuzzySearch::new(&file_name, &ns)
+                        .score_with(&scoring)
+                        .best_match()
+                    {
+                        if let Ok(metadata) = fs::metadata(entry.path()) {
+                            let mut path = String::from(dir_name) + s;
+                            if metadata.is_dir() {
+                                path.push(sep);
+                            }
 
-                        entries.push((m.score(), path.into()));
+                            entries.push((m.score(), path.into()));
+                        }
                     }
                 }
             }

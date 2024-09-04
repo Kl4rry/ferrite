@@ -167,6 +167,9 @@ impl Completer {
                                 alternatives
                                     .iter()
                                     .filter(|alternative| {
+                                        if text.is_empty() {
+                                            return true;
+                                        }
                                         FuzzySearch::new(text, alternative)
                                             .score_with(&Scoring::emphasize_distance())
                                             .best_match()
@@ -180,6 +183,9 @@ impl Completer {
                                 ctx.themes
                                     .keys()
                                     .filter(|alternative| {
+                                        if text.is_empty() {
+                                            return true;
+                                        }
                                         FuzzySearch::new(text, alternative)
                                             .score_with(&Scoring::emphasize_distance())
                                             .best_match()
