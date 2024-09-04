@@ -1089,9 +1089,12 @@ impl Engine {
     /// Gets a buffer that can be used to replace the current pane with
     fn get_next_buffer(&mut self) -> BufferId {
         let mut next_buffer = None;
-        for (buffer_id, _) in &self.workspace.buffers {
+        let mut buffers: Vec<_> = self.workspace.buffers.iter().collect();
+        buffers.sort_by(|a, b| b.1.get_last_interact().cmp(&a.1.get_last_interact()));
+        for (buffer_id, _) in buffers {
             if !self.workspace.panes.contains(PaneKind::Buffer(buffer_id)) {
                 next_buffer = Some(buffer_id);
+                break;
             }
         }
 
@@ -1120,23 +1123,15 @@ impl Engine {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
 
-                let mut next_buffer = None;
-                for (buffer_id, _) in &self.workspace.buffers {
-                    if !self.workspace.panes.contains(PaneKind::Buffer(buffer_id)) {
-                        next_buffer = Some(buffer_id);
-                    }
-                }
-
-                let next_buffer_id =
-                    next_buffer.unwrap_or_else(|| self.workspace.buffers.insert(Buffer::new()));
+                let buffer_id = self.get_next_buffer();
                 self.workspace
                     .panes
-                    .replace_current(PaneKind::Buffer(next_buffer_id));
+                    .replace_current(PaneKind::Buffer(buffer_id));
             } else if self.workspace.buffers.len() > 1 {
                 if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
-                let (buffer_id, _) = self.workspace.buffers.iter().next().unwrap();
+                let buffer_id = self.get_next_buffer();
                 self.workspace
                     .panes
                     .replace_current(PaneKind::Buffer(buffer_id));
