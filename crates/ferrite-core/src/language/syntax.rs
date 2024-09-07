@@ -98,6 +98,9 @@ impl Syntax {
     }
 
     pub fn set_language(&mut self, language: &str) -> Result<()> {
+        if language == "text" {
+            return Ok(());
+        }
         match get_tree_sitter_language(language) {
             Some(lang) => {
                 tracing::info!("set lang to `{language}`");

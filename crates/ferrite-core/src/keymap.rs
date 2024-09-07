@@ -92,6 +92,7 @@ pub enum InputCommand {
     Search,
     Replace,
     ReplaceCurrentMatch,
+    GlobalSearch,
     CaseInsensitive,
     NextMatch,
     PrevMatch,
@@ -235,6 +236,11 @@ pub fn get_default_choords() -> Vec<(Mapping, InputCommand, Exclusiveness)> {
         (
             Mapping::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
             InputCommand::ClosePane,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Mapping::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
+            InputCommand::GlobalSearch,
             Exclusiveness::Exclusive,
         ),
     ]
@@ -703,6 +709,7 @@ impl InputCommand {
             InputCommand::Search => "search file",
             InputCommand::Replace => "replace",
             InputCommand::ReplaceCurrentMatch => "replace current match",
+            InputCommand::GlobalSearch => "Global workspace search",
             InputCommand::CaseInsensitive => "case insensitive",
             InputCommand::NextMatch => "next match",
             InputCommand::PrevMatch => "prev match",
@@ -779,6 +786,7 @@ impl InputCommand {
             Search => false,
             Replace => false,
             ReplaceCurrentMatch => true,
+            GlobalSearch => false,
             CaseInsensitive => false,
             NextMatch => true,
             PrevMatch => true,

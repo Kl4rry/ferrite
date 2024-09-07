@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_utility::{line_ending, trim::trim_path};
+use ferrite_utility::{line_ending, point::Point, trim::trim_path};
 use linkify::{LinkFinder, LinkKind};
 use slotmap::{Key, SlotMap};
 use subprocess::{Exec, Redirection};
@@ -30,10 +30,11 @@ use crate::{
     palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
     panes::{PaneKind, Panes, Rect},
     picker::{
-        buffer::{BufferFindProvider, BufferItem},
-        file::FileFindProvider,
+        buffer_picker::{BufferFindProvider, BufferItem},
+        file_picker::FileFindProvider,
         file_previewer::FilePreviewer,
         file_scanner::FileScanner,
+        global_search_picker::{GlobalSearchMatch, GlobalSearchPreviewer, GlobalSearchProvider},
         Picker,
     },
     spinner::Spinner,
@@ -51,6 +52,7 @@ pub struct Engine {
     pub palette: CommandPalette,
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
+    pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
     pub key_mappings: HashMap<String, Vec<(Mapping, InputCommand, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
@@ -199,6 +201,7 @@ impl Engine {
             palette,
             file_picker: file_finder,
             buffer_picker: None,
+            global_search_picker: None,
             key_mappings,
             branch_watcher,
             proxy,
@@ -386,6 +389,7 @@ impl Engine {
             InputCommand::Shell => {
                 self.file_picker = None;
                 self.buffer_picker = None;
+                self.global_search_picker = None;
                 self.palette
                     .focus("$ ", "shell", CompleterContext::new(&self.themes));
             }
@@ -419,26 +423,37 @@ impl Engine {
             InputCommand::FocusPalette if !self.palette.has_focus() => {
                 self.file_picker = None;
                 self.buffer_picker = None;
+                self.global_search_picker = None;
                 self.palette
                     .focus("> ", "command", CompleterContext::new(&self.themes));
             }
             InputCommand::PromptGoto => {
                 self.file_picker = None;
                 self.buffer_picker = None;
+                self.global_search_picker = None;
                 self.palette
                     .focus("goto: ", "goto", CompleterContext::new(&self.themes));
             }
             InputCommand::Search => self.search(),
             InputCommand::Replace => self.start_replace(),
+            InputCommand::GlobalSearch => self.global_search(),
             InputCommand::CaseInsensitive => {
                 self.config.case_insensitive_search = !self.config.case_insensitive_search;
                 if let Some("search") = self.palette.mode() {
-                    self.palette.update_prompt(self.get_search_prompt());
+                    self.palette.update_prompt(self.get_search_prompt(false));
+                }
+                if let Some("global-search") = self.palette.mode() {
+                    self.palette.update_prompt(self.get_search_prompt(true));
                 }
             }
-            InputCommand::Escape if self.file_picker.is_some() | self.buffer_picker.is_some() => {
+            InputCommand::Escape
+                if self.file_picker.is_some()
+                    | self.buffer_picker.is_some()
+                    | self.global_search_picker.is_some() =>
+            {
                 self.file_picker = None;
                 self.buffer_picker = None;
+                self.global_search_picker = None;
             }
             InputCommand::Escape if self.choord => {
                 self.choord = false;
@@ -474,6 +489,28 @@ impl Engine {
                             let buffer = &self.workspace.buffers[id];
                             if buffer.is_disposable() {
                                 self.workspace.buffers.remove(id);
+                            }
+                        }
+                    }
+                } else if let Some(picker) = &mut self.global_search_picker {
+                    let _ = picker.handle_input(input);
+                    if let Some(choice) = picker.get_choice() {
+                        self.global_search_picker = None;
+                        let guard = choice.buffer.lock().unwrap();
+                        if let Some(file) = guard.file() {
+                            if self.open_file(file) {
+                                let cursor_line = guard.cursor_line_idx();
+                                let cursor_col = guard.cursor_grapheme_column();
+                                let anchor_line = guard.anchor_line_idx();
+                                let anchor_col = guard.anchor_grapheme_column();
+                                if let Some(buffer) = self.get_current_buffer_mut() {
+                                    buffer.select_area(
+                                        Point::new(cursor_col, cursor_line),
+                                        Point::new(anchor_col, anchor_line),
+                                        false,
+                                    );
+                                    buffer.center_on_cursor();
+                                }
                             }
                         }
                     }
@@ -609,7 +646,9 @@ impl Engine {
                 }
                 Command::FormatSelection => self.format_selection_current_buffer(),
                 Command::Format => self.format_current_buffer(),
-                Command::OpenFile(path) => self.open_file(path),
+                Command::OpenFile(path) => {
+                    self.open_file(path);
+                }
                 Command::SaveFile(path) => {
                     let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
                     else {
@@ -859,6 +898,20 @@ impl Engine {
                     let buffer = &mut self.workspace.buffers[buffer_id];
                     buffer.replacement = Some(content);
                 }
+                "global-search" => {
+                    self.palette.unfocus();
+                    let global_search_provider = GlobalSearchProvider::new(
+                        content,
+                        self.config.picker,
+                        self.config.case_insensitive_search,
+                    );
+                    self.global_search_picker = Some(Picker::new(
+                        global_search_provider,
+                        Some(Box::new(GlobalSearchPreviewer)),
+                        self.proxy.dup(),
+                        None,
+                    ));
+                }
                 "shell" => {
                     let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
                     self.run_shell_command(args, false, false);
@@ -938,12 +991,12 @@ impl Engine {
         }
     }
 
-    pub fn open_file(&mut self, path: impl AsRef<Path>) {
+    pub fn open_file(&mut self, path: impl AsRef<Path>) -> bool {
         let real_path = match dunce::canonicalize(&path) {
             Ok(path) => path,
             Err(err) => {
                 self.palette.set_error(err);
-                return;
+                return false;
             }
         };
 
@@ -957,6 +1010,7 @@ impl Engine {
             Some((id, buffer)) => {
                 buffer.update_interact();
                 self.workspace.panes.replace_current(PaneKind::Buffer(id));
+                true
             }
             None => match Buffer::from_file(path) {
                 Ok(buffer) => {
@@ -964,12 +1018,16 @@ impl Engine {
                         let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
                         if current_buf.is_disposable() {
                             *current_buf = buffer;
-                            return;
+                            return true;
                         }
                     }
                     self.insert_buffer(buffer, true);
+                    true
                 }
-                Err(err) => self.palette.set_error(err),
+                Err(err) => {
+                    self.palette.set_error(err);
+                    false
+                }
             },
         }
     }
@@ -1059,7 +1117,9 @@ impl Engine {
 
     pub fn open_config(&mut self) {
         match &self.config_path {
-            Some(path) => self.open_file(path.clone()),
+            Some(path) => {
+                self.open_file(path.clone());
+            }
             None => self.palette.set_error("Could not locate the config file"),
         }
     }
@@ -1118,16 +1178,7 @@ impl Engine {
 
     pub fn force_close_current_buffer(&mut self) {
         if let Some(buffer_id) = self.get_current_buffer_id() {
-            if self.workspace.panes.num_panes() > 1 {
-                if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
-                    self.insert_removed_buffer(path.to_path_buf());
-                }
-
-                let buffer_id = self.get_next_buffer();
-                self.workspace
-                    .panes
-                    .replace_current(PaneKind::Buffer(buffer_id));
-            } else if self.workspace.buffers.len() > 1 {
+            if self.workspace.panes.num_panes() > 1 || self.workspace.buffers.len() > 1 {
                 if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
@@ -1165,8 +1216,12 @@ impl Engine {
         self.closed_buffers.push(new);
     }
 
-    pub fn get_search_prompt(&self) -> String {
-        let mut prompt = String::from("search");
+    pub fn get_search_prompt(&self, global: bool) -> String {
+        let mut prompt = if global {
+            String::from("global-search")
+        } else {
+            String::from("search")
+        };
         if self.config.case_insensitive_search {
             prompt += " (i): ";
         } else {
@@ -1324,13 +1379,30 @@ impl Engine {
             self.file_picker = None;
             self.buffer_picker = None;
             self.palette.focus(
-                self.get_search_prompt(),
+                self.get_search_prompt(false),
                 "search",
                 CompleterContext::new(&self.themes),
             );
             if !selection.is_empty() {
                 self.palette.set_line(selection);
             }
+        }
+    }
+
+    pub fn global_search(&mut self) {
+        let selection = self
+            .get_current_buffer()
+            .map(|buffer| buffer.get_selection())
+            .unwrap_or_default();
+        self.file_picker = None;
+        self.buffer_picker = None;
+        self.palette.focus(
+            self.get_search_prompt(true),
+            "global-search",
+            CompleterContext::new(&self.themes),
+        );
+        if !selection.is_empty() {
+            self.palette.set_line(selection);
         }
     }
 

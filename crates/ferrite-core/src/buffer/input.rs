@@ -34,7 +34,7 @@ impl Buffer {
             VerticalScroll(distance) => self.vertical_scroll(distance),
             Escape => self.escape(),
             ClickCell(col, line) => self.handle_click(col, line),
-            SelectArea { cursor, anchor } => self.select_area(cursor, anchor),
+            SelectArea { cursor, anchor } => self.select_area(cursor, anchor, true),
             NextMatch => self.next_match(),
             PrevMatch => self.prev_match(),
             ReplaceCurrentMatch => self.replace_current_match(),
@@ -47,6 +47,8 @@ impl Buffer {
         if let Some(searcher) = &mut self.searcher {
             searcher.update_buffer(self.rope.clone(), None);
         }
+
+        self.update_interact();
 
         Ok(())
     }

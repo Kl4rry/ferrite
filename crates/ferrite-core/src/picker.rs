@@ -1,4 +1,9 @@
-use std::{borrow::Cow, path::PathBuf, sync::Arc, thread};
+use std::{
+    borrow::Cow,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use cb::select;
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -8,14 +13,16 @@ use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
 use crate::{event_loop_proxy::EventLoopProxy, keymap::InputCommand};
 
-pub mod buffer;
-pub mod file;
+pub mod buffer_picker;
+pub mod file_picker;
 pub mod file_previewer;
 pub mod file_scanner;
 pub mod fuzzy_match;
+pub mod global_search_picker;
 
 pub enum Preview<'a> {
     Buffer(&'a mut Buffer),
+    SharedBuffer(Arc<Mutex<Buffer>>),
     Loading,
     Binary, // TODO add hex preview
     TooLarge,

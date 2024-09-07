@@ -258,6 +258,12 @@ where
                     preview.info_line = false;
                     preview.render(preview_area, buf, buffer);
                 }
+                Some(Preview::SharedBuffer(buffer)) => {
+                    let mut preview = EditorWidget::new(self.theme, self.config, false, None, None);
+                    preview.line_nr = false;
+                    preview.info_line = false;
+                    preview.render(preview_area, buf, &mut *buffer.lock().unwrap());
+                }
                 Some(Preview::TooLarge) => {
                     let text = CenteredTextWidget::new(self.theme, "Too large");
                     text.render(preview_area, buf);

@@ -1581,11 +1581,18 @@ impl Buffer {
         }
     }
 
-    pub fn select_area(&mut self, cursor: Point<usize>, anchor: Point<usize>) {
+    pub fn select_area(
+        &mut self,
+        cursor: Point<usize>,
+        anchor: Point<usize>,
+        copy_to_clipboard: bool,
+    ) {
         self.set_cursor_pos(cursor.column, cursor.line);
         self.set_anchor_pos(anchor.column, anchor.line);
 
-        self.copy_selection_to_primary();
+        if copy_to_clipboard {
+            self.copy_selection_to_primary();
+        }
         self.update_affinity();
         self.history.finish();
     }
@@ -1690,7 +1697,7 @@ impl Buffer {
     pub fn next_match(&mut self) {
         if let Some(searcher) = &mut self.searcher {
             if let Some(search_match) = searcher.get_next_match() {
-                self.select_area(search_match.end, search_match.start);
+                self.select_area(search_match.end, search_match.start, false);
             }
         }
     }
@@ -1698,7 +1705,7 @@ impl Buffer {
     pub fn prev_match(&mut self) {
         if let Some(searcher) = &mut self.searcher {
             if let Some(search_match) = searcher.get_prev_match() {
-                self.select_area(search_match.end, search_match.start);
+                self.select_area(search_match.end, search_match.start, false);
             }
         }
     }
@@ -1938,7 +1945,7 @@ impl Buffer {
         if let (Some(searcher), Some(replacement)) = (&mut self.searcher, self.replacement.clone())
         {
             if let Some(search_match) = searcher.get_current_match() {
-                self.select_area(search_match.end, search_match.start);
+                self.select_area(search_match.end, search_match.start, false);
                 self.insert_text(&replacement, false);
             } else {
                 searcher.get_next_match();

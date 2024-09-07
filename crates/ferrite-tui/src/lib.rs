@@ -21,7 +21,7 @@ use ferrite_core::{
     keymap::{self, InputCommand},
     logger::{self, LogMessage},
     panes::PaneKind,
-    picker::buffer::BufferItem,
+    picker::{buffer_picker::BufferItem, global_search_picker::GlobalSearchMatch},
 };
 use ferrite_utility::point::Point;
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
@@ -236,7 +236,7 @@ impl TuiApp {
                     }
                 }
 
-                if let Some(file_finder) = &mut self.engine.file_picker {
+                if let Some(file_picker) = &mut self.engine.file_picker {
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
@@ -244,11 +244,11 @@ impl TuiApp {
                     f.render_stateful_widget(
                         PickerWidget::new(theme, &self.engine.config, "Open file"),
                         size,
-                        file_finder,
+                        file_picker,
                     );
                 }
 
-                if let Some(buffer_finder) = &mut self.engine.buffer_picker {
+                if let Some(buffer_picker) = &mut self.engine.buffer_picker {
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
@@ -256,7 +256,23 @@ impl TuiApp {
                     f.render_stateful_widget(
                         PickerWidget::<BufferItem>::new(theme, &self.engine.config, "Open buffer"),
                         size,
-                        buffer_finder,
+                        buffer_picker,
+                    );
+                }
+
+                if let Some(global_search_picker) = &mut self.engine.global_search_picker {
+                    let size = size.inner(Margin {
+                        horizontal: 5,
+                        vertical: 2,
+                    });
+                    f.render_stateful_widget(
+                        PickerWidget::<GlobalSearchMatch>::new(
+                            theme,
+                            &self.engine.config,
+                            "Matches",
+                        ),
+                        size,
+                        global_search_picker,
                     );
                 }
 
