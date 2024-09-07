@@ -12,7 +12,7 @@ use crate::{
     promise::Promise,
 };
 
-fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
+pub fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
     let mut file = File::open(&path)?;
 
     let mut buf = [0; 1024];

@@ -97,6 +97,7 @@ where
                 }
 
                 if !search_rx.is_empty() || !options_recv.is_empty() {
+                    proxy.request_render();
                     continue;
                 }
 

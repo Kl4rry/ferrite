@@ -4,6 +4,7 @@ use std::{
     iter::Peekable,
     ptr,
     sync::{Arc, Mutex},
+    thread,
 };
 
 use ferrite_utility::{graphemes::RopeGraphemeExt, point::Point};
@@ -15,7 +16,7 @@ use grep::{
 use ignore::{WalkBuilder, WalkState};
 use ropey::{iter::Chunks, Rope};
 
-use super::{Matchable, PickerOptionProvider};
+use super::{file_previewer::is_text_file, Matchable, PickerOptionProvider};
 use crate::{
     buffer::Buffer,
     config::PickerConfig,
@@ -100,76 +101,85 @@ impl PickerOptionProvider for GlobalSearchProvider {
 
     fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>> {
         let (tx, rx) = cb::unbounded();
+        let case_insenstive = self.case_insenstive;
+        let query = self.query.clone();
+        let config = self.config;
+        let output = self.output.clone();
 
-        let matcher = RegexMatcherBuilder::new()
-            .fixed_strings(true)
-            .multi_line(false)
-            .case_insensitive(self.case_insenstive)
-            .build(&self.query)
-            .unwrap();
+        thread::spawn(move || {
+            let matcher = RegexMatcherBuilder::new()
+                .fixed_strings(true)
+                .multi_line(false)
+                .case_insensitive(case_insenstive)
+                .build(&query)
+                .unwrap();
 
-        let mut builder = WalkBuilder::new(std::env::current_dir().unwrap());
-        let walk_parallel = builder
-            .follow_links(false)
-            .ignore(self.config.follow_ignore)
-            .git_global(self.config.follow_git_global)
-            .git_ignore(self.config.follow_gitignore)
-            .git_exclude(self.config.follow_git_exclude)
-            .build_parallel();
+            let mut builder = WalkBuilder::new(std::env::current_dir().unwrap());
+            let walk_parallel = builder
+                .follow_links(false)
+                .ignore(config.follow_ignore)
+                .git_global(config.follow_git_global)
+                .git_ignore(config.follow_gitignore)
+                .git_exclude(config.follow_git_exclude)
+                .build_parallel();
 
-        walk_parallel.run(move || {
-            let matcher = matcher.clone();
-            let output = self.output.clone();
-            let tx = tx.clone();
+            walk_parallel.run(move || {
+                let matcher = matcher.clone();
+                let output = output.clone();
+                let tx = tx.clone();
 
-            Box::new(move |result| {
-                let dir_entry = match result {
-                    Ok(entry) => {
-                        if !entry.file_type().map_or(false, |ft| ft.is_file()) {
-                            return WalkState::Continue;
+                Box::new(move |result| {
+                    let dir_entry = match result {
+                        Ok(entry) => {
+                            if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+                                return WalkState::Continue;
+                            }
+                            entry
                         }
-                        entry
+                        Err(_) => return WalkState::Continue,
+                    };
+
+                    let path = dir_entry.path();
+                    if !is_text_file(path).unwrap_or(false) {
+                        return WalkState::Continue;
                     }
-                    Err(_) => return WalkState::Continue,
-                };
+                    let Ok(mut buffer) = Buffer::from_file(path) else {
+                        return WalkState::Continue;
+                    };
 
-                let path = dir_entry.path();
-                let Ok(mut buffer) = Buffer::from_file(path) else {
-                    return WalkState::Continue;
-                };
+                    buffer.clamp_cursor = true;
+                    let name = buffer.name().to_string();
+                    let rope = buffer.rope().clone();
+                    let buffer = Arc::new(Mutex::new(buffer));
 
-                buffer.clamp_cursor = true;
-                let name = buffer.name().to_string();
-                let rope = buffer.rope().clone();
-                let buffer = Arc::new(Mutex::new(buffer));
+                    if let Err(err) = Searcher::new().search_reader(
+                        &matcher,
+                        RopeReader::new(&rope.clone()),
+                        UTF8(|lnum, line| {
+                            if let Some(mymatch) = matcher.find(line.as_bytes())? {
+                                let lnum = lnum as usize - 1;
+                                let rope_line = rope.line(lnum);
+                                let start_col = rope_line.byte_to_col(mymatch.start());
+                                let end_col = rope_line.byte_to_col(mymatch.end());
+                                output.push(GlobalSearchMatch {
+                                    buffer: buffer.clone(),
+                                    name: name.clone(),
+                                    match_location: (
+                                        Point::new(start_col, lnum),
+                                        Point::new(end_col, lnum),
+                                    ),
+                                });
+                                let _ = tx.send(output.clone());
+                            }
+                            Ok(true)
+                        }),
+                    ) {
+                        tracing::error!("Search error: {err}");
+                    }
 
-                if let Err(err) = Searcher::new().search_reader(
-                    &matcher,
-                    RopeReader::new(&rope.clone()),
-                    UTF8(|lnum, line| {
-                        if let Some(mymatch) = matcher.find(line.as_bytes())? {
-                            let lnum = lnum as usize - 1;
-                            let rope_line = rope.line(lnum);
-                            let start_col = rope_line.byte_to_col(mymatch.start());
-                            let end_col = rope_line.byte_to_col(mymatch.end());
-                            output.push(GlobalSearchMatch {
-                                buffer: buffer.clone(),
-                                name: name.clone(),
-                                match_location: (
-                                    Point::new(start_col, lnum),
-                                    Point::new(end_col, lnum),
-                                ),
-                            });
-                            let _ = tx.send(self.output.clone());
-                        }
-                        Ok(true)
-                    }),
-                ) {
-                    tracing::error!("Search error: {err}");
-                }
-
-                WalkState::Continue
-            })
+                    WalkState::Continue
+                })
+            });
         });
 
         rx
