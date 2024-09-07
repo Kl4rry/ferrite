@@ -1,7 +1,8 @@
 use std::{
     borrow::Cow,
-    io::{Read, Write},
+    io::Read,
     iter::Peekable,
+    ptr,
     sync::{Arc, Mutex},
 };
 
@@ -36,21 +37,43 @@ impl<'a> RopeReader<'a> {
 }
 
 impl Read for RopeReader<'_> {
-    fn read(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self.chunks.peek() {
             Some(chunk) => {
                 let current = &chunk.as_bytes()[self.bytes_read..];
                 let bytes_to_read = buf.len().min(current.len());
-                // This will always work so we can ignore the error
-                let _ = buf.write_all(&chunk.as_bytes()[..bytes_to_read]);
+                unsafe {
+                    ptr::copy_nonoverlapping(
+                        current[..bytes_to_read].as_ptr(),
+                        buf.as_mut_ptr(),
+                        bytes_to_read,
+                    );
+                }
+                self.bytes_read += bytes_to_read;
 
                 if bytes_to_read == current.len() {
                     self.chunks.next();
+                    self.bytes_read = 0;
                 }
                 Ok(bytes_to_read)
             }
             None => Ok(0),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rope_reader_test() {
+        let text = include_str!("../../../../Cargo.toml");
+        let rope = Rope::from(text);
+        let mut buffer = Vec::new();
+        let mut reader = RopeReader::new(&rope);
+        let _ = reader.read_to_end(&mut buffer);
+        assert_eq!(rope.to_string().as_bytes(), buffer);
     }
 }
 
@@ -120,7 +143,6 @@ impl PickerOptionProvider for GlobalSearchProvider {
                 let rope = buffer.rope().clone();
                 let buffer = Arc::new(Mutex::new(buffer));
 
-                let mut i = 0;
                 if let Err(err) = Searcher::new().search_reader(
                     &matcher,
                     RopeReader::new(&rope.clone()),
@@ -139,7 +161,6 @@ impl PickerOptionProvider for GlobalSearchProvider {
                                 ),
                             });
                             let _ = tx.send(self.output.clone());
-                            i += 1;
                         }
                         Ok(true)
                     }),
