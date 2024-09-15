@@ -613,7 +613,7 @@ impl Engine {
                     }
                 }
                 Command::Split(direction) => {
-                    let buffer_id = self.insert_buffer(Buffer::new(), false).0;
+                    let (buffer_id, _) = self.insert_buffer(Buffer::new(), false);
                     self.workspace
                         .panes
                         .split(PaneKind::Buffer(buffer_id), direction);
