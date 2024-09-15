@@ -11,7 +11,7 @@ use ropey::RopeSlice;
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
-use crate::{event_loop_proxy::EventLoopProxy, keymap::InputCommand};
+use crate::{cmd::Cmd, event_loop_proxy::EventLoopProxy};
 
 pub mod buffer_picker;
 pub mod file_picker;
@@ -163,29 +163,29 @@ where
         self.result.total
     }
 
-    pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
+    pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
         let mut enter = false;
         match input {
-            InputCommand::MoveUp { .. } => {
+            Cmd::MoveUp { .. } => {
                 if self.selected == 0 {
                     self.selected = self.get_matches().len().saturating_sub(1);
                 } else {
                     self.selected = self.selected.saturating_sub(1);
                 }
             }
-            InputCommand::MoveDown { .. } | InputCommand::Tab { .. } => self.selected += 1,
-            InputCommand::Insert(string) => {
+            Cmd::MoveDown { .. } | Cmd::Tab { .. } => self.selected += 1,
+            Cmd::Insert(string) => {
                 let rope = RopeSlice::from(string.as_str());
                 let line = rope.line_without_line_ending(0);
                 self.search_field
-                    .handle_input(InputCommand::Insert(line.to_string()))?;
+                    .handle_input(Cmd::Insert(line.to_string()))?;
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
                     let _ = self.tx.send(self.search_field.to_string());
                 }
             }
-            InputCommand::Char(ch) if LineEnding::from_char(ch).is_some() => {
+            Cmd::Char(ch) if LineEnding::from_char(ch).is_some() => {
                 enter = true;
             }
             input => {

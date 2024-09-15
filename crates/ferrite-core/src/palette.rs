@@ -6,11 +6,10 @@ use ropey::RopeSlice;
 use self::completer::{Completer, CompleterContext};
 use super::buffer::{error::BufferError, Buffer};
 use crate::{
+    cmd::Cmd,
     event_loop_proxy::{EventLoopProxy, UserEvent},
-    keymap::InputCommand,
 };
 
-pub mod cmd;
 pub mod cmd_parser;
 pub mod completer;
 
@@ -193,11 +192,7 @@ impl CommandPalette {
 }
 
 impl CommandPalette {
-    pub fn handle_input(
-        &mut self,
-        input: InputCommand,
-        ctx: CompleterContext,
-    ) -> Result<(), BufferError> {
+    pub fn handle_input(&mut self, input: Cmd, ctx: CompleterContext) -> Result<(), BufferError> {
         match &mut self.state {
             PaletteState::Input {
                 buffer,
@@ -208,18 +203,18 @@ impl CommandPalette {
                 let mut enter = false;
                 buffer.mark_clean();
                 match input {
-                    InputCommand::Insert(string) => {
+                    Cmd::Insert(string) => {
                         let rope = RopeSlice::from(string.as_str());
                         let line = rope.line_without_line_ending(0);
-                        buffer.handle_input(InputCommand::Insert(line.to_string()))?;
+                        buffer.handle_input(Cmd::Insert(line.to_string()))?;
                         if line.len_bytes() != rope.len_bytes() {
                             enter = true;
                         }
                     }
-                    InputCommand::Char(ch) if LineEnding::from_char(ch).is_some() => {
+                    Cmd::Char(ch) if LineEnding::from_char(ch).is_some() => {
                         enter = true;
                     }
-                    InputCommand::Tab { back } if mode == "command" || mode == "shell" => {
+                    Cmd::Tab { back } if mode == "command" || mode == "shell" => {
                         if back {
                             completer.backward(buffer)
                         } else {
@@ -229,7 +224,7 @@ impl CommandPalette {
                             buffer.mark_dirty();
                         }
                     }
-                    InputCommand::MoveRight { .. } => {
+                    Cmd::MoveRight { .. } => {
                         buffer.handle_input(input)?;
                         if buffer.cursor_is_eof() {
                             buffer.mark_dirty();
@@ -259,8 +254,8 @@ impl CommandPalette {
             } => {
                 let mut chars = Vec::new();
                 match input {
-                    InputCommand::Char(ch) => chars.push(ch),
-                    InputCommand::Insert(string) => chars.extend(string.chars()),
+                    Cmd::Char(ch) => chars.push(ch),
+                    Cmd::Insert(string) => chars.extend(string.chars()),
                     _ => (),
                 }
                 for ch in chars {

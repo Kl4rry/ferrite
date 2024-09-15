@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use super::error::CommandParseError;
-use crate::palette::cmd::Command;
+use crate::cmd::Cmd;
 
 #[derive(Debug, Clone)]
 pub enum CmdTemplateArg {
@@ -76,7 +76,7 @@ impl CmdBuilder {
         self
     }
 
-    pub fn build<T: Fn(&mut [Option<CommandArg>]) -> Command + Send + Sync + 'static>(
+    pub fn build<T: Fn(&mut [Option<CommandArg>]) -> Cmd + Send + Sync + 'static>(
         self,
         map: T,
     ) -> CommandTemplate {
@@ -91,7 +91,7 @@ impl CmdBuilder {
     }
 }
 
-type CmdMapper = dyn Fn(&mut [Option<CommandArg>]) -> Command + Send + Sync;
+type CmdMapper = dyn Fn(&mut [Option<CommandArg>]) -> Cmd + Send + Sync;
 
 pub struct CommandTemplate {
     pub name: String,
@@ -173,7 +173,7 @@ impl CommandTemplate {
         usage
     }
 
-    pub fn to_cmd(&self, args: &mut [Option<CommandArg>]) -> Command {
+    pub fn to_cmd(&self, args: &mut [Option<CommandArg>]) -> Cmd {
         (self.map)(args)
     }
 }

@@ -1,5 +1,6 @@
 use ferrite_core::{
-    keymap::{Exclusiveness, InputCommand, Mapping},
+    cmd::Cmd,
+    keymap::{Exclusiveness, Mapping},
     theme::EditorTheme,
 };
 use tui::{
@@ -12,14 +13,11 @@ use crate::glue::convert_style;
 
 pub struct ChoordWidget<'a> {
     theme: &'a EditorTheme,
-    key_mappings: &'a [(Mapping, InputCommand, Exclusiveness)],
+    key_mappings: &'a [(Mapping, Cmd, Exclusiveness)],
 }
 
 impl<'a> ChoordWidget<'a> {
-    pub fn new(
-        theme: &'a EditorTheme,
-        key_mappings: &'a [(Mapping, InputCommand, Exclusiveness)],
-    ) -> Self {
+    pub fn new(theme: &'a EditorTheme, key_mappings: &'a [(Mapping, Cmd, Exclusiveness)]) -> Self {
         Self {
             theme,
             key_mappings,
@@ -32,7 +30,7 @@ impl Widget for ChoordWidget<'_> {
         let height = total_area.height.min(
             self.key_mappings
                 .iter()
-                .filter(|(_, cmd, _)| *cmd != InputCommand::Escape && *cmd != InputCommand::Choord)
+                .filter(|(_, cmd, _)| *cmd != Cmd::Escape && *cmd != Cmd::Choord)
                 .count() as u16
                 + 2,
         );
@@ -43,7 +41,7 @@ impl Widget for ChoordWidget<'_> {
         for (input, command, _) in self
             .key_mappings
             .iter()
-            .filter(|(_, cmd, _)| *cmd != InputCommand::Escape && *cmd != InputCommand::Choord)
+            .filter(|(_, cmd, _)| *cmd != Cmd::Escape && *cmd != Cmd::Choord)
             .take(height.into())
         {
             let mapping = format!("{}{} ", input.keycode, input.modifiers);

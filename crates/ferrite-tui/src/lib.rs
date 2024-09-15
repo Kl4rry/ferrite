@@ -16,9 +16,10 @@ use ferrite_cli::Args;
 use ferrite_core::{
     buffer::Buffer,
     clipboard,
+    cmd::Cmd,
     engine::Engine,
     event_loop_proxy::EventLoopControlFlow,
-    keymap::{self, InputCommand},
+    keymap::{self},
     logger::{self, LogMessage},
     panes::PaneKind,
     picker::{buffer_picker::BufferItem, global_search_picker::GlobalSearchMatch},
@@ -321,8 +322,8 @@ impl TuiApp {
                     }
                     Event::Mouse(event) => match event.kind {
                         // TODO allow scoll when using cmd palette
-                        MouseEventKind::ScrollUp => Some(InputCommand::VerticalScroll(-3)),
-                        MouseEventKind::ScrollDown => Some(InputCommand::VerticalScroll(3)),
+                        MouseEventKind::ScrollUp => Some(Cmd::VerticalScroll(-3)),
+                        MouseEventKind::ScrollDown => Some(Cmd::VerticalScroll(3)),
                         MouseEventKind::Down(MouseButton::Middle) => {
                             for (pane_kind, pane_rect) in self
                                 .engine
@@ -343,9 +344,7 @@ impl TuiApp {
                                             .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos())
                                             .saturating_sub(pane_rect.y);
-                                        break 'block Some(InputCommand::PastePrimary(
-                                            column, line,
-                                        ));
+                                        break 'block Some(Cmd::PastePrimary(column, line));
                                     }
                                 }
                             }
@@ -377,7 +376,7 @@ impl TuiApp {
                                             .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos())
                                             .saturating_sub(pane_rect.y);
-                                        break 'block Some(InputCommand::ClickCell(column, line));
+                                        break 'block Some(Cmd::ClickCell(column, line));
                                     }
                                 }
                             }
@@ -426,10 +425,7 @@ impl TuiApp {
                                                 Point::new(column, line)
                                             };
 
-                                            break 'block Some(InputCommand::SelectArea {
-                                                cursor,
-                                                anchor,
-                                            });
+                                            break 'block Some(Cmd::SelectArea { cursor, anchor });
                                         }
                                     }
                                 }
@@ -439,17 +435,14 @@ impl TuiApp {
                         }
                         _ => None,
                     },
-                    Event::Paste(text) => Some(InputCommand::Insert(text)),
+                    Event::Paste(text) => Some(Cmd::Insert(text)),
                     _ => None,
                 }
             };
 
+            self.engine.buffer_area = tui_to_ferrite_rect(self.buffer_area);
             if let Some(input) = input {
-                self.engine.handle_input_command(
-                    input,
-                    control_flow,
-                    tui_to_ferrite_rect(self.buffer_area),
-                );
+                self.engine.handle_input_command(input, control_flow);
             }
         }
     }

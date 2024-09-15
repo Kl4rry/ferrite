@@ -6,7 +6,7 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{event_loop_proxy::EventLoopProxy, keymap::InputCommand};
+use crate::{cmd::Cmd, event_loop_proxy::EventLoopProxy};
 
 static PROXY: Mutex<Option<Box<dyn EventLoopProxy>>> = Mutex::new(None);
 
@@ -105,13 +105,13 @@ impl LoggerState {
         }
     }
 
-    pub fn handle_input(&mut self, input: InputCommand) {
+    pub fn handle_input(&mut self, input: Cmd) {
         match input {
-            InputCommand::VerticalScroll(scroll) => {
+            Cmd::VerticalScroll(scroll) => {
                 self.lines_scrolled_up = (self.lines_scrolled_up as i64 - scroll).max(0) as usize;
             }
-            InputCommand::End { .. } => self.lines_scrolled_up = 0,
-            InputCommand::Escape { .. } => self.lines_scrolled_up = 0,
+            Cmd::End { .. } => self.lines_scrolled_up = 0,
+            Cmd::Escape { .. } => self.lines_scrolled_up = 0,
             _ => (),
         }
     }

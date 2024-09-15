@@ -8,7 +8,7 @@ use heck::{
 
 use super::Buffer;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Case {
     Lower,
     Upper,

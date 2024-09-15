@@ -1,9 +1,9 @@
 use super::{error::BufferError, Buffer};
-use crate::keymap::InputCommand;
+use crate::cmd::Cmd;
 
 impl Buffer {
-    pub fn handle_input(&mut self, input: InputCommand) -> Result<(), BufferError> {
-        use InputCommand::*;
+    pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
+        use Cmd::*;
         match input {
             MoveRight { expand_selection } => self.move_right_char(expand_selection),
             MoveLeft { expand_selection } => self.move_left_char(expand_selection),

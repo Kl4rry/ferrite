@@ -23,7 +23,7 @@ use super::{
     language::{get_language_from_path, syntax::Syntax},
 };
 use crate::{
-    clipboard, event_loop_proxy::EventLoopProxy, keymap::LineMoveDir,
+    clipboard, cmd::LineMoveDir, event_loop_proxy::EventLoopProxy,
     language::detect::detect_language,
 };
 

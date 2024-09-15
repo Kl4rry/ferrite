@@ -19,15 +19,16 @@ use crate::{
     buffer_watcher::BufferWatcher,
     byte_size::format_byte_size,
     clipboard,
+    cmd::Cmd,
     config::{Config, DEFAULT_CONFIG},
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
     git::branch::BranchWatcher,
     indent::Indentation,
     job_manager::{JobHandle, JobManager},
     jobs::SaveBufferJob,
-    keymap::{get_default_choords, get_default_mappings, Exclusiveness, InputCommand, Mapping},
+    keymap::{get_default_choords, get_default_mappings, Exclusiveness, Mapping},
     logger::{LogMessage, LoggerState},
-    palette::{cmd, cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
+    palette::{cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
     panes::{PaneKind, Panes, Rect},
     picker::{
         buffer_picker::{BufferFindProvider, BufferItem},
@@ -53,7 +54,7 @@ pub struct Engine {
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
-    pub key_mappings: HashMap<String, Vec<(Mapping, InputCommand, Exclusiveness)>>,
+    pub key_mappings: HashMap<String, Vec<(Mapping, Cmd, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
     pub file_scanner: FileScanner,
@@ -68,6 +69,7 @@ pub struct Engine {
     pub start_of_events: Instant,
     pub closed_buffers: Vec<PathBuf>,
     pub buffer_watcher: Option<BufferWatcher>,
+    pub buffer_area: Rect,
 }
 
 impl Engine {
@@ -217,6 +219,12 @@ impl Engine {
             start_of_events: Instant::now(),
             closed_buffers: Vec::new(),
             buffer_watcher,
+            buffer_area: Rect {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 10,
+            },
         })
     }
 
@@ -303,15 +311,10 @@ impl Engine {
         *control_flow = EventLoopControlFlow::WaitMax(duration);
     }
 
-    pub fn handle_input_command(
-        &mut self,
-        input: InputCommand,
-        control_flow: &mut EventLoopControlFlow,
-        buffer_area: Rect,
-    ) {
+    pub fn handle_input_command(&mut self, input: Cmd, control_flow: &mut EventLoopControlFlow) {
         if let Some(repeat) = &mut self.repeat {
             match input {
-                InputCommand::Char(ch) if ch.is_ascii_digit() => {
+                Cmd::Char(ch) if ch.is_ascii_digit() => {
                     repeat.push(ch);
                 }
                 _ => {
@@ -331,20 +334,16 @@ impl Engine {
                     if input.is_repeatable() {
                         self.palette.set_msg(format!("Repeated: {input}"));
                         for _ in 0..number {
-                            self.handle_single_input_command(
-                                input.clone(),
-                                control_flow,
-                                buffer_area,
-                            );
+                            self.handle_single_input_command(input.clone(), control_flow);
                         }
                     } else {
-                        self.handle_single_input_command(input, control_flow, buffer_area);
+                        self.handle_single_input_command(input, control_flow);
                         self.repeat = None;
                     }
                 }
             }
         } else {
-            self.handle_single_input_command(input, control_flow, buffer_area);
+            self.handle_single_input_command(input, control_flow);
         }
 
         if let Some(repeat) = &self.repeat {
@@ -354,15 +353,14 @@ impl Engine {
 
     pub fn handle_single_input_command(
         &mut self,
-        input: InputCommand,
+        input: Cmd,
         control_flow: &mut EventLoopControlFlow,
-        buffer_area: Rect,
     ) {
-        if input != InputCommand::Choord {
+        if input != Cmd::Choord {
             self.choord = false;
         }
         match input {
-            InputCommand::RotateFile => {
+            Cmd::RotateFile => {
                 if let Some(buffer) = self.get_current_buffer() {
                     match buffer.get_next_file() {
                         Ok(file) => {
@@ -372,72 +370,54 @@ impl Engine {
                     };
                 };
             }
-            InputCommand::Repeat => {
+            Cmd::Repeat => {
                 self.repeat = Some(String::new());
             }
-            InputCommand::ReopenBuffer => self.reopen_last_closed_buffer(),
-            InputCommand::OpenUrl => self.open_selected_url(),
-            InputCommand::Split { direction } => {
-                let buffer_id = self.insert_buffer(Buffer::new(), false).0;
-                self.workspace
-                    .panes
-                    .split(PaneKind::Buffer(buffer_id), direction);
-            }
-            InputCommand::New => {
-                self.insert_buffer(Buffer::new(), true);
-            }
-            InputCommand::Shell => {
+            Cmd::ReopenBuffer => self.reopen_last_closed_buffer(),
+            Cmd::UrlOpen => self.open_selected_url(),
+            Cmd::OpenShellPalette => {
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
                 self.palette
                     .focus("$ ", "shell", CompleterContext::new(&self.themes));
             }
-            InputCommand::Format => {
-                self.format_current_buffer();
-            }
-            InputCommand::Choord => {
+            Cmd::Choord => {
                 self.choord = !self.choord;
             }
-            InputCommand::GrowPane => {
-                self.workspace.panes.grow_current(buffer_area);
+            Cmd::GrowPane => {
+                self.workspace.panes.grow_current(self.buffer_area);
             }
-            InputCommand::ShrinkPane => {
-                self.workspace.panes.shrink_current(buffer_area);
+            Cmd::ShrinkPane => {
+                self.workspace.panes.shrink_current(self.buffer_area);
             }
-            InputCommand::Close => {
-                self.close_current_buffer();
-            }
-            InputCommand::ClosePane => {
-                self.close_pane();
-            }
-            InputCommand::Quit => {
+            Cmd::Quit => {
                 self.quit(control_flow);
             }
-            InputCommand::Escape if self.repeat.is_some() => {
+            Cmd::Escape if self.repeat.is_some() => {
                 self.repeat = None;
             }
-            InputCommand::Escape if self.palette.has_focus() => {
+            Cmd::Escape if self.palette.has_focus() => {
                 self.palette.reset();
             }
-            InputCommand::FocusPalette if !self.palette.has_focus() => {
+            Cmd::FocusPalette if !self.palette.has_focus() => {
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
                 self.palette
                     .focus("> ", "command", CompleterContext::new(&self.themes));
             }
-            InputCommand::PromptGoto => {
+            Cmd::PromptGoto => {
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
                 self.palette
                     .focus("goto: ", "goto", CompleterContext::new(&self.themes));
             }
-            InputCommand::Search => self.search(),
-            InputCommand::Replace => self.start_replace(),
-            InputCommand::GlobalSearch => self.global_search(),
-            InputCommand::CaseInsensitive => {
+            Cmd::Search => self.search(),
+            Cmd::Replace => self.start_replace(),
+            Cmd::GlobalSearch => self.global_search(),
+            Cmd::CaseInsensitive => {
                 self.config.case_insensitive_search = !self.config.case_insensitive_search;
                 if let Some("search") = self.palette.mode() {
                     self.palette.update_prompt(self.get_search_prompt(false));
@@ -446,7 +426,7 @@ impl Engine {
                     self.palette.update_prompt(self.get_search_prompt(true));
                 }
             }
-            InputCommand::Escape
+            Cmd::Escape
                 if self.file_picker.is_some()
                     | self.buffer_picker.is_some()
                     | self.global_search_picker.is_some() =>
@@ -455,15 +435,321 @@ impl Engine {
                 self.buffer_picker = None;
                 self.global_search_picker = None;
             }
-            InputCommand::Escape if self.choord => {
+            Cmd::Escape if self.choord => {
                 self.choord = false;
             }
-            InputCommand::OpenFileBrowser => self.open_file_picker(),
-            InputCommand::OpenBufferBrowser => self.open_buffer_picker(),
-            InputCommand::Save => {
+            Cmd::OpenFileBrowser => self.open_file_picker(),
+            Cmd::OpenBufferBrowser => self.open_buffer_picker(),
+            Cmd::Save => {
                 if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
                     self.save_buffer(buffer_id, None);
                 }
+            }
+            Cmd::FilePickerReload => {
+                self.file_scanner = FileScanner::new(
+                    env::current_dir().unwrap_or(PathBuf::from(".")),
+                    &self.config,
+                );
+            }
+            Cmd::ReplaceAll(replacement) => {
+                if let Some(buffer) = self.get_current_buffer_mut() {
+                    buffer.replace_all(replacement);
+                }
+            }
+            Cmd::SortLines(asc) => {
+                if let Some(buffer) = self.get_current_buffer_mut() {
+                    buffer.sort_lines(asc);
+                }
+            }
+            Cmd::Path => match self.try_get_current_buffer_path() {
+                Some(path) => self.palette.set_msg(path.to_string_lossy()),
+                None => self
+                    .palette
+                    .set_error("No path has been set for the current buffer"),
+            },
+            Cmd::About => {
+                self.palette.set_msg(format!(
+                    "ferrite\nVersion: {}\nCommit: {}",
+                    env!("CARGO_PKG_VERSION"),
+                    env!("GIT_HASH"),
+                ));
+            }
+            Cmd::Pwd => match env::current_dir() {
+                Ok(path) => self.palette.set_msg(path.to_string_lossy()),
+                Err(err) => self.palette.set_error(err),
+            },
+            Cmd::Cd(path) => {
+                if let Err(err) = self.workspace.save_workspace() {
+                    self.palette.set_error(err);
+                } else {
+                    match env::set_current_dir(&path) {
+                        Ok(_) => {
+                            self.buffer_picker = None;
+                            self.file_picker = None;
+
+                            self.file_scanner = FileScanner::new(
+                                env::current_dir().unwrap_or(PathBuf::from(".")),
+                                &self.config,
+                            );
+
+                            match BranchWatcher::new(self.proxy.dup()) {
+                                Ok(branch_watcher) => self.branch_watcher = branch_watcher,
+                                Err(err) => {
+                                    let msg = format!("Error creating branch watcher: {err}");
+                                    tracing::error!(msg);
+                                    self.palette.set_error(msg);
+                                }
+                            }
+
+                            self.workspace = match Workspace::load_workspace() {
+                                Ok(workspace) => workspace,
+                                Err(err) => {
+                                    let msg = format!("Error loading workspace: {err}");
+                                    tracing::error!(msg);
+                                    self.palette.set_error(msg);
+                                    Workspace::default()
+                                }
+                            };
+
+                            self.palette
+                                .set_msg(format!("Set working dir to: {}", path.to_string_lossy()));
+                        }
+                        Err(err) => self.palette.set_error(format!("{err}")),
+                    }
+                }
+            }
+            Cmd::Split(direction) => {
+                let (buffer_id, _) = self.insert_buffer(Buffer::new(), false);
+                self.workspace
+                    .panes
+                    .split(PaneKind::Buffer(buffer_id), direction);
+            }
+            Cmd::RunShellCmd { args, pipe } => {
+                self.run_shell_command(args, pipe, false);
+            }
+            Cmd::Trash => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+
+                match self.workspace.buffers[buffer_id].move_to_trash() {
+                    Ok(true) => {
+                        let path = self.workspace.buffers[buffer_id].file().unwrap();
+                        match trash::delete(path) {
+                            Ok(_) => {
+                                self.palette.set_msg(format!(
+                                    "`{}` moved to trash",
+                                    path.to_string_lossy()
+                                ));
+                            }
+                            Err(err) => self.palette.set_error(err),
+                        }
+                    }
+                    Ok(false) => {
+                        self.palette
+                            .set_error("No path set for file, cannot move to trash");
+                    }
+                    Err(e) => {
+                        self.palette.set_error(e);
+                        self.close_current_buffer();
+                    }
+                }
+            }
+            Cmd::FormatSelection => self.format_selection_current_buffer(),
+            Cmd::Format => self.format_current_buffer(),
+            Cmd::OpenFile(path) => {
+                self.open_file(path);
+            }
+            Cmd::SaveFile(path) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+
+                self.save_buffer(buffer_id, path);
+            }
+            Cmd::Language(language) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                match language {
+                    Some(language) => {
+                        if let Err(err) = self.workspace.buffers[buffer_id]
+                            .set_langauge(&language, self.proxy.dup())
+                        {
+                            self.palette.set_error(err);
+                        }
+                    }
+                    None => self
+                        .palette
+                        .set_msg(self.workspace.buffers[buffer_id].language_name()),
+                }
+            }
+            Cmd::Encoding(encoding) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                match encoding {
+                    Some(encoding) => {
+                        match get_encoding(&encoding) {
+                            Some(encoding) => self.workspace.buffers[buffer_id].encoding = encoding,
+                            None => self.palette.set_error("unknown encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"),
+                        }
+                    }
+                    None => self
+                    .palette
+                    .set_msg(self.workspace.buffers[buffer_id].encoding.name()),
+                }
+            }
+            Cmd::Indent(indent) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                match indent {
+                    Some(indent) => {
+                        if let Ok(spaces) = indent.parse::<NonZeroUsize>() {
+                            self.workspace.buffers[buffer_id].indent = Indentation::Spaces(spaces);
+                        } else if indent == "tabs" {
+                            self.workspace.buffers[buffer_id].indent =
+                                Indentation::Tabs(NonZeroUsize::new(1).unwrap());
+                        } else {
+                            self.palette
+                                .set_error("Indentation must be a number or `tabs`");
+                        }
+                    }
+                    None => match self.workspace.buffers[buffer_id].indent {
+                        Indentation::Tabs(_) => self.palette.set_msg("tabs"),
+                        Indentation::Spaces(amount) => {
+                            self.palette.set_msg(format!("{} space(s)", amount))
+                        }
+                    },
+                }
+            }
+            Cmd::LineEnding(line_ending) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                match line_ending {
+                    Some(line_ending) => {
+                        self.workspace.buffers[buffer_id].line_ending = line_ending
+                    }
+                    None => {
+                        self.palette
+                            .set_msg(match self.workspace.buffers[buffer_id].line_ending {
+                                line_ending::LineEnding::Crlf => "crlf",
+                                line_ending::LineEnding::LF => "lf",
+                                _ => unreachable!(),
+                            })
+                    }
+                }
+            }
+            Cmd::New(path) => {
+                if let Some(path) = path {
+                    match Buffer::with_path(path) {
+                        Ok(buffer) => drop(self.insert_buffer(buffer, true)),
+                        Err(err) => self.palette.set_error(err),
+                    }
+                } else {
+                    self.insert_buffer(Buffer::new(), true);
+                }
+            }
+            Cmd::Reload => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                if self.workspace.buffers[buffer_id].is_dirty() {
+                    self.palette.set_prompt(
+                        "The buffer is unsaved are you sure you want to reload?",
+                        ('y', PalettePromptEvent::Reload),
+                        ('n', PalettePromptEvent::Nop),
+                    );
+                } else if let Err(err) = self.workspace.buffers[buffer_id].reload() {
+                    self.palette.set_error(err)
+                };
+            }
+            Cmd::ReloadAll => {
+                for buffer in self.workspace.buffers.values_mut() {
+                    if buffer.file().is_some() && buffer.is_dirty() {
+                        self.palette
+                            .set_error(format!("`{}` is dirty cannot reload", buffer.name()));
+                        continue;
+                    }
+
+                    if buffer.file().is_some() {
+                        if let Err(err) = buffer.reload() {
+                            self.palette.set_error(err);
+                        }
+                    }
+                }
+            }
+            Cmd::Goto(line) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                self.workspace.buffers[buffer_id].goto(line);
+            }
+            Cmd::Case(case) => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                self.workspace.buffers[buffer_id].transform_case(case);
+            }
+            Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
+            Cmd::Logger => {
+                self.logger_state.lines_scrolled_up = 0;
+                self.workspace.panes.replace_current(PaneKind::Logger);
+            }
+            Cmd::Theme(name) => match name {
+                Some(name) => {
+                    if self.themes.contains_key(&name) {
+                        self.config.theme = name;
+                    } else {
+                        self.palette.set_error("Theme not found");
+                    }
+                }
+                None => {
+                    self.palette.set_msg(&self.config.theme);
+                }
+            },
+            Cmd::BufferPickerOpen => self.open_buffer_picker(),
+            Cmd::FilePickerOpen => {
+                if self.config.picker.file_picker_auto_reload {
+                    self.file_scanner = FileScanner::new(
+                        env::current_dir().unwrap_or(PathBuf::from(".")),
+                        &self.config,
+                    );
+                }
+                self.open_file_picker();
+            }
+            Cmd::OpenConfig => self.open_config(),
+            Cmd::DefaultConfig => self.open_default_config(),
+            Cmd::ForceClose => self.force_close_current_buffer(),
+            Cmd::Close => self.close_current_buffer(),
+            Cmd::ClosePane => self.close_pane(),
+            Cmd::Paste => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                if let Err(err) = self.workspace.buffers[buffer_id].handle_input(Cmd::Paste) {
+                    self.palette.set_error(err);
+                }
+            }
+            Cmd::Copy => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                if let Err(err) = self.workspace.buffers[buffer_id].handle_input(Cmd::Copy) {
+                    self.palette.set_error(err);
+                }
+            }
+            Cmd::RevertBuffer => {
+                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+                let _ = self.workspace.buffers[buffer_id].handle_input(Cmd::RevertBuffer);
+            }
+            Cmd::GitReload => self.branch_watcher.force_reload(),
+            Cmd::GitDiff => {
+                self.run_shell_command(vec!["git".into(), "diff".into()], true, true);
             }
             input => {
                 if self.palette.has_focus() {
@@ -529,350 +815,17 @@ impl Engine {
         }
     }
 
-    pub fn handle_command(&mut self, content: String, control_flow: &mut EventLoopControlFlow) {
-        use cmd::Command;
-        self.palette.reset();
-        match cmd_parser::parse_cmd(&content) {
-            Ok(cmd) => match cmd {
-                Command::FilePickerReload => {
-                    self.file_scanner = FileScanner::new(
-                        env::current_dir().unwrap_or(PathBuf::from(".")),
-                        &self.config,
-                    );
-                }
-                Command::ReplaceAll(replacement) => {
-                    if let Some(buffer) = self.get_current_buffer_mut() {
-                        buffer.replace_all(replacement);
-                    }
-                }
-                Command::Replace => self.start_replace(),
-                Command::Search => self.search(),
-                Command::SortLines(asc) => {
-                    if let Some(buffer) = self.get_current_buffer_mut() {
-                        buffer.sort_lines(asc);
-                    }
-                }
-                Command::Path => match self.try_get_current_buffer_path() {
-                    Some(path) => self.palette.set_msg(path.to_string_lossy()),
-                    None => self
-                        .palette
-                        .set_error("No path has been set for the current buffer"),
-                },
-                Command::About => {
-                    self.palette.set_msg(format!(
-                        "ferrite\nVersion: {}\nCommit: {}",
-                        env!("CARGO_PKG_VERSION"),
-                        env!("GIT_HASH"),
-                    ));
-                }
-                Command::UrlOpen => self.open_selected_url(),
-                Command::Pwd => match env::current_dir() {
-                    Ok(path) => self.palette.set_msg(path.to_string_lossy()),
-                    Err(err) => self.palette.set_error(err),
-                },
-                Command::Cd(path) => {
-                    if let Err(err) = self.workspace.save_workspace() {
-                        self.palette.set_error(err);
-                    } else {
-                        match env::set_current_dir(&path) {
-                            Ok(_) => {
-                                self.buffer_picker = None;
-                                self.file_picker = None;
-
-                                self.file_scanner = FileScanner::new(
-                                    env::current_dir().unwrap_or(PathBuf::from(".")),
-                                    &self.config,
-                                );
-
-                                match BranchWatcher::new(self.proxy.dup()) {
-                                    Ok(branch_watcher) => self.branch_watcher = branch_watcher,
-                                    Err(err) => {
-                                        let msg = format!("Error creating branch watcher: {err}");
-                                        tracing::error!(msg);
-                                        self.palette.set_error(msg);
-                                    }
-                                }
-
-                                self.workspace = match Workspace::load_workspace() {
-                                    Ok(workspace) => workspace,
-                                    Err(err) => {
-                                        let msg = format!("Error loading workspace: {err}");
-                                        tracing::error!(msg);
-                                        self.palette.set_error(msg);
-                                        Workspace::default()
-                                    }
-                                };
-
-                                self.palette.set_msg(format!(
-                                    "Set working dir to: {}",
-                                    path.to_string_lossy()
-                                ));
-                            }
-                            Err(err) => self.palette.set_error(format!("{err}")),
-                        }
-                    }
-                }
-                Command::Split(direction) => {
-                    let (buffer_id, _) = self.insert_buffer(Buffer::new(), false);
-                    self.workspace
-                        .panes
-                        .split(PaneKind::Buffer(buffer_id), direction);
-                }
-                Command::Shell { args, pipe } => {
-                    self.run_shell_command(args, pipe, false);
-                }
-                Command::Trash => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-
-                    match self.workspace.buffers[buffer_id].move_to_trash() {
-                        Ok(true) => {
-                            let path = self.workspace.buffers[buffer_id].file().unwrap();
-                            match trash::delete(path) {
-                                Ok(_) => {
-                                    self.palette.set_msg(format!(
-                                        "`{}` moved to trash",
-                                        path.to_string_lossy()
-                                    ));
-                                }
-                                Err(err) => self.palette.set_error(err),
-                            }
-                        }
-                        Ok(false) => {
-                            self.palette
-                                .set_error("No path set for file, cannot move to trash");
-                        }
-                        Err(e) => {
-                            self.palette.set_error(e);
-                            self.close_current_buffer();
-                        }
-                    }
-                }
-                Command::FormatSelection => self.format_selection_current_buffer(),
-                Command::Format => self.format_current_buffer(),
-                Command::OpenFile(path) => {
-                    self.open_file(path);
-                }
-                Command::SaveFile(path) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-
-                    self.save_buffer(buffer_id, path);
-                }
-                Command::Language(language) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    match language {
-                        Some(language) => {
-                            if let Err(err) = self.workspace.buffers[buffer_id]
-                                .set_langauge(&language, self.proxy.dup())
-                            {
-                                self.palette.set_error(err);
-                            }
-                        }
-                        None => self
-                            .palette
-                            .set_msg(self.workspace.buffers[buffer_id].language_name()),
-                    }
-                }
-                Command::Encoding(encoding) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    match encoding {
-                        Some(encoding) => {
-                            match get_encoding(&encoding) {
-                                Some(encoding) => self.workspace.buffers[buffer_id].encoding = encoding,
-                                None => self.palette.set_error("unknown encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"),
-                            }
-                        }
-                        None => self
-                        .palette
-                        .set_msg(self.workspace.buffers[buffer_id].encoding.name()),
-                    }
-                }
-                Command::Indent(indent) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    match indent {
-                        Some(indent) => {
-                            if let Ok(spaces) = indent.parse::<NonZeroUsize>() {
-                                self.workspace.buffers[buffer_id].indent =
-                                    Indentation::Spaces(spaces);
-                            } else if indent == "tabs" {
-                                self.workspace.buffers[buffer_id].indent =
-                                    Indentation::Tabs(NonZeroUsize::new(1).unwrap());
-                            } else {
-                                self.palette
-                                    .set_error("Indentation must be a number or `tabs`");
-                            }
-                        }
-                        None => match self.workspace.buffers[buffer_id].indent {
-                            Indentation::Tabs(_) => self.palette.set_msg("tabs"),
-                            Indentation::Spaces(amount) => {
-                                self.palette.set_msg(format!("{} space(s)", amount))
-                            }
-                        },
-                    }
-                }
-                Command::LineEnding(line_ending) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    match line_ending {
-                        Some(line_ending) => {
-                            self.workspace.buffers[buffer_id].line_ending = line_ending
-                        }
-                        None => self.palette.set_msg(
-                            match self.workspace.buffers[buffer_id].line_ending {
-                                line_ending::LineEnding::Crlf => "crlf",
-                                line_ending::LineEnding::LF => "lf",
-                                _ => unreachable!(),
-                            },
-                        ),
-                    }
-                }
-                Command::New(path) => {
-                    if let Some(path) = path {
-                        match Buffer::with_path(path) {
-                            Ok(buffer) => drop(self.insert_buffer(buffer, true)),
-                            Err(err) => self.palette.set_error(err),
-                        }
-                    } else {
-                        self.insert_buffer(Buffer::new(), true);
-                    }
-                }
-                Command::Reload => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    if self.workspace.buffers[buffer_id].is_dirty() {
-                        self.palette.set_prompt(
-                            "The buffer is unsaved are you sure you want to reload?",
-                            ('y', PalettePromptEvent::Reload),
-                            ('n', PalettePromptEvent::Nop),
-                        );
-                    } else if let Err(err) = self.workspace.buffers[buffer_id].reload() {
-                        self.palette.set_error(err)
-                    };
-                }
-                Command::ReloadAll => {
-                    for buffer in self.workspace.buffers.values_mut() {
-                        if buffer.file().is_some() && buffer.is_dirty() {
-                            self.palette
-                                .set_error(format!("`{}` is dirty cannot reload", buffer.name()));
-                            continue;
-                        }
-
-                        if buffer.file().is_some() {
-                            if let Err(err) = buffer.reload() {
-                                self.palette.set_error(err);
-                            }
-                        }
-                    }
-                }
-                Command::Goto(line) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    self.workspace.buffers[buffer_id].goto(line);
-                }
-                Command::Case(case) => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    self.workspace.buffers[buffer_id].transform_case(case);
-                }
-                Command::Quit => self.quit(control_flow),
-                Command::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
-                Command::Logger => {
-                    self.logger_state.lines_scrolled_up = 0;
-                    self.workspace.panes.replace_current(PaneKind::Logger);
-                }
-                Command::Theme(name) => match name {
-                    Some(name) => {
-                        if self.themes.contains_key(&name) {
-                            self.config.theme = name;
-                        } else {
-                            self.palette.set_error("Theme not found");
-                        }
-                    }
-                    None => {
-                        self.palette.set_msg(&self.config.theme);
-                    }
-                },
-                Command::BufferPickerOpen => self.open_buffer_picker(),
-                Command::FilePickerOpen => {
-                    if self.config.picker.file_picker_auto_reload {
-                        self.file_scanner = FileScanner::new(
-                            env::current_dir().unwrap_or(PathBuf::from(".")),
-                            &self.config,
-                        );
-                    }
-                    self.open_file_picker();
-                }
-                Command::OpenConfig => self.open_config(),
-                Command::DefaultConfig => self.open_default_config(),
-                Command::ForceClose => self.force_close_current_buffer(),
-                Command::Close => self.close_current_buffer(),
-                Command::ClosePane => self.close_pane(),
-                Command::Paste => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    if let Err(err) =
-                        self.workspace.buffers[buffer_id].handle_input(InputCommand::Paste)
-                    {
-                        self.palette.set_error(err);
-                    }
-                }
-                Command::Copy => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    if let Err(err) =
-                        self.workspace.buffers[buffer_id].handle_input(InputCommand::Copy)
-                    {
-                        self.palette.set_error(err);
-                    }
-                }
-                Command::RevertBuffer => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    let _ =
-                        self.workspace.buffers[buffer_id].handle_input(InputCommand::RevertBuffer);
-                }
-                Command::GitReload => self.branch_watcher.force_reload(),
-                Command::GitDiff => {
-                    self.run_shell_command(vec!["git".into(), "diff".into()], true, true);
-                }
-            },
-            Err(err) => self.palette.set_error(err),
-        }
-    }
-
     pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
         match event {
             UserEvent::Wake => (),
             UserEvent::PaletteEvent { mode, content } => match mode.as_str() {
-                "command" => self.handle_command(content, control_flow),
+                "command" => match cmd_parser::parse_cmd(&content) {
+                    Ok(cmd) => {
+                        self.palette.reset();
+                        self.handle_single_input_command(cmd, control_flow);
+                    }
+                    Err(err) => self.palette.set_error(err),
+                },
                 "goto" => {
                     self.palette.reset();
                     if let Ok(line) = content.trim().parse::<i64>() {
@@ -1307,7 +1260,7 @@ impl Engine {
         self.save_jobs.push(job);
     }
 
-    pub fn get_current_keymappings(&self) -> &[(Mapping, InputCommand, Exclusiveness)] {
+    pub fn get_current_keymappings(&self) -> &[(Mapping, Cmd, Exclusiveness)] {
         if self.choord {
             self.key_mappings.get("choord").unwrap()
         } else {
