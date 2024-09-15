@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use super::error::CommandParseError;
+use crate::palette::cmd::Command;
 
 #[derive(Debug, Clone)]
-pub enum CommandTemplateArg {
+pub enum CmdTemplateArg {
     Alternatives(Vec<String>),
     Int,
     String,
@@ -11,20 +12,20 @@ pub enum CommandTemplateArg {
     Theme,
 }
 
-impl CommandTemplateArg {
+impl CmdTemplateArg {
     fn parse_arg(&self, token: String) -> Result<CommandArg, CommandParseError> {
         match self {
-            CommandTemplateArg::Alternatives(alternatives) => {
+            CmdTemplateArg::Alternatives(alternatives) => {
                 if alternatives.contains(&token) {
                     Ok(CommandArg::String(token))
                 } else {
                     Err(CommandParseError::UnknownArg(token))
                 }
             }
-            CommandTemplateArg::Int => Ok(CommandArg::Int(token.parse()?)),
-            CommandTemplateArg::String => Ok(CommandArg::String(token)),
-            CommandTemplateArg::Theme => Ok(CommandArg::String(token)),
-            CommandTemplateArg::Path => {
+            CmdTemplateArg::Int => Ok(CommandArg::Int(token.parse()?)),
+            CmdTemplateArg::String => Ok(CommandArg::String(token)),
+            CmdTemplateArg::Theme => Ok(CommandArg::String(token)),
+            CmdTemplateArg::Path => {
                 let home_dir = if let Some(directories) = directories::UserDirs::new() {
                     directories.home_dir().into()
                 } else {
@@ -42,18 +43,18 @@ impl CommandTemplateArg {
 }
 
 #[derive(Debug, Clone)]
-pub struct CommandTemplate {
+pub struct CmdBuilder {
     pub name: String,
     pub aliases: Vec<String>,
-    pub args: Option<(String, CommandTemplateArg)>,
+    pub args: Option<(String, CmdTemplateArg)>,
     pub optional: bool,
     custom_alternative_error: Option<fn(&str, &[String]) -> String>,
 }
 
-impl CommandTemplate {
+impl CmdBuilder {
     pub fn new(
         name: impl Into<String>,
-        args: Option<(&str, CommandTemplateArg)>,
+        args: Option<(&str, CmdTemplateArg)>,
         optional: bool,
     ) -> Self {
         Self {
@@ -70,26 +71,38 @@ impl CommandTemplate {
         self
     }
 
-    pub fn _add_aliases(mut self, args: &[impl ToString]) -> Self {
-        self.aliases.extend(args.iter().map(|a| a.to_string()));
+    pub fn set_custom_alternative_error(mut self, f: fn(&str, &[String]) -> String) -> Self {
+        self.custom_alternative_error = Some(f);
         self
     }
 
-    pub fn matches(&self, query: impl AsRef<str>) -> bool {
-        let query = query.as_ref();
-        if self.name == query {
-            return true;
+    pub fn build<T: Fn(&mut [Option<CommandArg>]) -> Command + Send + Sync + 'static>(
+        self,
+        map: T,
+    ) -> CommandTemplate {
+        CommandTemplate {
+            name: self.name,
+            aliases: self.aliases,
+            args: self.args,
+            optional: self.optional,
+            custom_alternative_error: self.custom_alternative_error,
+            map: Box::new(map),
         }
-
-        for alias in &self.aliases {
-            if alias == query {
-                return true;
-            }
-        }
-
-        false
     }
+}
 
+type CmdMapper = dyn Fn(&mut [Option<CommandArg>]) -> Command + Send + Sync;
+
+pub struct CommandTemplate {
+    pub name: String,
+    pub aliases: Vec<String>,
+    pub args: Option<(String, CmdTemplateArg)>,
+    pub optional: bool,
+    custom_alternative_error: Option<fn(&str, &[String]) -> String>,
+    map: Box<CmdMapper>,
+}
+
+impl CommandTemplate {
     pub fn parse_cmd(
         &self,
         tokens: impl ExactSizeIterator<Item = String>,
@@ -109,10 +122,10 @@ impl CommandTemplate {
                     Ok(arg) => arg,
                     Err(CommandParseError::UnknownArg(arg))
                         if self.custom_alternative_error.is_some()
-                            && matches!(template, CommandTemplateArg::Alternatives(_)) =>
+                            && matches!(template, CmdTemplateArg::Alternatives(_)) =>
                     {
                         match template {
-                            CommandTemplateArg::Alternatives(alts) => {
+                            CmdTemplateArg::Alternatives(alts) => {
                                 let error_creator = self.custom_alternative_error.as_ref().unwrap();
                                 return Err(CommandParseError::Custom(error_creator(
                                     arg.as_str(),
@@ -135,6 +148,21 @@ impl CommandTemplate {
         Ok(generic)
     }
 
+    pub fn matches(&self, query: impl AsRef<str>) -> bool {
+        let query = query.as_ref();
+        if self.name == query {
+            return true;
+        }
+
+        for alias in &self.aliases {
+            if alias == query {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn usage(&self) -> String {
         let mut usage = self.name.clone();
         if let Some((arg, _)) = &self.args {
@@ -145,9 +173,8 @@ impl CommandTemplate {
         usage
     }
 
-    pub fn set_custom_alternative_error(mut self, f: fn(&str, &[String]) -> String) -> Self {
-        self.custom_alternative_error = Some(f);
-        self
+    pub fn to_cmd(&self, args: &mut [Option<CommandArg>]) -> Command {
+        (self.map)(args)
     }
 }
 

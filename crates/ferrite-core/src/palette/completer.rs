@@ -5,7 +5,7 @@ use sublime_fuzzy::{FuzzySearch, Scoring};
 
 use self::path_completer::complete_file_path;
 use super::cmd_parser::{
-    generic_cmd::CommandTemplateArg,
+    generic_cmd::CmdTemplateArg,
     get_command_input_type,
     lexer::{self, Token},
 };
@@ -155,14 +155,14 @@ impl Completer {
                     };
 
                     match input_type {
-                        CommandTemplateArg::Path => {
+                        CmdTemplateArg::Path => {
                             self.options.extend(
                                 complete_file_path(text)
                                     .into_iter()
                                     .map(|path| Box::new(path) as Box<dyn CompletionOption>),
                             );
                         }
-                        CommandTemplateArg::Alternatives(alternatives) => {
+                        CmdTemplateArg::Alternatives(alternatives) => {
                             self.options.extend(
                                 alternatives
                                     .iter()
@@ -178,7 +178,7 @@ impl Completer {
                                     .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                             );
                         }
-                        CommandTemplateArg::Theme => {
+                        CmdTemplateArg::Theme => {
                             self.options.extend(
                                 ctx.themes
                                     .keys()

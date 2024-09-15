@@ -565,7 +565,7 @@ impl Engine {
                         env!("GIT_HASH"),
                     ));
                 }
-                Command::Url => self.open_selected_url(),
+                Command::UrlOpen => self.open_selected_url(),
                 Command::Pwd => match env::current_dir() {
                     Ok(path) => self.palette.set_msg(path.to_string_lossy()),
                     Err(err) => self.palette.set_error(err),
@@ -621,7 +621,7 @@ impl Engine {
                 Command::Shell { args, pipe } => {
                     self.run_shell_command(args, pipe, false);
                 }
-                Command::Delete => {
+                Command::Trash => {
                     let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
                     else {
                         return;
@@ -630,9 +630,15 @@ impl Engine {
                     match self.workspace.buffers[buffer_id].move_to_trash() {
                         Ok(true) => {
                             let path = self.workspace.buffers[buffer_id].file().unwrap();
-                            self.palette
-                                .set_msg(format!("`{}` moved to trash", path.to_string_lossy()));
-                            self.close_current_buffer();
+                            match trash::delete(path) {
+                                Ok(_) => {
+                                    self.palette.set_msg(format!(
+                                        "`{}` moved to trash",
+                                        path.to_string_lossy()
+                                    ));
+                                }
+                                Err(err) => self.palette.set_error(err),
+                            }
                         }
                         Ok(false) => {
                             self.palette

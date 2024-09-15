@@ -1,8 +1,9 @@
 use std::{str::FromStr, sync::LazyLock};
 
 use ferrite_utility::line_ending::LineEnding;
+use generic_cmd::CmdBuilder;
 
-use self::generic_cmd::{CommandTemplate, CommandTemplateArg};
+use self::generic_cmd::{CmdTemplateArg, CommandTemplate};
 use super::cmd::Command;
 use crate::{
     buffer::{case::Case, encoding::get_encoding_names},
@@ -25,79 +26,8 @@ pub fn parse_cmd(input: &str) -> Result<Command, CommandParseError> {
         return Err(CommandParseError::UnkownCommand(name.text));
     };
 
-    let GenericCommand { name, mut args } = cmd.parse_cmd(tokens.into_iter().map(|t| t.text))?;
-    let name = name.as_str();
-
-    #[rustfmt::skip]
-    let cmd = match (name, args.as_mut_slice()) {
-        ("open", [path, ..]) => Command::OpenFile(path.take().unwrap().unwrap_path()),
-        ("cd", [path, ..]) => Command::Cd(path.take().unwrap().unwrap_path()),
-        ("save", [path, ..]) => Command::SaveFile(path.take().map(|arg| arg.unwrap_path())),
-        ("goto", [line, ..]) => Command::Goto(line.take().unwrap().unwrap_int()),
-        ("theme", [theme, ..]) => Command::Theme(theme.take().map(|theme| theme.unwrap_string())),
-        ("language", [language, ..]) => Command::Language(language.take().map(|language| language.unwrap_string())),
-        ("encoding", [encoding, ..]) => Command::Encoding(encoding.take().map(|encoding| encoding.unwrap_string())),
-        ("indent", [indent, ..]) => Command::Indent(indent.take().map(|indent| indent.unwrap_string())),
-        ("new", [path, ..]) => Command::New(path.take().map(|arg| arg.unwrap_path())),
-        ("replace-all", [replacement, ..]) => Command::ReplaceAll(replacement.take().unwrap().unwrap_string()),
-        ("replace", [..]) => Command::Replace,
-        ("search", [..]) => Command::Search,
-        ("about", [..]) => Command::About,
-        ("path", [..]) => Command::Path,
-        ("git-reload", [..]) => Command::GitReload,
-        ("git-diff", [..]) => Command::GitDiff,
-        ("pwd", [..]) => Command::Pwd,
-        ("reload", [..]) => Command::Reload,
-        ("reload-all", [..]) => Command::ReloadAll,
-        ("logger", [..]) => Command::Logger,
-        ("quit!", [..]) => Command::ForceQuit,
-        ("quit", [..]) => Command::Quit,
-        ("buffer-picker", [..]) => Command::BufferPickerOpen,
-        ("file-picker", [..]) => Command::FilePickerOpen,
-        ("file-picker-reload", [..]) => Command::FilePickerReload,
-        ("config", [..]) => Command::OpenConfig,
-        ("default-config", [..]) => Command::DefaultConfig,
-        ("close!", [..]) => Command::ForceClose,
-        ("close", [..]) => Command::Close,
-        ("close-pane", [..]) => Command::ClosePane,
-        ("paste", [..]) => Command::Paste,
-        ("copy", [..]) => Command::Copy,
-        ("format", [..]) => Command::Format,
-        ("format-selection", [..]) => Command::FormatSelection,
-        ("revert-buffer", [..]) => Command::RevertBuffer,
-        ("delete", [..]) => Command::Delete,
-        ("url", [..]) => Command::Url,
-        ("sort", [order, ..]) => Command::SortLines(order.take().map(|o|o.unwrap_string() == "asc").unwrap_or(true)),
-        ("split", [direction, ..]) => {
-            Command::Split(Direction::from_str(direction.take().unwrap().unwrap_string().as_str()).unwrap())
-        },
-        ("shell", args) => {
-            let mut paths = Vec::new();
-            for arg in args {
-                paths.push(arg.take().unwrap().unwrap_path());
-            }
-            Command::Shell{ args: paths, pipe: false }
-        }
-        ("pipe", args) => {
-            let mut paths = Vec::new();
-            for arg in args {
-                paths.push(arg.take().unwrap().unwrap_path());
-            }
-            Command::Shell{ args: paths, pipe: true }
-        }
-        ("case", [case, ..]) =>  {
-            Command::Case(Case::from_str(case.take().unwrap().unwrap_string().as_str()).unwrap())
-        }
-        ("line-ending", [line_ending, ..]) => Command::LineEnding(line_ending.take().map(|line_ending| {
-            match line_ending.unwrap_string().as_str() {
-                "lf" => LineEnding::LF,
-                "crlf" => LineEnding::Crlf,
-                _ => unreachable!(),
-            }
-        })),
-        _ => return Err(CommandParseError::UnkownCommand(name.to_string())),
-    };
-
+    let GenericCommand { mut args, .. } = cmd.parse_cmd(tokens.into_iter().map(|t| t.text))?;
+    let cmd = cmd.to_cmd(args.as_mut_slice());
     Ok(cmd)
 }
 
@@ -105,7 +35,7 @@ pub fn get_command_names() -> Vec<&'static str> {
     COMMANDS.iter().map(|cmd| cmd.name.as_str()).collect()
 }
 
-pub fn get_command_input_type(name: &str) -> Option<&'static CommandTemplateArg> {
+pub fn get_command_input_type(name: &str) -> Option<&'static CmdTemplateArg> {
     COMMANDS
         .iter()
         .find(|cmd| cmd.name == name || cmd.aliases.iter().any(|alias| alias.as_str() == name))
@@ -113,54 +43,85 @@ pub fn get_command_input_type(name: &str) -> Option<&'static CommandTemplateArg>
         .unwrap_or_default()
 }
 
-#[rustfmt::skip]
 static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
     let mut cmds = vec![
-        CommandTemplate::new("open", Some(("path", CommandTemplateArg::Path)), false).add_alias("o"),
-        CommandTemplate::new("cd", Some(("path", CommandTemplateArg::Path)), false),
-        CommandTemplate::new("save", Some(("path", CommandTemplateArg::Path)), true).add_alias("s"),
-        CommandTemplate::new("goto", Some(("line", CommandTemplateArg::Int)), false).add_alias("g"),
-        CommandTemplate::new("theme", Some(("theme", CommandTemplateArg::Theme)), true),
-        CommandTemplate::new("new", Some(("path", CommandTemplateArg::Path)), true).add_alias("n"),
-        CommandTemplate::new("pwd", None, true),
-        CommandTemplate::new("indent", Some(("indent", CommandTemplateArg::String)), true),
-        CommandTemplate::new("replace-all", Some(("replace-all", CommandTemplateArg::String)), false),
-        CommandTemplate::new("replace", None, true),
-        CommandTemplate::new("search", None, true),
-        CommandTemplate::new("about", None, true),
-        CommandTemplate::new("path", None, true),
-        CommandTemplate::new("git-reload", None, true),
-        CommandTemplate::new("git-diff", None, true),
-        CommandTemplate::new("reload", None, true).add_alias("r"),
-        CommandTemplate::new("reload-all", None, true),
-        CommandTemplate::new("logger", None, true).add_alias("log"),
-        CommandTemplate::new("quit!", None, true).add_alias("q!"),
-        CommandTemplate::new("quit", None, true).add_alias("q"),
-        CommandTemplate::new("buffer-picker", None, true),
-        CommandTemplate::new("file-picker", None, true),
-        CommandTemplate::new("file-picker-reload", None, true),
-        CommandTemplate::new("config", None, true),
-        CommandTemplate::new("default-config", None, true),
-        CommandTemplate::new("close!", None, true),
-        CommandTemplate::new("close", None, true),
-        CommandTemplate::new("close-pane", None, true),
-        CommandTemplate::new("paste", None, true),
-        CommandTemplate::new("copy", None, true),
-        CommandTemplate::new("format", None, true),
-        CommandTemplate::new("format-selection", None, true),
-        CommandTemplate::new("delete", None, true),
-        CommandTemplate::new("url", None, true),
-        CommandTemplate::new("revert-buffer", None, true).add_alias("rb"),
-        CommandTemplate::new("pipe", Some(("arg", CommandTemplateArg::Path)), false),
-        CommandTemplate::new("shell", Some(("arg", CommandTemplateArg::Path)), false).add_alias("sh"),
-        CommandTemplate::new("sort", Some(("order", CommandTemplateArg::Alternatives(["asc", "desc"].iter().map(|s| s.to_string()).collect()))), true),
-        CommandTemplate::new("split", Some(("direction", CommandTemplateArg::Alternatives(["up", "down", "left", "right"].iter().map(|s| s.to_string()).collect()))), false),
-        CommandTemplate::new("case", Some(("encoding", CommandTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false),
-        CommandTemplate::new("encoding", Some(("encoding", CommandTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
-            .set_custom_alternative_error(|encoding, _| format!("`{encoding}` is unknown an encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs")),
-        CommandTemplate::new("language", Some(("language", CommandTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true).add_alias("lang"),
-        CommandTemplate::new("line-ending", Some(("line-ending", CommandTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))), true),
+        CmdBuilder::new("pwd", None, true).build(|_| Command::Pwd),
+        CmdBuilder::new("replace", None, true).build(|_| Command::Replace),
+        CmdBuilder::new("search", None, true).build(|_| Command::Search),
+        CmdBuilder::new("about", None, true).build(|_| Command::About),
+        CmdBuilder::new("path", None, true).build(|_| Command::Path),
+        CmdBuilder::new("git-reload", None, true).build(|_| Command::GitReload),
+        CmdBuilder::new("git-diff", None, true).build(|_| Command::GitDiff),
+        CmdBuilder::new("reload", None, true).add_alias("r").build(|_| Command::Reload),
+        CmdBuilder::new("reload-all", None, true).build(|_| Command::ReloadAll),
+        CmdBuilder::new("logger", None, true).add_alias("log").build(|_| Command::Logger),
+        CmdBuilder::new("quit!", None, true).add_alias("q!").build(|_| Command::ForceQuit),
+        CmdBuilder::new("quit", None, true).add_alias("q").build(|_| Command::Quit),
+        CmdBuilder::new("buffer-picker", None, true).build(|_| Command::BufferPickerOpen),
+        CmdBuilder::new("file-picker", None, true).build(|_| Command::FilePickerOpen),
+        CmdBuilder::new("file-picker-reload", None, true).build(|_| Command::FilePickerReload),
+        CmdBuilder::new("config", None, true).build(|_| Command::OpenConfig),
+        CmdBuilder::new("default-config", None, true).build(|_| Command::DefaultConfig),
+        CmdBuilder::new("close!", None, true).build(|_| Command::ForceClose),
+        CmdBuilder::new("close", None, true).build(|_| Command::Close),
+        CmdBuilder::new("close-pane", None, true).build(|_| Command::ClosePane),
+        CmdBuilder::new("paste", None, true).build(|_| Command::Paste),
+        CmdBuilder::new("copy", None, true).build(|_| Command::Copy),
+        CmdBuilder::new("format", None, true).build(|_| Command::Format),
+        CmdBuilder::new("format-selection", None, true).build(|_| Command::FormatSelection),
+        CmdBuilder::new("trash", None, true).build(|_| Command::Trash),
+        CmdBuilder::new("url-open", None, true).build(|_| Command::UrlOpen),
+        CmdBuilder::new("revert-buffer", None, true).add_alias("rb").build(|_| Command::RevertBuffer),
+        CmdBuilder::new("open", Some(("path", CmdTemplateArg::Path)), false).add_alias("o").build(|args| Command::OpenFile(args[0].take().unwrap().unwrap_path())),
+        CmdBuilder::new("cd", Some(("path", CmdTemplateArg::Path)), false).build(|args| Command::Cd(args[0].take().unwrap().unwrap_path())),
+        CmdBuilder::new("save", Some(("path", CmdTemplateArg::Path)), true).add_alias("s").build(|args| Command::SaveFile(args[0].take().map(|arg| arg.unwrap_path()))),
+        CmdBuilder::new("goto", Some(("line", CmdTemplateArg::Int)), false).add_alias("g").build(|args| Command::Goto(args[0].take().unwrap().unwrap_int())),
+        CmdBuilder::new("theme", Some(("theme", CmdTemplateArg::Theme)), true).build(|args| Command::Theme(args[0].take().map(|theme| theme.unwrap_string()))),
+        CmdBuilder::new("new", Some(("path", CmdTemplateArg::Path)), true).add_alias("n").build(|args| Command::New(args[0].take().map(|arg| arg.unwrap_path()))),
+        CmdBuilder::new("indent", Some(("indent", CmdTemplateArg::String)), true).build(|args| Command::Indent(args[0].take().map(|indent| indent.unwrap_string()))),
+        CmdBuilder::new("replace-all", Some(("replace-all", CmdTemplateArg::String)), false).build(|args| Command::ReplaceAll(args[0].take().unwrap().unwrap_string())),
+        CmdBuilder::new("pipe", Some(("arg", CmdTemplateArg::Path)), false).build(|args| {
+            let mut paths = Vec::new();
+            for arg in args {
+                paths.push(arg.take().unwrap().unwrap_path());
+            }
+            Command::Shell{ args: paths, pipe: true }
+        }),
+        CmdBuilder::new("shell", Some(("arg", CmdTemplateArg::Path)), false).add_alias("sh").build(|args| {
+            let mut paths = Vec::new();
+            for arg in args {
+                paths.push(arg.take().unwrap().unwrap_path());
+            }
+            Command::Shell{ args: paths, pipe: false }
+        }),
+        CmdBuilder::new("sort", Some(("order", CmdTemplateArg::Alternatives(["asc", "desc"].iter().map(|s| s.to_string()).collect()))), true).build(|args| {
+            Command::SortLines(args[0].take().map(|o|o.unwrap_string() == "asc").unwrap_or(true))
+        }),
+        CmdBuilder::new("split", Some(("direction", CmdTemplateArg::Alternatives(["up", "down", "left", "right"].iter().map(|s| s.to_string()).collect()))), false).build(|args| {
+            Command::Split(Direction::from_str(args[0].take().unwrap().unwrap_string().as_str()).unwrap())
+        }),
+        CmdBuilder::new("case", Some(("case", CmdTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false).build(|args| {
+            Command::Case(Case::from_str(args[0].take().unwrap().unwrap_string().as_str()).unwrap())
+        }),
+        CmdBuilder::new("encoding", Some(("encoding", CmdTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
+            .set_custom_alternative_error(|encoding, _| format!("`{encoding}` is unknown an encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"))
+            .build(|args| {
+                Command::Encoding(args[0].take().map(|encoding| encoding.unwrap_string()))
+            }),
+        CmdBuilder::new("language", Some(("language", CmdTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true)
+            .add_alias("lang")
+            .build(|args| Command::Language(args[0].take().map(|language| language.unwrap_string()))),
+        CmdBuilder::new("line-ending", Some(("line-ending", CmdTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))), true)
+            .build(|args| {
+                Command::LineEnding(args[0].take().map(|line_ending| {
+                    match line_ending.unwrap_string().as_str() {
+                        "lf" => LineEnding::LF,
+                        "crlf" => LineEnding::Crlf,
+                        _ => unreachable!(),
+                    }
+                }))
+        }),
     ];
-    cmds.sort_by(|cmd1, cmd2| cmd1.name.cmp(&cmd2.name) );
+    cmds.sort_by(|cmd1, cmd2| cmd1.name.cmp(&cmd2.name));
     cmds
 });

@@ -27,7 +27,7 @@ pub enum Command {
     Logger,
     ForceQuit,
     Quit,
-    Url,
+    UrlOpen,
     Goto(i64),
     Indent(Option<String>),
     Theme(Option<String>),
@@ -47,5 +47,5 @@ pub enum Command {
     GitReload,
     GitDiff,
     RevertBuffer,
-    Delete,
+    Trash,
 }
