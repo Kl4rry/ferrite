@@ -17,7 +17,7 @@ jobs:
         run: cargo build --release --all-features
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ubuntu-build-artifacts
           path: target/release/ferrite
@@ -39,7 +39,7 @@ jobs:
         run: cross build --target=x86_64-unknown-linux-musl --release
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ubuntu-musl-build-artifacts
           path: target/x86_64-unknown-linux-musl/release/ferrite
@@ -62,7 +62,7 @@ jobs:
           cargo build --release --all-features
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ubuntu-old-glibc-build-artifacts
           path: target/release/ferrite
@@ -81,7 +81,7 @@ jobs:
         run: cargo build --release --all-features
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: windows-build-artifacts
           path: target/release/ferrite.exe
