@@ -2,7 +2,7 @@
 - [x] VScode/windows like cursor movement
 - [ ] Multicursor
 - [x] Search
-- [ ] Replace
+- [x] Replace
 - [x] Replace all
 - [ ] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
 - [x] Mouse jumping and selection
@@ -36,7 +36,7 @@
 - [ ] Project wide search using ripgrep that displays matches in multibuffers
 - [ ] File tree
 - [ ] Basic auto complete recommendations based on words in document
-- [ ] Relative line numbers
+- [x] Relative line numbers
 - [ ] Softwrapping
 
 ### Big features
