@@ -1,2 +1,2 @@
 #!/bin/bash
-docker build -t ferrite .
+docker build --network=host -t ferrite .
