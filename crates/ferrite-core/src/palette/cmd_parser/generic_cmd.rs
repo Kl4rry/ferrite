@@ -76,22 +76,17 @@ impl CmdBuilder {
         self
     }
 
-    pub fn build<T: Fn(&mut [Option<CommandArg>]) -> Cmd + Send + Sync + 'static>(
-        self,
-        map: T,
-    ) -> CommandTemplate {
+    pub fn build(self, map: fn(&mut [Option<CommandArg>]) -> Cmd) -> CommandTemplate {
         CommandTemplate {
             name: self.name,
             aliases: self.aliases,
             args: self.args,
             optional: self.optional,
             custom_alternative_error: self.custom_alternative_error,
-            map: Box::new(map),
+            map,
         }
     }
 }
-
-type CmdMapper = dyn Fn(&mut [Option<CommandArg>]) -> Cmd + Send + Sync;
 
 pub struct CommandTemplate {
     pub name: String,
@@ -99,7 +94,7 @@ pub struct CommandTemplate {
     pub args: Option<(String, CmdTemplateArg)>,
     pub optional: bool,
     custom_alternative_error: Option<fn(&str, &[String]) -> String>,
-    map: Box<CmdMapper>,
+    map: fn(&mut [Option<CommandArg>]) -> Cmd,
 }
 
 impl CommandTemplate {
