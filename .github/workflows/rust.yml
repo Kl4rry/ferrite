@@ -44,33 +44,33 @@ jobs:
           name: ubuntu-musl-build-artifacts
           path: target/x86_64-unknown-linux-musl/release/ferrite
 
-  build-linux-old-glibc:
-    runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux2014_x86_64
-    # make GHA actions use node16 which still works with RHEL7
-    # See https://github.blog/changelog/2024-03-07-github-actions-all-actions-will-run-on-node20-instead-of-node16-by-default/
-    # Unclear how long this will work though
-    env:
-      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
-
-    steps:
-      - uses: actions/checkout@v1
-
-      - name: Install Rust
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup_init.sh
-          sh rustup_init.sh -y
-
-      - name: Build
-        run: |
-          source "$HOME/.cargo/env"
-          cargo build --release --all-features
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ubuntu-old-glibc-build-artifacts
-          path: target/release/ferrite
+#  build-linux-old-glibc:
+#    runs-on: ubuntu-latest
+#    container: quay.io/pypa/manylinux2014_x86_64
+#    # make GHA actions use node16 which still works with RHEL7
+#    # See https://github.blog/changelog/2024-03-07-github-actions-all-actions-will-run-on-node20-instead-of-node16-by-default/
+#    # Unclear how long this will work though
+#    env:
+#      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+#
+#    steps:
+#      - uses: actions/checkout@v1
+#
+#      - name: Install Rust
+#        run: |
+#          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup_init.sh
+#          sh rustup_init.sh -y
+#
+#      - name: Build
+#        run: |
+#          source "$HOME/.cargo/env"
+#          cargo build --release --all-features
+#
+#      - name: Upload build artifacts
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: ubuntu-old-glibc-build-artifacts
+#          path: target/release/ferrite
 
   build-win:
     runs-on: windows-latest

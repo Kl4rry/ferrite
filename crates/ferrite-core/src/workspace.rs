@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::Result;
-use ferrite_utility::graphemes::RopeGraphemeExt;
 use serde::{Deserialize, Serialize};
 use slotmap::{Key, SlotMap};
 
@@ -17,20 +16,22 @@ slotmap::new_key_type! {
 
 pub struct Workspace {
     pub buffers: SlotMap<BufferId, Buffer>,
+    pub buffer_extra_data: Vec<BufferData>,
     pub panes: Panes,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct WorkspaceData {
     buffers: Vec<BufferData>,
+    open_buffers: Vec<PathBuf>,
     current_buffer: Option<PathBuf>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BufferData {
-    path: PathBuf,
-    cursor: Cursor,
-    line_pos: usize,
+    pub path: PathBuf,
+    pub cursor: Cursor,
+    pub line_pos: usize,
 }
 
 impl Default for Workspace {
@@ -39,6 +40,7 @@ impl Default for Workspace {
         let buffer_id = buffers.insert(Buffer::new());
         Self {
             buffers,
+            buffer_extra_data: Vec::new(),
             panes: Panes::new(buffer_id),
         }
     }
@@ -48,7 +50,8 @@ impl Workspace {
     pub fn save_workspace(&self) -> Result<()> {
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let mut workspace_data = WorkspaceData {
-            buffers: Vec::new(),
+            buffers: self.buffer_extra_data.clone(),
+            open_buffers: Vec::new(),
             current_buffer: None,
         };
 
@@ -66,12 +69,7 @@ impl Workspace {
                 continue;
             }
 
-            let buffer_data = BufferData {
-                path: path.to_path_buf(),
-                cursor: buffer.cursor(),
-                line_pos: buffer.line_pos(),
-            };
-            workspace_data.buffers.push(buffer_data);
+            workspace_data.open_buffers.push(path.to_path_buf());
         }
 
         fs::create_dir_all(workspace_file.parent().unwrap())?;
@@ -83,32 +81,33 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn load_workspace() -> Result<Self> {
+    pub fn load_workspace(load_buffers: bool) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
         let mut panes = Panes::new(BufferId::null());
 
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
+
+        if load_buffers {
+            for path in &workspace.open_buffers {
+                tracing::info!("Loaded workspace buffer: {}", path.display());
+                match Buffer::from_file(path) {
+                    Ok(buffer) => {
+                        buffers.insert(buffer);
+                    }
+                    Err(err) => tracing::error!("Error loading buffer: {}", &err),
+                };
+            }
+        }
+
         for buffer_data in &workspace.buffers {
-            tracing::info!("Loaded workspace buffer: {}", buffer_data.path.display());
-            match Buffer::from_file(&buffer_data.path) {
-                Ok(mut buffer) => {
-                    let cursor = buffer_data.cursor;
-                    let line_pos = buffer_data.line_pos;
-                    buffer.vertical_scroll(line_pos as i64);
-                    let postion = buffer
-                        .rope()
-                        .byte_to_point(cursor.position.min(buffer.len_bytes()));
-                    let anchor = buffer
-                        .rope()
-                        .byte_to_point(cursor.anchor.min(buffer.len_bytes()));
-                    buffer.set_cursor_pos(postion.column, postion.line);
-                    buffer.set_anchor_pos(anchor.column, anchor.line);
-                    buffer.ensure_cursor_is_valid();
-                    buffers.insert(buffer);
+            for (_, buffer) in &mut buffers {
+                if let Some(path) = buffer.file() {
+                    if buffer_data.path == path {
+                        buffer.load_buffer_data(buffer_data);
+                    }
                 }
-                Err(err) => tracing::error!("Error loading buffer: {}", &err),
-            };
+            }
         }
 
         if let Some(current_buffer) = &workspace.current_buffer {
@@ -130,7 +129,11 @@ impl Workspace {
             }
         }
 
-        Ok(Self { buffers, panes })
+        Ok(Self {
+            buffers,
+            buffer_extra_data: workspace.buffers.clone(),
+            panes,
+        })
     }
 }
 

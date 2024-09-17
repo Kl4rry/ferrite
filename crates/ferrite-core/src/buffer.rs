@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{
     clipboard, cmd::LineMoveDir, event_loop_proxy::EventLoopProxy,
-    language::detect::detect_language,
+    language::detect::detect_language, workspace::BufferData,
 };
 
 pub mod case;
@@ -1951,6 +1951,21 @@ impl Buffer {
                 searcher.get_next_match();
             }
         }
+    }
+
+    pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
+        let cursor = buffer_data.cursor;
+        let line_pos = buffer_data.line_pos;
+        self.vertical_scroll(line_pos as i64);
+        let postion = self
+            .rope()
+            .byte_to_point(cursor.position.min(self.len_bytes()));
+        let anchor = self
+            .rope()
+            .byte_to_point(cursor.anchor.min(self.len_bytes()));
+        self.set_cursor_pos(postion.column, postion.line);
+        self.set_anchor_pos(anchor.column, anchor.line);
+        self.ensure_cursor_is_valid();
     }
 }
 

@@ -41,7 +41,7 @@ use crate::{
     spinner::Spinner,
     theme::EditorTheme,
     watcher::FileWatcher,
-    workspace::{BufferId, Workspace},
+    workspace::{BufferData, BufferId, Workspace},
 };
 
 pub struct Engine {
@@ -167,20 +167,18 @@ impl Engine {
 
         let job_manager = JobManager::new(proxy.dup());
 
-        let workspace = if buffers.is_empty() {
-            match Workspace::load_workspace() {
-                Ok(workspace) => workspace,
-                Err(err) => {
-                    tracing::error!("Error loading workspace: {err}");
-                    Workspace::default()
-                }
-            }
-        } else {
-            Workspace {
-                buffers,
-                panes: Panes::new(current_buffer_id),
+        let mut workspace = match Workspace::load_workspace(buffers.is_empty()) {
+            Ok(workspace) => workspace,
+            Err(err) => {
+                tracing::error!("Error loading workspace: {err}");
+                Workspace::default()
             }
         };
+
+        if !buffers.is_empty() {
+            workspace.buffers = buffers;
+            workspace.panes = Panes::new(current_buffer_id);
+        }
 
         let branch_watcher = BranchWatcher::new(proxy.dup())?;
 
@@ -253,6 +251,34 @@ impl Engine {
                 }
             }
         }
+
+        let mut new_buffers = Vec::new();
+        for (_, buffer) in &self.workspace.buffers {
+            if let Some(path) = buffer.file() {
+                match self
+                    .workspace
+                    .buffer_extra_data
+                    .iter_mut()
+                    .find(|buffer| buffer.path == path)
+                {
+                    Some(buffer_data) => {
+                        buffer_data.cursor = buffer.cursor();
+                        buffer_data.line_pos = buffer.line_pos();
+                        // TODO add language indent and other
+                    }
+                    None => {
+                        new_buffers.push(BufferData {
+                            path: path.to_path_buf(),
+                            cursor: buffer.cursor(),
+                            line_pos: buffer.line_pos(),
+                        });
+                    }
+                }
+            }
+        }
+        self.workspace
+            .buffer_extra_data
+            .extend_from_slice(&new_buffers);
 
         for job in &mut self.save_jobs {
             if let Ok(result) = job.recv_try() {
@@ -501,7 +527,7 @@ impl Engine {
                                 }
                             }
 
-                            self.workspace = match Workspace::load_workspace() {
+                            self.workspace = match Workspace::load_workspace(true) {
                                 Ok(workspace) => workspace,
                                 Err(err) => {
                                     let msg = format!("Error loading workspace: {err}");
@@ -971,8 +997,17 @@ impl Engine {
                 self.workspace.panes.replace_current(PaneKind::Buffer(id));
                 true
             }
-            None => match Buffer::from_file(path) {
-                Ok(buffer) => {
+            None => match Buffer::from_file(&real_path) {
+                Ok(mut buffer) => {
+                    if let Some(buffer_data) = self
+                        .workspace
+                        .buffer_extra_data
+                        .iter()
+                        .find(|b| b.path == real_path)
+                    {
+                        buffer.load_buffer_data(buffer_data);
+                    }
+
                     if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
                         let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
                         if current_buf.is_disposable() {
