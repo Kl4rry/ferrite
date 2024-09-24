@@ -82,7 +82,7 @@ impl Workspace {
     }
 
     pub fn load_workspace(load_buffers: bool) -> Result<Self> {
-        let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
+        let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
         let mut panes = Panes::new(BufferId::null());
 
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
@@ -90,6 +90,16 @@ impl Workspace {
 
         if load_buffers {
             for path in &workspace.open_buffers {
+                let Ok(path) = dunce::canonicalize(path) else {
+                    continue;
+                };
+                // Avoid loading the same buffer twice as everthing assumes that buffers are unique
+                if buffers
+                    .iter()
+                    .any(|(_, buffer)| buffer.file() == Some(&path))
+                {
+                    continue;
+                }
                 tracing::info!("Loaded workspace buffer: {}", path.display());
                 match Buffer::from_file(path) {
                     Ok(buffer) => {
