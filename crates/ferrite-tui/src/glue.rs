@@ -19,8 +19,8 @@ pub fn convert_style(style: &ferrite_core::theme::style::Style) -> tui::style::S
     }
 }
 
-pub fn tui_to_ferrite_rect(rect: tui::layout::Rect) -> ferrite_core::panes::Rect {
-    ferrite_core::panes::Rect {
+pub fn tui_to_ferrite_rect(rect: tui::layout::Rect) -> ferrite_core::layout::panes::Rect {
+    ferrite_core::layout::panes::Rect {
         x: rect.x.into(),
         y: rect.y.into(),
         width: rect.width.into(),
@@ -28,7 +28,7 @@ pub fn tui_to_ferrite_rect(rect: tui::layout::Rect) -> ferrite_core::panes::Rect
     }
 }
 
-pub fn ferrite_to_tui_rect(rect: ferrite_core::panes::Rect) -> tui::layout::Rect {
+pub fn ferrite_to_tui_rect(rect: ferrite_core::layout::panes::Rect) -> tui::layout::Rect {
     tui::layout::Rect {
         x: rect.x.try_into().unwrap(),
         y: rect.y.try_into().unwrap(),

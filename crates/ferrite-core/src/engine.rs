@@ -27,9 +27,9 @@ use crate::{
     job_manager::{JobHandle, JobManager},
     jobs::SaveBufferJob,
     keymap::{get_default_choords, get_default_mappings, Exclusiveness, Mapping},
+    layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
     palette::{cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
-    panes::{PaneKind, Panes, Rect},
     picker::{
         buffer_picker::{BufferFindProvider, BufferItem},
         file_picker::FileFindProvider,

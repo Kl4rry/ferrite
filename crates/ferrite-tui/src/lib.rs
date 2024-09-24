@@ -20,8 +20,8 @@ use ferrite_core::{
     engine::Engine,
     event_loop_proxy::EventLoopControlFlow,
     keymap::{self},
+    layout::panes::PaneKind,
     logger::{self, LogMessage},
-    panes::PaneKind,
     picker::{buffer_picker::BufferItem, global_search_picker::GlobalSearchMatch},
 };
 use ferrite_utility::point::Point;

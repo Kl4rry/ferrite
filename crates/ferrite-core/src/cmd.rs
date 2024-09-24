@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use ferrite_utility::{line_ending::LineEnding, point::Point};
 
-use crate::{buffer::case::Case, panes::Direction};
+use crate::{buffer::case::Case, layout::panes::Direction};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LineMoveDir {

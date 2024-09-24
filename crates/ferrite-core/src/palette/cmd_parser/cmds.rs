@@ -7,7 +7,7 @@ use crate::{
     buffer::{case::Case, encoding::get_encoding_names},
     cmd::Cmd,
     language::get_available_languages,
-    panes::Direction,
+    layout::panes::Direction,
 };
 
 pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {

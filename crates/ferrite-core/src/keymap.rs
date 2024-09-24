@@ -3,7 +3,7 @@ use keycode::{KeyCode, KeyModifiers};
 
 use crate::{
     cmd::{Cmd, LineMoveDir},
-    panes::Direction,
+    layout::panes::Direction,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

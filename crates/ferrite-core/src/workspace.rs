@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use slotmap::{Key, SlotMap};
 
 use super::buffer::{Buffer, Cursor};
-use crate::panes::{PaneKind, Panes};
+use crate::layout::panes::{PaneKind, Panes};
 
 slotmap::new_key_type! {
     pub struct BufferId;
