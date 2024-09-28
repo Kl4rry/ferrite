@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use slotmap::{Key, SlotMap};
 
 use super::buffer::{Buffer, Cursor};
-use crate::layout::panes::{PaneKind, Panes};
+use crate::layout::panes::{layout::Layout, PaneKind, Panes};
 
 slotmap::new_key_type! {
     pub struct BufferId;
@@ -24,7 +24,7 @@ pub struct Workspace {
 pub struct WorkspaceData {
     buffers: Vec<BufferData>,
     open_buffers: Vec<PathBuf>,
-    current_buffer: Option<PathBuf>,
+    layout: Layout,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,12 +52,8 @@ impl Workspace {
         let mut workspace_data = WorkspaceData {
             buffers: self.buffer_extra_data.clone(),
             open_buffers: Vec::new(),
-            current_buffer: None,
+            layout: Layout::from_panes(&self.panes, &self.buffers),
         };
-
-        if let PaneKind::Buffer(buffer_id) = self.panes.get_current_pane() {
-            workspace_data.current_buffer = self.buffers[buffer_id].file().map(|p| p.to_path_buf());
-        }
 
         for (path, buffer) in self
             .buffers
@@ -83,7 +79,6 @@ impl Workspace {
 
     pub fn load_workspace(load_buffers: bool) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
-        let mut panes = Panes::new(BufferId::null());
 
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
@@ -120,13 +115,10 @@ impl Workspace {
             }
         }
 
-        if let Some(current_buffer) = &workspace.current_buffer {
-            for (buffer_id, buffer) in &buffers {
-                if buffer.file().unwrap() == current_buffer {
-                    panes.replace_current(PaneKind::Buffer(buffer_id));
-                }
-            }
-        }
+        let mut panes = workspace
+            .layout
+            .to_panes(&buffers)
+            .unwrap_or_else(|| Panes::new(BufferId::null()));
 
         if buffers.is_empty() {
             let buffer_id = buffers.insert(Buffer::new());

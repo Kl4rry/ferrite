@@ -153,7 +153,7 @@ impl<'a> TextProvider<'a> for RopeProvider<'a> {
     }
 }
 
-/// Stolen from tree-sitter-highlight
+// Stolen from tree-sitter-highlight
 
 /// Indicates which highlight should be applied to a region of source code.
 #[derive(Copy, Clone, Debug)]

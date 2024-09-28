@@ -69,20 +69,20 @@ impl FromStr for Direction {
 }
 
 #[derive(Debug)]
-enum Node {
+enum Pane {
     Leaf(PaneKind),
     Internal {
-        left: Box<Node>,
-        right: Box<Node>,
+        left: Box<Pane>,
+        right: Box<Pane>,
         split: Split,
         ratio: f32,
     },
 }
 
-impl Node {
+impl Pane {
     pub fn replace(&mut self, old: PaneKind, new: PaneKind) -> bool {
         match self {
-            Node::Leaf(leaf) => {
+            Pane::Leaf(leaf) => {
                 if *leaf == old {
                     *leaf = new;
                     true
@@ -90,28 +90,28 @@ impl Node {
                     false
                 }
             }
-            Node::Internal { left, right, .. } => left.replace(old, new) || right.replace(old, new),
+            Pane::Internal { left, right, .. } => left.replace(old, new) || right.replace(old, new),
         }
     }
 
     fn get_first_leaf(&self) -> PaneKind {
         match self {
-            Node::Leaf(leaf) => *leaf,
-            Node::Internal { left, .. } => left.get_first_leaf(),
+            Pane::Leaf(leaf) => *leaf,
+            Pane::Internal { left, .. } => left.get_first_leaf(),
         }
     }
 
-    pub fn remove(&mut self, pane: PaneKind) -> Option<PaneKind> {
+    pub fn remove(&mut self, pane_kind: PaneKind) -> Option<PaneKind> {
         let mut new = None;
         let mut output = None;
         'block: {
             match self {
-                Node::Leaf(_) => return None,
-                Node::Internal { left, right, .. } => {
+                Pane::Leaf(_) => return None,
+                Pane::Internal { left, right, .. } => {
                     match &mut **left {
-                        Node::Leaf(leaf) => {
-                            if *leaf == pane {
-                                let mut dummy = Node::Leaf(PaneKind::Buffer(BufferId::null()));
+                        Pane::Leaf(leaf) => {
+                            if *leaf == pane_kind {
+                                let mut dummy = Pane::Leaf(PaneKind::Buffer(BufferId::null()));
                                 mem::swap(&mut dummy, &mut **right);
                                 output = Some(dummy.get_first_leaf());
                                 new = Some(dummy);
@@ -119,17 +119,17 @@ impl Node {
                             }
                         }
                         node => {
-                            if let Some(pane) = node.remove(pane) {
-                                output.replace(pane);
+                            if let Some(pane_kind) = node.remove(pane_kind) {
+                                output.replace(pane_kind);
                                 break 'block;
                             }
                         }
                     }
 
                     match &mut **right {
-                        Node::Leaf(leaf) => {
-                            if *leaf == pane {
-                                let mut dummy = Node::Leaf(PaneKind::Buffer(BufferId::null()));
+                        Pane::Leaf(leaf) => {
+                            if *leaf == pane_kind {
+                                let mut dummy = Pane::Leaf(PaneKind::Buffer(BufferId::null()));
                                 mem::swap(&mut dummy, &mut **left);
                                 output = Some(dummy.get_first_leaf());
                                 new = Some(dummy);
@@ -137,8 +137,8 @@ impl Node {
                             }
                         }
                         node => {
-                            if let Some(pane) = node.remove(pane) {
-                                output.replace(pane);
+                            if let Some(pane_kind) = node.remove(pane_kind) {
+                                output.replace(pane_kind);
                                 break 'block;
                             }
                         }
@@ -154,7 +154,7 @@ impl Node {
 
     pub fn split(&mut self, current: PaneKind, new_pane: PaneKind, direction: Direction) -> bool {
         match self {
-            Node::Leaf(pane_kind) => {
+            Pane::Leaf(pane_kind) => {
                 if current == *pane_kind {
                     let mut left = *pane_kind;
                     let mut right = new_pane;
@@ -165,9 +165,9 @@ impl Node {
 
                     let split = Split::from(direction);
 
-                    *self = Node::Internal {
-                        left: Box::new(Node::Leaf(left)),
-                        right: Box::new(Node::Leaf(right)),
+                    *self = Pane::Internal {
+                        left: Box::new(Pane::Leaf(left)),
+                        right: Box::new(Pane::Leaf(right)),
                         split,
                         ratio: 0.5,
                     };
@@ -177,7 +177,7 @@ impl Node {
                 }
             }
 
-            Node::Internal { left, right, .. } => {
+            Pane::Internal { left, right, .. } => {
                 left.split(current, new_pane, direction)
                     || right.split(current, new_pane, direction)
             }
@@ -186,15 +186,15 @@ impl Node {
 
     pub fn num_panes(&self) -> usize {
         match self {
-            Node::Leaf(_) => 1,
-            Node::Internal { left, right, .. } => left.num_panes() + right.num_panes(),
+            Pane::Leaf(_) => 1,
+            Pane::Internal { left, right, .. } => left.num_panes() + right.num_panes(),
         }
     }
 
     pub fn get_pane_bounds(&self, bounds: &mut Vec<(PaneKind, Rect)>, rect: Rect) {
         match self {
-            Node::Leaf(pane) => bounds.push((*pane, rect)),
-            Node::Internal {
+            Pane::Leaf(pane_kind) => bounds.push((*pane_kind, rect)),
+            Pane::Internal {
                 left,
                 right,
                 split,
@@ -222,15 +222,17 @@ impl Node {
         }
     }
 
-    fn contains(&self, pane: PaneKind) -> bool {
+    fn contains(&self, pane_kind: PaneKind) -> bool {
         match self {
-            Node::Leaf(leaf) => *leaf == pane,
-            Node::Internal { left, right, .. } => left.contains(pane) || right.contains(pane),
+            Pane::Leaf(leaf) => *leaf == pane_kind,
+            Pane::Internal { left, right, .. } => {
+                left.contains(pane_kind) || right.contains(pane_kind)
+            }
         }
     }
 
-    pub fn get_parent_size(&self, pane: PaneKind, rect: Rect) -> Rect {
-        if let Node::Internal {
+    pub fn get_parent_size(&self, pane_kind: PaneKind, rect: Rect) -> Rect {
+        if let Pane::Internal {
             left,
             right,
             split,
@@ -239,21 +241,21 @@ impl Node {
         {
             for node in [left, right] {
                 match &**node {
-                    Node::Leaf(leaf) => {
-                        if *leaf == pane {
+                    Pane::Leaf(leaf) => {
+                        if *leaf == pane_kind {
                             return rect;
                         }
                     }
-                    Node::Internal { left, right, .. } => match split {
+                    Pane::Internal { left, right, .. } => match split {
                         Split::Horizontal => {
                             let first = (rect.height as f32 * ratio) as usize;
                             let second = rect.height - first;
                             left.get_parent_size(
-                                pane,
+                                pane_kind,
                                 Rect::new(rect.x, rect.y, rect.width, first),
                             );
                             right.get_parent_size(
-                                pane,
+                                pane_kind,
                                 Rect::new(rect.x, rect.y + first, rect.width, second),
                             );
                         }
@@ -261,11 +263,11 @@ impl Node {
                             let first = (rect.width as f32 * ratio) as usize;
                             let second = rect.width - first;
                             left.get_parent_size(
-                                pane,
+                                pane_kind,
                                 Rect::new(rect.x, rect.y, first, rect.height),
                             );
                             right.get_parent_size(
-                                pane,
+                                pane_kind,
                                 Rect::new(rect.x + first, rect.y, second, rect.height),
                             );
                         }
@@ -276,10 +278,10 @@ impl Node {
         rect
     }
 
-    pub fn resize_pane(&mut self, pane: PaneKind, rect: Rect, direction: f32) {
+    pub fn resize_pane(&mut self, pane_kind: PaneKind, rect: Rect, direction: f32) {
         debug_assert!(direction == -1.0 || direction == 1.0);
-        let rect = self.get_parent_size(pane, rect);
-        if let Node::Internal {
+        let rect = self.get_parent_size(pane_kind, rect);
+        if let Pane::Internal {
             left,
             right,
             split,
@@ -294,24 +296,24 @@ impl Node {
             let diff = (1.0 / size as f32) * direction;
 
             match &mut **left {
-                Node::Leaf(leaf) => {
-                    if *leaf == pane {
+                Pane::Leaf(leaf) => {
+                    if *leaf == pane_kind {
                         *ratio += diff;
                         *ratio = ratio.clamp(0.0, 1.0);
                         return;
                     }
                 }
-                node => node.resize_pane(pane, rect, direction),
+                node => node.resize_pane(pane_kind, rect, direction),
             }
 
             match &mut **right {
-                Node::Leaf(leaf) => {
-                    if *leaf == pane {
+                Pane::Leaf(leaf) => {
+                    if *leaf == pane_kind {
                         *ratio -= diff;
                         *ratio = ratio.clamp(0.0, 1.0);
                     }
                 }
-                node => node.resize_pane(pane, rect, direction),
+                node => node.resize_pane(pane_kind, rect, direction),
             }
         }
     }
@@ -319,14 +321,14 @@ impl Node {
 
 #[derive(Debug)]
 pub struct Panes {
-    node: Node,
+    node: Pane,
     current_pane: PaneKind,
 }
 
 impl Panes {
     pub fn new(buffer_id: BufferId) -> Panes {
         Self {
-            node: Node::Leaf(PaneKind::Buffer(buffer_id)),
+            node: Pane::Leaf(PaneKind::Buffer(buffer_id)),
             current_pane: PaneKind::Buffer(buffer_id),
         }
     }
@@ -335,20 +337,20 @@ impl Panes {
         self.current_pane
     }
 
-    pub fn replace_current(&mut self, pane: PaneKind) -> PaneKind {
-        if self.node.contains(pane) {
-            self.node.remove(pane);
+    pub fn replace_current(&mut self, pane_kind: PaneKind) -> PaneKind {
+        if self.node.contains(pane_kind) {
+            self.node.remove(pane_kind);
         }
 
-        self.node.replace(self.current_pane, pane);
+        self.node.replace(self.current_pane, pane_kind);
         let old = self.current_pane;
-        self.current_pane = pane;
+        self.current_pane = pane_kind;
         old
     }
 
-    pub fn remove_pane(&mut self, pane: PaneKind) -> bool {
+    pub fn remove_pane(&mut self, pane_kind: PaneKind) -> bool {
         if self.node.num_panes() > 1 {
-            self.current_pane = self.node.remove(pane).unwrap();
+            self.current_pane = self.node.remove(pane_kind).unwrap();
             true
         } else {
             false
@@ -371,11 +373,11 @@ impl Panes {
         bounds
     }
 
-    pub fn make_current(&mut self, pane: PaneKind) {
-        if self.node.contains(pane) {
-            self.current_pane = pane;
+    pub fn make_current(&mut self, pane_kind: PaneKind) {
+        if self.node.contains(pane_kind) {
+            self.current_pane = pane_kind;
         } else {
-            tracing::error!("Tried to make non existant pane `{pane:?}` current");
+            tracing::error!("Tried to make non existant pane `{pane_kind:?}` current");
         }
     }
 
@@ -387,8 +389,8 @@ impl Panes {
         self.node.resize_pane(self.current_pane, rect, -1.0);
     }
 
-    pub fn contains(&self, pane: PaneKind) -> bool {
-        self.node.contains(pane)
+    pub fn contains(&self, pane_kind: PaneKind) -> bool {
+        self.node.contains(pane_kind)
     }
 }
 
@@ -406,5 +408,162 @@ mod tests {
             panes.get_current_pane(),
             PaneKind::Buffer(BufferId::from(KeyData::from_ffi(1)))
         );
+    }
+}
+
+pub mod layout {
+    use std::path::{Path, PathBuf};
+
+    use serde::{Deserialize, Serialize};
+    use slotmap::SlotMap;
+
+    use super::{Pane, Panes, Split};
+    use crate::{buffer::Buffer, workspace::BufferId};
+
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct Layout {
+        node: Option<Node>,
+        current_pane: Option<PaneKind>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    enum Node {
+        Leaf(PaneKind),
+        Internal {
+            left: Box<Node>,
+            right: Box<Node>,
+            split: Split,
+            ratio: f32,
+        },
+    }
+
+    impl Node {
+        fn contains_path(&self, path: &Path) -> bool {
+            match self {
+                Node::Leaf(PaneKind::Buffer(buffer)) => buffer == path,
+                Node::Leaf(_) => false,
+                Node::Internal { left, right, .. } => {
+                    left.contains_path(path) || right.contains_path(path)
+                }
+            }
+        }
+
+        fn from_pane_node(pane: &Pane, buffers: &SlotMap<BufferId, Buffer>) -> Option<Self> {
+            match pane {
+                Pane::Leaf(pane_kind) => match pane_kind {
+                    super::PaneKind::Buffer(buffer_id) => {
+                        let path = buffers.get(*buffer_id)?.file()?;
+                        Some(Self::Leaf(PaneKind::Buffer(path.into())))
+                    }
+                    super::PaneKind::Logger => Some(Self::Leaf(PaneKind::Logger)),
+                },
+                Pane::Internal {
+                    left,
+                    right,
+                    split,
+                    ratio,
+                } => {
+                    let left = Node::from_pane_node(left, buffers);
+                    let right = Node::from_pane_node(right, buffers);
+                    match (left, right) {
+                        (Some(left), Some(right)) => Some(Node::Internal {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            split: *split,
+                            ratio: *ratio,
+                        }),
+                        (Some(left), None) => Some(left),
+                        (None, Some(right)) => Some(right),
+                        (None, None) => None,
+                    }
+                }
+            }
+        }
+
+        fn to_pane(&self, buffers: &SlotMap<BufferId, Buffer>) -> Option<Pane> {
+            match self {
+                Node::Leaf(pane_kind) => match pane_kind {
+                    PaneKind::Buffer(path_buf) => {
+                        let (buffer_id, _) =
+                            buffers.iter().find(|(_, buffer)| match buffer.file() {
+                                Some(buffer_path) => buffer_path == path_buf,
+                                None => false,
+                            })?;
+                        Some(super::Pane::Leaf(super::PaneKind::Buffer(buffer_id)))
+                    }
+                    PaneKind::Logger => Some(super::Pane::Leaf(super::PaneKind::Logger)),
+                },
+                Node::Internal {
+                    left,
+                    right,
+                    split,
+                    ratio,
+                } => {
+                    let left = left.to_pane(buffers);
+                    let right = right.to_pane(buffers);
+                    match (left, right) {
+                        (Some(left), Some(right)) => Some(super::Pane::Internal {
+                            left: Box::new(left),
+                            right: Box::new(right),
+                            split: *split,
+                            ratio: *ratio,
+                        }),
+                        (Some(left), None) => Some(left),
+                        (None, Some(right)) => Some(right),
+                        (None, None) => None,
+                    }
+                }
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    enum PaneKind {
+        Buffer(PathBuf),
+        Logger,
+    }
+
+    impl Layout {
+        pub fn to_panes(&self, buffers: &SlotMap<BufferId, Buffer>) -> Option<super::Panes> {
+            let pane = self.node.as_ref()?.to_pane(buffers)?;
+            let current_pane = match &self.current_pane {
+                Some(PaneKind::Buffer(path)) => {
+                    match buffers
+                        .iter()
+                        .find(|(_, buffer)| buffer.file() == Some(path))
+                    {
+                        Some((buffer_id, _)) => super::PaneKind::Buffer(buffer_id),
+                        None => pane.get_first_leaf(),
+                    }
+                }
+                Some(PaneKind::Logger) => super::PaneKind::Logger,
+                None => pane.get_first_leaf(),
+            };
+            Some(super::Panes {
+                node: pane,
+                current_pane,
+            })
+        }
+
+        pub fn from_panes(panes: &Panes, buffers: &SlotMap<BufferId, Buffer>) -> Self {
+            let node = Node::from_pane_node(&panes.node, buffers);
+            let current_pane = match panes.current_pane {
+                super::PaneKind::Buffer(buffer_id) => {
+                    let path = buffers[buffer_id].file();
+                    path.and_then(|path| {
+                        node.as_ref().map(|node| {
+                            if node.contains_path(path) {
+                                Some(PaneKind::Buffer(path.into()))
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .flatten()
+                }
+                super::PaneKind::Logger => Some(PaneKind::Logger),
+            };
+            Self { node, current_pane }
+        }
     }
 }
