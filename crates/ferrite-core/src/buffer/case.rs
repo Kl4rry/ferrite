@@ -6,7 +6,7 @@ use heck::{
     ToTitleCase, ToTrainCase,
 };
 
-use super::Buffer;
+use super::{Buffer, ViewId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Case {
@@ -60,32 +60,38 @@ impl Case {
 }
 
 impl Buffer {
-    pub fn transform_case(&mut self, case: Case) {
-        if !self.cursor.has_selection() {
+    pub fn transform_case(&mut self, view_id: ViewId, case: Case) {
+        if !self.views[view_id].cursor.has_selection() {
             return;
         }
 
-        self.history.begin(self.cursor, self.dirty);
-        let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
-        let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let start_byte_idx = self.views[view_id]
+            .cursor
+            .position
+            .min(self.views[view_id].cursor.anchor);
+        let end_byte_idx = self.views[view_id]
+            .cursor
+            .position
+            .max(self.views[view_id].cursor.anchor);
         let string = self.rope.slice(start_byte_idx..end_byte_idx).to_string();
         let output = case.transform(&string);
 
         self.history
             .replace(&mut self.rope, start_byte_idx..end_byte_idx, &output);
 
-        if self.cursor.position < self.cursor.anchor {
-            self.cursor.position = start_byte_idx;
-            self.cursor.anchor = start_byte_idx + output.len();
+        if self.views[view_id].cursor.position < self.views[view_id].cursor.anchor {
+            self.views[view_id].cursor.position = start_byte_idx;
+            self.views[view_id].cursor.anchor = start_byte_idx + output.len();
         } else {
-            self.cursor.anchor = start_byte_idx;
-            self.cursor.position = start_byte_idx + output.len();
+            self.views[view_id].cursor.anchor = start_byte_idx;
+            self.views[view_id].cursor.position = start_byte_idx + output.len();
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
 
         self.mark_dirty();

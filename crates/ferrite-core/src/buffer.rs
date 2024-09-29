@@ -16,6 +16,7 @@ use ferrite_utility::{
 };
 use ropey::{Rope, RopeSlice};
 use serde::{Deserialize, Serialize};
+use slotmap::SlotMap;
 
 use self::{error::BufferError, history::History, search::BufferSearcher};
 use super::{
@@ -52,7 +53,7 @@ fn get_buffer_proxy() -> Box<dyn EventLoopProxy> {
     PROXY.get().unwrap().dup()
 }
 
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Cursor {
     pub anchor: usize,
     pub position: usize,
@@ -71,33 +72,76 @@ pub struct Selection {
     pub end: Point<i64>,
 }
 
+pub struct View {
+    pub cursor: Cursor,
+    pub line_pos: usize,
+    pub col_pos: usize,
+    last_click: Instant,
+    last_click_pos: Point<usize>,
+    clicks_in_a_row: u8,
+    pub clamp_cursor: bool,
+    searcher: Option<BufferSearcher>,
+    pub replacement: Option<String>,
+    view_lines: usize,
+    view_columns: usize,
+}
+
+impl Default for View {
+    fn default() -> Self {
+        Self {
+            cursor: Cursor::default(),
+            line_pos: 0,
+            col_pos: 0,
+            last_click: Instant::now(),
+            last_click_pos: Point::new(0, 0),
+            clicks_in_a_row: 0,
+            clamp_cursor: true,
+            searcher: None,
+            replacement: None,
+            view_lines: 100000,
+            view_columns: 100000,
+        }
+    }
+}
+
+impl Clone for View {
+    fn clone(&self) -> Self {
+        Self {
+            cursor: self.cursor,
+            line_pos: self.line_pos,
+            col_pos: self.col_pos,
+            last_click: self.last_click,
+            last_click_pos: self.last_click_pos,
+            clicks_in_a_row: self.clicks_in_a_row,
+            clamp_cursor: self.clamp_cursor,
+            searcher: None,    // TODO: fix
+            replacement: None, // TODO: fix
+            view_lines: self.view_lines,
+            view_columns: self.view_columns,
+        }
+    }
+}
+
+slotmap::new_key_type! {
+    pub struct ViewId;
+}
+
 pub struct Buffer {
-    cursor: Cursor,
-    line_pos: usize,
-    col_pos: usize,
     rope: Rope,
+    pub views: SlotMap<ViewId, View>,
     file: Option<PathBuf>,
     name: String,
     dirty: bool,
     pub read_only: bool,
     pub read_only_file: bool,
     last_edit: Instant,
-    last_click: Instant,
-    last_click_pos: Point<usize>,
-    clicks_in_a_row: u8,
     pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
-    pub clamp_cursor: bool,
-    // view stuff
-    view_lines: usize,
-    view_columns: usize,
     // syntax highlight
     syntax: Option<Syntax>,
     history: History,
     // file searching
-    searcher: Option<BufferSearcher>,
-    pub replacement: Option<String>,
     last_interact: Instant,
 }
 
@@ -111,9 +155,6 @@ impl Clone for Buffer {
         syntax.update_text(rope.clone());
 
         Self {
-            cursor: self.cursor,
-            line_pos: self.line_pos,
-            col_pos: self.col_pos,
             rope,
             file: self.file.clone(),
             name: self.name.clone(),
@@ -121,20 +162,13 @@ impl Clone for Buffer {
             read_only: self.read_only,
             read_only_file: self.read_only_file,
             last_edit: self.last_edit,
-            last_click: self.last_click,
-            last_click_pos: self.last_click_pos,
-            clicks_in_a_row: self.clicks_in_a_row,
             line_ending: self.line_ending,
             encoding: self.encoding,
             indent: self.indent,
-            clamp_cursor: self.clamp_cursor,
-            view_lines: self.view_lines,
-            view_columns: self.view_columns,
             syntax: Some(syntax),
             history: self.history.clone(),
-            searcher: None,    // TODO fix clone this correctly
-            replacement: None, // TODO fix clone this correctly
             last_interact: self.last_interact,
+            views: self.views.clone(),
         }
     }
 }
@@ -142,9 +176,6 @@ impl Clone for Buffer {
 impl Default for Buffer {
     fn default() -> Self {
         Self {
-            cursor: Cursor::default(),
-            line_pos: 0,
-            col_pos: 0,
             rope: Rope::new(),
             file: None,
             name: String::from("[scratch]"),
@@ -152,20 +183,13 @@ impl Default for Buffer {
             indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
             dirty: false,
             last_edit: Instant::now(),
-            last_click: Instant::now(),
-            last_click_pos: Point::new(0, 0),
-            clicks_in_a_row: 0,
             read_only: false,
             read_only_file: false,
             line_ending: DEFAULT_LINE_ENDING,
-            clamp_cursor: true,
-            view_lines: 10000,
-            view_columns: 10000,
             syntax: None,
             history: History::default(),
-            searcher: None,
-            replacement: None,
             last_interact: Instant::now(),
+            views: SlotMap::with_key(),
         }
     }
 }
@@ -308,28 +332,28 @@ impl Buffer {
     }
 
     #[allow(dead_code)]
-    pub fn cursor(&self) -> Cursor {
-        self.cursor
+    pub fn cursor(&self, view_id: ViewId) -> Cursor {
+        self.views[view_id].cursor
     }
 
     pub fn is_dirty(&self) -> bool {
         self.dirty
     }
 
-    pub fn set_view_lines(&mut self, lines: usize) {
-        self.view_lines = lines;
+    pub fn set_view_lines(&mut self, view_id: ViewId, lines: usize) {
+        self.views[view_id].view_lines = lines;
     }
 
-    pub fn get_view_lines(&self) -> usize {
-        self.view_lines
+    pub fn get_view_lines(&self, view_id: ViewId) -> usize {
+        self.views[view_id].view_lines
     }
 
-    pub fn set_view_columns(&mut self, cols: usize) {
-        self.view_columns = cols;
+    pub fn set_view_columns(&mut self, view_id: ViewId, cols: usize) {
+        self.views[view_id].view_columns = cols;
     }
 
-    pub fn _get_view_columns(&self) -> usize {
-        self.view_columns
+    pub fn _get_view_columns(&self, view_id: ViewId) -> usize {
+        self.views[view_id].view_columns
     }
 
     pub fn name(&self) -> &str {
@@ -366,18 +390,19 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn get_buffer_view(&self) -> BufferView {
-        let end_line = cmp::min(self.rope.len_lines(), self.view_lines + self.line_pos);
+    pub fn get_buffer_view(&self, view_id: ViewId) -> BufferView {
+        let view = &self.views[view_id];
+        let end_line = cmp::min(self.rope.len_lines(), view.view_lines + view.line_pos);
 
         let mut lines = Vec::new();
-        for line_idx in self.line_pos..end_line {
+        for line_idx in view.line_pos..end_line {
             let Some(line) = self.rope.get_line(line_idx) else {
                 break;
             };
             let mut idx = 0;
             let mut width = 0;
             for grapheme in line.grapehemes() {
-                if width >= self.col_pos {
+                if width >= view.col_pos {
                     break;
                 }
                 width += grapheme.width(width);
@@ -386,7 +411,7 @@ impl Buffer {
             let line = line.byte_slice(idx..);
             lines.push(ViewLine {
                 text: line,
-                col_start_offset: width.saturating_sub(self.col_pos),
+                col_start_offset: width.saturating_sub(view.col_pos),
                 text_start_col: self.rope.get_text_start_col(line_idx),
                 text_end_col: self.rope.get_text_end_col(line_idx),
             });
@@ -428,23 +453,24 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn line_pos(&self) -> usize {
-        self.line_pos
+    pub fn line_pos(&self, view_id: ViewId) -> usize {
+        self.views[view_id].line_pos
     }
 
-    pub fn col_pos(&self) -> usize {
-        self.col_pos
+    pub fn col_pos(&self, view_id: ViewId) -> usize {
+        self.views[view_id].col_pos
     }
 
     pub fn len_lines(&self) -> usize {
         self.rope.len_lines()
     }
 
-    pub fn cursor_view_pos(&self, max_lines: usize) -> Option<(usize, usize)> {
-        let start_line = self.line_pos;
-        let end_line = std::cmp::min(self.rope.len_lines(), max_lines + self.line_pos);
+    pub fn cursor_view_pos(&self, view_id: ViewId, max_lines: usize) -> Option<(usize, usize)> {
+        let view = &self.views[view_id];
+        let start_line = view.line_pos;
+        let end_line = std::cmp::min(self.rope.len_lines(), max_lines + view.line_pos);
 
-        let (column, line) = self.cursor_pos();
+        let (column, line) = self.cursor_pos(view_id);
 
         if line >= start_line && line < end_line {
             Some((column, line - start_line))
@@ -453,164 +479,172 @@ impl Buffer {
         }
     }
 
-    pub fn get_view_selection(&self) -> Selection {
+    pub fn get_view_selection(&self, view_id: ViewId) -> Selection {
+        let view = &self.views[view_id];
         let pos = Point {
-            line: self.cursor_line_idx() as i64,
-            column: self.cursor_grapheme_column() as i64,
+            line: self.cursor_line_idx(view_id) as i64,
+            column: self.cursor_grapheme_column(view_id) as i64,
         };
 
         let anchor = Point {
-            line: self.anchor_line_idx() as i64,
-            column: self.anchor_grapheme_column() as i64,
+            line: self.anchor_line_idx(view_id) as i64,
+            column: self.anchor_grapheme_column(view_id) as i64,
         };
 
         let mut start = pos.min(anchor);
         let mut end = pos.max(anchor);
-        start.line -= self.line_pos as i64;
-        end.line -= self.line_pos as i64;
-        start.column -= self.col_pos as i64;
-        end.column -= self.col_pos as i64;
+        start.line -= view.line_pos as i64;
+        end.line -= view.line_pos as i64;
+        start.column -= view.col_pos as i64;
+        end.column -= view.col_pos as i64;
 
         Selection { start, end }
     }
 
-    pub fn cursor_line_idx(&self) -> usize {
-        self.rope.byte_to_line(self.cursor.position)
+    pub fn cursor_line_idx(&self, view_id: ViewId) -> usize {
+        self.rope.byte_to_line(self.views[view_id].cursor.position)
     }
 
-    pub fn anchor_line_idx(&self) -> usize {
-        self.rope.byte_to_line(self.cursor.anchor)
+    pub fn anchor_line_idx(&self, view_id: ViewId) -> usize {
+        self.rope.byte_to_line(self.views[view_id].cursor.anchor)
     }
 
-    pub fn cursor_pos(&self) -> (usize, usize) {
-        let current_line = self.cursor_line_idx();
+    pub fn cursor_pos(&self, view_id: ViewId) -> (usize, usize) {
+        let current_line = self.cursor_line_idx(view_id);
         let start_of_line = self.rope.line_to_byte(current_line);
-        let column = self.cursor.position - start_of_line;
+        let column = self.views[view_id].cursor.position - start_of_line;
 
         (column, current_line)
     }
 
-    pub fn anchor_pos(&self) -> (usize, usize) {
-        let current_line = self.anchor_line_idx();
+    pub fn anchor_pos(&self, view_id: ViewId) -> (usize, usize) {
+        let current_line = self.anchor_line_idx(view_id);
         let start_of_line = self.rope.line_to_byte(current_line);
-        let column = self.cursor.anchor - start_of_line;
+        let column = self.views[view_id].cursor.anchor - start_of_line;
 
         (column, current_line)
     }
 
-    pub fn cursor_grapheme_column(&self) -> usize {
-        let (column_idx, line_idx) = self.cursor_pos();
+    pub fn cursor_grapheme_column(&self, view_id: ViewId) -> usize {
+        let (column_idx, line_idx) = self.cursor_pos(view_id);
         let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
         start.width(0)
     }
 
-    pub fn anchor_grapheme_column(&self) -> usize {
-        let (column_idx, line_idx) = self.anchor_pos();
+    pub fn anchor_grapheme_column(&self, view_id: ViewId) -> usize {
+        let (column_idx, line_idx) = self.anchor_pos(view_id);
         let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
         start.width(0)
     }
 
-    pub fn update_affinity(&mut self) {
-        let (column_idx, line_idx) = self.cursor_pos();
-        self.cursor.affinity = self
+    pub fn update_affinity(&mut self, view_id: ViewId) {
+        let (column_idx, line_idx) = self.cursor_pos(view_id);
+        self.views[view_id].cursor.affinity = self
             .rope
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
             .width(0);
     }
 
-    pub fn vertical_scroll(&mut self, distance: i64) {
-        self.line_pos = (self.line_pos as i128 + distance as i128)
-            .clamp(0, self.len_lines() as i128 - 1) as usize;
+    pub fn vertical_scroll(&mut self, view_id: ViewId, distance: i64) {
+        let len_lines = self.len_lines();
+        self.views[view_id].line_pos = (self.views[view_id].line_pos as i128 + distance as i128)
+            .clamp(0, len_lines as i128 - 1) as usize;
     }
 
-    pub fn horizontal_scroll(&mut self, distance: i64) {
-        self.col_pos =
-            (self.col_pos as i128 + distance as i128).clamp(0, usize::MAX as i128 - 1) as usize;
+    pub fn horizontal_scroll(&mut self, view_id: ViewId, distance: i64) {
+        self.views[view_id].col_pos = (self.views[view_id].col_pos as i128 + distance as i128)
+            .clamp(0, usize::MAX as i128 - 1) as usize;
     }
 
-    pub fn move_right_char(&mut self, shift: bool) {
-        let new_idx = self.rope.next_grapheme_boundary_byte(self.cursor.position);
-        self.cursor.position = new_idx;
+    pub fn move_right_char(&mut self, view_id: ViewId, shift: bool) {
+        let new_idx = self
+            .rope
+            .next_grapheme_boundary_byte(self.views[view_id].cursor.position);
+        self.views[view_id].cursor.position = new_idx;
 
         if !shift {
-            if self.cursor.anchor > self.cursor.position {
-                self.cursor.position = self.cursor.anchor;
+            if self.views[view_id].cursor.anchor > self.views[view_id].cursor.position {
+                self.views[view_id].cursor.position = self.views[view_id].cursor.anchor;
             } else {
-                self.cursor.anchor = self.cursor.position;
+                self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
             }
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn move_left_char(&mut self, shift: bool) {
-        let new_idx = self.rope.prev_grapheme_boundary_byte(self.cursor.position);
-        self.cursor.position = new_idx;
+    pub fn move_left_char(&mut self, view_id: ViewId, shift: bool) {
+        let new_idx = self
+            .rope
+            .prev_grapheme_boundary_byte(self.views[view_id].cursor.position);
+        self.views[view_id].cursor.position = new_idx;
 
         if !shift {
-            if self.cursor.anchor < self.cursor.position {
-                self.cursor.position = self.cursor.anchor;
+            if self.views[view_id].cursor.anchor < self.views[view_id].cursor.position {
+                self.views[view_id].cursor.position = self.views[view_id].cursor.anchor;
             } else {
-                self.cursor.anchor = self.cursor.position;
+                self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
             }
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn move_down(&mut self, shift: bool, distance: usize) {
-        let (column_idx, line_idx) = self.cursor_pos();
+    pub fn move_down(&mut self, view_id: ViewId, shift: bool, distance: usize) {
+        let (column_idx, line_idx) = self.cursor_pos(view_id);
         let new_line_idx = (line_idx + distance).min(self.rope.len_lines().saturating_sub(1));
         if line_idx == new_line_idx {
             return;
         }
 
+        let view: &mut View = &mut self.views[view_id];
         let before_cursor = self
             .rope
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
             .width(0)
-            .max(self.cursor.affinity);
+            .max(view.cursor.affinity);
         let next_line = self.rope.line_without_line_ending(new_line_idx);
         let next_width = next_line.width(0);
         let next_line_start = self.rope.line_to_byte(new_line_idx);
 
         if next_width < before_cursor {
-            self.cursor.position = next_line_start + next_line.len_bytes();
+            view.cursor.position = next_line_start + next_line.len_bytes();
         } else {
             let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
-            self.cursor.position = next_line_start + idx;
+            view.cursor.position = next_line_start + idx;
         }
 
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            view.cursor.anchor = view.cursor.position;
         }
 
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if view.clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn move_up(&mut self, shift: bool, distance: usize) {
-        let (column_idx, line_idx) = self.cursor_pos();
+    pub fn move_up(&mut self, view_id: ViewId, shift: bool, distance: usize) {
+        let (column_idx, line_idx) = self.cursor_pos(view_id);
         if line_idx == 0 {
             return;
         }
+
         let new_line_idx = line_idx.saturating_sub(distance);
 
         let before_cursor = self
@@ -618,33 +652,33 @@ impl Buffer {
             .line_without_line_ending(line_idx)
             .byte_slice(..column_idx)
             .width(0)
-            .max(self.cursor.affinity);
+            .max(self.views[view_id].cursor.affinity);
         let next_line = self.rope.line_without_line_ending(new_line_idx);
         let next_width = next_line.width(0);
         let next_line_start = self.rope.line_to_byte(new_line_idx);
 
         if next_width < before_cursor {
-            self.cursor.position = next_line_start + next_line.len_bytes();
+            self.views[view_id].cursor.position = next_line_start + next_line.len_bytes();
         } else {
             let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
-            self.cursor.position = next_line_start + idx;
+            self.views[view_id].cursor.position = next_line_start + idx;
         }
 
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
 
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn select_word(&mut self) {
+    pub fn select_word(&mut self, view_id: ViewId) {
         // TODO add matching multi selection when already having a selection
-        if !self.cursor.has_selection() {
-            let mut start_byte_idx = self.cursor.position;
+        if !self.views[view_id].cursor.has_selection() {
+            let mut start_byte_idx = self.views[view_id].cursor.position;
             loop {
                 let new_idx = self.rope.prev_grapheme_boundary_byte(start_byte_idx);
                 let grapheme = self.rope.byte_slice(new_idx..start_byte_idx);
@@ -654,7 +688,7 @@ impl Buffer {
                 start_byte_idx = new_idx;
             }
 
-            let mut end_byte_idx = self.cursor.position;
+            let mut end_byte_idx = self.views[view_id].cursor.position;
             loop {
                 let new_idx = self.rope.next_grapheme_boundary_byte(end_byte_idx);
                 let grapheme = self.rope.byte_slice(end_byte_idx..new_idx);
@@ -664,15 +698,16 @@ impl Buffer {
                 end_byte_idx = new_idx;
             }
 
-            self.cursor.position = end_byte_idx;
-            self.cursor.anchor = start_byte_idx;
+            self.views[view_id].cursor.position = end_byte_idx;
+            self.views[view_id].cursor.anchor = start_byte_idx;
 
             self.history.finish();
         }
     }
 
-    fn next_word_end(&self, greedy: bool) -> usize {
-        let mut current_idx = self.cursor.position;
+    fn next_word_end(&self, view_id: ViewId, greedy: bool) -> usize {
+        let view = &self.views[view_id];
+        let mut current_idx = view.cursor.position;
         let mut skipping = Skipping::None;
         loop {
             let new_idx = self.rope.next_grapheme_boundary_byte(current_idx);
@@ -725,8 +760,9 @@ impl Buffer {
         current_idx
     }
 
-    fn prev_word_start(&self, greedy: bool) -> usize {
-        let mut current_idx = self.cursor.position;
+    fn prev_word_start(&self, view_id: ViewId, greedy: bool) -> usize {
+        let view = &self.views[view_id];
+        let mut current_idx = view.cursor.position;
         let mut skipping = Skipping::None;
         loop {
             let new_idx = self.rope.prev_grapheme_boundary_byte(current_idx);
@@ -779,50 +815,50 @@ impl Buffer {
         current_idx
     }
 
-    pub fn move_right_word(&mut self, shift: bool) {
-        let next_word = self.next_word_end(true);
-        self.cursor.position = next_word;
+    pub fn move_right_word(&mut self, view_id: ViewId, shift: bool) {
+        let next_word = self.next_word_end(view_id, true);
+        self.views[view_id].cursor.position = next_word;
 
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn move_left_word(&mut self, shift: bool) {
-        let prev_word = self.prev_word_start(true);
-        self.cursor.position = prev_word;
+    pub fn move_left_word(&mut self, view_id: ViewId, shift: bool) {
+        let prev_word = self.prev_word_start(view_id, true);
+        self.views[view_id].cursor.position = prev_word;
 
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
     /// Move cursor to line. Line is indexed from 1
-    pub fn goto(&mut self, line: i64) {
+    pub fn goto(&mut self, view_id: ViewId, line: i64) {
         let line_idx = (self.rope.len_lines().saturating_sub(1) as i64)
             .min(line.saturating_sub(1))
             .max(0) as usize;
 
-        self.set_cursor_pos(0, line_idx);
+        self.set_cursor_pos(view_id, 0, line_idx);
         self.history.finish();
     }
 
-    pub fn home(&mut self, shift: bool) {
-        let (col, line_idx) = self.cursor_pos();
+    pub fn home(&mut self, view_id: ViewId, shift: bool) {
+        let (col, line_idx) = self.cursor_pos(view_id);
         let line = self.rope.line_without_line_ending(line_idx);
 
         let mut byte_col = 0;
@@ -840,66 +876,70 @@ impl Buffer {
         }
 
         let byte = self.rope.line_to_byte(line_idx) + byte_col;
-        self.cursor.position = byte;
+        self.views[view_id].cursor.position = byte;
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
-        self.update_affinity();
+
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn end(&mut self, shift: bool) {
-        let line_idx = self.cursor_line_idx();
+    pub fn end(&mut self, view_id: ViewId, shift: bool) {
+        let line_idx = self.cursor_line_idx(view_id);
         let byte = self.rope.line_to_byte(line_idx);
         let line_len = self.rope.line_without_line_ending(line_idx).len_bytes();
-        self.cursor.position = byte + line_len;
+        self.views[view_id].cursor.position = byte + line_len;
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
-        self.update_affinity();
+
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn start(&mut self, shift: bool) {
-        self.cursor.position = 0;
+    pub fn start(&mut self, view_id: ViewId, shift: bool) {
+        self.views[view_id].cursor.position = 0;
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
-        self.update_affinity();
+
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn eof(&mut self, shift: bool) {
-        self.cursor.position = self.rope.len_bytes();
+    pub fn eof(&mut self, view_id: ViewId, shift: bool) {
+        self.views[view_id].cursor.position = self.rope.len_bytes();
         if !shift {
-            self.cursor.anchor = self.cursor.position;
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         }
-        self.update_affinity();
+
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn insert_text(&mut self, text: &str, auto_indent: bool) {
+    pub fn insert_text(&mut self, view_id: ViewId, text: &str, auto_indent: bool) {
         if text.is_empty() {
             return;
         }
 
-        self.history.begin(self.cursor, self.dirty);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
 
         fn get_pair_char(s: &str) -> Option<&str> {
             Some(match s {
@@ -916,23 +956,32 @@ impl Buffer {
 
         let lines = Rope::from_str(text).len_lines();
 
-        let (inserted_bytes, finish) = if self.cursor.has_selection() {
-            let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
-            let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
+        let (inserted_bytes, finish) = if self.views[view_id].cursor.has_selection() {
+            let start_byte_idx = self.views[view_id]
+                .cursor
+                .position
+                .min(self.views[view_id].cursor.anchor);
+            let end_byte_idx = self.views[view_id]
+                .cursor
+                .position
+                .max(self.views[view_id].cursor.anchor);
             if let Some(pair) = get_pair_char(text) {
                 self.history.insert(&mut self.rope, start_byte_idx, text);
                 self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
-                self.cursor.position = end_byte_idx;
-                self.cursor.anchor = end_byte_idx;
+                self.views[view_id].cursor.position = end_byte_idx;
+                self.views[view_id].cursor.anchor = end_byte_idx;
             } else {
                 self.history
                     .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
-                self.cursor.position = self.cursor.position.min(self.cursor.anchor);
-                self.cursor.anchor = self.cursor.position;
+                self.views[view_id].cursor.position = self.views[view_id]
+                    .cursor
+                    .position
+                    .min(self.views[view_id].cursor.anchor);
+                self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
             }
             (text.len(), false)
         } else if auto_indent && lines > 1 {
-            let indent = self.guess_indent(self.cursor.position);
+            let indent = self.guess_indent(self.views[view_id].cursor.position);
             let min_indent_width = Rope::from_str(&indent).width(0);
 
             let mut smallest_indent_width = usize::MAX;
@@ -944,7 +993,9 @@ impl Buffer {
                 smallest_indent_width = smallest_indent_width.min(text_start_col);
             }
 
-            let current_line = self.rope.line(self.rope.byte_to_line(self.cursor.position));
+            let current_line = self
+                .rope
+                .line(self.rope.byte_to_line(self.views[view_id].cursor.position));
             let current_line_is_whitespace = current_line.is_whitespace();
             let current_line_text_start = current_line.get_text_start_col(0);
 
@@ -976,7 +1027,7 @@ impl Buffer {
             }
 
             self.history
-                .insert(&mut self.rope, self.cursor.position, &input);
+                .insert(&mut self.rope, self.views[view_id].cursor.position, &input);
             /*if let Some(pair) = get_pair_char(text) {
                 self.history
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
@@ -984,7 +1035,7 @@ impl Buffer {
             (input.len(), true)
         } else {
             self.history
-                .insert(&mut self.rope, self.cursor.position, text);
+                .insert(&mut self.rope, self.views[view_id].cursor.position, text);
             /*if let Some(pair) = get_pair_char(text) {
                 self.history
                     .insert(&mut self.rope, self.cursor.position + text.len(), pair);
@@ -992,43 +1043,45 @@ impl Buffer {
             (text.len(), false)
         };
 
-        self.cursor.position += inserted_bytes;
-        self.cursor.anchor = self.cursor.position;
+        self.views[view_id].cursor.position += inserted_bytes;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
 
-        self.update_affinity();
-        self.mark_dirty();
-
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
+
+        self.update_affinity(view_id);
+        self.mark_dirty();
 
         if finish {
             self.history.finish();
         }
     }
 
-    pub fn backspace(&mut self) {
+    pub fn backspace(&mut self, view_id: ViewId) {
         // this is a bit hacky but it works
         {
-            let line_idx = self.cursor_line_idx();
-            let line_byte = self.cursor.position - self.rope.line_to_byte(line_idx);
-            if !self.cursor.has_selection()
+            let line_idx = self.cursor_line_idx(view_id);
+            let line_byte = self.views[view_id].cursor.position - self.rope.line_to_byte(line_idx);
+            if !self.views[view_id].cursor.has_selection()
                 && line_byte <= self.rope.get_text_start_byte(line_idx)
                 && line_byte != 0
             {
                 // FIXME back tab does not move the cursor correctly when standing in the middle of the indentation
-                self.tab(true);
+                self.tab(view_id, true);
                 return;
             }
         }
 
-        self.history.begin(self.cursor, self.dirty);
-        let (start_byte_idx, end_byte_idx) = if !self.cursor.has_selection() {
-            let start_byte_idx = self.rope.prev_grapheme_boundary_byte(self.cursor.position);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let (start_byte_idx, end_byte_idx) = if !self.views[view_id].cursor.has_selection() {
+            let start_byte_idx = self
+                .rope
+                .prev_grapheme_boundary_byte(self.views[view_id].cursor.position);
 
             //let start_byte = self.rope.get_byte(start_byte_idx);
             //let end_byte = self.rope.get_byte(start_byte_idx + 1);
-            let end_byte_idx = self.cursor.position;
+            let end_byte_idx = self.views[view_id].cursor.position;
 
             // Remove pair
             /*
@@ -1043,132 +1096,153 @@ impl Buffer {
 
             (start_byte_idx, end_byte_idx)
         } else {
-            let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
-            let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
+            let start_byte_idx = self.views[view_id]
+                .cursor
+                .position
+                .min(self.views[view_id].cursor.anchor);
+            let end_byte_idx = self.views[view_id]
+                .cursor
+                .position
+                .max(self.views[view_id].cursor.anchor);
             (start_byte_idx, end_byte_idx)
         };
 
         self.history
             .remove(&mut self.rope, start_byte_idx..end_byte_idx);
 
-        self.cursor.position = start_byte_idx;
-        self.cursor.anchor = self.cursor.position;
-        self.update_affinity();
+        self.views[view_id].cursor.position = start_byte_idx;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
+
+        self.update_affinity(view_id);
 
         if start_byte_idx != end_byte_idx {
             self.mark_dirty();
         }
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn backspace_word(&mut self) {
-        if self.cursor.has_selection() {
-            self.backspace();
+    pub fn backspace_word(&mut self, view_id: ViewId) {
+        if self.views[view_id].cursor.has_selection() {
+            self.backspace(view_id);
             return;
         }
 
-        self.history.begin(self.cursor, self.dirty);
-        let prev_word = self.prev_word_start(false);
-        self.history
-            .remove(&mut self.rope, prev_word..self.cursor.position);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let prev_word = self.prev_word_start(view_id, false);
+        self.history.remove(
+            &mut self.rope,
+            prev_word..self.views[view_id].cursor.position,
+        );
 
-        if prev_word != self.cursor.position {
+        if prev_word != self.views[view_id].cursor.position {
             self.mark_dirty();
         }
 
-        self.cursor.position = prev_word;
-        self.cursor.anchor = self.cursor.position;
-        self.update_affinity();
+        self.views[view_id].cursor.position = prev_word;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
+        self.update_affinity(view_id);
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
         self.history.finish();
     }
 
-    pub fn delete(&mut self) {
-        self.history.begin(self.cursor, self.dirty);
-        let (start_byte_idx, end_byte_idx) = if !self.cursor.has_selection() {
-            let end_byte_idx = self.rope.next_grapheme_boundary_byte(self.cursor.position);
-            (self.cursor.position, end_byte_idx)
+    pub fn delete(&mut self, view_id: ViewId) {
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let (start_byte_idx, end_byte_idx) = if !self.views[view_id].cursor.has_selection() {
+            let end_byte_idx = self
+                .rope
+                .next_grapheme_boundary_byte(self.views[view_id].cursor.position);
+            (self.views[view_id].cursor.position, end_byte_idx)
         } else {
-            let start_byte_idx = self.cursor.position.min(self.cursor.anchor);
-            let end_byte_idx = self.cursor.position.max(self.cursor.anchor);
+            let start_byte_idx = self.views[view_id]
+                .cursor
+                .position
+                .min(self.views[view_id].cursor.anchor);
+            let end_byte_idx = self.views[view_id]
+                .cursor
+                .position
+                .max(self.views[view_id].cursor.anchor);
             (start_byte_idx, end_byte_idx)
         };
 
         self.history
             .remove(&mut self.rope, start_byte_idx..end_byte_idx);
 
-        self.cursor.position = start_byte_idx;
-        self.cursor.anchor = self.cursor.position;
-        self.update_affinity();
+        self.views[view_id].cursor.position = start_byte_idx;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
+
+        self.update_affinity(view_id);
 
         if start_byte_idx != end_byte_idx {
             self.mark_dirty();
         }
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn delete_word(&mut self) {
-        if self.cursor.has_selection() {
-            self.delete();
+    pub fn delete_word(&mut self, view_id: ViewId) {
+        if self.views[view_id].cursor.has_selection() {
+            self.delete(view_id);
             return;
         }
 
-        self.history.begin(self.cursor, self.dirty);
-        let next_word = self.next_word_end(false);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let next_word = self.next_word_end(view_id, false);
 
-        self.history
-            .remove(&mut self.rope, self.cursor.position..next_word);
-        self.update_affinity();
+        self.history.remove(
+            &mut self.rope,
+            self.views[view_id].cursor.position..next_word,
+        );
+        self.update_affinity(view_id);
 
-        if self.cursor.position != next_word {
+        if self.views[view_id].cursor.position != next_word {
             self.mark_dirty();
         }
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
         self.history.finish();
     }
 
-    pub fn new_line(&mut self) {
-        self.history.begin(self.cursor, self.dirty);
-        self.end(false);
+    pub fn new_line(&mut self, view_id: ViewId) {
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        self.end(view_id, false);
         self.history
-            .insert(&mut self.rope, self.cursor.position, "\n");
-        self.cursor.position += 1;
-        self.cursor.anchor = self.cursor.position;
-        self.update_affinity();
+            .insert(&mut self.rope, self.views[view_id].cursor.position, "\n");
+        self.views[view_id].cursor.position += 1;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
+        self.update_affinity(view_id);
         self.mark_dirty();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
         self.history.finish();
     }
 
-    pub fn move_line(&mut self, dir: LineMoveDir) {
-        self.history.begin(self.cursor, self.dirty);
+    pub fn move_line(&mut self, view_id: ViewId, dir: LineMoveDir) {
+        self.history.begin(self.views[view_id].cursor, self.dirty);
         let len_lines = self.rope.len_lines();
-        let (cursor_col, cursor_line_idx) = self.cursor_pos();
-        let (anchor_col, anchor_line_idx) = self.anchor_pos();
+        let (cursor_col, cursor_line_idx) = self.cursor_pos(view_id);
+        let (anchor_col, anchor_line_idx) = self.anchor_pos(view_id);
 
         let cursor_byte_idx_in_line =
-            self.cursor.position - self.rope.line_to_byte(cursor_line_idx);
-        let anchor_byte_idx_in_line = self.cursor.anchor - self.rope.line_to_byte(anchor_line_idx);
+            self.views[view_id].cursor.position - self.rope.line_to_byte(cursor_line_idx);
+        let anchor_byte_idx_in_line =
+            self.views[view_id].cursor.anchor - self.rope.line_to_byte(anchor_line_idx);
 
         let start_line_idx = cursor_line_idx.min(anchor_line_idx);
         let mut end_line_idx = cursor_line_idx.max(anchor_line_idx);
 
-        let end_col = if self.cursor.position > self.cursor.anchor {
+        let end_col = if self.views[view_id].cursor.position > self.views[view_id].cursor.anchor {
             cursor_col
         } else {
             anchor_col
@@ -1183,9 +1257,12 @@ impl Buffer {
             return;
         }
 
-        let old_line_idx = self
-            .rope
-            .byte_to_line(self.cursor.position.min(self.cursor.anchor));
+        let old_line_idx = self.rope.byte_to_line(
+            self.views[view_id]
+                .cursor
+                .position
+                .min(self.views[view_id].cursor.anchor),
+        );
         let offset = match dir {
             LineMoveDir::Up => -1,
             LineMoveDir::Down => 1,
@@ -1227,45 +1304,55 @@ impl Buffer {
         let new_cursor_line_idx = (cursor_line_idx as i64 + offset) as usize;
         let new_anchor_line_idx = (anchor_line_idx as i64 + offset) as usize;
 
-        self.cursor.position =
+        self.views[view_id].cursor.position =
             self.rope.line_to_byte(new_cursor_line_idx) + cursor_byte_idx_in_line;
-        self.cursor.anchor = self.rope.line_to_byte(new_anchor_line_idx) + anchor_byte_idx_in_line;
+        self.views[view_id].cursor.anchor =
+            self.rope.line_to_byte(new_anchor_line_idx) + anchor_byte_idx_in_line;
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.mark_dirty();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
         self.history.finish();
     }
 
-    pub fn tab(&mut self, back: bool) {
+    pub fn tab(&mut self, view_id: ViewId, back: bool) {
         // TODO optimize for larger files
 
-        if !self.cursor.has_selection() && !back {
-            let col = self.cursor_grapheme_column();
-            self.insert_text(&self.indent.to_next_ident(col), false);
+        if !self.views[view_id].cursor.has_selection() && !back {
+            let col = self.cursor_grapheme_column(view_id);
+            self.insert_text(view_id, &self.indent.to_next_ident(col), false);
             self.history.finish();
             return;
         }
 
-        self.history.begin(self.cursor, self.dirty);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
         {
-            let cursor_col = self.cursor_grapheme_column();
-            let anchor_col = self.anchor_grapheme_column();
-            let cursor_line_idx = self.cursor_line_idx();
-            let anchor_line_idx = self.anchor_line_idx();
+            let cursor_col = self.cursor_grapheme_column(view_id);
+            let anchor_col = self.anchor_grapheme_column(view_id);
+            let cursor_line_idx = self.cursor_line_idx(view_id);
+            let anchor_line_idx = self.anchor_line_idx(view_id);
 
-            let start = self
-                .rope
-                .byte_to_line(self.cursor.position.min(self.cursor.anchor));
-            let end = self
-                .rope
-                .byte_to_line(self.cursor.position.max(self.cursor.anchor));
+            let start = self.rope.byte_to_line(
+                self.views[view_id]
+                    .cursor
+                    .position
+                    .min(self.views[view_id].cursor.anchor),
+            );
+            let end = self.rope.byte_to_line(
+                self.views[view_id]
+                    .cursor
+                    .position
+                    .max(self.views[view_id].cursor.anchor),
+            );
 
-            let last_line_at_start =
-                self.cursor.position.max(self.cursor.anchor) == self.rope.line_to_byte(end);
+            let last_line_at_start = self.views[view_id]
+                .cursor
+                .position
+                .max(self.views[view_id].cursor.anchor)
+                == self.rope.line_to_byte(end);
 
             let tab_direction = match back {
                 true => -1,
@@ -1306,36 +1393,36 @@ impl Buffer {
                 };
 
                 if line_idx == cursor_line_idx {
-                    self.cursor.position = self.rope.line_to_byte(cursor_line_idx);
+                    self.views[view_id].cursor.position = self.rope.line_to_byte(cursor_line_idx);
                     if cursor_col < text_start_col || cursor_col == 0 {
-                        self.set_cursor_col(cursor_col);
+                        self.set_cursor_col(view_id, cursor_col);
                     } else {
-                        self.set_cursor_col((cursor_col as i64 + diff) as usize);
+                        self.set_cursor_col(view_id, (cursor_col as i64 + diff) as usize);
                     }
                 }
 
                 if line_idx == anchor_line_idx {
-                    self.cursor.anchor = self.rope.line_to_byte(anchor_line_idx);
+                    self.views[view_id].cursor.anchor = self.rope.line_to_byte(anchor_line_idx);
                     if anchor_col < text_start_col || anchor_col == 0 {
-                        self.set_anchor_col(anchor_col);
+                        self.set_anchor_col(view_id, anchor_col);
                     } else {
-                        self.set_anchor_col((anchor_col as i64 + diff) as usize);
+                        self.set_anchor_col(view_id, (anchor_col as i64 + diff) as usize);
                     }
                 }
             }
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.mark_dirty();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
         self.history.finish();
     }
 
-    pub fn set_cursor_col(&mut self, col: usize) {
-        let cursor_line_idx = self.cursor_line_idx();
+    pub fn set_cursor_col(&mut self, view_id: ViewId, col: usize) {
+        let cursor_line_idx = self.cursor_line_idx(view_id);
         let line = self.rope.line_without_line_ending(cursor_line_idx);
         let mut byte_idx = 0;
         let mut width = 0;
@@ -1346,11 +1433,11 @@ impl Buffer {
             byte_idx += grapheme.len_bytes();
             width += grapheme.width(width);
         }
-        self.cursor.position = self.rope.line_to_byte(cursor_line_idx) + byte_idx;
+        self.views[view_id].cursor.position = self.rope.line_to_byte(cursor_line_idx) + byte_idx;
     }
 
-    pub fn set_anchor_col(&mut self, col: usize) {
-        let anchor_line_idx = self.anchor_line_idx();
+    pub fn set_anchor_col(&mut self, view_id: ViewId, col: usize) {
+        let anchor_line_idx = self.anchor_line_idx(view_id);
         let line = self.rope.line_without_line_ending(anchor_line_idx);
         let mut byte_idx = 0;
         let mut width = 0;
@@ -1361,61 +1448,73 @@ impl Buffer {
             byte_idx += grapheme.len_bytes();
             width += grapheme.width(width);
         }
-        self.cursor.anchor = self.rope.line_to_byte(anchor_line_idx) + byte_idx;
+        self.views[view_id].cursor.anchor = self.rope.line_to_byte(anchor_line_idx) + byte_idx;
     }
 
-    pub fn select_all(&mut self) {
-        self.cursor.anchor = 0;
-        self.cursor.position = self.rope.len_bytes();
+    pub fn select_all(&mut self, view_id: ViewId) {
+        self.views[view_id].cursor.anchor = 0;
+        self.views[view_id].cursor.position = self.rope.len_bytes();
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn select_line(&mut self) {
+    pub fn select_line(&mut self, view_id: ViewId) {
         {
-            let line_idx = self.cursor_line_idx();
+            let line_idx = self.cursor_line_idx(view_id);
             let line_start = self.rope.line_to_byte(line_idx + 1);
-            self.cursor.position = line_start;
+            self.views[view_id].cursor.position = line_start;
         }
 
         {
-            let line_idx = self.anchor_line_idx();
+            let line_idx = self.anchor_line_idx(view_id);
             let line_start = self.rope.line_to_byte(line_idx);
-            self.cursor.anchor = line_start;
+            self.views[view_id].cursor.anchor = line_start;
         }
 
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
     }
 
-    pub fn undo(&mut self) {
-        self.history
-            .undo(&mut self.rope, &mut self.cursor, &mut self.dirty);
+    pub fn undo(&mut self, view_id: ViewId) {
+        self.history.undo(
+            &mut self.rope,
+            &mut self.views[view_id].cursor,
+            &mut self.dirty,
+        );
         self.queue_syntax_update();
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn redo(&mut self) {
-        self.history
-            .redo(&mut self.rope, &mut self.cursor, &mut self.dirty);
+    pub fn redo(&mut self, view_id: ViewId) {
+        self.history.redo(
+            &mut self.rope,
+            &mut self.views[view_id].cursor,
+            &mut self.dirty,
+        );
         self.queue_syntax_update();
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn copy(&mut self) {
-        let start = self.cursor.position.min(self.cursor.anchor);
-        let end = self.cursor.position.max(self.cursor.anchor);
+    pub fn copy(&mut self, view_id: ViewId) {
+        let start = self.views[view_id]
+            .cursor
+            .position
+            .min(self.views[view_id].cursor.anchor);
+        let end = self.views[view_id]
+            .cursor
+            .position
+            .max(self.views[view_id].cursor.anchor);
         let copied = if start == end {
-            self.rope.line(self.cursor_line_idx()).to_string()
+            self.rope.line(self.cursor_line_idx(view_id)).to_string()
         } else {
             self.rope.byte_slice(start..end).to_string()
         };
@@ -1424,10 +1523,16 @@ impl Buffer {
         clipboard::set_contents(copied);
     }
 
-    pub fn cut(&mut self) {
-        self.history.begin(self.cursor, self.dirty);
-        let mut start = self.cursor.position.min(self.cursor.anchor);
-        let mut end = self.cursor.position.max(self.cursor.anchor);
+    pub fn cut(&mut self, view_id: ViewId) {
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let mut start = self.views[view_id]
+            .cursor
+            .position
+            .min(self.views[view_id].cursor.anchor);
+        let mut end = self.views[view_id]
+            .cursor
+            .position
+            .max(self.views[view_id].cursor.anchor);
 
         if start == end {
             start = self.rope.line_to_byte(self.rope.byte_to_line(start));
@@ -1437,33 +1542,33 @@ impl Buffer {
         clipboard::set_contents(cut);
         self.history.remove(&mut self.rope, start..end);
 
-        self.cursor.position = start;
-        self.cursor.anchor = self.cursor.position;
-        self.update_affinity();
+        self.views[view_id].cursor.position = start;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
+        self.update_affinity(view_id);
 
         if start != end {
             self.mark_dirty();
         }
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
         self.history.finish();
     }
 
-    pub fn paste(&mut self) {
-        self.insert_text(&clipboard::get_contents(), true);
+    pub fn paste(&mut self, view_id: ViewId) {
+        self.insert_text(view_id, &clipboard::get_contents(), true);
         self.history.finish();
     }
 
-    pub fn paste_primary(&mut self, col: usize, line: usize) {
-        self.set_cursor_pos(col, line);
-        self.insert_text(&clipboard::get_primary(), true);
+    pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
+        self.set_cursor_pos(view_id, col, line);
+        self.insert_text(view_id, &clipboard::get_primary(), true);
         self.history.finish();
     }
 
     // TODO make this not use eof
-    pub fn trim_start(&mut self) {
+    pub fn trim_start(&mut self, view_id: ViewId) {
         let mut start_white_spaces = 0;
         for ch in self.rope.chars() {
             if ch.is_whitespace() {
@@ -1474,17 +1579,17 @@ impl Buffer {
         }
         let byte_end = self.rope.char_to_byte(start_white_spaces);
         self.history.remove(&mut self.rope, 0..byte_end);
-        self.eof(false);
+        self.eof(view_id, false);
     }
 
-    pub fn replace(&mut self, byte_range: Range<usize>, text: &str) {
-        self.history.begin(self.cursor, self.dirty);
-        let (cursor_col, cursor_line) = self.cursor_pos();
-        let (anchor_col, anchor_line) = self.anchor_pos();
+    pub fn replace(&mut self, view_id: ViewId, byte_range: Range<usize>, text: &str) {
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let (cursor_col, cursor_line) = self.cursor_pos(view_id);
+        let (anchor_col, anchor_line) = self.anchor_pos(view_id);
         self.history.replace(&mut self.rope, byte_range, text);
-        self.set_cursor_pos(cursor_col, cursor_line);
-        self.set_anchor_pos(anchor_col, anchor_line);
-        self.ensure_cursor_is_valid();
+        self.set_cursor_pos(view_id, cursor_col, cursor_line);
+        self.set_anchor_pos(view_id, anchor_col, anchor_line);
+        self.ensure_cursor_is_valid(view_id);
         self.history.finish();
     }
 
@@ -1504,49 +1609,55 @@ impl Buffer {
         self.queue_syntax_update();
 
         self.history.finish();
+
+        let keys: Vec<_> = self.views.keys().collect();
+        for view_id in keys {
+            self.ensure_cursor_is_valid(view_id);
+        }
+
         Ok(())
     }
 
-    pub fn escape(&mut self) {
-        if self.searcher.is_some() || self.replacement.is_some() {
-            self.searcher = None;
-            self.replacement = None;
+    pub fn escape(&mut self, view_id: ViewId) {
+        if self.views[view_id].searcher.is_some() || self.views[view_id].replacement.is_some() {
+            self.views[view_id].searcher = None;
+            self.views[view_id].replacement = None;
             return;
         }
 
-        if self.cursor.has_selection() {
-            self.cursor.anchor = self.cursor.position;
-            if self.clamp_cursor {
-                self.center_on_cursor();
+        if self.views[view_id].cursor.has_selection() {
+            self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
+            if self.views[view_id].clamp_cursor {
+                self.center_on_cursor(view_id);
             }
         }
     }
 
-    pub fn handle_click(&mut self, col: usize, line: usize) {
-        self.set_cursor_pos(col, line);
+    pub fn handle_click(&mut self, view_id: ViewId, col: usize, line: usize) {
+        self.set_cursor_pos(view_id, col, line);
         let click_point = Point::new(col, line);
         let now = Instant::now();
-        if now.duration_since(self.last_click) < Duration::from_millis(500)
-            && click_point == self.last_click_pos
+        if now.duration_since(self.views[view_id].last_click) < Duration::from_millis(500)
+            && click_point == self.views[view_id].last_click_pos
         {
-            self.clicks_in_a_row += 1;
-            if self.clicks_in_a_row == 1 {
-                self.select_word();
-                self.copy_selection_to_primary();
-            } else if self.clicks_in_a_row == 2 {
-                self.select_line();
-                self.copy_selection_to_primary();
+            self.views[view_id].clicks_in_a_row += 1;
+            if self.views[view_id].clicks_in_a_row == 1 {
+                self.select_word(view_id);
+                self.copy_selection_to_primary(view_id);
+            } else if self.views[view_id].clicks_in_a_row == 2 {
+                self.select_line(view_id);
+                self.copy_selection_to_primary(view_id);
             } else {
-                self.clicks_in_a_row = 0;
+                self.views[view_id].clicks_in_a_row = 0;
             }
         } else {
-            self.clicks_in_a_row = 0;
+            self.views[view_id].clicks_in_a_row = 0;
         }
-        self.last_click = now;
-        self.last_click_pos = click_point;
+        self.views[view_id].last_click = now;
+        self.views[view_id].last_click_pos = click_point;
     }
 
-    pub fn set_cursor_pos(&mut self, col: usize, line: usize) {
+    pub fn set_cursor_pos(&mut self, view_id: ViewId, col: usize, line: usize) {
         let line_idx: usize = line.min(self.rope.len_lines().saturating_sub(1));
 
         let next_line = self.rope.line_without_line_ending(line_idx);
@@ -1554,19 +1665,19 @@ impl Buffer {
         let next_line_start = self.rope.line_to_byte(line_idx);
 
         if next_width < col {
-            self.cursor.position = next_line_start + next_line.len_bytes();
+            self.views[view_id].cursor.position = next_line_start + next_line.len_bytes();
         } else {
             let idx = next_line.nth_next_grapheme_boundary_byte(0, col);
-            self.cursor.position = next_line_start + idx;
+            self.views[view_id].cursor.position = next_line_start + idx;
         }
-        self.cursor.anchor = self.cursor.position;
+        self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
     }
 
-    pub fn set_anchor_pos(&mut self, col: usize, line: usize) {
+    pub fn set_anchor_pos(&mut self, view_id: ViewId, col: usize, line: usize) {
         let line_idx: usize = line.min(self.rope.len_lines().saturating_sub(1));
 
         let next_line = self.rope.line_without_line_ending(line_idx);
@@ -1574,57 +1685,65 @@ impl Buffer {
         let next_line_start = self.rope.line_to_byte(line_idx);
 
         if next_width < col {
-            self.cursor.anchor = next_line_start + next_line.len_bytes();
+            self.views[view_id].cursor.anchor = next_line_start + next_line.len_bytes();
         } else {
             let idx = next_line.nth_next_grapheme_boundary_byte(0, col);
-            self.cursor.anchor = next_line_start + idx;
+            self.views[view_id].cursor.anchor = next_line_start + idx;
         }
     }
 
     pub fn select_area(
         &mut self,
+        view_id: ViewId,
         cursor: Point<usize>,
         anchor: Point<usize>,
         copy_to_clipboard: bool,
     ) {
-        self.set_cursor_pos(cursor.column, cursor.line);
-        self.set_anchor_pos(anchor.column, anchor.line);
+        self.set_cursor_pos(view_id, cursor.column, cursor.line);
+        self.set_anchor_pos(view_id, anchor.column, anchor.line);
 
         if copy_to_clipboard {
-            self.copy_selection_to_primary();
+            self.copy_selection_to_primary(view_id);
         }
-        self.update_affinity();
+        self.update_affinity(view_id);
         self.history.finish();
     }
 
-    pub fn copy_selection_to_primary(&mut self) {
+    pub fn copy_selection_to_primary(&mut self, view_id: ViewId) {
         #[cfg(target_os = "linux")]
         {
-            let start = self.cursor.position.min(self.cursor.anchor);
-            let end = self.cursor.position.max(self.cursor.anchor);
+            let start = self.views[view_id]
+                .cursor
+                .position
+                .min(self.views[view_id].cursor.anchor);
+            let end = self.views[view_id]
+                .cursor
+                .position
+                .max(self.views[view_id].cursor.anchor);
             clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
         }
     }
 
-    pub fn center_on_cursor(&mut self) {
+    pub fn center_on_cursor(&mut self, view_id: ViewId) {
         {
-            let cursor_line = self.rope.byte_to_line(self.cursor.position);
-            let start_line = self.line_pos;
-            let end_line = self.line_pos + self.view_lines;
+            let cursor_line = self.rope.byte_to_line(self.views[view_id].cursor.position);
+            let start_line = self.views[view_id].line_pos;
+            let end_line = self.views[view_id].line_pos + self.views[view_id].view_lines;
             if cursor_line < start_line || cursor_line >= end_line {
-                self.line_pos = cursor_line.saturating_sub(self.view_lines / 2);
+                self.views[view_id].line_pos =
+                    cursor_line.saturating_sub(self.views[view_id].view_lines / 2);
             }
         }
 
         {
-            let cursor_col = self.cursor_grapheme_column();
-            let start_col = self.col_pos;
-            let end_col = self.col_pos + self.view_columns;
+            let cursor_col = self.cursor_grapheme_column(view_id);
+            let start_col = self.views[view_id].col_pos;
+            let end_col = self.views[view_id].col_pos + self.views[view_id].view_columns;
 
             if cursor_col <= start_col {
-                self.horizontal_scroll(-((start_col - cursor_col) as i64));
+                self.horizontal_scroll(view_id, -((start_col - cursor_col) as i64));
             } else if cursor_col >= end_col {
-                self.horizontal_scroll((cursor_col - end_col + 1) as i64);
+                self.horizontal_scroll(view_id, (cursor_col - end_col + 1) as i64);
             }
         }
     }
@@ -1661,62 +1780,64 @@ impl Buffer {
         self.syntax.as_mut()
     }
 
-    pub fn view_range(&self) -> Range<usize> {
-        let start = self.rope.line_to_byte(self.line_pos);
+    pub fn view_range(&self, view_id: ViewId) -> Range<usize> {
+        let start = self.rope.line_to_byte(self.views[view_id].line_pos);
         let end = self
             .rope
-            .try_line_to_byte(self.line_pos + self.view_lines)
+            .try_line_to_byte(self.views[view_id].line_pos + self.views[view_id].view_lines)
             .unwrap_or_else(|_| self.rope.len_bytes());
         start..end
     }
 
     pub fn start_search(
         &mut self,
+        view_id: ViewId,
         proxy: Box<dyn EventLoopProxy>,
         query: String,
         case_insensitive: bool,
     ) {
-        if let Some(searcher) = &mut self.searcher {
-            searcher.update_query(query, case_insensitive, self.cursor.position);
+        let cursor_pos = self.views[view_id].cursor.position;
+        if let Some(searcher) = &mut self.views[view_id].searcher {
+            searcher.update_query(query, case_insensitive, cursor_pos);
         } else {
             let searcher = BufferSearcher::new(
                 proxy,
                 query,
                 self.rope.clone(),
                 case_insensitive,
-                self.cursor.position,
+                self.views[view_id].cursor.position,
             );
-            self.searcher = Some(searcher);
+            self.views[view_id].searcher = Some(searcher);
         }
     }
 
-    pub fn get_searcher(&self) -> Option<&BufferSearcher> {
-        self.searcher.as_ref()
+    pub fn get_searcher(&self, view_id: ViewId) -> Option<&BufferSearcher> {
+        self.views[view_id].searcher.as_ref()
     }
 
-    pub fn next_match(&mut self) {
-        if let Some(searcher) = &mut self.searcher {
+    pub fn next_match(&mut self, view_id: ViewId) {
+        if let Some(searcher) = &mut self.views[view_id].searcher {
             if let Some(search_match) = searcher.get_next_match() {
-                self.select_area(search_match.end, search_match.start, false);
+                self.select_area(view_id, search_match.end, search_match.start, false);
             }
         }
     }
 
-    pub fn prev_match(&mut self) {
-        if let Some(searcher) = &mut self.searcher {
+    pub fn prev_match(&mut self, view_id: ViewId) {
+        if let Some(searcher) = &mut self.views[view_id].searcher {
             if let Some(search_match) = searcher.get_prev_match() {
-                self.select_area(search_match.end, search_match.start, false);
+                self.select_area(view_id, search_match.end, search_match.start, false);
             }
         }
     }
 
-    pub fn cursor_is_eof(&self) -> bool {
-        self.cursor.position == self.rope.len_bytes()
+    pub fn cursor_is_eof(&self, view_id: ViewId) -> bool {
+        self.views[view_id].cursor.position == self.rope.len_bytes()
     }
 
-    pub fn revert_buffer(&mut self) {
+    pub fn revert_buffer(&mut self, view_id: ViewId) {
         while self.dirty {
-            self.undo();
+            self.undo(view_id);
         }
     }
 
@@ -1729,9 +1850,15 @@ impl Buffer {
         Ok(false)
     }
 
-    pub fn get_selection(&self) -> String {
-        let start = self.cursor.anchor.min(self.cursor.position);
-        let end = self.cursor.anchor.max(self.cursor.position);
+    pub fn get_selection(&self, view_id: ViewId) -> String {
+        let start = self.views[view_id]
+            .cursor
+            .anchor
+            .min(self.views[view_id].cursor.position);
+        let end = self.views[view_id]
+            .cursor
+            .anchor
+            .max(self.views[view_id].cursor.position);
         let slice = self.rope.byte_slice(start..end);
         slice.to_string()
     }
@@ -1749,11 +1876,15 @@ impl Buffer {
         self.rope.len_bytes()
     }
 
-    pub fn ensure_cursor_is_valid(&mut self) {
-        let position = self.cursor.position.min(self.rope.len_bytes());
-        let anchor = self.cursor.anchor.min(self.rope.len_bytes());
-        self.cursor.position = self.rope().ensure_grapheme_boundary_next_byte(position);
-        self.cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
+    pub fn ensure_cursor_is_valid(&mut self, view_id: ViewId) {
+        let position = self.views[view_id]
+            .cursor
+            .position
+            .min(self.rope.len_bytes());
+        let anchor = self.views[view_id].cursor.anchor.min(self.rope.len_bytes());
+        self.views[view_id].cursor.position =
+            self.rope().ensure_grapheme_boundary_next_byte(position);
+        self.views[view_id].cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
     }
 
     pub fn guess_indent(&self, byte_index: usize) -> String {
@@ -1771,17 +1902,26 @@ impl Buffer {
         self.indent.from_width(Rope::from_str(&indent).width(0))
     }
 
-    pub fn sort_lines(&mut self, asc: bool) {
-        self.history.begin(self.cursor, self.dirty);
-        let start = self
-            .rope
-            .byte_to_line(self.cursor.position.min(self.cursor.anchor));
-        let end = self
-            .rope
-            .byte_to_line(self.cursor.position.max(self.cursor.anchor));
+    pub fn sort_lines(&mut self, view_id: ViewId, asc: bool) {
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let start = self.rope.byte_to_line(
+            self.views[view_id]
+                .cursor
+                .position
+                .min(self.views[view_id].cursor.anchor),
+        );
+        let end = self.rope.byte_to_line(
+            self.views[view_id]
+                .cursor
+                .position
+                .max(self.views[view_id].cursor.anchor),
+        );
 
-        let last_line_at_start =
-            self.cursor.position.max(self.cursor.anchor) == self.rope.line_to_byte(end);
+        let last_line_at_start = self.views[view_id]
+            .cursor
+            .position
+            .max(self.views[view_id].cursor.anchor)
+            == self.rope.line_to_byte(end);
 
         let end = if last_line_at_start {
             end.saturating_sub(1).max(start)
@@ -1814,10 +1954,10 @@ impl Buffer {
             cmp::Ordering::Equal
         });
 
-        let cursor_line = self.cursor_line_idx();
-        let anchor_line = self.anchor_line_idx();
-        let cursor_col = self.cursor_grapheme_column();
-        let anchor_col = self.anchor_grapheme_column();
+        let cursor_line = self.cursor_line_idx(view_id);
+        let anchor_line = self.anchor_line_idx(view_id);
+        let cursor_col = self.cursor_grapheme_column(view_id);
+        let anchor_col = self.anchor_grapheme_column(view_id);
 
         self.history.remove(&mut self.rope, start_byte..end_byte);
         let inserted_bytes = 0;
@@ -1826,22 +1966,23 @@ impl Buffer {
                 .insert(&mut self.rope, start_byte + inserted_bytes, line);
         }
 
-        self.set_cursor_pos(cursor_col, cursor_line);
-        self.set_anchor_pos(anchor_col, anchor_line);
+        self.set_cursor_pos(view_id, cursor_col, cursor_line);
+        self.set_anchor_pos(view_id, anchor_col, anchor_line);
 
-        self.ensure_cursor_is_valid();
+        self.ensure_cursor_is_valid(view_id);
         self.mark_dirty();
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
 
         self.history.finish();
     }
 
-    pub fn replace_all(&mut self, replacement: String) {
-        if let Some(searcher) = &mut self.searcher {
-            self.history.begin(self.cursor, self.dirty);
+    pub fn replace_all(&mut self, view_id: ViewId, replacement: String) {
+        let view = &mut self.views[view_id];
+        if let Some(searcher) = &mut view.searcher {
+            self.history.begin(view.cursor, self.dirty);
             let matches = searcher.get_matches();
             let guard = matches.lock().unwrap();
             let (matches, _) = &*guard;
@@ -1856,23 +1997,23 @@ impl Buffer {
                 let replacement_diff = replacement.len() as i64 - match_len;
                 diff += replacement_diff;
 
-                if self.cursor.position > start_byte_idx {
-                    self.cursor.position =
-                        (self.cursor.position as i64 + replacement_diff) as usize;
+                if view.cursor.position > start_byte_idx {
+                    view.cursor.position =
+                        (view.cursor.position as i64 + replacement_diff) as usize;
                 }
 
-                if self.cursor.anchor > start_byte_idx {
-                    self.cursor.anchor = (self.cursor.anchor as i64 + replacement_diff) as usize;
+                if view.cursor.anchor > start_byte_idx {
+                    view.cursor.anchor = (view.cursor.anchor as i64 + replacement_diff) as usize;
                 }
             }
 
             searcher.update_buffer(self.rope.clone(), None);
 
-            self.ensure_cursor_is_valid();
+            self.ensure_cursor_is_valid(view_id);
             self.mark_dirty();
 
-            if self.clamp_cursor {
-                self.center_on_cursor();
+            if self.views[view_id].clamp_cursor {
+                self.center_on_cursor(view_id);
             }
 
             self.history.finish();
@@ -1880,7 +2021,10 @@ impl Buffer {
     }
 
     pub fn is_disposable(&self) -> bool {
-        !self.is_dirty() && self.rope().len_bytes() == 0 && self.file.is_none()
+        !self.is_dirty()
+            && self.rope().len_bytes() == 0
+            && self.views.is_empty()
+            && self.file.is_none()
     }
 
     pub fn get_next_file(&self) -> Result<PathBuf, anyhow::Error> {
@@ -1941,31 +2085,51 @@ impl Buffer {
         Ok(entries[(index + 1) % entries.len()].1.clone())
     }
 
-    pub fn replace_current_match(&mut self) {
-        if let (Some(searcher), Some(replacement)) = (&mut self.searcher, self.replacement.clone())
+    pub fn replace_current_match(&mut self, view_id: ViewId) {
+        let view = &mut self.views[view_id];
+        if let (Some(searcher), Some(replacement)) = (&mut view.searcher, view.replacement.clone())
         {
             if let Some(search_match) = searcher.get_current_match() {
-                self.select_area(search_match.end, search_match.start, false);
-                self.insert_text(&replacement, false);
+                self.select_area(view_id, search_match.end, search_match.start, false);
+                self.insert_text(view_id, &replacement, false);
             } else {
                 searcher.get_next_match();
             }
         }
     }
 
-    pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
+    pub fn load_buffer_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
         let cursor = buffer_data.cursor;
         let line_pos = buffer_data.line_pos;
-        self.vertical_scroll(line_pos as i64);
+        self.vertical_scroll(view_id, line_pos as i64);
         let postion = self
             .rope()
             .byte_to_point(cursor.position.min(self.len_bytes()));
         let anchor = self
             .rope()
             .byte_to_point(cursor.anchor.min(self.len_bytes()));
-        self.set_cursor_pos(postion.column, postion.line);
-        self.set_anchor_pos(anchor.column, anchor.line);
-        self.ensure_cursor_is_valid();
+        self.set_cursor_pos(view_id, postion.column, postion.line);
+        self.set_anchor_pos(view_id, anchor.column, anchor.line);
+        self.ensure_cursor_is_valid(view_id);
+    }
+
+    pub fn create_view(&mut self) -> ViewId {
+        self.views.insert(View::default())
+    }
+
+    pub fn get_first_view(&self) -> Option<ViewId> {
+        self.views.keys().next()
+    }
+
+    pub fn get_first_view_or_create(&mut self) -> ViewId {
+        self.views
+            .keys()
+            .next()
+            .unwrap_or_else(|| self.create_view())
+    }
+
+    pub fn remove_view(&mut self, view_id: ViewId) {
+        self.views.remove(view_id);
     }
 }
 

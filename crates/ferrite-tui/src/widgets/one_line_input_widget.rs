@@ -19,10 +19,11 @@ impl StatefulWidget for OneLineInputWidget<'_> {
 
     fn render(self, area: Rect, buf: &mut tui::buffer::Buffer, buffer: &mut Self::State) {
         assert_eq!(area.height, 1);
-        buffer.set_view_lines(1);
-        buffer.set_view_columns(area.width.into());
-        buffer.clamp_cursor = true;
-        let view = buffer.get_buffer_view();
+        let view_id = buffer.get_first_view_or_create();
+        buffer.set_view_lines(view_id, 1);
+        buffer.set_view_columns(view_id, area.width.into());
+        buffer.views[view_id].clamp_cursor = true;
+        let view = buffer.get_buffer_view(view_id);
         buf.set_stringn(
             area.x,
             area.y,
@@ -37,8 +38,8 @@ impl StatefulWidget for OneLineInputWidget<'_> {
             area.width.into(),
             convert_style(&self.theme.text),
         );
-        let cursor = buffer.cursor_grapheme_column() as i64 - buffer.col_pos() as i64;
-        let anchor = buffer.anchor_grapheme_column() as i64 - buffer.col_pos() as i64;
+        let cursor = buffer.cursor_grapheme_column(view_id) as i64 - buffer.col_pos(view_id) as i64;
+        let anchor = buffer.anchor_grapheme_column(view_id) as i64 - buffer.col_pos(view_id) as i64;
         let start = cursor.min(anchor).clamp(0, area.width as i64);
         let end = cursor.max(anchor).clamp(0, area.width as i64);
         let rect = Rect {

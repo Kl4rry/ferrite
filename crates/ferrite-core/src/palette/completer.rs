@@ -63,7 +63,8 @@ impl Completer {
     }
 
     fn do_completion(&self, buffer: &mut Buffer) {
-        buffer.trim_start();
+        let view_id = buffer.get_first_view_or_create();
+        buffer.trim_start(view_id);
 
         let option = &*self.options[self.index.unwrap()];
         let text = buffer.to_string();
@@ -91,19 +92,20 @@ impl Completer {
             replacement.push('"');
         }
 
+        let view_id = buffer.get_first_view_or_create();
         match get_completion_type(&text, &tokens) {
             CompletionType::NewCmd | CompletionType::NewArg => {
-                buffer.insert_text(&replacement, false);
+                buffer.insert_text(view_id, &replacement, false);
             }
             CompletionType::Cmd => {
-                buffer.replace(cmd.start..(cmd.start + cmd.len), &replacement);
+                buffer.replace(view_id, cmd.start..(cmd.start + cmd.len), &replacement);
             }
             CompletionType::Arg => {
                 let last = tokens.last().unwrap();
-                buffer.replace(last.start..(last.start + last.len), &replacement);
+                buffer.replace(view_id, last.start..(last.start + last.len), &replacement);
             }
         }
-        buffer.eof(false);
+        buffer.eof(view_id, false);
 
         buffer.mark_clean();
     }

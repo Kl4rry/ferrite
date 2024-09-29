@@ -147,7 +147,8 @@ impl PickerOptionProvider for GlobalSearchProvider {
                         return WalkState::Continue;
                     };
 
-                    buffer.clamp_cursor = true;
+                    let view_id = buffer.create_view();
+                    buffer.views[view_id].clamp_cursor = true;
                     let name = buffer.name().to_string();
                     let rope = buffer.rope().clone();
                     let buffer = Arc::new(Mutex::new(buffer));
@@ -209,9 +210,10 @@ impl Previewer<GlobalSearchMatch> for GlobalSearchPreviewer {
         {
             let mut guard = m.buffer.lock().unwrap();
             let (start, end) = m.match_location;
-            guard.select_area(start, end, false);
-            guard.clamp_cursor = true;
-            guard.center_on_cursor();
+            let view_id = guard.get_first_view().unwrap();
+            guard.select_area(view_id, start, end, false);
+            guard.views[view_id].clamp_cursor = true;
+            guard.center_on_cursor(view_id);
         }
         Preview::SharedBuffer(m.buffer.clone())
     }

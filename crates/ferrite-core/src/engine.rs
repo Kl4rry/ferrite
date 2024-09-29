@@ -15,7 +15,7 @@ use slotmap::{Key, SlotMap};
 use subprocess::{Exec, Redirection};
 
 use crate::{
-    buffer::{self, encoding::get_encoding, Buffer},
+    buffer::{self, encoding::get_encoding, Buffer, ViewId},
     buffer_watcher::BufferWatcher,
     byte_size::format_byte_size,
     clipboard,
@@ -134,7 +134,6 @@ impl Engine {
         }
 
         for (_, buffer) in &mut buffers {
-            buffer.goto(args.line as i64);
             if let Some(language) = &args.language {
                 if let Err(err) = buffer.set_langauge(language, proxy.dup()) {
                     palette.set_error(err);
@@ -177,7 +176,10 @@ impl Engine {
 
         if !buffers.is_empty() {
             workspace.buffers = buffers;
-            workspace.panes = Panes::new(current_buffer_id);
+            let buffer = &mut workspace.buffers[current_buffer_id];
+            let view_id = buffer.create_view();
+            buffer.goto(view_id, args.line as i64);
+            workspace.panes = Panes::new(current_buffer_id, view_id);
         }
 
         let branch_watcher = BranchWatcher::new(proxy.dup())?;
@@ -253,7 +255,7 @@ impl Engine {
         }
 
         let mut new_buffers = Vec::new();
-        for (_, buffer) in &self.workspace.buffers {
+        for (_, buffer) in &mut self.workspace.buffers {
             if let Some(path) = buffer.file() {
                 match self
                     .workspace
@@ -262,16 +264,22 @@ impl Engine {
                     .find(|buffer| buffer.path == path)
                 {
                     Some(buffer_data) => {
-                        buffer_data.cursor = buffer.cursor();
-                        buffer_data.line_pos = buffer.line_pos();
-                        // TODO add language indent and other
+                        if let Some(view_id) = buffer.get_first_view() {
+                            buffer_data.cursor = buffer.cursor(view_id);
+                            buffer_data.line_pos = buffer.line_pos(view_id);
+                            buffer_data.col_pos = buffer.col_pos(view_id);
+                            // TODO add language indent and other
+                        }
                     }
                     None => {
-                        new_buffers.push(BufferData {
-                            path: path.to_path_buf(),
-                            cursor: buffer.cursor(),
-                            line_pos: buffer.line_pos(),
-                        });
+                        if let Some(view_id) = buffer.get_first_view() {
+                            new_buffers.push(BufferData {
+                                path: path.to_path_buf(),
+                                cursor: buffer.cursor(view_id),
+                                line_pos: buffer.line_pos(view_id),
+                                col_pos: buffer.col_pos(view_id),
+                            });
+                        }
                     }
                 }
             }
@@ -325,8 +333,9 @@ impl Engine {
         }
         self.shell_jobs.retain(|job| !job.is_finished());
 
-        for buffer in new_buffers {
-            self.insert_buffer(buffer, true);
+        for mut buffer in new_buffers {
+            let view_id = buffer.create_view();
+            self.insert_buffer(buffer, view_id, true);
         }
 
         self.job_manager.poll_jobs();
@@ -387,7 +396,7 @@ impl Engine {
         }
         match input {
             Cmd::RotateFile => {
-                if let Some(buffer) = self.get_current_buffer() {
+                if let Some((buffer, _)) = self.get_current_buffer() {
                     match buffer.get_next_file() {
                         Ok(file) => {
                             self.open_file(file);
@@ -467,7 +476,7 @@ impl Engine {
             Cmd::OpenFileBrowser => self.open_file_picker(),
             Cmd::OpenBufferBrowser => self.open_buffer_picker(),
             Cmd::Save => {
-                if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
+                if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() {
                     self.save_buffer(buffer_id, None);
                 }
             }
@@ -478,13 +487,13 @@ impl Engine {
                 );
             }
             Cmd::ReplaceAll(replacement) => {
-                if let Some(buffer) = self.get_current_buffer_mut() {
-                    buffer.replace_all(replacement);
+                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                    buffer.replace_all(view_id, replacement);
                 }
             }
             Cmd::SortLines(asc) => {
-                if let Some(buffer) = self.get_current_buffer_mut() {
-                    buffer.sort_lines(asc);
+                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                    buffer.sort_lines(view_id, asc);
                 }
             }
             Cmd::Path => match self.try_get_current_buffer_path() {
@@ -545,16 +554,18 @@ impl Engine {
                 }
             }
             Cmd::Split(direction) => {
-                let (buffer_id, _) = self.insert_buffer(Buffer::new(), false);
+                let mut buffer = Buffer::new();
+                let view_id = buffer.create_view();
+                let (buffer_id, _) = self.insert_buffer(buffer, view_id, false);
                 self.workspace
                     .panes
-                    .split(PaneKind::Buffer(buffer_id), direction);
+                    .split(PaneKind::Buffer(buffer_id, view_id), direction);
             }
             Cmd::RunShellCmd { args, pipe } => {
                 self.run_shell_command(args, pipe, false);
             }
             Cmd::Trash => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
 
@@ -577,7 +588,6 @@ impl Engine {
                     }
                     Err(e) => {
                         self.palette.set_error(e);
-                        self.close_current_buffer();
                     }
                 }
             }
@@ -587,14 +597,14 @@ impl Engine {
                 self.open_file(path);
             }
             Cmd::SaveFile(path) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
 
                 self.save_buffer(buffer_id, path);
             }
             Cmd::Language(language) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
                 match language {
@@ -611,7 +621,7 @@ impl Engine {
                 }
             }
             Cmd::Encoding(encoding) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
                 match encoding {
@@ -627,7 +637,7 @@ impl Engine {
                 }
             }
             Cmd::Indent(indent) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
                 match indent {
@@ -651,7 +661,7 @@ impl Engine {
                 }
             }
             Cmd::LineEnding(line_ending) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
                 match line_ending {
@@ -671,15 +681,20 @@ impl Engine {
             Cmd::New(path) => {
                 if let Some(path) = path {
                     match Buffer::with_path(path) {
-                        Ok(buffer) => drop(self.insert_buffer(buffer, true)),
+                        Ok(mut buffer) => {
+                            let view_id = buffer.create_view();
+                            self.insert_buffer(buffer, view_id, true);
+                        }
                         Err(err) => self.palette.set_error(err),
                     }
                 } else {
-                    self.insert_buffer(Buffer::new(), true);
+                    let mut buffer = Buffer::new();
+                    let view_id = buffer.create_view();
+                    self.insert_buffer(buffer, view_id, true);
                 }
             }
             Cmd::Reload => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
                 if self.workspace.buffers[buffer_id].is_dirty() {
@@ -708,16 +723,18 @@ impl Engine {
                 }
             }
             Cmd::Goto(line) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
+                else {
                     return;
                 };
-                self.workspace.buffers[buffer_id].goto(line);
+                self.workspace.buffers[buffer_id].goto(view_id, line);
             }
             Cmd::Case(case) => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
+                else {
                     return;
                 };
-                self.workspace.buffers[buffer_id].transform_case(case);
+                self.workspace.buffers[buffer_id].transform_case(view_id, case);
             }
             Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
             Cmd::Logger => {
@@ -752,26 +769,32 @@ impl Engine {
             Cmd::Close => self.close_current_buffer(),
             Cmd::ClosePane => self.close_pane(),
             Cmd::Paste => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
+                else {
                     return;
                 };
-                if let Err(err) = self.workspace.buffers[buffer_id].handle_input(Cmd::Paste) {
+                if let Err(err) =
+                    self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::Paste)
+                {
                     self.palette.set_error(err);
                 }
             }
             Cmd::Copy => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
+                else {
                     return;
                 };
-                if let Err(err) = self.workspace.buffers[buffer_id].handle_input(Cmd::Copy) {
+                if let Err(err) = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::Copy)
+                {
                     self.palette.set_error(err);
                 }
             }
             Cmd::RevertBuffer => {
-                let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
+                else {
                     return;
                 };
-                let _ = self.workspace.buffers[buffer_id].handle_input(Cmd::RevertBuffer);
+                let _ = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::RevertBuffer);
             }
             Cmd::GitReload => self.branch_watcher.force_reload(),
             Cmd::GitDiff => {
@@ -793,12 +816,13 @@ impl Engine {
                     if let Some(choice) = picker.get_choice() {
                         self.workspace.buffers[choice.id].update_interact();
                         self.buffer_picker = None;
-                        let old = self
-                            .workspace
-                            .panes
-                            .replace_current(PaneKind::Buffer(choice.id));
-                        if let PaneKind::Buffer(id) = old {
-                            let buffer = &self.workspace.buffers[id];
+                        let old = self.workspace.panes.replace_current(PaneKind::Buffer(
+                            choice.id,
+                            self.workspace.buffers[choice.id].create_view(),
+                        ));
+                        if let PaneKind::Buffer(id, view_id) = old {
+                            let buffer = &mut self.workspace.buffers[id];
+                            buffer.remove_view(view_id);
                             if buffer.is_disposable() {
                                 self.workspace.buffers.remove(id);
                             }
@@ -811,25 +835,28 @@ impl Engine {
                         let guard = choice.buffer.lock().unwrap();
                         if let Some(file) = guard.file() {
                             if self.open_file(file) {
-                                let cursor_line = guard.cursor_line_idx();
-                                let cursor_col = guard.cursor_grapheme_column();
-                                let anchor_line = guard.anchor_line_idx();
-                                let anchor_col = guard.anchor_grapheme_column();
-                                if let Some(buffer) = self.get_current_buffer_mut() {
+                                let view_id = guard.get_first_view().unwrap();
+                                let cursor_line = guard.cursor_line_idx(view_id);
+                                let cursor_col = guard.cursor_grapheme_column(view_id);
+                                let anchor_line = guard.anchor_line_idx(view_id);
+                                let anchor_col = guard.anchor_grapheme_column(view_id);
+                                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
                                     buffer.select_area(
+                                        view_id,
                                         Point::new(cursor_col, cursor_line),
                                         Point::new(anchor_col, anchor_line),
                                         false,
                                     );
-                                    buffer.center_on_cursor();
+                                    buffer.center_on_cursor(view_id);
                                 }
                             }
                         }
                     }
                 } else {
                     match self.workspace.panes.get_current_pane() {
-                        PaneKind::Buffer(buffer_id) => {
-                            if let Err(err) = self.workspace.buffers[buffer_id].handle_input(input)
+                        PaneKind::Buffer(buffer_id, view_id) => {
+                            if let Err(err) =
+                                self.workspace.buffers[buffer_id].handle_input(view_id, input)
                             {
                                 self.palette.set_error(err);
                             }
@@ -855,19 +882,22 @@ impl Engine {
                 "goto" => {
                     self.palette.reset();
                     if let Ok(line) = content.trim().parse::<i64>() {
-                        let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                        let PaneKind::Buffer(buffer_id, view_id) =
+                            self.workspace.panes.get_current_pane()
                         else {
                             return;
                         };
-                        self.workspace.buffers[buffer_id].goto(line);
+                        self.workspace.buffers[buffer_id].goto(view_id, line);
                     }
                 }
                 "search" => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                    let PaneKind::Buffer(buffer_id, view_id) =
+                        self.workspace.panes.get_current_pane()
                     else {
                         return;
                     };
                     self.workspace.buffers[buffer_id].start_search(
+                        view_id,
                         self.proxy.dup(),
                         content,
                         self.config.case_insensitive_search,
@@ -876,12 +906,13 @@ impl Engine {
                 }
                 "replace" => {
                     self.palette.unfocus();
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                    let PaneKind::Buffer(buffer_id, view_id) =
+                        self.workspace.panes.get_current_pane()
                     else {
                         return;
                     };
                     let buffer = &mut self.workspace.buffers[buffer_id];
-                    buffer.replacement = Some(content);
+                    buffer.views[view_id].replacement = Some(content);
                 }
                 "global-search" => {
                     self.palette.unfocus();
@@ -906,7 +937,7 @@ impl Engine {
             UserEvent::PromptEvent(event) => match event {
                 PalettePromptEvent::Nop => (),
                 PalettePromptEvent::Reload => {
-                    let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane()
+                    let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane()
                     else {
                         return;
                     };
@@ -921,7 +952,7 @@ impl Engine {
     }
 
     pub fn format_selection_current_buffer(&mut self) {
-        let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+        let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() else {
             return;
         };
         let buffer_lang = self.workspace.buffers[buffer_id].language_name();
@@ -943,14 +974,13 @@ impl Engine {
             return;
         };
 
-        if let Err(err) = self.workspace.buffers[buffer_id].format_selection(fmt) {
-            // FIXME make error able to display more then one line
+        if let Err(err) = self.workspace.buffers[buffer_id].format_selection(view_id, fmt) {
             self.palette.set_error(err);
         }
     }
 
     pub fn format_current_buffer(&mut self) {
-        if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
+        if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
             let buffer_lang = self.workspace.buffers[buffer_id].language_name();
             let config = self
                 .config
@@ -969,8 +999,7 @@ impl Engine {
                 return;
             };
 
-            if let Err(err) = self.workspace.buffers[buffer_id].format(fmt) {
-                // FIXME make error able to display more then one line
+            if let Err(err) = self.workspace.buffers[buffer_id].format(view_id, fmt) {
                 self.palette.set_error(err);
             }
         }
@@ -994,28 +1023,37 @@ impl Engine {
         }) {
             Some((id, buffer)) => {
                 buffer.update_interact();
-                self.workspace.panes.replace_current(PaneKind::Buffer(id));
+                let view_id = buffer.create_view();
+                let replaced = self
+                    .workspace
+                    .panes
+                    .replace_current(PaneKind::Buffer(id, view_id));
+                if let PaneKind::Buffer(buffer_id, view_id) = replaced {
+                    self.workspace.buffers[buffer_id].remove_view(view_id);
+                }
                 true
             }
             None => match Buffer::from_file(&real_path) {
                 Ok(mut buffer) => {
+                    let view_id = buffer.create_view();
                     if let Some(buffer_data) = self
                         .workspace
                         .buffer_extra_data
                         .iter()
                         .find(|b| b.path == real_path)
                     {
-                        buffer.load_buffer_data(buffer_data);
+                        buffer.load_buffer_data(view_id, buffer_data);
                     }
 
-                    if let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() {
+                    if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane()
+                    {
                         let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
                         if current_buf.is_disposable() {
                             *current_buf = buffer;
                             return true;
                         }
                     }
-                    self.insert_buffer(buffer, true);
+                    self.insert_buffer(buffer, view_id, true);
                     true
                 }
                 Err(err) => {
@@ -1121,11 +1159,12 @@ impl Engine {
     pub fn open_default_config(&mut self) {
         let mut buffer = Buffer::with_name("default_config.toml");
         buffer.set_text(DEFAULT_CONFIG);
-        self.insert_buffer(buffer, true);
+        let view_id = buffer.create_view();
+        self.insert_buffer(buffer, view_id, true);
     }
 
     pub fn close_current_buffer(&mut self) {
-        if let Some(buffer) = self.get_current_buffer() {
+        if let Some((buffer, _)) = self.get_current_buffer() {
             if buffer.is_dirty() {
                 self.palette.set_prompt(
                     "Current buffer has unsaved changes are you sure you want to close it?",
@@ -1141,45 +1180,55 @@ impl Engine {
     }
 
     /// Gets a buffer that can be used to replace the current pane with
-    fn get_next_buffer(&mut self) -> BufferId {
+    fn get_next_buffer(&mut self) -> (BufferId, ViewId) {
         let mut next_buffer = None;
-        let mut buffers: Vec<_> = self.workspace.buffers.iter().collect();
+        let mut buffers: Vec<_> = self.workspace.buffers.iter_mut().collect();
         buffers.sort_by(|a, b| b.1.get_last_interact().cmp(&a.1.get_last_interact()));
-        for (buffer_id, _) in buffers {
-            if !self.workspace.panes.contains(PaneKind::Buffer(buffer_id)) {
-                next_buffer = Some(buffer_id);
+        for (buffer_id, buffer) in &mut buffers {
+            if !self.workspace.panes.contains_buffer(*buffer_id) {
+                let view_id = buffer.create_view();
+                next_buffer = Some((*buffer_id, view_id));
                 break;
             }
         }
 
-        next_buffer.unwrap_or_else(|| self.workspace.buffers.insert(Buffer::new()))
+        next_buffer.unwrap_or_else(|| {
+            let mut buffer = Buffer::new();
+            let view_id = buffer.create_view();
+            (self.workspace.buffers.insert(Buffer::new()), view_id)
+        })
     }
 
     pub fn close_pane(&mut self) {
         if self.workspace.panes.num_panes() > 1 {
-            if let Some(buffer_id) = self.get_current_buffer_id() {
+            if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
+                self.workspace.buffers[buffer_id].remove_view(view_id);
+            }
+
+            if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
                 self.workspace
                     .panes
-                    .remove_pane(PaneKind::Buffer(buffer_id));
+                    .remove_pane(PaneKind::Buffer(buffer_id, view_id));
             } else {
-                let buffer_id = self.get_next_buffer();
+                let (buffer_id, view_id) = self.get_next_buffer();
                 self.workspace
                     .panes
-                    .replace_current(PaneKind::Buffer(buffer_id));
+                    .replace_current(PaneKind::Buffer(buffer_id, view_id));
             }
         }
     }
 
     pub fn force_close_current_buffer(&mut self) {
-        if let Some(buffer_id) = self.get_current_buffer_id() {
+        // FIXME: dont remove buffer if it has multiple used views
+        if let Some((buffer_id, _)) = self.get_current_buffer_id() {
             if self.workspace.panes.num_panes() > 1 || self.workspace.buffers.len() > 1 {
                 if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
                     self.insert_removed_buffer(path.to_path_buf());
                 }
-                let buffer_id = self.get_next_buffer();
+                let (buffer_id, view_id) = self.get_next_buffer();
                 self.workspace
                     .panes
-                    .replace_current(PaneKind::Buffer(buffer_id));
+                    .replace_current(PaneKind::Buffer(buffer_id, view_id));
             } else {
                 if let Some(path) = self.workspace.buffers[buffer_id].file() {
                     self.insert_removed_buffer(path.to_path_buf());
@@ -1187,16 +1236,16 @@ impl Engine {
                 self.workspace.buffers[buffer_id] = Buffer::new();
             }
         } else {
-            let buffer_id = self.get_next_buffer();
+            let (buffer_id, view_id) = self.get_next_buffer();
             self.workspace
                 .panes
-                .replace_current(PaneKind::Buffer(buffer_id));
+                .replace_current(PaneKind::Buffer(buffer_id, view_id));
         }
     }
 
     pub fn reopen_last_closed_buffer(&mut self) {
         while let Some(path) = self.closed_buffers.pop() {
-            if let Some(buffer) = self.get_current_buffer() {
+            if let Some((buffer, _)) = self.get_current_buffer() {
                 if buffer.file() == Some(&path) {
                     continue;
                 }
@@ -1224,35 +1273,43 @@ impl Engine {
         prompt
     }
 
-    pub fn get_current_buffer_id(&self) -> Option<BufferId> {
+    pub fn get_current_buffer_id(&self) -> Option<(BufferId, ViewId)> {
         match self.workspace.panes.get_current_pane() {
-            PaneKind::Buffer(id) => Some(id),
+            PaneKind::Buffer(buffer_id, view_id) => Some((buffer_id, view_id)),
             _ => None,
         }
     }
 
-    pub fn get_current_buffer(&self) -> Option<&Buffer> {
-        let PaneKind::Buffer(buffer) = self.workspace.panes.get_current_pane() else {
+    pub fn get_current_buffer(&self) -> Option<(&Buffer, ViewId)> {
+        let PaneKind::Buffer(buffer, view_id) = self.workspace.panes.get_current_pane() else {
             return None;
         };
 
-        self.workspace.buffers.get(buffer)
+        Some((self.workspace.buffers.get(buffer)?, view_id))
     }
 
-    pub fn get_current_buffer_mut(&mut self) -> Option<&mut Buffer> {
-        let PaneKind::Buffer(buffer) = self.workspace.panes.get_current_pane() else {
+    pub fn get_current_buffer_mut(&mut self) -> Option<(&mut Buffer, ViewId)> {
+        let PaneKind::Buffer(buffer, view_id) = self.workspace.panes.get_current_pane() else {
             return None;
         };
 
-        self.workspace.buffers.get_mut(buffer)
+        Some((self.workspace.buffers.get_mut(buffer)?, view_id))
     }
 
-    pub fn insert_buffer(&mut self, buffer: Buffer, make_current: bool) -> (BufferId, &mut Buffer) {
+    pub fn insert_buffer(
+        &mut self,
+        buffer: Buffer,
+        view_id: ViewId,
+        make_current: bool,
+    ) -> (BufferId, &mut Buffer) {
         let buffer_id = self.workspace.buffers.insert(buffer);
         if make_current {
+            if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
+                self.workspace.buffers[buffer_id].remove_view(view_id);
+            }
             self.workspace
                 .panes
-                .replace_current(PaneKind::Buffer(buffer_id));
+                .replace_current(PaneKind::Buffer(buffer_id, view_id));
         }
         (buffer_id, &mut self.workspace.buffers[buffer_id])
     }
@@ -1348,8 +1405,8 @@ impl Engine {
     }
 
     pub fn open_selected_url(&mut self) {
-        if let Some(buffer) = self.get_current_buffer() {
-            let selection = buffer.get_selection();
+        if let Some((buffer, view_id)) = self.get_current_buffer() {
+            let selection = buffer.get_selection(view_id);
             let mut finder = LinkFinder::new();
             finder.kinds(&[LinkKind::Url]);
             let spans: Vec<_> = finder.spans(&selection).collect();
@@ -1368,8 +1425,8 @@ impl Engine {
     }
 
     pub fn search(&mut self) {
-        if let Some(buffer) = self.get_current_buffer() {
-            let selection = buffer.get_selection();
+        if let Some((buffer, view_id)) = self.get_current_buffer() {
+            let selection = buffer.get_selection(view_id);
             self.file_picker = None;
             self.buffer_picker = None;
             self.palette.focus(
@@ -1386,7 +1443,7 @@ impl Engine {
     pub fn global_search(&mut self) {
         let selection = self
             .get_current_buffer()
-            .map(|buffer| buffer.get_selection())
+            .map(|(buffer, view_id)| buffer.get_selection(view_id))
             .unwrap_or_default();
         self.file_picker = None;
         self.buffer_picker = None;
@@ -1401,18 +1458,18 @@ impl Engine {
     }
 
     pub fn start_replace(&mut self) {
-        let PaneKind::Buffer(buffer_id) = self.workspace.panes.get_current_pane() else {
+        let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() else {
             return;
         };
         let buffer = &mut self.workspace.buffers[buffer_id];
-        if buffer.get_searcher().is_some() {
+        if buffer.get_searcher(view_id).is_some() {
             self.palette
                 .focus("replace: ", "replace", CompleterContext::new(&self.themes));
         }
     }
 
     fn try_get_current_buffer_path(&self) -> Option<PathBuf> {
-        self.get_current_buffer()?.file().map(|p| p.to_owned())
+        self.get_current_buffer()?.0.file().map(|p| p.to_owned())
     }
 }
 

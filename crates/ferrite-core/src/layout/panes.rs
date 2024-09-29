@@ -4,7 +4,7 @@ use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use slotmap::Key;
 
-use crate::workspace::BufferId;
+use crate::{buffer::ViewId, workspace::BufferId};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
@@ -27,7 +27,7 @@ impl Rect {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaneKind {
-    Buffer(BufferId),
+    Buffer(BufferId, ViewId),
     Logger,
 }
 
@@ -111,7 +111,8 @@ impl Pane {
                     match &mut **left {
                         Pane::Leaf(leaf) => {
                             if *leaf == pane_kind {
-                                let mut dummy = Pane::Leaf(PaneKind::Buffer(BufferId::null()));
+                                let mut dummy =
+                                    Pane::Leaf(PaneKind::Buffer(BufferId::null(), ViewId::null()));
                                 mem::swap(&mut dummy, &mut **right);
                                 output = Some(dummy.get_first_leaf());
                                 new = Some(dummy);
@@ -129,7 +130,8 @@ impl Pane {
                     match &mut **right {
                         Pane::Leaf(leaf) => {
                             if *leaf == pane_kind {
-                                let mut dummy = Pane::Leaf(PaneKind::Buffer(BufferId::null()));
+                                let mut dummy =
+                                    Pane::Leaf(PaneKind::Buffer(BufferId::null(), ViewId::null()));
                                 mem::swap(&mut dummy, &mut **left);
                                 output = Some(dummy.get_first_leaf());
                                 new = Some(dummy);
@@ -231,6 +233,18 @@ impl Pane {
         }
     }
 
+    fn contains_buffer(&self, id: BufferId) -> bool {
+        match self {
+            Pane::Leaf(leaf) => match leaf {
+                PaneKind::Buffer(buffer_id, _) => *buffer_id == id,
+                PaneKind::Logger => false,
+            },
+            Pane::Internal { left, right, .. } => {
+                left.contains_buffer(id) || right.contains_buffer(id)
+            }
+        }
+    }
+
     pub fn get_parent_size(&self, pane_kind: PaneKind, rect: Rect) -> Rect {
         if let Pane::Internal {
             left,
@@ -326,10 +340,10 @@ pub struct Panes {
 }
 
 impl Panes {
-    pub fn new(buffer_id: BufferId) -> Panes {
+    pub fn new(buffer_id: BufferId, view_id: ViewId) -> Panes {
         Self {
-            node: Pane::Leaf(PaneKind::Buffer(buffer_id)),
-            current_pane: PaneKind::Buffer(buffer_id),
+            node: Pane::Leaf(PaneKind::Buffer(buffer_id, view_id)),
+            current_pane: PaneKind::Buffer(buffer_id, view_id),
         }
     }
 
@@ -392,6 +406,10 @@ impl Panes {
     pub fn contains(&self, pane_kind: PaneKind) -> bool {
         self.node.contains(pane_kind)
     }
+
+    pub fn contains_buffer(&self, buffer_id: BufferId) -> bool {
+        self.node.contains_buffer(buffer_id)
+    }
 }
 
 #[cfg(test)]
@@ -402,11 +420,20 @@ mod tests {
 
     #[test]
     fn replace_current() {
-        let mut panes = Panes::new(BufferId::from(KeyData::from_ffi(0)));
-        panes.replace_current(PaneKind::Buffer(BufferId::from(KeyData::from_ffi(1))));
+        let mut panes = Panes::new(
+            BufferId::from(KeyData::from_ffi(0)),
+            ViewId::from(KeyData::from_ffi(0)),
+        );
+        panes.replace_current(PaneKind::Buffer(
+            BufferId::from(KeyData::from_ffi(1)),
+            ViewId::from(KeyData::from_ffi(1)),
+        ));
         assert_eq!(
             panes.get_current_pane(),
-            PaneKind::Buffer(BufferId::from(KeyData::from_ffi(1)))
+            PaneKind::Buffer(
+                BufferId::from(KeyData::from_ffi(1)),
+                ViewId::from(KeyData::from_ffi(1))
+            )
         );
     }
 }
@@ -418,7 +445,10 @@ pub mod layout {
     use slotmap::SlotMap;
 
     use super::{Pane, Panes, Split};
-    use crate::{buffer::Buffer, workspace::BufferId};
+    use crate::{
+        buffer::{Buffer, Cursor},
+        workspace::BufferId,
+    };
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Layout {
@@ -440,7 +470,7 @@ pub mod layout {
     impl Node {
         fn contains_path(&self, path: &Path) -> bool {
             match self {
-                Node::Leaf(PaneKind::Buffer(buffer)) => buffer == path,
+                Node::Leaf(PaneKind::Buffer { path: buffer, .. }) => buffer == path,
                 Node::Leaf(_) => false,
                 Node::Internal { left, right, .. } => {
                     left.contains_path(path) || right.contains_path(path)
@@ -451,9 +481,16 @@ pub mod layout {
         fn from_pane_node(pane: &Pane, buffers: &SlotMap<BufferId, Buffer>) -> Option<Self> {
             match pane {
                 Pane::Leaf(pane_kind) => match pane_kind {
-                    super::PaneKind::Buffer(buffer_id) => {
-                        let path = buffers.get(*buffer_id)?.file()?;
-                        Some(Self::Leaf(PaneKind::Buffer(path.into())))
+                    super::PaneKind::Buffer(buffer_id, view_id) => {
+                        let buffer = buffers.get(*buffer_id)?;
+                        let path = buffer.file()?.to_path_buf();
+                        let view = &buffer.views[*view_id];
+                        Some(Self::Leaf(PaneKind::Buffer {
+                            path,
+                            cursor: view.cursor,
+                            line_pos: view.line_pos,
+                            col_pos: view.col_pos,
+                        }))
                     }
                     super::PaneKind::Logger => Some(Self::Leaf(PaneKind::Logger)),
                 },
@@ -480,16 +517,30 @@ pub mod layout {
             }
         }
 
-        fn to_pane(&self, buffers: &SlotMap<BufferId, Buffer>) -> Option<Pane> {
+        fn to_pane(&self, buffers: &mut SlotMap<BufferId, Buffer>) -> Option<Pane> {
             match self {
                 Node::Leaf(pane_kind) => match pane_kind {
-                    PaneKind::Buffer(path_buf) => {
-                        let (buffer_id, _) =
-                            buffers.iter().find(|(_, buffer)| match buffer.file() {
-                                Some(buffer_path) => buffer_path == path_buf,
+                    PaneKind::Buffer {
+                        path,
+                        cursor,
+                        line_pos,
+                        col_pos,
+                    } => {
+                        let (buffer_id, buffer) =
+                            buffers.iter_mut().find(|(_, buffer)| match buffer.file() {
+                                Some(buffer_path) => buffer_path == path,
                                 None => false,
                             })?;
-                        Some(super::Pane::Leaf(super::PaneKind::Buffer(buffer_id)))
+                        let view_id = buffer.create_view();
+                        let view = &mut buffer.views[view_id];
+                        view.cursor = *cursor;
+                        view.line_pos = *line_pos;
+                        view.col_pos = *col_pos;
+                        buffer.ensure_cursor_is_valid(view_id);
+
+                        Some(super::Pane::Leaf(super::PaneKind::Buffer(
+                            buffer_id, view_id,
+                        )))
                     }
                     PaneKind::Logger => Some(super::Pane::Leaf(super::PaneKind::Logger)),
                 },
@@ -519,20 +570,37 @@ pub mod layout {
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     enum PaneKind {
-        Buffer(PathBuf),
+        Buffer {
+            path: PathBuf,
+            cursor: Cursor,
+            line_pos: usize,
+            col_pos: usize,
+        },
         Logger,
     }
 
     impl Layout {
-        pub fn to_panes(&self, buffers: &SlotMap<BufferId, Buffer>) -> Option<super::Panes> {
+        pub fn to_panes(&self, buffers: &mut SlotMap<BufferId, Buffer>) -> Option<super::Panes> {
             let pane = self.node.as_ref()?.to_pane(buffers)?;
             let current_pane = match &self.current_pane {
-                Some(PaneKind::Buffer(path)) => {
+                Some(PaneKind::Buffer {
+                    path,
+                    cursor,
+                    line_pos,
+                    col_pos,
+                }) => {
                     match buffers
-                        .iter()
+                        .iter_mut()
                         .find(|(_, buffer)| buffer.file() == Some(path))
                     {
-                        Some((buffer_id, _)) => super::PaneKind::Buffer(buffer_id),
+                        Some((buffer_id, buffer)) => {
+                            let view_id = buffer.create_view();
+                            let view = &mut buffer.views[view_id];
+                            view.cursor = *cursor;
+                            view.line_pos = *line_pos;
+                            view.col_pos = *col_pos;
+                            super::PaneKind::Buffer(buffer_id, view_id)
+                        }
                         None => pane.get_first_leaf(),
                     }
                 }
@@ -548,12 +616,18 @@ pub mod layout {
         pub fn from_panes(panes: &Panes, buffers: &SlotMap<BufferId, Buffer>) -> Self {
             let node = Node::from_pane_node(&panes.node, buffers);
             let current_pane = match panes.current_pane {
-                super::PaneKind::Buffer(buffer_id) => {
+                super::PaneKind::Buffer(buffer_id, view_id) => {
                     let path = buffers[buffer_id].file();
                     path.and_then(|path| {
                         node.as_ref().map(|node| {
                             if node.contains_path(path) {
-                                Some(PaneKind::Buffer(path.into()))
+                                let view = &buffers[buffer_id].views[view_id];
+                                Some(PaneKind::Buffer {
+                                    path: path.into(),
+                                    cursor: view.cursor,
+                                    line_pos: view.line_pos,
+                                    col_pos: view.col_pos,
+                                })
                             } else {
                                 None
                             }

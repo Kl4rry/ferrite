@@ -7,8 +7,11 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use slotmap::{Key, SlotMap};
 
-use super::buffer::{Buffer, Cursor};
-use crate::layout::panes::{layout::Layout, PaneKind, Panes};
+use super::buffer::Buffer;
+use crate::{
+    buffer::{Cursor, ViewId},
+    layout::panes::{layout::Layout, PaneKind, Panes},
+};
 
 slotmap::new_key_type! {
     pub struct BufferId;
@@ -32,16 +35,19 @@ pub struct BufferData {
     pub path: PathBuf,
     pub cursor: Cursor,
     pub line_pos: usize,
+    pub col_pos: usize,
 }
 
 impl Default for Workspace {
     fn default() -> Self {
         let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
-        let buffer_id = buffers.insert(Buffer::new());
+        let mut buffer = Buffer::new();
+        let view_id = buffer.create_view();
+        let buffer_id = buffers.insert(buffer);
         Self {
             buffers,
             buffer_extra_data: Vec::new(),
-            panes: Panes::new(buffer_id),
+            panes: Panes::new(buffer_id, view_id),
         }
     }
 }
@@ -105,29 +111,23 @@ impl Workspace {
             }
         }
 
-        for buffer_data in &workspace.buffers {
-            for (_, buffer) in &mut buffers {
-                if let Some(path) = buffer.file() {
-                    if buffer_data.path == path {
-                        buffer.load_buffer_data(buffer_data);
-                    }
-                }
-            }
-        }
-
         let mut panes = workspace
             .layout
-            .to_panes(&buffers)
-            .unwrap_or_else(|| Panes::new(BufferId::null()));
+            .to_panes(&mut buffers)
+            .unwrap_or_else(|| Panes::new(BufferId::null(), ViewId::null()));
 
         if buffers.is_empty() {
-            let buffer_id = buffers.insert(Buffer::new());
-            panes.replace_current(PaneKind::Buffer(buffer_id));
+            let mut buffer = Buffer::new();
+            let view_id = buffer.create_view();
+            let buffer_id = buffers.insert(buffer);
+            panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
         }
 
-        if let PaneKind::Buffer(buffer_id) = panes.get_current_pane() {
+        if let PaneKind::Buffer(buffer_id, _) = panes.get_current_pane() {
             if buffers.get(buffer_id).is_none() {
-                panes.replace_current(PaneKind::Buffer(buffers.keys().next().unwrap()));
+                let (buffer_id, buffer) = buffers.iter_mut().next().unwrap();
+                let view_id = buffer.create_view();
+                panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
             }
         }
 

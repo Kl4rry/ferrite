@@ -11,7 +11,7 @@ use ropey::RopeSlice;
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{error::BufferError, Buffer};
-use crate::{cmd::Cmd, event_loop_proxy::EventLoopProxy};
+use crate::{buffer::ViewId, cmd::Cmd, event_loop_proxy::EventLoopProxy};
 
 pub mod buffer_picker;
 pub mod file_picker;
@@ -40,6 +40,7 @@ pub struct PickerResult<M: Matchable> {
 
 pub struct Picker<M: Matchable> {
     search_field: Buffer,
+    view_id: ViewId,
     selected: usize,
     previewer: Option<Box<dyn Previewer<M>>>,
     result: PickerResult<M>,
@@ -59,7 +60,8 @@ where
         path: Option<PathBuf>,
     ) -> Self {
         let mut search_field = Buffer::new();
-        search_field.set_view_lines(1);
+        let view_id = search_field.create_view();
+        search_field.set_view_lines(view_id, 1);
 
         let (search_tx, search_rx): (_, cb::Receiver<String>) = cb::unbounded();
         let (result_tx, result_rx): (_, cb::Receiver<PickerResult<M>>) = cb::unbounded();
@@ -118,6 +120,7 @@ where
 
         Self {
             search_field,
+            view_id,
             selected: 0,
             choice: None,
             previewer,
@@ -178,7 +181,7 @@ where
                 let rope = RopeSlice::from(string.as_str());
                 let line = rope.line_without_line_ending(0);
                 self.search_field
-                    .handle_input(Cmd::Insert(line.to_string()))?;
+                    .handle_input(self.view_id, Cmd::Insert(line.to_string()))?;
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
@@ -189,7 +192,7 @@ where
                 enter = true;
             }
             input => {
-                self.search_field.handle_input(input)?;
+                self.search_field.handle_input(self.view_id, input)?;
                 let _ = self.tx.send(self.search_field.to_string());
             }
         }

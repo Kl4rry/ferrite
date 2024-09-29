@@ -6,6 +6,7 @@ use ropey::RopeSlice;
 use self::completer::{Completer, CompleterContext};
 use super::buffer::{error::BufferError, Buffer};
 use crate::{
+    buffer::ViewId,
     cmd::Cmd,
     event_loop_proxy::{EventLoopProxy, UserEvent},
 };
@@ -31,6 +32,7 @@ pub enum SelectedPrompt {
 pub enum PaletteState {
     Input {
         buffer: Buffer,
+        view_id: ViewId,
         prompt: String,
         mode: String,
         focused: bool,
@@ -89,7 +91,8 @@ impl CommandPalette {
         ctx: CompleterContext,
     ) {
         let mut buffer = Buffer::new();
-        buffer.set_view_lines(1);
+        let view_id = buffer.create_view();
+        buffer.set_view_lines(view_id, 1);
         let mode = mode.into();
         if let PaletteState::Input {
             mode: input_mode,
@@ -108,13 +111,17 @@ impl CommandPalette {
             focused: true,
             completer: Completer::new(&buffer, ctx),
             buffer,
+            view_id,
         };
     }
 
     pub fn set_line(&mut self, content: impl AsRef<str>) {
-        if let PaletteState::Input { buffer, .. } = &mut self.state {
-            buffer.replace(0..buffer.rope().len_bytes(), content.as_ref());
-            buffer.eof(false);
+        if let PaletteState::Input {
+            buffer, view_id, ..
+        } = &mut self.state
+        {
+            buffer.replace(*view_id, 0..buffer.rope().len_bytes(), content.as_ref());
+            buffer.eof(*view_id, false);
         }
     }
 
@@ -196,6 +203,7 @@ impl CommandPalette {
         match &mut self.state {
             PaletteState::Input {
                 buffer,
+                view_id,
                 mode,
                 completer,
                 ..
@@ -206,7 +214,7 @@ impl CommandPalette {
                     Cmd::Insert(string) => {
                         let rope = RopeSlice::from(string.as_str());
                         let line = rope.line_without_line_ending(0);
-                        buffer.handle_input(Cmd::Insert(line.to_string()))?;
+                        buffer.handle_input(*view_id, Cmd::Insert(line.to_string()))?;
                         if line.len_bytes() != rope.len_bytes() {
                             enter = true;
                         }
@@ -225,13 +233,13 @@ impl CommandPalette {
                         }
                     }
                     Cmd::MoveRight { .. } => {
-                        buffer.handle_input(input)?;
-                        if buffer.cursor_is_eof() {
+                        buffer.handle_input(*view_id, input)?;
+                        if buffer.cursor_is_eof(*view_id) {
                             buffer.mark_dirty();
                         }
                     }
                     input => {
-                        buffer.handle_input(input)?;
+                        buffer.handle_input(*view_id, input)?;
                     }
                 }
 

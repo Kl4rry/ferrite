@@ -4,7 +4,7 @@ use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::Rope;
 use subprocess::{Exec, PopenError, Redirection};
 
-use super::{Buffer, Cursor};
+use super::{Buffer, Cursor, ViewId};
 
 fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
     let mut parts = formatter.split_whitespace();
@@ -95,29 +95,32 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 }
 
 impl Buffer {
-    pub fn format(&mut self, formatter: &str) -> Result<(), PopenError> {
+    pub fn format(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
         if self.rope.len_bytes() == 0 {
             return Ok(());
         }
 
-        self.history.begin(self.cursor, self.dirty);
+        self.history.begin(self.views[view_id].cursor, self.dirty);
         let new_rope = format(formatter, self.rope.clone())?;
 
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
         // TODO position curser better then using byte offset
-        let pos = self
-            .rope
-            .ensure_grapheme_boundary_next_byte(self.cursor.position.min(self.rope.len_bytes()));
+        let pos = self.rope.ensure_grapheme_boundary_next_byte(
+            self.views[view_id]
+                .cursor
+                .position
+                .min(self.rope.len_bytes()),
+        );
 
-        self.cursor.position = pos;
-        self.cursor.anchor = pos;
+        self.views[view_id].cursor.position = pos;
+        self.views[view_id].cursor.anchor = pos;
 
-        self.update_affinity();
+        self.update_affinity(view_id);
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
 
         self.mark_dirty();
@@ -125,29 +128,32 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn format_selection(&mut self, formatter: &str) -> Result<(), PopenError> {
+    pub fn format_selection(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
         if self.rope.len_bytes() == 0 {
             return Ok(());
         }
 
-        self.history.begin(self.cursor, self.dirty);
-        let new_rope = format_selection(formatter, self.rope.clone(), &self.cursor)?;
+        self.history.begin(self.views[view_id].cursor, self.dirty);
+        let new_rope = format_selection(formatter, self.rope.clone(), &self.views[view_id].cursor)?;
 
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
         // TODO position curser better then using byte offset
-        let pos = self
-            .rope
-            .ensure_grapheme_boundary_next_byte(self.cursor.position.min(self.rope.len_bytes()));
+        let pos = self.rope.ensure_grapheme_boundary_next_byte(
+            self.views[view_id]
+                .cursor
+                .position
+                .min(self.rope.len_bytes()),
+        );
 
-        self.cursor.position = pos;
-        self.cursor.anchor = pos;
+        self.views[view_id].cursor.position = pos;
+        self.views[view_id].cursor.anchor = pos;
 
-        self.update_affinity();
+        self.update_affinity(view_id);
 
-        if self.clamp_cursor {
-            self.center_on_cursor();
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
         }
 
         self.mark_dirty();

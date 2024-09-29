@@ -1,7 +1,7 @@
 use std::ops::Add;
 
 use ferrite_core::{
-    buffer::{search::SearchMatch, Buffer, Selection},
+    buffer::{search::SearchMatch, Buffer, Selection, ViewId},
     config::{self, Config, LineNumber},
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
@@ -31,6 +31,7 @@ pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
     config: &'a Config,
+    view_id: ViewId,
     has_focus: bool,
     branch: Option<String>,
     spinner: Option<char>,
@@ -42,6 +43,7 @@ impl<'a> EditorWidget<'a> {
     pub fn new(
         theme: &'a EditorTheme,
         config: &'a Config,
+        view_id: ViewId,
         has_focus: bool,
         branch: Option<String>,
         spinner: Option<char>,
@@ -49,6 +51,7 @@ impl<'a> EditorWidget<'a> {
         Self {
             theme,
             config,
+            view_id,
             has_focus,
             branch,
             spinner,
@@ -76,6 +79,7 @@ impl StatefulWidget for EditorWidget<'_> {
         let Self {
             theme,
             config,
+            view_id,
             has_focus,
             branch,
             spinner,
@@ -97,9 +101,12 @@ impl StatefulWidget for EditorWidget<'_> {
             height: area.height - info_line as u16,
         };
 
-        buffer.set_view_lines(text_area.height.into());
+        buffer.set_view_lines(view_id, text_area.height.into());
 
-        buffer.set_view_columns((text_area.width as usize).saturating_sub(left_offset));
+        buffer.set_view_columns(
+            view_id,
+            (text_area.width as usize).saturating_sub(left_offset),
+        );
         buf.set_style(area, convert_style(&theme.background));
 
         if line_nr {
@@ -114,19 +121,19 @@ impl StatefulWidget for EditorWidget<'_> {
             );
         }
 
-        let current_line_number = buffer.cursor_line_idx() + 1;
+        let current_line_number = buffer.cursor_line_idx(view_id) + 1;
 
         // We have to overwrite all rendered whitespace with the correct color
         let mut dim_cells = Vec::new();
 
         let mut grapheme_buffer = String::new();
 
-        let view = buffer.get_buffer_view();
+        let view = buffer.get_buffer_view(view_id);
         {
             for (i, (line, line_number)) in view
                 .lines
                 .iter()
-                .zip((buffer.line_pos() + 1)..=buffer.line_pos() + buffer.len_lines())
+                .zip((buffer.line_pos(view_id) + 1)..=buffer.line_pos(view_id) + buffer.len_lines())
                 .enumerate()
             {
                 if line_nr {
@@ -264,13 +271,15 @@ impl StatefulWidget for EditorWidget<'_> {
                         last_text_start_col = text_start;
 
                         let visual_text_start = text_start + text_area.x as usize;
-                        if col as usize + buffer.col_pos() > visual_text_start || text_start == 0 {
+                        if col as usize + buffer.col_pos(view_id) > visual_text_start
+                            || text_start == 0
+                        {
                             break;
                         }
 
                         let cell = buf.cell_mut((col, line)).unwrap();
                         if !RopeSlice::from(cell.symbol()).is_whitespace()
-                            || (col as usize - text_area.left() as usize + buffer.col_pos())
+                            || (col as usize - text_area.left() as usize + buffer.col_pos(view_id))
                                 % buffer.indent.width()
                                 != 0
                         {
@@ -285,9 +294,10 @@ impl StatefulWidget for EditorWidget<'_> {
             let mut cursor_rect = None;
             if has_focus {
                 'exit: {
-                    if let Some((_, row)) = buffer.cursor_view_pos(text_area.height.into()) {
-                        let column =
-                            buffer.cursor_grapheme_column() as i64 - buffer.col_pos() as i64;
+                    if let Some((_, row)) = buffer.cursor_view_pos(view_id, text_area.height.into())
+                    {
+                        let column = buffer.cursor_grapheme_column(view_id) as i64
+                            - buffer.col_pos(view_id) as i64;
 
                         if view.lines.get(row).is_some()
                             && column < text_area.width as i64
@@ -305,9 +315,9 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            let range = buffer.view_range();
-            let col_pos = buffer.col_pos();
-            let line_pos = buffer.line_pos();
+            let range = buffer.view_range(view_id);
+            let col_pos = buffer.col_pos(view_id);
+            let line_pos = buffer.line_pos(view_id);
             let mut highlights = Vec::new();
             let mut syntax_rope = None;
             {
@@ -397,8 +407,10 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             for ruler in config.rulers.iter().copied() {
-                let real_col =
-                    ruler as i64 - buffer.col_pos() as i64 + area.x as i64 + left_offset as i64 + 1;
+                let real_col = ruler as i64 - buffer.col_pos(view_id) as i64
+                    + area.x as i64
+                    + left_offset as i64
+                    + 1;
                 if (area.left().into()..area.right().into()).contains(&real_col) {
                     for y in area.top()..(area.bottom() - 1) {
                         let cell = buf.cell_mut((real_col as u16, y)).unwrap();
@@ -423,18 +435,22 @@ impl StatefulWidget for EditorWidget<'_> {
                 );
             }
 
-            let matches = buffer.get_searcher().map(|searcher| searcher.get_matches());
+            let matches = buffer
+                .get_searcher(view_id)
+                .map(|searcher| searcher.get_matches());
             if let Some(matches) = matches {
                 let matches = matches.lock().unwrap();
                 let matches = &*matches.0;
 
                 for SearchMatch { start, end, .. } in matches {
-                    if start.line >= buffer.line_pos()
-                        && end.line + 2 < buffer.line_pos() + buffer.get_view_lines()
+                    if start.line >= buffer.line_pos(view_id)
+                        && end.line + 2 < buffer.line_pos(view_id) + buffer.get_view_lines(view_id)
                     {
                         let highlight_area = Rect {
-                            x: (start.column + text_area.left() as usize - buffer.col_pos()) as u16,
-                            y: (start.line + text_area.top() as usize - buffer.line_pos()) as u16,
+                            x: (start.column + text_area.left() as usize - buffer.col_pos(view_id))
+                                as u16,
+                            y: (start.line + text_area.top() as usize - buffer.line_pos(view_id))
+                                as u16,
                             width: (end.column - start.column) as u16,
                             height: (end.line - start.line + 1) as u16,
                         };
@@ -448,8 +464,8 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             if let Some(bg) = convert_style(&theme.selection).bg {
-                let Selection { start, end } = buffer.get_view_selection();
-                let line_pos = buffer.line_pos();
+                let Selection { start, end } = buffer.get_view_selection(view_id);
+                let line_pos = buffer.line_pos(view_id);
 
                 for y in 0..text_area.height {
                     let line_idx = y as usize + line_pos;
@@ -483,8 +499,8 @@ impl StatefulWidget for EditorWidget<'_> {
                     focus: self.has_focus,
                     encoding: buffer.encoding,
                     name: buffer.name().to_string(),
-                    line: buffer.cursor_pos().1 + 1,
-                    column: buffer.cursor_grapheme_column() + 1,
+                    line: buffer.cursor_pos(view_id).1 + 1,
+                    column: buffer.cursor_grapheme_column(view_id) + 1,
                     dirty: buffer.is_dirty(),
                     branch: &branch,
                     language: buffer.language_name(),

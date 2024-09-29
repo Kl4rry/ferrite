@@ -55,8 +55,9 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
         let mut bytes = Vec::new();
         stdin.read_to_end(&mut bytes)?;
         let mut buffer = Buffer::from_bytes(&bytes)?;
-        buffer.goto(args.line as i64);
-        tui_app.engine.insert_buffer(buffer, true);
+        let view_id = buffer.create_view();
+        buffer.goto(view_id, args.line as i64);
+        tui_app.engine.insert_buffer(buffer, view_id, true);
     }
 
     if !io::stdout().is_terminal() {
@@ -193,11 +194,12 @@ impl TuiApp {
                     .get_pane_bounds(tui_to_ferrite_rect(editor_size))
                 {
                     match pane {
-                        PaneKind::Buffer(buffer_id) => {
+                        PaneKind::Buffer(buffer_id, view_id) => {
                             f.render_stateful_widget(
                                 EditorWidget::new(
                                     theme,
                                     &self.engine.config,
+                                    view_id,
                                     !self.engine.palette.has_focus()
                                         && self.engine.file_picker.is_none()
                                         && current_pane == pane,
@@ -335,14 +337,15 @@ impl TuiApp {
                                     .contains(Position::new(event.column, event.row))
                                 {
                                     self.engine.workspace.panes.make_current(pane_kind);
-                                    if let PaneKind::Buffer(buffer_id) = pane_kind {
+                                    if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
                                         let buffer = &self.engine.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
-                                        let column = ((event.column as usize) + buffer.col_pos())
-                                            .saturating_sub(pane_rect.x)
-                                            .saturating_sub(left_offset);
-                                        let line = (event.row as usize + buffer.line_pos())
+                                        let column = ((event.column as usize)
+                                            + buffer.col_pos(view_id))
+                                        .saturating_sub(pane_rect.x)
+                                        .saturating_sub(left_offset);
+                                        let line = (event.row as usize + buffer.line_pos(view_id))
                                             .saturating_sub(pane_rect.y);
                                         break 'block Some(Cmd::PastePrimary(column, line));
                                     }
@@ -362,7 +365,7 @@ impl TuiApp {
                                     .contains(Position::new(event.column, event.row))
                                 {
                                     self.engine.workspace.panes.make_current(pane_kind);
-                                    if let PaneKind::Buffer(buffer_id) = pane_kind {
+                                    if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
                                         self.drag_start = Some(Point::new(
                                             event.column as usize,
                                             event.row as usize,
@@ -371,10 +374,11 @@ impl TuiApp {
                                         let buffer = &self.engine.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
-                                        let column = ((event.column as usize) + buffer.col_pos())
-                                            .saturating_sub(pane_rect.x)
-                                            .saturating_sub(left_offset);
-                                        let line = (event.row as usize + buffer.line_pos())
+                                        let column = ((event.column as usize)
+                                            + buffer.col_pos(view_id))
+                                        .saturating_sub(pane_rect.x)
+                                        .saturating_sub(left_offset);
+                                        let line = (event.row as usize + buffer.line_pos(view_id))
                                             .saturating_sub(pane_rect.y);
                                         break 'block Some(Cmd::ClickCell(column, line));
                                     }
@@ -398,7 +402,7 @@ impl TuiApp {
                                     .contains(Position::new(event.column, event.row))
                                 {
                                     self.engine.workspace.panes.make_current(pane_kind);
-                                    if let PaneKind::Buffer(buffer_id) = pane_kind {
+                                    if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
                                         // TODO maybe scroll more of the buffer into view when going outside its bounds
                                         if let Some(Point { line, column }) = self.drag_start {
                                             let buffer =
@@ -407,21 +411,22 @@ impl TuiApp {
                                                 lines_to_left_offset(buffer.len_lines());
 
                                             let anchor = {
-                                                let column = (column + buffer.col_pos())
+                                                let column = (column + buffer.col_pos(view_id))
                                                     .saturating_sub(left_offset)
                                                     .saturating_sub(pane_rect.x);
-                                                let line = (line + buffer.line_pos())
+                                                let line = (line + buffer.line_pos(view_id))
                                                     .saturating_sub(pane_rect.y);
                                                 Point::new(column, line)
                                             };
 
                                             let cursor = {
                                                 let column = ((event.column as usize)
-                                                    + buffer.col_pos())
+                                                    + buffer.col_pos(view_id))
                                                 .saturating_sub(left_offset)
                                                 .saturating_sub(pane_rect.x);
-                                                let line = (event.row as usize + buffer.line_pos())
-                                                    .saturating_sub(pane_rect.y);
+                                                let line = (event.row as usize
+                                                    + buffer.line_pos(view_id))
+                                                .saturating_sub(pane_rect.y);
                                                 Point::new(column, line)
                                             };
 

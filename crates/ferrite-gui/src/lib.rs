@@ -233,8 +233,8 @@ impl GuiApp {
                 occlusion_query_set: None,
             });
 
-            if let Some(buffer) = self.engine.get_current_buffer() {
-                let view = buffer.get_buffer_view();
+            if let Some((buffer, view_id)) = self.engine.get_current_buffer() {
+                let view = buffer.get_buffer_view(view_id);
                 let mut render_input = String::new();
                 for line in view.lines {
                     let line = line.text.to_string();
