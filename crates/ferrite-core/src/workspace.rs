@@ -131,6 +131,8 @@ impl Workspace {
             }
         }
 
+        panes.ensure_current_pane_exists();
+
         Ok(Self {
             buffers,
             buffer_extra_data: workspace.buffers.clone(),

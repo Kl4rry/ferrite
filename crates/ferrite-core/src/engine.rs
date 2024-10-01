@@ -1195,7 +1195,7 @@ impl Engine {
         next_buffer.unwrap_or_else(|| {
             let mut buffer = Buffer::new();
             let view_id = buffer.create_view();
-            (self.workspace.buffers.insert(Buffer::new()), view_id)
+            (self.workspace.buffers.insert(buffer), view_id)
         })
     }
 
@@ -1219,23 +1219,28 @@ impl Engine {
     }
 
     pub fn force_close_current_buffer(&mut self) {
-        // FIXME: dont remove buffer if it has multiple used views
         if let Some((buffer_id, _)) = self.get_current_buffer_id() {
-            if self.workspace.panes.num_panes() > 1 || self.workspace.buffers.len() > 1 {
-                if let Some(path) = self.workspace.buffers.remove(buffer_id).unwrap().file() {
-                    self.insert_removed_buffer(path.to_path_buf());
-                }
-                let (buffer_id, view_id) = self.get_next_buffer();
+            if let Some(path) = self.workspace.buffers[buffer_id].file() {
+                self.insert_removed_buffer(path.to_path_buf());
+            }
+            let buffer = self.workspace.buffers.remove(buffer_id).unwrap();
+
+            {
+                let (new_buffer_id, new_view_id) = self.get_next_buffer();
                 self.workspace
                     .panes
-                    .replace_current(PaneKind::Buffer(buffer_id, view_id));
-            } else {
-                if let Some(path) = self.workspace.buffers[buffer_id].file() {
-                    self.insert_removed_buffer(path.to_path_buf());
-                }
-                self.workspace.buffers[buffer_id] = Buffer::new();
+                    .replace_current(PaneKind::Buffer(new_buffer_id, new_view_id));
+            }
+
+            for (view_id, _) in buffer.views {
+                let (new_buffer_id, new_view_id) = self.get_next_buffer();
+                self.workspace.panes.replace(
+                    PaneKind::Buffer(buffer_id, view_id),
+                    PaneKind::Buffer(new_buffer_id, new_view_id),
+                );
             }
         } else {
+            tracing::warn!("REEE");
             let (buffer_id, view_id) = self.get_next_buffer();
             self.workspace
                 .panes

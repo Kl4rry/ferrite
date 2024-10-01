@@ -362,6 +362,10 @@ impl Panes {
         old
     }
 
+    pub fn replace(&mut self, old: PaneKind, new: PaneKind) {
+        self.node.replace(old, new);
+    }
+
     pub fn remove_pane(&mut self, pane_kind: PaneKind) -> bool {
         if self.node.num_panes() > 1 {
             self.current_pane = self.node.remove(pane_kind).unwrap();
@@ -409,6 +413,13 @@ impl Panes {
 
     pub fn contains_buffer(&self, buffer_id: BufferId) -> bool {
         self.node.contains_buffer(buffer_id)
+    }
+
+    pub fn ensure_current_pane_exists(&mut self) {
+        if !self.contains(self.get_current_pane()) {
+            let pane = self.node.get_first_leaf();
+            self.make_current(pane);
+        }
     }
 }
 

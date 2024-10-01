@@ -1052,6 +1052,7 @@ impl Buffer {
 
         self.update_affinity(view_id);
         self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
 
         if finish {
             self.history.finish();
@@ -1117,6 +1118,7 @@ impl Buffer {
 
         if start_byte_idx != end_byte_idx {
             self.mark_dirty();
+            self.ensure_every_cursor_is_valid();
         }
 
         if self.views[view_id].clamp_cursor {
@@ -1139,6 +1141,7 @@ impl Buffer {
 
         if prev_word != self.views[view_id].cursor.position {
             self.mark_dirty();
+            self.ensure_every_cursor_is_valid();
         }
 
         self.views[view_id].cursor.position = prev_word;
@@ -1180,6 +1183,7 @@ impl Buffer {
 
         if start_byte_idx != end_byte_idx {
             self.mark_dirty();
+            self.ensure_every_cursor_is_valid();
         }
 
         if self.views[view_id].clamp_cursor {
@@ -1204,6 +1208,7 @@ impl Buffer {
 
         if self.views[view_id].cursor.position != next_word {
             self.mark_dirty();
+            self.ensure_every_cursor_is_valid();
         }
 
         if self.views[view_id].clamp_cursor {
@@ -1221,6 +1226,7 @@ impl Buffer {
         self.views[view_id].cursor.anchor = self.views[view_id].cursor.position;
         self.update_affinity(view_id);
         self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1311,6 +1317,7 @@ impl Buffer {
 
         self.update_affinity(view_id);
         self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1414,6 +1421,7 @@ impl Buffer {
 
         self.update_affinity(view_id);
         self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1548,6 +1556,7 @@ impl Buffer {
 
         if start != end {
             self.mark_dirty();
+            self.ensure_every_cursor_is_valid();
         }
 
         if self.views[view_id].clamp_cursor {
@@ -1877,14 +1886,35 @@ impl Buffer {
     }
 
     pub fn ensure_cursor_is_valid(&mut self, view_id: ViewId) {
-        let position = self.views[view_id]
+        self.views[view_id].cursor.position = self.views[view_id]
             .cursor
             .position
             .min(self.rope.len_bytes());
-        let anchor = self.views[view_id].cursor.anchor.min(self.rope.len_bytes());
-        self.views[view_id].cursor.position =
-            self.rope().ensure_grapheme_boundary_next_byte(position);
-        self.views[view_id].cursor.anchor = self.rope().ensure_grapheme_boundary_next_byte(anchor);
+        self.views[view_id].cursor.anchor =
+            self.views[view_id].cursor.anchor.min(self.rope.len_bytes());
+
+        {
+            let view = &mut self.views[view_id];
+            while view.cursor.position != 0
+                && view.cursor.position != self.rope.len_bytes()
+                && !is_utf8_char_boundary(self.rope.byte(view.cursor.position))
+            {
+                view.cursor.position = view.cursor.position.saturating_sub(1);
+            }
+            while view.cursor.anchor != 0
+                && view.cursor.anchor != self.rope.len_bytes()
+                && !is_utf8_char_boundary(self.rope.byte(view.cursor.anchor))
+            {
+                view.cursor.anchor = view.cursor.anchor.saturating_sub(1);
+            }
+        }
+
+        self.views[view_id].cursor.position = self
+            .rope()
+            .ensure_grapheme_boundary_next_byte(self.views[view_id].cursor.position);
+        self.views[view_id].cursor.anchor = self
+            .rope()
+            .ensure_grapheme_boundary_next_byte(self.views[view_id].cursor.anchor);
     }
 
     pub fn guess_indent(&self, byte_index: usize) -> String {
@@ -1971,6 +2001,7 @@ impl Buffer {
 
         self.ensure_cursor_is_valid(view_id);
         self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -2011,6 +2042,7 @@ impl Buffer {
 
             self.ensure_cursor_is_valid(view_id);
             self.mark_dirty();
+            self.ensure_every_cursor_is_valid();
 
             if self.views[view_id].clamp_cursor {
                 self.center_on_cursor(view_id);
@@ -2131,6 +2163,13 @@ impl Buffer {
     pub fn remove_view(&mut self, view_id: ViewId) {
         self.views.remove(view_id);
     }
+
+    pub fn ensure_every_cursor_is_valid(&mut self) {
+        let view_ids = self.views.keys().collect::<Vec<_>>();
+        for view_id in view_ids {
+            self.ensure_cursor_is_valid(view_id);
+        }
+    }
 }
 
 pub struct ViewLine<'a> {
@@ -2150,4 +2189,11 @@ enum Skipping {
     WordChar,
     Other,
     None,
+}
+
+/// Copied from core internals
+#[inline]
+pub(crate) const fn is_utf8_char_boundary(byte: u8) -> bool {
+    // This is bit magic equivalent to: b < 128 || b >= 192
+    (byte as i8) >= -0x40
 }
