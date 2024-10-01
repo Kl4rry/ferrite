@@ -12,7 +12,6 @@ boxcar = { workspace = true }
 cb = { workspace = true }
 chardetng = { workspace = true }
 content_inspector = { workspace = true }
-csscolorparser = { workspace = true, features = ["rgb"] }
 detect-indent = { workspace = true }
 directories = { workspace = true }
 dunce = { workspace = true }

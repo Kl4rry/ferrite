@@ -220,9 +220,9 @@ impl GuiApp {
                     ops: wgpu::Operations {
                         // FIXME this color is not actually correct
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: color.r.powf(2.2),
-                            g: color.g.powf(2.2),
-                            b: color.b.powf(2.2),
+                            r: color.r.powf(2.2) as f64,
+                            g: color.g.powf(2.2) as f64,
+                            b: color.b.powf(2.2) as f64,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,

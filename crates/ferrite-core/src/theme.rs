@@ -4,12 +4,13 @@ use std::{
     error::Error,
     fmt, fs,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use anyhow::Result;
-use csscolorparser::ParseColorError;
 use memchr::memrchr;
 use serde::Deserialize;
+use style::{Color, ParseColorError};
 
 pub mod style;
 
@@ -71,14 +72,14 @@ fn raw_style_to_style(s: &Style, palette: &HashMap<String, String>) -> Result<st
 
     if let Some(fg) = &s.fg {
         match palette.get(fg) {
-            Some(color) => style.fg = Some(csscolorparser::parse(color)?),
+            Some(color) => style.fg = Some(Color::from_str(color)?),
             None => tracing::error!("Color `{fg}` not found"),
         }
     }
 
     if let Some(bg) = &s.bg {
         match palette.get(bg) {
-            Some(color) => style.bg = Some(csscolorparser::parse(color)?),
+            Some(color) => style.bg = Some(Color::from_str(color)?),
             None => tracing::error!("Color `{bg}` not found"),
         }
     }
