@@ -10,6 +10,7 @@ use slotmap::{Key, SlotMap};
 use super::buffer::Buffer;
 use crate::{
     buffer::{Cursor, ViewId},
+    indent::Indentation,
     layout::panes::{layout::Layout, PaneKind, Panes},
 };
 
@@ -36,6 +37,8 @@ pub struct BufferData {
     pub cursor: Cursor,
     pub line_pos: usize,
     pub col_pos: usize,
+    pub language: String,
+    pub indent: Indentation,
 }
 
 impl Default for Workspace {
@@ -67,7 +70,7 @@ impl Workspace {
             .filter_map(|(_, buffer)| buffer.file().map(|path| (path, buffer)))
         {
             let language = &buffer.language_name();
-            if language.starts_with("git-") && language != "git-config" {
+            if language.starts_with("git-") && *language != "git-config" {
                 continue;
             }
 
@@ -103,7 +106,14 @@ impl Workspace {
                 }
                 tracing::info!("Loaded workspace buffer: {}", path.display());
                 match Buffer::from_file(path) {
-                    Ok(buffer) => {
+                    Ok(mut buffer) => {
+                        let buffer_data = workspace
+                            .buffers
+                            .iter()
+                            .find(|buffer_data| buffer.file() == Some(&buffer_data.path));
+                        if let Some(buffer_data) = buffer_data {
+                            buffer.load_buffer_data(buffer_data);
+                        }
                         buffers.insert(buffer);
                     }
                     Err(err) => tracing::error!("Error loading buffer: {}", &err),

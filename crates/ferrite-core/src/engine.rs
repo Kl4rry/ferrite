@@ -268,6 +268,10 @@ impl Engine {
                             buffer_data.cursor = buffer.cursor(view_id);
                             buffer_data.line_pos = buffer.line_pos(view_id);
                             buffer_data.col_pos = buffer.col_pos(view_id);
+                            buffer_data.indent = buffer.indent;
+                            if buffer.language_name() != buffer_data.language {
+                                buffer_data.language = buffer.language_name().into();
+                            }
                             // TODO add language indent and other
                         }
                     }
@@ -278,6 +282,8 @@ impl Engine {
                                 cursor: buffer.cursor(view_id),
                                 line_pos: buffer.line_pos(view_id),
                                 col_pos: buffer.col_pos(view_id),
+                                indent: buffer.indent,
+                                language: buffer.language_name().into(),
                             });
                         }
                     }
@@ -1042,7 +1048,8 @@ impl Engine {
                         .iter()
                         .find(|b| b.path == real_path)
                     {
-                        buffer.load_buffer_data(view_id, buffer_data);
+                        buffer.load_view_data(view_id, buffer_data);
+                        buffer.load_buffer_data(buffer_data);
                     }
 
                     if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane()

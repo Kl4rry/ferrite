@@ -3,8 +3,9 @@ use std::num::NonZeroUsize;
 use detect_indent::IndentKind;
 use ferrite_utility::graphemes::TAB_WIDTH;
 use ropey::RopeSlice;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum Indentation {
     #[allow(dead_code)]
     Tabs(NonZeroUsize),

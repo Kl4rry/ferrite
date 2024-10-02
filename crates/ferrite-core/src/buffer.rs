@@ -149,7 +149,7 @@ impl Clone for Buffer {
     fn clone(&self) -> Self {
         let rope = self.rope.clone();
         let mut syntax = Syntax::new(get_buffer_proxy());
-        if let Err(err) = syntax.set_language(&self.language_name()) {
+        if let Err(err) = syntax.set_language(self.language_name()) {
             tracing::error!("Error setting language: {err}");
         }
         syntax.update_text(rope.clone());
@@ -281,8 +281,7 @@ impl Buffer {
             syntax.update_text(rope.clone());
         }
 
-        if let Some(language) = detect_language(syntax.get_language_name().as_deref(), rope.clone())
-        {
+        if let Some(language) = detect_language(syntax.get_language_name(), rope.clone()) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");
             }
@@ -364,12 +363,10 @@ impl Buffer {
         self.name = name;
     }
 
-    pub fn language_name(&self) -> String {
+    pub fn language_name(&self) -> &str {
         match &self.syntax {
-            Some(syntax) => syntax
-                .get_language_name()
-                .unwrap_or_else(|| String::from("text")),
-            None => String::from("text"),
+            Some(syntax) => syntax.get_language_name().unwrap_or("text"),
+            None => "text",
         }
     }
 
@@ -2130,7 +2127,7 @@ impl Buffer {
         }
     }
 
-    pub fn load_buffer_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
+    pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
         let cursor = buffer_data.cursor;
         let line_pos = buffer_data.line_pos;
         self.vertical_scroll(view_id, line_pos as i64);
@@ -2143,6 +2140,13 @@ impl Buffer {
         self.set_cursor_pos(view_id, postion.column, postion.line);
         self.set_anchor_pos(view_id, anchor.column, anchor.line);
         self.ensure_cursor_is_valid(view_id);
+    }
+
+    pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
+        if let Err(err) = self.set_langauge(&buffer_data.language, get_buffer_proxy()) {
+            tracing::error!("Error loading buffer data: {err}");
+        }
+        self.indent = buffer_data.indent;
     }
 
     pub fn create_view(&mut self) -> ViewId {

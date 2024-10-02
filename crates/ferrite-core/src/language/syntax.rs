@@ -116,8 +116,8 @@ impl Syntax {
         }
     }
 
-    pub fn get_language_name(&self) -> Option<String> {
-        Some(self.syntax_provder.as_ref()?.language.name.to_string())
+    pub fn get_language_name(&self) -> Option<&str> {
+        Some(&self.syntax_provder.as_ref()?.language.name)
     }
 
     pub fn update_text(&mut self, rope: Rope) {

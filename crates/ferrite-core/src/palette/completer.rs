@@ -165,36 +165,43 @@ impl Completer {
                             );
                         }
                         CmdTemplateArg::Alternatives(alternatives) => {
-                            self.options.extend(
-                                alternatives
-                                    .iter()
-                                    .filter(|alternative| {
-                                        if text.is_empty() {
-                                            return true;
-                                        }
-                                        FuzzySearch::new(text, alternative)
-                                            .score_with(&Scoring::emphasize_distance())
-                                            .best_match()
-                                            .is_some()
-                                    })
-                                    .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
-                            );
+                            let mut alternatives = alternatives
+                                .iter()
+                                .filter_map(|alternative| {
+                                    if text.is_empty() {
+                                        return Some((0, alternative));
+                                    }
+                                    FuzzySearch::new(text, alternative)
+                                        .score_with(&Scoring::emphasize_distance())
+                                        .best_match()
+                                        .map(|m| (m.score(), alternative))
+                                })
+                                .collect::<Vec<_>>();
+                            alternatives.sort_by(|a, b| b.0.cmp(&a.0));
+
+                            self.options.extend(alternatives.into_iter().map(|(_, s)| {
+                                Box::new(s.to_string()) as Box<dyn CompletionOption>
+                            }));
                         }
                         CmdTemplateArg::Theme => {
-                            self.options.extend(
-                                ctx.themes
-                                    .keys()
-                                    .filter(|alternative| {
-                                        if text.is_empty() {
-                                            return true;
-                                        }
-                                        FuzzySearch::new(text, alternative)
-                                            .score_with(&Scoring::emphasize_distance())
-                                            .best_match()
-                                            .is_some()
-                                    })
-                                    .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
-                            );
+                            let mut themes = ctx
+                                .themes
+                                .keys()
+                                .filter_map(|alternative| {
+                                    if text.is_empty() {
+                                        return Some((0, alternative));
+                                    }
+                                    FuzzySearch::new(text, alternative)
+                                        .score_with(&Scoring::emphasize_distance())
+                                        .best_match()
+                                        .map(|m| (m.score(), alternative))
+                                })
+                                .collect::<Vec<_>>();
+                            themes.sort_by(|a, b| b.0.cmp(&a.0));
+
+                            self.options.extend(themes.into_iter().map(|(_, s)| {
+                                Box::new(s.to_string()) as Box<dyn CompletionOption>
+                            }));
                         }
                         _ => (),
                     }
@@ -205,8 +212,6 @@ impl Completer {
                 }
             }
         }
-
-        self.options.sort_by(|a, b| a.display().cmp(&b.display()));
     }
 }
 

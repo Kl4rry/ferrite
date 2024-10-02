@@ -101,6 +101,6 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
         }
     }
 
-    entries.sort();
+    entries.sort_by(|a, b| b.0.cmp(&a.0));
     entries.into_iter().map(|(_, p)| p).collect()
 }

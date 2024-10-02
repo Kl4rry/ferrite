@@ -503,7 +503,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     column: buffer.cursor_grapheme_column(view_id) + 1,
                     dirty: buffer.is_dirty(),
                     branch: &branch,
-                    language: buffer.language_name(),
+                    language: buffer.language_name().into(),
                     size: buffer.rope().len_bytes(),
                     read_only: buffer.read_only_file,
                     spinner,
