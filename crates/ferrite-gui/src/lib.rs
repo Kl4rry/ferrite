@@ -8,13 +8,14 @@ use anyhow::Result;
 use event_loop_wrapper::EventLoopProxyWrapper;
 use ferrite_cli::Args;
 use ferrite_core::{
+    cmd::Cmd,
     engine::Engine,
     event_loop_proxy::{EventLoopProxy, UserEvent},
     logger::LogMessage,
 };
 use gui_renderer::GuiRenderer;
 use winit::{
-    event::{Event, WindowEvent},
+    event::{Event, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder},
     window::{Window, WindowBuilder},
 };
@@ -107,6 +108,7 @@ impl GuiApp {
                     label: None,
                     required_features: wgpu::Features::default(),
                     required_limits: wgpu::Limits::default(),
+                    memory_hints: wgpu::MemoryHints::Performance,
                 },
                 None,
             )
@@ -168,6 +170,15 @@ impl GuiApp {
                     }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         self.scale_factor = scale_factor;
+                    }
+                    WindowEvent::MouseWheel { delta, .. } => {
+                        if let Some((buffer, view_id)) = self.engine.get_current_buffer_mut() {
+                            if let MouseScrollDelta::LineDelta(_, y) = delta {
+                                buffer
+                                    .handle_input(view_id, Cmd::VerticalScroll(-y as i64))
+                                    .unwrap();
+                            }
+                        }
                     }
                     WindowEvent::CloseRequested => event_loop.exit(),
                     WindowEvent::RedrawRequested => match self.render() {
@@ -233,16 +244,28 @@ impl GuiApp {
                 occlusion_query_set: None,
             });
 
-            if let Some((buffer, view_id)) = self.engine.get_current_buffer() {
-                let view = buffer.get_buffer_view(view_id);
-                let mut render_input = String::new();
-                for line in view.lines {
-                    let line = line.text.to_string();
-                    render_input.push_str(&line);
-                }
+            if let Some((buffer, view_id)) = self.engine.get_current_buffer_mut() {
+                let lines = (self.size.height as f32 / 19.0).ceil() as usize;
+                eprintln!("lines: {lines}");
+                buffer.set_view_lines(view_id, lines);
+                //let view = buffer.get_buffer_view(view_id);
                 let start = Instant::now();
-                self.gui_renderer
-                    .prepare(&self.device, &self.queue, render_input);
+                let mut render_input = String::new();
+                for chunk in buffer.rope().chunks() {
+                    render_input.push_str(chunk);
+                }
+                eprintln!("text: {:?}", Instant::now().duration_since(start));
+                //for line in view.lines {
+                //let line = line.text.to_string();
+                //render_input.push_str(&line);
+                //}
+                let start = Instant::now();
+                self.gui_renderer.prepare(
+                    &self.device,
+                    &self.queue,
+                    render_input,
+                    buffer.views[view_id].line_pos,
+                );
                 eprintln!("prepare: {:?}", Instant::now().duration_since(start));
                 let start = Instant::now();
                 self.gui_renderer.render(&mut rpass);

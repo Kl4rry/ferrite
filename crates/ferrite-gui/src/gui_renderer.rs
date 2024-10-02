@@ -1,16 +1,20 @@
 use glyphon::{
-    Attrs, Buffer, Color, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache, TextArea,
-    TextAtlas, TextBounds, TextRenderer,
+    cosmic_text::Scroll, Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution,
+    Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use wgpu::RenderPass;
 
 pub struct GuiRenderer {
     font_system: FontSystem,
-    cache: SwashCache,
+    swash_cache: SwashCache,
     atlas: TextAtlas,
     text_renderer: TextRenderer,
+    viewport: Viewport,
     width: f32,
     height: f32,
+    // buffer
+    buffer: Buffer,
+    text: String,
 }
 
 impl GuiRenderer {
@@ -23,8 +27,9 @@ impl GuiRenderer {
     ) -> Self {
         let mut font_system = FontSystem::new();
         font_system.db_mut().set_monospace_family("9x15");
-        let cache = SwashCache::new();
-        let mut atlas = TextAtlas::new(device, queue, surface_format);
+        let swash_cache = SwashCache::new();
+        let cache = Cache::new(device);
+        let mut atlas = TextAtlas::new(device, queue, &cache, surface_format);
         let text_renderer = TextRenderer::new(
             &mut atlas,
             device,
@@ -35,13 +40,22 @@ impl GuiRenderer {
             None,
         );
 
+        let viewport = Viewport::new(device, &cache);
+
+        let mut buffer = Buffer::new(&mut font_system, Metrics::new(15.0, 19.0));
+        buffer.set_monospace_width(&mut font_system, Some(2.0));
+        buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
+
         Self {
             font_system,
-            cache,
+            swash_cache,
+            viewport,
             atlas,
             text_renderer,
             width,
             height,
+            buffer,
+            text: String::new(),
         }
     }
 
@@ -50,21 +64,40 @@ impl GuiRenderer {
         self.height = height;
     }
 
-    pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, text: String) {
+    pub fn prepare(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        text: String,
+        scroll: usize,
+    ) {
         let mut text_areas = Vec::new();
-        let mut buffer = Buffer::new(&mut self.font_system, Metrics::new(15.0, 19.0));
-        buffer.set_size(&mut self.font_system, self.width, self.height);
-        buffer.set_wrap(&mut self.font_system, glyphon::Wrap::None);
-        buffer.set_text(
-            &mut self.font_system,
-            &text,
-            Attrs::new().family(Family::Monospace),
-            Shaping::Advanced,
+        self.buffer
+            .set_size(&mut self.font_system, Some(self.width), Some(self.height));
+        let scroll = Scroll::new(scroll, 0.0, 0.0);
+        self.buffer.set_scroll(scroll);
+        self.buffer.shape_until_scroll(&mut self.font_system, true);
+
+        if self.text != text {
+            self.text = text;
+            self.buffer.set_text(
+                &mut self.font_system,
+                &self.text,
+                Attrs::new().family(Family::Monospace),
+                Shaping::Advanced,
+            );
+        }
+
+        self.viewport.update(
+            queue,
+            Resolution {
+                width: self.width as u32,
+                height: self.height as u32,
+            },
         );
-        buffer.shape_until(&mut self.font_system, 1000);
 
         text_areas.push(TextArea {
-            buffer: &buffer,
+            buffer: &self.buffer,
             left: 0.0,
             top: 0.0,
             scale: 1.0,
@@ -75,6 +108,7 @@ impl GuiRenderer {
                 bottom: self.height as i32,
             },
             default_color: Color::rgb(205, 214, 244),
+            custom_glyphs: &[],
         });
 
         self.text_renderer
@@ -83,17 +117,16 @@ impl GuiRenderer {
                 queue,
                 &mut self.font_system,
                 &mut self.atlas,
-                Resolution {
-                    width: self.width as u32,
-                    height: self.height as u32,
-                },
+                &self.viewport,
                 text_areas,
-                &mut self.cache,
+                &mut self.swash_cache,
             )
             .unwrap();
     }
 
     pub fn render<'rpass>(&'rpass mut self, rpass: &mut RenderPass<'rpass>) {
-        self.text_renderer.render(&self.atlas, rpass).unwrap();
+        self.text_renderer
+            .render(&self.atlas, &self.viewport, rpass)
+            .unwrap();
     }
 }
