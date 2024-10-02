@@ -36,7 +36,7 @@ pub struct Config {
     pub show_splash: bool,
     #[serde(default = "get_true")]
     pub watch_open_files: bool,
-    #[serde(default = "get_true")]
+    #[serde(default = "get_false")]
     pub show_indent_rulers: bool,
     #[serde(default = "get_false")]
     pub always_prompt_on_exit: bool,
