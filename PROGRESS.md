@@ -33,7 +33,7 @@
 ### Less important features
 - [ ] Multiline comment
 - [ ] Diff tool
-- [ ] Project wide search using ripgrep that displays matches in multibuffers
+- [x] Project wide search using ripgrep that displays matches in multibuffers
 - [ ] File tree
 - [ ] Basic auto complete recommendations based on words in document
 - [x] Relative line numbers
