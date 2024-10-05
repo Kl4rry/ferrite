@@ -272,7 +272,6 @@ impl Engine {
                             if buffer.language_name() != buffer_data.language {
                                 buffer_data.language = buffer.language_name().into();
                             }
-                            // TODO add language indent and other
                         }
                     }
                     None => {
@@ -853,6 +852,9 @@ impl Engine {
                                         Point::new(anchor_col, anchor_line),
                                         false,
                                     );
+                                    // A buffers default amount of lines when newly opened is too large
+                                    // and the view will not jump to it.
+                                    buffer.set_view_lines(view_id, 10);
                                     buffer.center_on_cursor(view_id);
                                 }
                             }
