@@ -172,6 +172,10 @@ impl TuiApp {
     }
 
     pub fn render(&mut self) {
+        if self.engine.force_redraw {
+            self.engine.force_redraw = false;
+            let _ = self.terminal.clear();
+        }
         self.terminal
             .draw(|f| {
                 let theme = &self.engine.themes[&self.engine.config.editor.theme];

@@ -12,6 +12,7 @@ use crate::{
 
 pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
     let mut cmds = vec![
+        CmdBuilder::new("force-redraw", None, true).build(|_| Cmd::ForceRedraw),
         CmdBuilder::new("pwd", None, true).build(|_| Cmd::Pwd),
         CmdBuilder::new("replace", None, true).build(|_| Cmd::Replace),
         CmdBuilder::new("search", None, true).build(|_| Cmd::Search),

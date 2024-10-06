@@ -71,6 +71,7 @@ pub struct Engine {
     pub closed_buffers: Vec<PathBuf>,
     pub buffer_watcher: Option<BufferWatcher>,
     pub buffer_area: Rect,
+    pub force_redraw: bool,
 }
 
 impl Engine {
@@ -266,6 +267,7 @@ impl Engine {
                 width: 10,
                 height: 10,
             },
+            force_redraw: false,
         })
     }
 
@@ -465,6 +467,7 @@ impl Engine {
             self.choord = None;
         }
         match input {
+            Cmd::ForceRedraw => self.force_redraw = true,
             Cmd::RotateFile => {
                 if let Some((buffer, _)) = self.get_current_buffer() {
                     match buffer.get_next_file() {

@@ -140,6 +140,7 @@ pub enum Cmd {
     },
     ReopenBuffer,
     RotateFile,
+    ForceRedraw,
 }
 
 impl Cmd {
@@ -243,6 +244,7 @@ impl Cmd {
             GitReload => "Git reload",
             GitDiff => "Git diff",
             Trash => "Move to trash",
+            ForceRedraw => "Force redraw",
         }
     }
 
@@ -342,6 +344,7 @@ impl Cmd {
             GitReload => false,
             GitDiff => false,
             Trash => false,
+            ForceRedraw => false,
         }
     }
 }
