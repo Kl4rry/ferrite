@@ -46,7 +46,7 @@ impl From<Direction> for Split {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     Up,
     Down,

@@ -11,7 +11,7 @@ use anyhow::Result;
 use ferrite_cli::Args;
 use ferrite_utility::{line_ending, point::Point, trim::trim_path};
 use linkify::{LinkFinder, LinkKind};
-use slotmap::{Key, SlotMap};
+use slotmap::{Key as _, SlotMap};
 use subprocess::{Exec, Redirection};
 
 use crate::{
@@ -20,13 +20,17 @@ use crate::{
     byte_size::format_byte_size,
     clipboard,
     cmd::Cmd,
-    config::{editor::Editor, languages::Languages},
+    config::{
+        editor::Editor,
+        keymap::{Keymap, Keymapping},
+        languages::Languages,
+        Config,
+    },
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
     git::branch::BranchWatcher,
     indent::Indentation,
     job_manager::{JobHandle, JobManager},
     jobs::SaveBufferJob,
-    keymap::{get_default_choords, get_default_mappings, Exclusiveness, Mapping},
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
     palette::{cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
@@ -44,15 +48,6 @@ use crate::{
     workspace::{BufferData, BufferId, Workspace},
 };
 
-pub struct Config {
-    pub editor: Editor,
-    pub editor_path: Option<PathBuf>,
-    pub editor_watcher: Option<FileWatcher<Editor>>,
-    pub languages: Languages,
-    pub languages_path: Option<PathBuf>,
-    pub languages_watcher: Option<FileWatcher<Languages>>,
-}
-
 pub struct Engine {
     pub workspace: Workspace,
     pub themes: HashMap<String, EditorTheme>,
@@ -61,7 +56,6 @@ pub struct Engine {
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
-    pub key_mappings: HashMap<String, Vec<(Mapping, Cmd, Exclusiveness)>>,
     pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
     pub file_scanner: FileScanner,
@@ -70,7 +64,7 @@ pub struct Engine {
     pub shell_jobs: Vec<JobHandle<Result<(bool, Buffer), anyhow::Error>>>,
     pub spinner: Spinner,
     pub logger_state: LoggerState,
-    pub choord: bool,
+    pub choord: Option<String>,
     pub repeat: Option<String>,
     pub last_render_time: Duration,
     pub start_of_events: Instant,
@@ -101,7 +95,7 @@ impl Engine {
         if let Some(ref config_path) = config_path {
             match FileWatcher::new(config_path, proxy.dup()) {
                 Ok(watcher) => config_watcher = Some(watcher),
-                Err(err) => tracing::error!("Error starting config watcher: {err}"),
+                Err(err) => tracing::error!("Error starting editor config watcher: {err}"),
             }
         }
 
@@ -118,7 +112,24 @@ impl Engine {
         if let Some(ref languages_path) = languages_path {
             match FileWatcher::new(languages_path, proxy.dup()) {
                 Ok(watcher) => languages_watcher = Some(watcher),
-                Err(err) => tracing::error!("Error starting config watcher: {err}"),
+                Err(err) => tracing::error!("Error starting language config watcher: {err}"),
+            }
+        }
+
+        let keymap_path = Keymap::get_default_location().ok();
+        let keymap = match Keymap::load_from_default_location() {
+            Ok(languages) => languages,
+            Err(err) => {
+                palette.set_error(err);
+                Keymap::default()
+            }
+        };
+
+        let mut keymap_watcher = None;
+        if let Some(ref keymap_path) = keymap_path {
+            match FileWatcher::new(keymap_path, proxy.dup()) {
+                Ok(watcher) => keymap_watcher = Some(watcher),
+                Err(err) => tracing::error!("Error starting keymap config watcher: {err}"),
             }
         }
 
@@ -209,10 +220,6 @@ impl Engine {
 
         let branch_watcher = BranchWatcher::new(proxy.dup())?;
 
-        let mut key_mappings = HashMap::new();
-        key_mappings.insert(String::from("normal"), get_default_mappings());
-        key_mappings.insert(String::from("choord"), get_default_choords());
-
         let buffer_watcher = if config.watch_open_files {
             BufferWatcher::new(proxy.dup()).ok()
         } else {
@@ -226,6 +233,9 @@ impl Engine {
             languages,
             languages_path,
             languages_watcher,
+            keymap,
+            keymap_path,
+            keymap_watcher,
         };
 
         Ok(Self {
@@ -236,7 +246,6 @@ impl Engine {
             file_picker: file_finder,
             buffer_picker: None,
             global_search_picker: None,
-            key_mappings,
             branch_watcher,
             proxy,
             file_scanner: file_daemon,
@@ -244,7 +253,7 @@ impl Engine {
             save_jobs: Default::default(),
             shell_jobs: Default::default(),
             spinner: Default::default(),
-            choord: false,
+            choord: None,
             repeat: None,
             logger_state: LoggerState::new(recv),
             last_render_time: Duration::ZERO,
@@ -279,7 +288,7 @@ impl Engine {
                         if !self.themes.contains_key(&self.config.editor.theme) {
                             self.config.editor.theme = "default".into();
                         }
-                        self.palette.set_msg("Reloaded config");
+                        self.palette.set_msg("Reloaded editor config");
                     }
                     Err(err) => self.palette.set_error(err),
                 }
@@ -291,7 +300,19 @@ impl Engine {
                 match result {
                     Ok(languages) => {
                         self.config.languages = languages;
-                        self.palette.set_msg("Reloaded config");
+                        self.palette.set_msg("Reloaded languages");
+                    }
+                    Err(err) => self.palette.set_error(err),
+                }
+            }
+        }
+
+        if let Some(config_watcher) = &mut self.config.keymap_watcher {
+            if let Some(result) = config_watcher.poll_update() {
+                match result {
+                    Ok(keymap) => {
+                        self.config.keymap = keymap;
+                        self.palette.set_msg("Reloaded keymap");
                     }
                     Err(err) => self.palette.set_error(err),
                 }
@@ -440,8 +461,8 @@ impl Engine {
         input: Cmd,
         control_flow: &mut EventLoopControlFlow,
     ) {
-        if input != Cmd::Choord {
-            self.choord = false;
+        if !matches!(input, Cmd::InputMode { .. }) {
+            self.choord = None;
         }
         match input {
             Cmd::RotateFile => {
@@ -466,8 +487,12 @@ impl Engine {
                 self.palette
                     .focus("$ ", "shell", CompleterContext::new(&self.themes));
             }
-            Cmd::Choord => {
-                self.choord = !self.choord;
+            Cmd::InputMode { name } => {
+                if name == "normal" {
+                    self.choord = None;
+                } else {
+                    self.choord = Some(name);
+                }
             }
             Cmd::GrowPane => {
                 self.workspace.panes.grow_current(self.buffer_area);
@@ -511,17 +536,18 @@ impl Engine {
                     self.palette.update_prompt(self.get_search_prompt(true));
                 }
             }
-            Cmd::Escape
+            Cmd::Escape => {
                 if self.file_picker.is_some()
-                    | self.buffer_picker.is_some()
-                    | self.global_search_picker.is_some() =>
-            {
-                self.file_picker = None;
-                self.buffer_picker = None;
-                self.global_search_picker = None;
-            }
-            Cmd::Escape if self.choord => {
-                self.choord = false;
+                    || self.buffer_picker.is_some()
+                    || self.global_search_picker.is_some()
+                {
+                    self.file_picker = None;
+                    self.buffer_picker = None;
+                    self.global_search_picker = None;
+                }
+                if self.choord.is_some() {
+                    self.choord = None;
+                }
             }
             Cmd::OpenFileBrowser => self.open_file_picker(),
             Cmd::OpenBufferBrowser => self.open_buffer_picker(),
@@ -817,6 +843,8 @@ impl Engine {
             Cmd::DefaultConfig => self.open_default_config(),
             Cmd::OpenLanguages => self.open_languages(),
             Cmd::DefaultLanguages => self.open_default_languages(),
+            Cmd::OpenKeymap => self.open_keymap(),
+            Cmd::DefaultKeymap => self.open_default_keymap(),
             Cmd::ForceClose => self.force_close_current_buffer(),
             Cmd::Close => self.close_current_buffer(),
             Cmd::ClosePane => self.close_pane(),
@@ -1226,13 +1254,31 @@ impl Engine {
             Some(path) => {
                 self.open_file(path.clone());
             }
-            None => self.palette.set_error("Could not locate the config file"),
+            None => self
+                .palette
+                .set_error("Could not locate the languages file"),
         }
     }
 
     pub fn open_default_languages(&mut self) {
         let mut buffer = Buffer::with_name("default_languages.toml");
         buffer.set_text(Languages::DEFAULT);
+        let view_id = buffer.create_view();
+        self.insert_buffer(buffer, view_id, true);
+    }
+
+    pub fn open_keymap(&mut self) {
+        match &self.config.keymap_path {
+            Some(path) => {
+                self.open_file(path.clone());
+            }
+            None => self.palette.set_error("Could not locate the keymap file"),
+        }
+    }
+
+    pub fn open_default_keymap(&mut self) {
+        let mut buffer = Buffer::with_name("default_keymap.json");
+        buffer.set_text(&serde_json::to_string_pretty(&Keymap::default()).unwrap());
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }
@@ -1431,11 +1477,15 @@ impl Engine {
         self.save_jobs.push(job);
     }
 
-    pub fn get_current_keymappings(&self) -> &[(Mapping, Cmd, Exclusiveness)] {
-        if self.choord {
-            self.key_mappings.get("choord").unwrap()
+    pub fn get_current_keymappings(&self) -> &[Keymapping] {
+        if let Some(name) = &self.choord {
+            self.config
+                .keymap
+                .input_modes
+                .get(name)
+                .unwrap_or(&self.config.keymap.normal)
         } else {
-            self.key_mappings.get("normal").unwrap()
+            &self.config.keymap.normal
         }
     }
 

@@ -1,12 +1,7 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::PathBuf};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-
-use crate::watcher::FromTomlFile;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Languages {
@@ -64,23 +59,7 @@ impl Languages {
 
 impl Default for Languages {
     fn default() -> Self {
-        Self {
-            languages: vec![Language {
-                name: "helo".into(),
-                format: Some("hello".into()),
-                format_selection: Some("hello".into()),
-            }],
-        }
-        //toml::from_str(Self::DEFAULT).unwrap()
-    }
-}
-
-impl FromTomlFile for Languages {
-    fn from_toml_file(path: impl AsRef<Path>) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        Ok(toml::from_str(&fs::read_to_string(path)?)?)
+        toml::from_str(Self::DEFAULT).unwrap()
     }
 }
 

@@ -2,16 +2,18 @@ use core::fmt;
 use std::path::PathBuf;
 
 use ferrite_utility::{line_ending::LineEnding, point::Point};
+use serde::{Deserialize, Serialize};
 
 use crate::{buffer::case::Case, layout::panes::Direction};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LineMoveDir {
     Up,
     Down,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Cmd {
     OpenFile(PathBuf),
     Cd(PathBuf),
@@ -50,6 +52,8 @@ pub enum Cmd {
     DefaultConfig,
     OpenLanguages,
     DefaultLanguages,
+    OpenKeymap,
+    DefaultKeymap,
     ForceClose,
     Close,
     ClosePane,
@@ -131,7 +135,9 @@ pub enum Cmd {
     Save,
     GrowPane,
     ShrinkPane,
-    Choord,
+    InputMode {
+        name: String,
+    },
     ReopenBuffer,
     RotateFile,
 }
@@ -192,7 +198,7 @@ impl Cmd {
             ClosePane => "close pane",
             GrowPane => "grow pane",
             ShrinkPane => "shrink pane",
-            Choord => "choord",
+            InputMode { name } => name,
             Format => "Format",
             UrlOpen => "Open urls in selection",
             Split(Direction::Right) => "Split right",
@@ -230,6 +236,8 @@ impl Cmd {
             DefaultConfig => "Open default editor config",
             OpenLanguages => "Open languages config file",
             DefaultLanguages => "Open default languages config",
+            OpenKeymap => "Open keymap config file",
+            DefaultKeymap => "Open default keymap",
             ForceClose => "Force close buffer",
             FormatSelection => "Format selection",
             GitReload => "Git reload",
@@ -292,7 +300,7 @@ impl Cmd {
             ClosePane => false,
             GrowPane => true,
             ShrinkPane => true,
-            Choord => false,
+            InputMode { .. } => false,
             Format => false,
             RunShellCmd { .. } => false,
             OpenShellPalette { .. } => false,
@@ -327,6 +335,8 @@ impl Cmd {
             DefaultConfig => false,
             OpenLanguages => false,
             DefaultLanguages => false,
+            OpenKeymap => false,
+            DefaultKeymap => false,
             ForceClose => false,
             FormatSelection => false,
             GitReload => false,

@@ -1,8 +1,4 @@
-use ferrite_core::{
-    cmd::Cmd,
-    keymap::{Exclusiveness, Mapping},
-    theme::EditorTheme,
-};
+use ferrite_core::{cmd::Cmd, config::keymap::Keymapping, theme::EditorTheme};
 use tui::{
     layout,
     widgets::{Block, BorderType, Borders, Clear, Widget},
@@ -13,11 +9,11 @@ use crate::glue::convert_style;
 
 pub struct ChoordWidget<'a> {
     theme: &'a EditorTheme,
-    key_mappings: &'a [(Mapping, Cmd, Exclusiveness)],
+    key_mappings: &'a [Keymapping],
 }
 
 impl<'a> ChoordWidget<'a> {
-    pub fn new(theme: &'a EditorTheme, key_mappings: &'a [(Mapping, Cmd, Exclusiveness)]) -> Self {
+    pub fn new(theme: &'a EditorTheme, key_mappings: &'a [Keymapping]) -> Self {
         Self {
             theme,
             key_mappings,
@@ -30,7 +26,13 @@ impl Widget for ChoordWidget<'_> {
         let height = total_area.height.min(
             self.key_mappings
                 .iter()
-                .filter(|(_, cmd, _)| *cmd != Cmd::Escape && *cmd != Cmd::Choord)
+                .filter(|Keymapping { cmd, .. }| {
+                    *cmd != Cmd::Escape
+                        && *cmd
+                            != Cmd::InputMode {
+                                name: String::from("normal"),
+                            }
+                })
                 .count() as u16
                 + 2,
         );
@@ -38,14 +40,20 @@ impl Widget for ChoordWidget<'_> {
         let mut lines = Vec::new();
         let mut longest = 0;
         let mut left_col_width = 0;
-        for (input, command, _) in self
+        for Keymapping { key, cmd, .. } in self
             .key_mappings
             .iter()
-            .filter(|(_, cmd, _)| *cmd != Cmd::Escape && *cmd != Cmd::Choord)
+            .filter(|Keymapping { cmd, .. }| {
+                *cmd != Cmd::Escape
+                    && *cmd
+                        != Cmd::InputMode {
+                            name: String::from("normal"),
+                        }
+            })
             .take(height.into())
         {
-            let mapping = format!("{}{} ", input.keycode, input.modifiers);
-            let cmd = command.to_string();
+            let mapping = format!("{}{} ", key.keycode, key.modifiers);
+            let cmd = cmd.to_string();
             longest = longest.max(mapping.width() + cmd.width() + 1);
             left_col_width = left_col_width.max(mapping.width());
             lines.push((mapping, cmd));

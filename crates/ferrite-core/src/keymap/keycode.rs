@@ -1,7 +1,9 @@
 use core::fmt;
 
+use serde::{Deserialize, Serialize};
+
 bitflags::bitflags! {
-    #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
+    #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
     pub struct KeyModifiers: u8 {
         const SHIFT = 0b0000_0001;
         const CONTROL = 0b0000_0010;
@@ -50,6 +52,7 @@ impl fmt::Display for KeyModifiers {
 #[derive(
     Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "snake_case")]
 pub enum MediaKeyCode {
     Play,
     Pause,
@@ -69,6 +72,7 @@ pub enum MediaKeyCode {
 #[derive(
     Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "snake_case")]
 pub enum ModifierKeyCode {
     LeftShift,
     LeftControl,
@@ -90,6 +94,7 @@ pub enum ModifierKeyCode {
 #[derive(
     Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
 )]
+#[serde(rename_all = "snake_case")]
 pub enum KeyCode {
     Backspace,
     Enter,

@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 arboard = { workspace = true, features = ["wayland-data-control"] }
-bitflags = { workspace = true }
+bitflags = { workspace = true, features = ["serde"] }
 blake3 = { workspace = true }
 boxcar = { workspace = true }
 cb = { workspace = true }

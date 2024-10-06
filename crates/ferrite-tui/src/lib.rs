@@ -296,7 +296,7 @@ impl TuiApp {
                     &mut self.engine.palette,
                 );
 
-                if self.engine.choord {
+                if self.engine.choord.is_some() {
                     let choord_widget =
                         ChoordWidget::new(theme, self.engine.get_current_keymappings());
                     f.render_widget(choord_widget, size);

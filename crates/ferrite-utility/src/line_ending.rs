@@ -1,5 +1,6 @@
 // "Borrowed" from helix
 use ropey::{Rope, RopeSlice};
+use serde::{Deserialize, Serialize};
 
 #[cfg(target_os = "windows")]
 pub const DEFAULT_LINE_ENDING: LineEnding = LineEnding::Crlf;
@@ -7,7 +8,7 @@ pub const DEFAULT_LINE_ENDING: LineEnding = LineEnding::Crlf;
 pub const DEFAULT_LINE_ENDING: LineEnding = LineEnding::LF;
 
 /// Represents one of the valid Unicode line endings.
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum LineEnding {
     Crlf, // CarriageReturn followed by LineFeed
     LF,   // U+000A -- LineFeed

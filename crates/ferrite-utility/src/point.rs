@@ -1,8 +1,9 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use num_traits::PrimInt;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct Point<T: PrimInt> {
     // line must be first for the ord derive to work correctly
     pub line: T,

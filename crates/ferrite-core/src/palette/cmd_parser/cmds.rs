@@ -31,6 +31,8 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("default-config", None, true).build(|_| Cmd::DefaultConfig),
         CmdBuilder::new("languages", None, true).build(|_| Cmd::OpenLanguages),
         CmdBuilder::new("default-languages", None, true).build(|_| Cmd::DefaultLanguages),
+        CmdBuilder::new("keymap", None, true).build(|_| Cmd::OpenKeymap),
+        CmdBuilder::new("default-keymap", None, true).build(|_| Cmd::DefaultKeymap),
         CmdBuilder::new("close!", None, true).build(|_| Cmd::ForceClose),
         CmdBuilder::new("close", None, true).build(|_| Cmd::Close),
         CmdBuilder::new("close-pane", None, true).build(|_| Cmd::ClosePane),

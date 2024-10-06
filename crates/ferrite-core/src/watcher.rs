@@ -1,27 +1,51 @@
 use std::{
+    fs,
     path::{Path, PathBuf},
     sync::mpsc,
 };
 
 use anyhow::Result;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use serde::Deserialize;
 
 use crate::event_loop_proxy::EventLoopProxy;
 
-pub trait FromTomlFile {
-    fn from_toml_file(path: impl AsRef<Path>) -> Result<Self>
-    where
-        Self: Sized;
+pub trait ConfigType<T> {
+    fn from_file(path: impl AsRef<Path>) -> Result<T>;
 }
 
-pub struct FileWatcher<T> {
+pub struct TomlConfig;
+
+impl<T> ConfigType<T> for TomlConfig
+where
+    T: for<'a> Deserialize<'a>,
+{
+    fn from_file(path: impl AsRef<Path>) -> Result<T> {
+        Ok(toml::from_str(&fs::read_to_string(path)?)?)
+    }
+}
+
+pub struct JsonConfig;
+
+impl<T> ConfigType<T> for JsonConfig
+where
+    T: for<'a> Deserialize<'a>,
+{
+    fn from_file(path: impl AsRef<Path>) -> Result<T> {
+        Ok(serde_json::from_str(&fs::read_to_string(path)?)?)
+    }
+}
+
+pub struct FileWatcher<T, C> {
     _watcher: RecommendedWatcher,
     rx: mpsc::Receiver<Result<T>>,
+    _phantom: std::marker::PhantomData<C>,
 }
 
-impl<T> FileWatcher<T>
+impl<T, C> FileWatcher<T, C>
 where
-    T: 'static + FromTomlFile + Send,
+    T: 'static + for<'a> Deserialize<'a> + Send,
+    C: ConfigType<T>,
 {
     pub fn new(path: impl AsRef<Path>, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
         let path = path.as_ref();
@@ -33,7 +57,7 @@ where
                 if let Ok(event) = event {
                     match event.kind {
                         notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
-                            let data: Result<T> = T::from_toml_file(&path_buf);
+                            let data: Result<T> = C::from_file(&path_buf);
                             let _ = tx.send(data);
                             proxy.request_render();
                         }
@@ -48,6 +72,7 @@ where
         Ok(Self {
             _watcher: watcher,
             rx,
+            _phantom: std::marker::PhantomData,
         })
     }
 

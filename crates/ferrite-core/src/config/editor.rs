@@ -1,12 +1,7 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::PathBuf};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-
-use crate::watcher::FromTomlFile;
 
 pub fn default_theme() -> String {
     "default".into()
@@ -168,15 +163,6 @@ impl Editor {
 impl Default for Editor {
     fn default() -> Self {
         toml::from_str(Self::DEFAULT).unwrap()
-    }
-}
-
-impl FromTomlFile for Editor {
-    fn from_toml_file(path: impl AsRef<Path>) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        Ok(toml::from_str(&fs::read_to_string(path)?)?)
     }
 }
 
