@@ -219,7 +219,7 @@ impl GuiApp {
                 label: Some("Render Encoder"),
             });
 
-        let theme = &self.engine.themes[&self.engine.config.theme];
+        let theme = &self.engine.themes[&self.engine.config.editor.theme];
 
         {
             let color = theme.background.bg.clone().unwrap_or_default();

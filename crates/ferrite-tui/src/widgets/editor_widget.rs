@@ -2,7 +2,10 @@ use std::ops::Add;
 
 use ferrite_core::{
     buffer::{search::SearchMatch, Buffer, Selection, ViewId},
-    config::{self, Config, LineNumber},
+    config::{
+        self,
+        editor::{Editor, LineNumber},
+    },
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
@@ -30,7 +33,7 @@ pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
 
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
-    config: &'a Config,
+    config: &'a Editor,
     view_id: ViewId,
     has_focus: bool,
     branch: Option<String>,
@@ -42,7 +45,7 @@ pub struct EditorWidget<'a> {
 impl<'a> EditorWidget<'a> {
     pub fn new(
         theme: &'a EditorTheme,
-        config: &'a Config,
+        config: &'a Editor,
         view_id: ViewId,
         has_focus: bool,
         branch: Option<String>,
@@ -196,9 +199,9 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 let render_whitespace = |col: usize, text_end_col: usize| -> bool {
                     match self.config.render_whitespace {
-                        config::RenderWhitespace::All => true,
-                        config::RenderWhitespace::None => false,
-                        config::RenderWhitespace::Trailing => col >= text_end_col,
+                        config::editor::RenderWhitespace::All => true,
+                        config::editor::RenderWhitespace::None => false,
+                        config::editor::RenderWhitespace::Trailing => col >= text_end_col,
                     }
                 };
 

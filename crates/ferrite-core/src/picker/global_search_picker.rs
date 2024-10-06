@@ -19,7 +19,7 @@ use ropey::{iter::Chunks, Rope};
 use super::{file_previewer::is_text_file, Matchable, PickerOptionProvider};
 use crate::{
     buffer::Buffer,
-    config::PickerConfig,
+    config::editor::PickerConfig,
     picker::{Preview, Previewer},
 };
 

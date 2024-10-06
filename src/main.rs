@@ -6,7 +6,10 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Ui;
-use ferrite_core::{config::Config, logger::LoggerSink};
+use ferrite_core::{
+    config::{editor::Editor, languages::Languages},
+    logger::LoggerSink,
+};
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
 
@@ -20,10 +23,16 @@ fn main() -> Result<ExitCode> {
     let args = ferrite_cli::parse();
 
     if args.init {
-        Config::create_default_config(args.overwrite)?;
+        Editor::create_default_config(args.overwrite)?;
         println!(
-            "Created default config at: `{}`",
-            Config::get_default_location()?.to_string_lossy()
+            "Created default editor config at: `{}`",
+            Editor::get_default_location()?.to_string_lossy()
+        );
+
+        Languages::create_default_config(args.overwrite)?;
+        println!(
+            "Created default languages config at: `{}`",
+            Languages::get_default_location()?.to_string_lossy()
         );
 
         ferrite_core::theme::init_themes()?;

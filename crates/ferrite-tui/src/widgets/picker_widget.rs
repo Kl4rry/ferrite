@@ -1,7 +1,7 @@
 use std::{borrow::Cow, marker::PhantomData};
 
 use ferrite_core::{
-    config::Config,
+    config::editor::Editor,
     picker::{Matchable, Picker, Preview},
     theme::EditorTheme,
 };
@@ -22,13 +22,13 @@ use crate::glue::convert_style;
 
 pub struct PickerWidget<'a, M> {
     theme: &'a EditorTheme,
-    config: &'a Config,
+    config: &'a Editor,
     title: &'a str,
     _phantom: PhantomData<M>,
 }
 
 impl<'a, M> PickerWidget<'a, M> {
-    pub fn new(theme: &'a EditorTheme, config: &'a Config, title: &'a str) -> Self {
+    pub fn new(theme: &'a EditorTheme, config: &'a Editor, title: &'a str) -> Self {
         Self {
             theme,
             config,

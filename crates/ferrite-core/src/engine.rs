@@ -20,7 +20,7 @@ use crate::{
     byte_size::format_byte_size,
     clipboard,
     cmd::Cmd,
-    config::{Config, DEFAULT_CONFIG},
+    config::{editor::Editor, languages::Languages},
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
     git::branch::BranchWatcher,
     indent::Indentation,
@@ -44,12 +44,19 @@ use crate::{
     workspace::{BufferData, BufferId, Workspace},
 };
 
+pub struct Config {
+    pub editor: Editor,
+    pub editor_path: Option<PathBuf>,
+    pub editor_watcher: Option<FileWatcher<Editor>>,
+    pub languages: Languages,
+    pub languages_path: Option<PathBuf>,
+    pub languages_watcher: Option<FileWatcher<Languages>>,
+}
+
 pub struct Engine {
     pub workspace: Workspace,
     pub themes: HashMap<String, EditorTheme>,
     pub config: Config,
-    pub config_path: Option<PathBuf>,
-    pub config_watcher: Option<FileWatcher<Config>>,
     pub palette: CommandPalette,
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
@@ -80,12 +87,13 @@ impl Engine {
     ) -> Result<Self> {
         buffer::set_buffer_proxy(proxy.dup());
         let mut palette = CommandPalette::new(proxy.dup());
-        let config_path = Config::get_default_location().ok();
-        let mut config = match Config::load_from_default_location() {
+
+        let config_path = Editor::get_default_location().ok();
+        let mut config = match Editor::load_from_default_location() {
             Ok(config) => config,
             Err(err) => {
                 palette.set_error(err);
-                Config::default()
+                Editor::default()
             }
         };
 
@@ -93,6 +101,23 @@ impl Engine {
         if let Some(ref config_path) = config_path {
             match FileWatcher::new(config_path, proxy.dup()) {
                 Ok(watcher) => config_watcher = Some(watcher),
+                Err(err) => tracing::error!("Error starting config watcher: {err}"),
+            }
+        }
+
+        let languages_path = Languages::get_default_location().ok();
+        let languages = match Languages::load_from_default_location() {
+            Ok(languages) => languages,
+            Err(err) => {
+                palette.set_error(err);
+                Languages::default()
+            }
+        };
+
+        let mut languages_watcher = None;
+        if let Some(ref languages_path) = languages_path {
+            match FileWatcher::new(languages_path, proxy.dup()) {
+                Ok(watcher) => languages_watcher = Some(watcher),
                 Err(err) => tracing::error!("Error starting config watcher: {err}"),
             }
         }
@@ -194,12 +219,19 @@ impl Engine {
             None
         };
 
+        let config = Config {
+            editor: config,
+            editor_path: config_path,
+            editor_watcher: config_watcher,
+            languages,
+            languages_path,
+            languages_watcher,
+        };
+
         Ok(Self {
             workspace,
             themes,
             config,
-            config_path,
-            config_watcher,
             palette,
             file_picker: file_finder,
             buffer_picker: None,
@@ -231,7 +263,7 @@ impl Engine {
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
         self.logger_state.update();
 
-        if !self.config.watch_open_files {
+        if !self.config.editor.watch_open_files {
             self.buffer_watcher = None;
         } else if let Some(buffer_watcher) = &mut self.buffer_watcher {
             buffer_watcher.update(&mut self.workspace.buffers);
@@ -239,14 +271,26 @@ impl Engine {
             self.buffer_watcher = BufferWatcher::new(self.proxy.dup()).ok();
         }
 
-        if let Some(config_watcher) = &mut self.config_watcher {
+        if let Some(config_watcher) = &mut self.config.editor_watcher {
             if let Some(result) = config_watcher.poll_update() {
                 match result {
-                    Ok(config) => {
-                        self.config = config;
-                        if !self.themes.contains_key(&self.config.theme) {
-                            self.config.theme = "default".into();
+                    Ok(editor) => {
+                        self.config.editor = editor;
+                        if !self.themes.contains_key(&self.config.editor.theme) {
+                            self.config.editor.theme = "default".into();
                         }
+                        self.palette.set_msg("Reloaded config");
+                    }
+                    Err(err) => self.palette.set_error(err),
+                }
+            }
+        }
+
+        if let Some(config_watcher) = &mut self.config.languages_watcher {
+            if let Some(result) = config_watcher.poll_update() {
+                match result {
+                    Ok(languages) => {
+                        self.config.languages = languages;
                         self.palette.set_msg("Reloaded config");
                     }
                     Err(err) => self.palette.set_error(err),
@@ -458,7 +502,8 @@ impl Engine {
             Cmd::Replace => self.start_replace(),
             Cmd::GlobalSearch => self.global_search(),
             Cmd::CaseInsensitive => {
-                self.config.case_insensitive_search = !self.config.case_insensitive_search;
+                self.config.editor.case_insensitive_search =
+                    !self.config.editor.case_insensitive_search;
                 if let Some("search") = self.palette.mode() {
                     self.palette.update_prompt(self.get_search_prompt(false));
                 }
@@ -488,7 +533,7 @@ impl Engine {
             Cmd::FilePickerReload => {
                 self.file_scanner = FileScanner::new(
                     env::current_dir().unwrap_or(PathBuf::from(".")),
-                    &self.config,
+                    &self.config.editor,
                 );
             }
             Cmd::ReplaceAll(replacement) => {
@@ -529,7 +574,7 @@ impl Engine {
 
                             self.file_scanner = FileScanner::new(
                                 env::current_dir().unwrap_or(PathBuf::from(".")),
-                                &self.config,
+                                &self.config.editor,
                             );
 
                             match BranchWatcher::new(self.proxy.dup()) {
@@ -749,27 +794,29 @@ impl Engine {
             Cmd::Theme(name) => match name {
                 Some(name) => {
                     if self.themes.contains_key(&name) {
-                        self.config.theme = name;
+                        self.config.editor.theme = name;
                     } else {
                         self.palette.set_error("Theme not found");
                     }
                 }
                 None => {
-                    self.palette.set_msg(&self.config.theme);
+                    self.palette.set_msg(&self.config.editor.theme);
                 }
             },
             Cmd::BufferPickerOpen => self.open_buffer_picker(),
             Cmd::FilePickerOpen => {
-                if self.config.picker.file_picker_auto_reload {
+                if self.config.editor.picker.file_picker_auto_reload {
                     self.file_scanner = FileScanner::new(
                         env::current_dir().unwrap_or(PathBuf::from(".")),
-                        &self.config,
+                        &self.config.editor,
                     );
                 }
                 self.open_file_picker();
             }
             Cmd::OpenConfig => self.open_config(),
             Cmd::DefaultConfig => self.open_default_config(),
+            Cmd::OpenLanguages => self.open_languages(),
+            Cmd::DefaultLanguages => self.open_default_languages(),
             Cmd::ForceClose => self.force_close_current_buffer(),
             Cmd::Close => self.close_current_buffer(),
             Cmd::ClosePane => self.close_pane(),
@@ -908,7 +955,7 @@ impl Engine {
                         view_id,
                         self.proxy.dup(),
                         content,
-                        self.config.case_insensitive_search,
+                        self.config.editor.case_insensitive_search,
                     );
                     self.palette.unfocus();
                 }
@@ -926,8 +973,8 @@ impl Engine {
                     self.palette.unfocus();
                     let global_search_provider = GlobalSearchProvider::new(
                         content,
-                        self.config.picker,
-                        self.config.case_insensitive_search,
+                        self.config.editor.picker,
+                        self.config.editor.case_insensitive_search,
                     );
                     self.global_search_picker = Some(Picker::new(
                         global_search_provider,
@@ -966,7 +1013,8 @@ impl Engine {
         let buffer_lang = self.workspace.buffers[buffer_id].language_name();
         let config = self
             .config
-            .language
+            .languages
+            .languages
             .iter()
             .find(|lang| lang.name == buffer_lang);
         let Some(config) = config else {
@@ -992,7 +1040,8 @@ impl Engine {
             let buffer_lang = self.workspace.buffers[buffer_id].language_name();
             let config = self
                 .config
-                .language
+                .languages
+                .languages
                 .iter()
                 .find(|lang| lang.name == buffer_lang);
             let Some(config) = config else {
@@ -1097,7 +1146,7 @@ impl Engine {
                 ('y', PalettePromptEvent::Quit),
                 ('n', PalettePromptEvent::Nop),
             );
-        } else if self.config.always_prompt_on_exit {
+        } else if self.config.editor.always_prompt_on_exit {
             self.palette.set_prompt(
                 "Are you sure you want to exit?",
                 ('y', PalettePromptEvent::Quit),
@@ -1146,7 +1195,7 @@ impl Engine {
         self.buffer_picker = None;
         self.file_scanner = FileScanner::new(
             env::current_dir().unwrap_or(PathBuf::from(".")),
-            &self.config,
+            &self.config.editor,
         );
         self.file_picker = Some(Picker::new(
             FileFindProvider(self.file_scanner.subscribe()),
@@ -1157,7 +1206,7 @@ impl Engine {
     }
 
     pub fn open_config(&mut self) {
-        match &self.config_path {
+        match &self.config.editor_path {
             Some(path) => {
                 self.open_file(path.clone());
             }
@@ -1167,7 +1216,23 @@ impl Engine {
 
     pub fn open_default_config(&mut self) {
         let mut buffer = Buffer::with_name("default_config.toml");
-        buffer.set_text(DEFAULT_CONFIG);
+        buffer.set_text(Editor::DEFAULT);
+        let view_id = buffer.create_view();
+        self.insert_buffer(buffer, view_id, true);
+    }
+
+    pub fn open_languages(&mut self) {
+        match &self.config.languages_path {
+            Some(path) => {
+                self.open_file(path.clone());
+            }
+            None => self.palette.set_error("Could not locate the config file"),
+        }
+    }
+
+    pub fn open_default_languages(&mut self) {
+        let mut buffer = Buffer::with_name("default_languages.toml");
+        buffer.set_text(Languages::DEFAULT);
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }
@@ -1279,7 +1344,7 @@ impl Engine {
         } else {
             String::from("search")
         };
-        if self.config.case_insensitive_search {
+        if self.config.editor.case_insensitive_search {
             prompt += " (i): ";
         } else {
             prompt += ": ";

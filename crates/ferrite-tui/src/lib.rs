@@ -174,7 +174,7 @@ impl TuiApp {
     pub fn render(&mut self) {
         self.terminal
             .draw(|f| {
-                let theme = &self.engine.themes[&self.engine.config.theme];
+                let theme = &self.engine.themes[&self.engine.config.editor.theme];
                 f.render_widget(BackgroundWidget::new(theme), f.area());
                 let size = f.area();
                 let editor_size = Rect::new(
@@ -198,7 +198,7 @@ impl TuiApp {
                             f.render_stateful_widget(
                                 EditorWidget::new(
                                     theme,
-                                    &self.engine.config,
+                                    &self.engine.config.editor,
                                     view_id,
                                     !self.engine.palette.has_focus()
                                         && self.engine.file_picker.is_none()
@@ -210,7 +210,7 @@ impl TuiApp {
                                 &mut self.engine.workspace.buffers[buffer_id],
                             );
 
-                            if self.engine.config.show_splash
+                            if self.engine.config.editor.show_splash
                                 && self.engine.workspace.panes.num_panes() == 1
                             {
                                 let buffer = &mut self.engine.workspace.buffers[buffer_id];
@@ -245,7 +245,7 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        PickerWidget::new(theme, &self.engine.config, "Open file"),
+                        PickerWidget::new(theme, &self.engine.config.editor, "Open file"),
                         size,
                         file_picker,
                     );
@@ -257,7 +257,11 @@ impl TuiApp {
                         vertical: 2,
                     });
                     f.render_stateful_widget(
-                        PickerWidget::<BufferItem>::new(theme, &self.engine.config, "Open buffer"),
+                        PickerWidget::<BufferItem>::new(
+                            theme,
+                            &self.engine.config.editor,
+                            "Open buffer",
+                        ),
                         size,
                         buffer_picker,
                     );
@@ -271,7 +275,7 @@ impl TuiApp {
                     f.render_stateful_widget(
                         PickerWidget::<GlobalSearchMatch>::new(
                             theme,
-                            &self.engine.config,
+                            &self.engine.config.editor,
                             "Matches",
                         ),
                         size,

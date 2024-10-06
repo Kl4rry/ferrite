@@ -23,17 +23,3 @@ left = ["size"]
 center = ["file"]
 right = ["branch", "position", "encoding", "language", "spinner"]
 padding = 1
-
-[[language]]
-name = "rust"
-format = "rustfmt --edition 2021"
-
-[[language]]
-name = "cpp"
-format = "clang-format"
-format_selection = "clang-format --offset=%start% --length=%len%"
-
-[[language]]
-name = "c"
-format = "clang-format"
-format_selection = "clang-format --offset=%start% --length=%len%"

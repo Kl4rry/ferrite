@@ -14,7 +14,7 @@ use ferrite_utility::trim::trim_path;
 use rayon::prelude::*;
 
 use crate::{
-    config::{Config, PickerConfig},
+    config::editor::{Editor, PickerConfig},
     pubsub::{self, Publisher, Subscriber},
 };
 
@@ -46,7 +46,7 @@ pub struct FileScanner {
 }
 
 impl FileScanner {
-    pub fn new(path: PathBuf, config: &Config) -> Self {
+    pub fn new(path: PathBuf, config: &Editor) -> Self {
         let (publisher, subscriber): (Publisher<boxcar::Vec<String>>, _) =
             pubsub::create(boxcar::Vec::new());
         let path_to_search = path.clone();

@@ -1,5 +1,7 @@
 use encoding_rs::Encoding;
-use ferrite_core::{byte_size::format_byte_size, config::InfoLineConfig, theme::EditorTheme};
+use ferrite_core::{
+    byte_size::format_byte_size, config::editor::InfoLineConfig, theme::EditorTheme,
+};
 use tui::{
     style::Style,
     widgets::{Clear, Widget},

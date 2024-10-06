@@ -1,0 +1,14 @@
+
+[[language]]
+name = "rust"
+format = "rustfmt --edition 2021"
+
+[[language]]
+name = "cpp"
+format = "clang-format"
+format_selection = "clang-format --offset=%start% --length=%len%"
+
+[[language]]
+name = "c"
+format = "clang-format"
+format_selection = "clang-format --offset=%start% --length=%len%"
