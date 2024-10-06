@@ -93,6 +93,7 @@ fn scan_files(
     let path_str = path.to_string_lossy().into_owned();
     let mut iterator = ignore::WalkBuilder::new(&path)
         .follow_links(false)
+        .hidden(!config.show_hidden)
         .ignore(config.follow_ignore)
         .git_global(config.follow_git_global)
         .git_ignore(config.follow_gitignore)
