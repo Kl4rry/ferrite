@@ -230,12 +230,12 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
-            Cmd::OpenFileBrowser,
+            Cmd::OpenFilePicker,
             Exclusiveness::Exclusive,
         ),
         (
             Key::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
-            Cmd::OpenBufferBrowser,
+            Cmd::OpenBufferPicker,
             Exclusiveness::Exclusive,
         ),
         (

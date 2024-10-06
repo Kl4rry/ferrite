@@ -552,8 +552,8 @@ impl Engine {
                     self.choord = None;
                 }
             }
-            Cmd::OpenFileBrowser => self.open_file_picker(),
-            Cmd::OpenBufferBrowser => self.open_buffer_picker(),
+            Cmd::OpenFilePicker => self.open_file_picker(),
+            Cmd::OpenBufferPicker => self.open_buffer_picker(),
             Cmd::Save => {
                 if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() {
                     self.save_buffer(buffer_id, None);
