@@ -8,6 +8,7 @@ always_prompt_on_exit = false
 case_insensitive_search = true
 render_whitespace = "trailing"
 line_number = "absolute"
+pipe_shell_palette = true
 
 [picker]
 show_hidden = false

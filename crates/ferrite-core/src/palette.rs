@@ -199,7 +199,7 @@ impl CommandPalette {
 }
 
 impl CommandPalette {
-    pub fn handle_input(&mut self, input: Cmd, ctx: CompleterContext) -> Result<(), BufferError> {
+    pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
         match &mut self.state {
             PaletteState::Input {
                 buffer,
@@ -249,7 +249,7 @@ impl CommandPalette {
                         content: buffer.rope().to_string(),
                     });
                 } else if buffer.is_dirty() && mode == "command" || mode == "shell" {
-                    completer.update_text(buffer, ctx);
+                    completer.update_text(buffer);
                 }
             }
             PaletteState::Prompt {

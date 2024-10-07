@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{borrow::Cow, path::PathBuf};
 
 use ferrite_utility::line_ending::LineEnding;
 use sublime_fuzzy::{FuzzySearch, Scoring};
@@ -9,13 +9,14 @@ use super::cmd_parser::{
     get_command_input_type,
     lexer::{self, Token},
 };
-use crate::{buffer::Buffer, theme::EditorTheme};
+use crate::buffer::Buffer;
 
 mod path_completer;
 
 pub struct Completer {
     options: Vec<Box<dyn CompletionOption>>,
     index: Option<usize>,
+    ctx: CompleterContext,
 }
 
 impl Completer {
@@ -23,9 +24,10 @@ impl Completer {
         let mut new = Self {
             options: Vec::new(),
             index: None,
+            ctx,
         };
 
-        new.update_text(buffer, ctx);
+        new.update_text(buffer);
         new
     }
 
@@ -118,11 +120,11 @@ impl Completer {
         self.index
     }
 
-    pub fn update_text(&mut self, buffer: &Buffer, ctx: CompleterContext) {
+    pub fn update_text(&mut self, buffer: &Buffer) {
         self.index = None;
+        self.options.clear();
         let text = buffer.to_string();
-        if text.is_empty() {
-            self.options.clear();
+        if text.is_empty() && !self.ctx.external {
             self.options.extend(
                 super::cmd_parser::get_command_names()
                     .iter()
@@ -135,13 +137,37 @@ impl Completer {
 
         match get_completion_type(&text, &tokens) {
             CompletionType::Cmd | CompletionType::NewCmd => {
-                self.options.clear();
-                self.options.extend(
+                let cmds: Vec<_> = if self.ctx.external {
+                    executable_finder::unique_executables()
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|exe| exe.name.into())
+                        .collect()
+                } else {
                     super::cmd_parser::get_command_names()
-                        .iter()
-                        // TODO make this fuzzy
-                        .filter(|s| s.starts_with(&cmd.text))
-                        .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
+                        .into_iter()
+                        .map(Cow::Borrowed)
+                        .collect()
+                };
+
+                let mut alternatives = cmds
+                    .iter()
+                    .filter_map(|alternative| {
+                        if text.is_empty() {
+                            return Some((0, alternative));
+                        }
+                        FuzzySearch::new(&cmd.text, alternative)
+                            .score_with(&Scoring::emphasize_distance())
+                            .best_match()
+                            .map(|m| (m.score(), alternative))
+                    })
+                    .collect::<Vec<_>>();
+                alternatives.sort_by(|a, b| b.0.cmp(&a.0));
+
+                self.options.extend(
+                    alternatives
+                        .into_iter()
+                        .map(|(_, s)| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                 );
 
                 if self.options.is_empty() {
@@ -149,7 +175,6 @@ impl Completer {
                 }
             }
             CompletionType::Arg | CompletionType::NewArg => {
-                self.options.clear();
                 if let Some(input_type) = get_command_input_type(&cmd.text) {
                     let text = match tokens.last() {
                         Some(token) => &token.text,
@@ -184,9 +209,10 @@ impl Completer {
                             }));
                         }
                         CmdTemplateArg::Theme => {
-                            let mut themes = ctx
+                            let mut themes = self
+                                .ctx
                                 .themes
-                                .keys()
+                                .iter()
                                 .filter_map(|alternative| {
                                     if text.is_empty() {
                                         return Some((0, alternative));
@@ -215,13 +241,14 @@ impl Completer {
     }
 }
 
-pub struct CompleterContext<'a> {
-    themes: &'a HashMap<String, EditorTheme>,
+pub struct CompleterContext {
+    themes: Vec<String>,
+    external: bool,
 }
 
-impl<'a> CompleterContext<'a> {
-    pub fn new(themes: &'a HashMap<String, EditorTheme>) -> Self {
-        Self { themes }
+impl CompleterContext {
+    pub fn new(themes: Vec<String>, external: bool) -> Self {
+        Self { themes, external }
     }
 }
 

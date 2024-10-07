@@ -37,6 +37,8 @@ pub struct Editor {
     pub always_prompt_on_exit: bool,
     #[serde(default = "get_true")]
     pub case_insensitive_search: bool,
+    #[serde(default = "get_true")]
+    pub pipe_shell_palette: bool,
     #[serde(default)]
     pub line_number: LineNumber,
     #[serde(default)]

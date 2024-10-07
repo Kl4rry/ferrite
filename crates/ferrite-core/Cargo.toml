@@ -16,6 +16,7 @@ detect-indent = { workspace = true }
 directories = { workspace = true }
 dunce = { workspace = true }
 encoding_rs = { workspace = true }
+executable-finder = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }

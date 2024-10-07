@@ -487,8 +487,11 @@ impl Engine {
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
-                self.palette
-                    .focus("$ ", "shell", CompleterContext::new(&self.themes));
+                self.palette.focus(
+                    "$ ",
+                    "shell",
+                    CompleterContext::new(self.themes.keys().cloned().collect(), true),
+                );
             }
             Cmd::InputMode { name } => {
                 if name == "normal" {
@@ -516,15 +519,21 @@ impl Engine {
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
-                self.palette
-                    .focus("> ", "command", CompleterContext::new(&self.themes));
+                self.palette.focus(
+                    "> ",
+                    "command",
+                    CompleterContext::new(self.themes.keys().cloned().collect(), false),
+                );
             }
             Cmd::PromptGoto => {
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
-                self.palette
-                    .focus("goto: ", "goto", CompleterContext::new(&self.themes));
+                self.palette.focus(
+                    "goto: ",
+                    "goto",
+                    CompleterContext::new(self.themes.keys().cloned().collect(), false),
+                );
             }
             Cmd::Search => self.search(),
             Cmd::Replace => self.start_replace(),
@@ -885,9 +894,7 @@ impl Engine {
             }
             input => {
                 if self.palette.has_focus() {
-                    let _ = self
-                        .palette
-                        .handle_input(input, CompleterContext::new(&self.themes));
+                    let _ = self.palette.handle_input(input);
                 } else if let Some(picker) = &mut self.file_picker {
                     let _ = picker.handle_input(input);
                     if let Some(path) = picker.get_choice() {
@@ -1016,7 +1023,8 @@ impl Engine {
                 }
                 "shell" => {
                     let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
-                    self.run_shell_command(args, false, false);
+                    self.run_shell_command(args, self.config.editor.pipe_shell_palette, false);
+                    self.palette.unfocus();
                 }
                 _ => (),
             },
@@ -1564,7 +1572,7 @@ impl Engine {
             self.palette.focus(
                 self.get_search_prompt(false),
                 "search",
-                CompleterContext::new(&self.themes),
+                CompleterContext::new(self.themes.keys().cloned().collect(), false),
             );
             if !selection.is_empty() {
                 self.palette.set_line(selection);
@@ -1582,7 +1590,7 @@ impl Engine {
         self.palette.focus(
             self.get_search_prompt(true),
             "global-search",
-            CompleterContext::new(&self.themes),
+            CompleterContext::new(self.themes.keys().cloned().collect(), false),
         );
         if !selection.is_empty() {
             self.palette.set_line(selection);
@@ -1595,8 +1603,11 @@ impl Engine {
         };
         let buffer = &mut self.workspace.buffers[buffer_id];
         if buffer.get_searcher(view_id).is_some() {
-            self.palette
-                .focus("replace: ", "replace", CompleterContext::new(&self.themes));
+            self.palette.focus(
+                "replace: ",
+                "replace",
+                CompleterContext::new(self.themes.keys().cloned().collect(), false),
+            );
         }
     }
 

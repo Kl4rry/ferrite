@@ -58,7 +58,7 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
 
                 OneLineInputWidget::new(self.theme, self.focused).render(input_area, buf, buffer);
 
-                if mode == "command" {
+                if self.focused && (mode == "command" || mode == "shell") {
                     let completer_area = {
                         let mut completer_area = self.total_area;
                         completer_area.height = completer_area.height.saturating_sub(1);

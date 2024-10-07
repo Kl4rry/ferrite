@@ -830,6 +830,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "executable-finder"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45943b6741f667be9e10d04ce86bb0b8c9f0c3f9a9263310c7537aa0b8a014d9"
+
+[[package]]
 name = "fastrand"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -873,6 +879,7 @@ dependencies = [
  "directories",
  "dunce",
  "encoding_rs",
+ "executable-finder",
  "ferrite-cli",
  "ferrite-tree-sitter",
  "ferrite-utility",
