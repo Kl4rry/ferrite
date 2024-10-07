@@ -137,6 +137,15 @@ impl Completer {
 
         match get_completion_type(&text, &tokens) {
             CompletionType::Cmd | CompletionType::NewCmd => {
+                if self.ctx.external && text.contains(std::path::MAIN_SEPARATOR) {
+                    self.options.extend(
+                        complete_file_path(&cmd.text, true)
+                            .into_iter()
+                            .map(|path| Box::new(path) as Box<dyn CompletionOption>),
+                    );
+                    return;
+                }
+
                 let cmds: Vec<_> = if self.ctx.external {
                     executable_finder::unique_executables()
                         .unwrap_or_default()
@@ -184,7 +193,7 @@ impl Completer {
                     match input_type {
                         CmdTemplateArg::Path => {
                             self.options.extend(
-                                complete_file_path(text)
+                                complete_file_path(text, false)
                                     .into_iter()
                                     .map(|path| Box::new(path) as Box<dyn CompletionOption>),
                             );

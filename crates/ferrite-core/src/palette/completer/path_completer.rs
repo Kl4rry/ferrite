@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    fs,
+    fs::{self, Metadata},
     path::{self, Path, PathBuf},
 };
 
@@ -17,7 +17,7 @@ fn normalize(s: &str) -> Cow<str> {
     Cow::Borrowed(s)
 }
 
-pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
+pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
     #[cfg(unix)]
     let path = path.to_string();
 
@@ -79,7 +79,10 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
                         if metadata.is_dir() {
                             path.push(sep);
                         }
-                        entries.push((0, path.into()));
+
+                        if !executable_only || is_executable(&metadata) || metadata.is_dir() {
+                            entries.push((0, path.into()));
+                        }
                     }
                 } else {
                     let ns = normalize(s);
@@ -93,7 +96,9 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
                                 path.push(sep);
                             }
 
-                            entries.push((m.score(), path.into()));
+                            if !executable_only || is_executable(&metadata) || metadata.is_dir() {
+                                entries.push((m.score(), path.into()));
+                            }
                         }
                     }
                 }
@@ -103,4 +108,12 @@ pub fn complete_file_path(path: &str) -> Vec<PathBuf> {
 
     entries.sort_by(|a, b| b.0.cmp(&a.0));
     entries.into_iter().map(|(_, p)| p).collect()
+}
+
+fn is_executable(metadata: &Metadata) -> bool {
+    #[cfg(unix)]
+    let value = std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0;
+    #[cfg(windows)]
+    let value = true;
+    value
 }
