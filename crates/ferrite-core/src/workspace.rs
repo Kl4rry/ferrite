@@ -142,6 +142,9 @@ impl Workspace {
         }
 
         panes.ensure_current_pane_exists();
+        for buffer in buffers.values_mut() {
+            buffer.ensure_every_cursor_is_valid();
+        }
 
         Ok(Self {
             buffers,

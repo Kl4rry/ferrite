@@ -2172,6 +2172,8 @@ impl Buffer {
         let view_ids = self.views.keys().collect::<Vec<_>>();
         for view_id in view_ids {
             self.ensure_cursor_is_valid(view_id);
+            let view = &mut self.views[view_id];
+            view.line_pos = self.rope.len_lines().min(view.line_pos);
         }
     }
 }
