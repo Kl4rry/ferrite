@@ -1295,19 +1295,21 @@ impl Engine {
     }
 
     pub fn close_current_buffer(&mut self) {
-        if let Some((buffer, _)) = self.get_current_buffer() {
-            if buffer.is_dirty() {
-                self.palette.set_prompt(
-                    "Current buffer has unsaved changes are you sure you want to close it?",
-                    ('y', PalettePromptEvent::CloseCurrent),
-                    ('n', PalettePromptEvent::Nop),
-                );
-            } else {
-                self.force_close_current_buffer();
-            }
-        } else {
+        let Some((buffer, _)) = self.get_current_buffer() else {
             self.force_close_current_buffer();
+            return;
+        };
+
+        if !buffer.is_dirty() {
+            self.force_close_current_buffer();
+            return;
         }
+
+        self.palette.set_prompt(
+            "Current buffer has unsaved changes are you sure you want to close it?",
+            ('y', PalettePromptEvent::CloseCurrent),
+            ('n', PalettePromptEvent::Nop),
+        );
     }
 
     /// Gets a buffer that can be used to replace the current pane with
