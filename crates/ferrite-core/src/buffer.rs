@@ -2199,7 +2199,7 @@ enum Skipping {
 
 /// Copied from core internals
 #[inline]
-pub(crate) const fn is_utf8_char_boundary(byte: u8) -> bool {
+const fn is_utf8_char_boundary(byte: u8) -> bool {
     // This is bit magic equivalent to: b < 128 || b >= 192
     (byte as i8) >= -0x40
 }
