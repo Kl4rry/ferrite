@@ -604,41 +604,40 @@ impl Engine {
             Cmd::Cd(path) => {
                 if let Err(err) = self.workspace.save_workspace() {
                     self.palette.set_error(err);
-                } else {
-                    match env::set_current_dir(&path) {
-                        Ok(_) => {
-                            self.buffer_picker = None;
-                            self.file_picker = None;
+                }
+                match env::set_current_dir(&path) {
+                    Ok(_) => {
+                        self.buffer_picker = None;
+                        self.file_picker = None;
 
-                            self.file_scanner = FileScanner::new(
-                                env::current_dir().unwrap_or(PathBuf::from(".")),
-                                &self.config.editor,
-                            );
+                        self.file_scanner = FileScanner::new(
+                            env::current_dir().unwrap_or(PathBuf::from(".")),
+                            &self.config.editor,
+                        );
 
-                            match BranchWatcher::new(self.proxy.dup()) {
-                                Ok(branch_watcher) => self.branch_watcher = branch_watcher,
-                                Err(err) => {
-                                    let msg = format!("Error creating branch watcher: {err}");
-                                    tracing::error!(msg);
-                                    self.palette.set_error(msg);
-                                }
+                        match BranchWatcher::new(self.proxy.dup()) {
+                            Ok(branch_watcher) => self.branch_watcher = branch_watcher,
+                            Err(err) => {
+                                let msg = format!("Error creating branch watcher: {err}");
+                                tracing::error!(msg);
+                                self.palette.set_error(msg);
                             }
-
-                            self.workspace = match Workspace::load_workspace(true) {
-                                Ok(workspace) => workspace,
-                                Err(err) => {
-                                    let msg = format!("Error loading workspace: {err}");
-                                    tracing::error!(msg);
-                                    self.palette.set_error(msg);
-                                    Workspace::default()
-                                }
-                            };
-
-                            self.palette
-                                .set_msg(format!("Set working dir to: {}", path.to_string_lossy()));
                         }
-                        Err(err) => self.palette.set_error(format!("{err}")),
+
+                        self.workspace = match Workspace::load_workspace(true) {
+                            Ok(workspace) => workspace,
+                            Err(err) => {
+                                let msg = format!("Error loading workspace: {err}");
+                                tracing::error!(msg);
+                                self.palette.set_error(msg);
+                                Workspace::default()
+                            }
+                        };
+
+                        self.palette
+                            .set_msg(format!("Set working dir to: {}", path.to_string_lossy()));
                     }
+                    Err(err) => self.palette.set_error(format!("{err}")),
                 }
             }
             Cmd::Split(direction) => {
