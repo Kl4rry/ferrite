@@ -941,7 +941,7 @@ impl Buffer {
         fn get_pair_char(s: &str) -> Option<&str> {
             Some(match s {
                 "{" => "}",
-                "[" => "}",
+                "[" => "]",
                 "(" => ")",
                 "'" => "'",
                 "\"" => "\"",
