@@ -33,7 +33,11 @@ use crate::{
     jobs::SaveBufferJob,
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
-    palette::{cmd_parser, completer::CompleterContext, CommandPalette, PalettePromptEvent},
+    palette::{
+        cmd_parser::{self, generic_cmd::CmdTemplateArg},
+        completer::CompleterContext,
+        CommandPalette, PalettePromptEvent,
+    },
     picker::{
         buffer_picker::{BufferFindProvider, BufferItem},
         file_picker::FileFindProvider,
@@ -490,7 +494,11 @@ impl Engine {
                 self.palette.focus(
                     "$ ",
                     "shell",
-                    CompleterContext::new(self.themes.keys().cloned().collect(), true),
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        true,
+                        Some(CmdTemplateArg::Path),
+                    ),
                 );
             }
             Cmd::InputMode { name } => {
@@ -522,7 +530,7 @@ impl Engine {
                 self.palette.focus(
                     "> ",
                     "command",
-                    CompleterContext::new(self.themes.keys().cloned().collect(), false),
+                    CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
                 );
             }
             Cmd::PromptGoto => {
@@ -532,7 +540,7 @@ impl Engine {
                 self.palette.focus(
                     "goto: ",
                     "goto",
-                    CompleterContext::new(self.themes.keys().cloned().collect(), false),
+                    CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
                 );
             }
             Cmd::Search => self.search(),
@@ -1573,7 +1581,7 @@ impl Engine {
             self.palette.focus(
                 self.get_search_prompt(false),
                 "search",
-                CompleterContext::new(self.themes.keys().cloned().collect(), false),
+                CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
             );
             if !selection.is_empty() {
                 self.palette.set_line(selection);
@@ -1591,7 +1599,7 @@ impl Engine {
         self.palette.focus(
             self.get_search_prompt(true),
             "global-search",
-            CompleterContext::new(self.themes.keys().cloned().collect(), false),
+            CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
         );
         if !selection.is_empty() {
             self.palette.set_line(selection);
@@ -1607,7 +1615,7 @@ impl Engine {
             self.palette.focus(
                 "replace: ",
                 "replace",
-                CompleterContext::new(self.themes.keys().cloned().collect(), false),
+                CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
             );
         }
     }

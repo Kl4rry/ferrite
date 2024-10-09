@@ -146,17 +146,19 @@ impl Completer {
                     return;
                 }
 
-                let cmds: Vec<_> = if self.ctx.external {
+                let cmds: Vec<_> = if self.ctx.external && !cmd.text.is_empty() {
                     executable_finder::unique_executables()
                         .unwrap_or_default()
                         .into_iter()
                         .map(|exe| exe.name.into())
                         .collect()
-                } else {
+                } else if !cmd.text.is_empty() {
                     super::cmd_parser::get_command_names()
                         .into_iter()
                         .map(Cow::Borrowed)
                         .collect()
+                } else {
+                    Vec::new()
                 };
 
                 let mut alternatives = cmds
@@ -184,7 +186,11 @@ impl Completer {
                 }
             }
             CompletionType::Arg | CompletionType::NewArg => {
-                if let Some(input_type) = get_command_input_type(&cmd.text) {
+                let mut input_type = self.ctx.force_arg_type.as_ref();
+                if input_type.is_none() {
+                    input_type = get_command_input_type(&cmd.text);
+                }
+                if let Some(input_type) = input_type {
                     let text = match tokens.last() {
                         Some(token) => &token.text,
                         None => "",
@@ -253,11 +259,20 @@ impl Completer {
 pub struct CompleterContext {
     themes: Vec<String>,
     external: bool,
+    force_arg_type: Option<CmdTemplateArg>,
 }
 
 impl CompleterContext {
-    pub fn new(themes: Vec<String>, external: bool) -> Self {
-        Self { themes, external }
+    pub fn new(
+        themes: Vec<String>,
+        external: bool,
+        force_arg_type: Option<CmdTemplateArg>,
+    ) -> Self {
+        Self {
+            themes,
+            external,
+            force_arg_type,
+        }
     }
 }
 
