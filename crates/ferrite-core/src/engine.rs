@@ -556,18 +556,16 @@ impl Engine {
                     self.palette.update_prompt(self.get_search_prompt(true));
                 }
             }
-            Cmd::Escape => {
-                if self.file_picker.is_some()
+            Cmd::Escape
+                if self.choord.is_some()
+                    || self.file_picker.is_some()
                     || self.buffer_picker.is_some()
-                    || self.global_search_picker.is_some()
-                {
-                    self.file_picker = None;
-                    self.buffer_picker = None;
-                    self.global_search_picker = None;
-                }
-                if self.choord.is_some() {
-                    self.choord = None;
-                }
+                    || self.global_search_picker.is_some() =>
+            {
+                self.choord = None;
+                self.file_picker = None;
+                self.buffer_picker = None;
+                self.global_search_picker = None;
             }
             Cmd::OpenFilePicker => self.open_file_picker(),
             Cmd::OpenBufferPicker => self.open_buffer_picker(),
