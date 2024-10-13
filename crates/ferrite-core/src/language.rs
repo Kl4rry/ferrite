@@ -107,6 +107,8 @@ static LANGUAGES: LazyLock<HashMap<&'static str, OnceLock<TreeSitterConfig>>> =
         langs.insert("protobuf", OnceLock::new());
         #[cfg(feature = "lang-lua")]
         langs.insert("lua", OnceLock::new());
+        #[cfg(feature = "lang-nu")]
+        langs.insert("nu", OnceLock::new());
         langs
     });
 
@@ -369,6 +371,14 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
             include_str!("../../../queries/lua/injections.scm"),
             "",
         ),
+        #[cfg(feature = "lang-nu")]
+        "nu" => TreeSitterConfig::new(
+            "nu",
+            ferrite_tree_sitter::tree_sitter_nu::language(),
+            include_str!("../../../queries/nu/highlights.scm"),
+            include_str!("../../../queries/nu/injections.scm"),
+            "",
+        ),
         _ => return None,
     })
 }
@@ -411,6 +421,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
             (Suffix(".ts"), "ts"),
             (Suffix(".proto"), "protobuf"),
             (Suffix(".lua"), "lua"),
+            (Suffix(".nu"), "nu"),
             (Name("hyprland.conf"), "hyprlang"),
             (Name("COMMIT_EDITMSG"), "git-commit"),
             (Name("git-rebase-todo"), "git-rebase"),

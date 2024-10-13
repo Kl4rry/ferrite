@@ -42,6 +42,8 @@ pub use tree_sitter_json;
 pub use tree_sitter_lua;
 #[cfg(feature = "lang-md")]
 pub use tree_sitter_md;
+#[cfg(feature = "lang-nu")]
+pub use tree_sitter_nu;
 #[cfg(feature = "lang-protobuf")]
 pub use tree_sitter_protobuf;
 #[cfg(feature = "lang-python")]
