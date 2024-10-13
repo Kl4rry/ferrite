@@ -595,6 +595,34 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Key::new(KeyCode::Up, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Cmd::SwitchPane {
+                direction: Direction::Up,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Key::new(KeyCode::Down, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Cmd::SwitchPane {
+                direction: Direction::Down,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Key::new(KeyCode::Right, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Cmd::SwitchPane {
+                direction: Direction::Right,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Key::new(KeyCode::Left, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Cmd::SwitchPane {
+                direction: Direction::Left,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
             Key::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
             Cmd::InputMode {
                 name: "chords".into(),

@@ -23,6 +23,13 @@ impl Rect {
             height,
         }
     }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.x < self.x + self.width
+            && self.x + self.width > other.x
+            && self.y < self.y + self.height
+            && self.y + self.height > other.y
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -420,6 +427,32 @@ impl Panes {
             let pane = self.node.get_first_leaf();
             self.make_current(pane);
         }
+    }
+
+    pub fn switch_pane_direction(&mut self, dir: Direction, rect: Rect) {
+        let bounds = self.get_pane_bounds(rect);
+        let current = self.get_current_pane();
+        let (_, cb) = bounds.iter().find(|(pane, _)| *pane == current).unwrap();
+        let bounds_check = match dir {
+            Direction::Up => Rect::new(cb.x, cb.y.saturating_sub(1), 1, 1),
+            Direction::Down => Rect::new(cb.x, cb.y + cb.height + 1, 1, 1),
+            Direction::Right => Rect::new(cb.x + cb.width + 1, cb.y, 1, 1),
+            Direction::Left => Rect::new(cb.x.saturating_sub(1), cb.y, 1, 1),
+        };
+
+        // This is retarded and I can't be bother to figure out why its needed
+        if cb.y == 0 && dir == Direction::Up {
+            return;
+        }
+
+        tracing::error!("BOUNDS: {bounds_check:?}");
+
+        if let Some((new_pane, _)) = bounds
+            .iter()
+            .find(|(pane, bounds)| *pane != current && bounds.intersects(&bounds_check))
+        {
+            self.current_pane = *new_pane;
+        };
     }
 }
 

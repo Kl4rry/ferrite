@@ -897,6 +897,11 @@ impl Engine {
             Cmd::GitDiff => {
                 self.run_shell_command(vec!["git".into(), "diff".into()], true, true);
             }
+            Cmd::SwitchPane { direction } => {
+                self.workspace
+                    .panes
+                    .switch_pane_direction(direction, self.buffer_area);
+            }
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);

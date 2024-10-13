@@ -141,6 +141,9 @@ pub enum Cmd {
     ReopenBuffer,
     RotateFile,
     ForceRedraw,
+    SwitchPane {
+        direction: Direction,
+    },
 }
 
 impl Cmd {
@@ -245,6 +248,12 @@ impl Cmd {
             GitDiff => "Git diff",
             Trash => "Move to trash",
             ForceRedraw => "Force redraw",
+            SwitchPane { direction } => match direction {
+                Direction::Up => "Up pane",
+                Direction::Down => "Down pane",
+                Direction::Right => "Right pane",
+                Direction::Left => "Left pane",
+            },
         }
     }
 
@@ -345,6 +354,7 @@ impl Cmd {
             GitDiff => false,
             Trash => false,
             ForceRedraw => false,
+            SwitchPane { .. } => false,
         }
     }
 }
