@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cmp::Ordering,
     fs::{self, Metadata},
     path::{self, Path, PathBuf},
 };
@@ -66,8 +67,8 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
         return Vec::new();
     }
 
-    let mut entries: Vec<(isize, PathBuf)> = Vec::new();
-    let scoring = Scoring::emphasize_distance();
+    let mut entries: Vec<(isize, bool, PathBuf)> = Vec::new();
+    let scoring = Scoring::emphasize_word_starts();
 
     if let Ok(read_dir) = dir.read_dir() {
         let file_name = normalize(file_name);
@@ -81,7 +82,7 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
                         }
 
                         if !executable_only || is_executable(&metadata) || metadata.is_dir() {
-                            entries.push((0, path.into()));
+                            entries.push((0, false, path.into()));
                         }
                     }
                 } else {
@@ -97,7 +98,7 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
                             }
 
                             if !executable_only || is_executable(&metadata) || metadata.is_dir() {
-                                entries.push((m.score(), path.into()));
+                                entries.push((m.score(), ns.starts_with(&*file_name), path.into()));
                             }
                         }
                     }
@@ -106,8 +107,12 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
         }
     }
 
-    entries.sort_by(|a, b| b.0.cmp(&a.0));
-    entries.into_iter().map(|(_, p)| p).collect()
+    entries.sort_by(|a, b| match b.1.cmp(&a.1) {
+        Ordering::Less => Ordering::Less,
+        Ordering::Greater => Ordering::Greater,
+        Ordering::Equal => b.0.cmp(&a.0),
+    });
+    entries.into_iter().map(|(_, _, p)| p).collect()
 }
 
 fn is_executable(metadata: &Metadata) -> bool {
