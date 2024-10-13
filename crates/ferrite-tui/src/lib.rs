@@ -61,7 +61,7 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
     }
 
     if !io::stdout().is_terminal() {
-        return Ok(());
+        bail!("stdout must is not a tty");
     }
 
     tui_app.run(event_loop);
