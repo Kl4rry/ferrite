@@ -865,27 +865,6 @@ impl Engine {
             Cmd::ForceClose => self.force_close_current_buffer(),
             Cmd::Close => self.close_current_buffer(),
             Cmd::ClosePane => self.close_pane(),
-            Cmd::Paste => {
-                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
-                else {
-                    return;
-                };
-                if let Err(err) =
-                    self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::Paste)
-                {
-                    self.palette.set_error(err);
-                }
-            }
-            Cmd::Copy => {
-                let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
-                else {
-                    return;
-                };
-                if let Err(err) = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::Copy)
-                {
-                    self.palette.set_error(err);
-                }
-            }
             Cmd::RevertBuffer => {
                 let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
                 else {

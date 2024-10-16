@@ -96,6 +96,10 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 
 impl Buffer {
     pub fn format(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
+        if self.read_only {
+            return Ok(());
+        }
+
         if self.rope.len_bytes() == 0 {
             return Ok(());
         }
@@ -129,6 +133,10 @@ impl Buffer {
     }
 
     pub fn format_selection(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
+        if self.read_only {
+            return Ok(());
+        }
+
         if self.rope.len_bytes() == 0 {
             return Ok(());
         }
