@@ -138,11 +138,10 @@ pub struct Buffer {
     pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
+    last_interact: Instant,
     // syntax highlight
     syntax: Option<Syntax>,
     history: History,
-    // file searching
-    last_interact: Instant,
 }
 
 impl Clone for Buffer {
