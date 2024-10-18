@@ -1,6 +1,10 @@
-use std::fmt::{self, Display};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+};
 
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
+use history::History;
 use ropey::RopeSlice;
 
 use self::completer::{Completer, CompleterContext};
@@ -13,6 +17,7 @@ use crate::{
 
 pub mod cmd_parser;
 pub mod completer;
+mod history;
 
 #[derive(Debug, Clone)]
 pub enum PalettePromptEvent {
@@ -37,6 +42,8 @@ pub enum PaletteState {
         mode: String,
         focused: bool,
         completer: Completer,
+        history_index: usize,
+        old_line: String,
     },
     Prompt {
         selected: SelectedPrompt,
@@ -54,6 +61,7 @@ pub enum PaletteState {
 pub struct CommandPalette {
     proxy: Box<dyn EventLoopProxy>,
     state: PaletteState,
+    histories: HashMap<String, History>,
 }
 
 impl CommandPalette {
@@ -61,6 +69,7 @@ impl CommandPalette {
         Self {
             state: PaletteState::Nothing,
             proxy,
+            histories: Default::default(),
         }
     }
 
@@ -105,6 +114,7 @@ impl CommandPalette {
                 return;
             }
         }
+        self.histories.entry(mode.clone()).or_default();
         self.state = PaletteState::Input {
             prompt: prompt.into(),
             mode,
@@ -112,6 +122,8 @@ impl CommandPalette {
             completer: Completer::new(&buffer, ctx),
             buffer,
             view_id,
+            history_index: 0,
+            old_line: String::new(),
         };
     }
 
@@ -206,6 +218,8 @@ impl CommandPalette {
                 view_id,
                 mode,
                 completer,
+                history_index,
+                old_line,
                 ..
             } => {
                 let mut enter = false;
@@ -238,12 +252,45 @@ impl CommandPalette {
                             buffer.mark_dirty();
                         }
                     }
+                    Cmd::MoveUp { .. } => {
+                        if let Some(history) = self.histories.get(mode) {
+                            *history_index += 1;
+                            *history_index = (*history_index).min(history.len());
+                            let string = history
+                                .get(history_index.saturating_sub(1))
+                                .unwrap()
+                                .to_string();
+                            if *history_index == 1 {
+                                *old_line = buffer.rope().to_string();
+                            }
+                            buffer.replace(*view_id, 0..buffer.rope().len_bytes(), &string);
+                            buffer.eof(*view_id, false);
+                        }
+                    }
+                    Cmd::MoveDown { .. } => {
+                        if *history_index <= 1 {
+                            buffer.replace(*view_id, 0..buffer.rope().len_bytes(), old_line);
+                            buffer.eof(*view_id, false);
+                            old_line.clear();
+                        } else if let Some(history) = self.histories.get(mode) {
+                            *history_index = history_index.saturating_sub(1);
+                            let string = history
+                                .get(history_index.saturating_sub(1))
+                                .unwrap()
+                                .to_string();
+                            buffer.replace(*view_id, 0..buffer.rope().len_bytes(), &string);
+                            buffer.eof(*view_id, false);
+                        }
+                    }
+
                     input => {
                         buffer.handle_input(*view_id, input)?;
                     }
                 }
 
                 if enter && buffer.rope().len_bytes() > 0 {
+                    let history = self.histories.get_mut(mode).unwrap();
+                    history.add(buffer.rope().to_string());
                     self.proxy.send(UserEvent::PaletteEvent {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),

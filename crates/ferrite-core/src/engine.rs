@@ -1011,9 +1011,9 @@ impl Engine {
                     ));
                 }
                 "shell" => {
+                    self.palette.reset();
                     let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
                     self.run_shell_command(args, self.config.editor.pipe_shell_palette, false);
-                    self.palette.unfocus();
                 }
                 _ => (),
             },

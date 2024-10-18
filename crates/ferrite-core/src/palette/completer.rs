@@ -173,7 +173,10 @@ impl Completer {
                             .map(|m| (m.score(), alternative))
                     })
                     .collect::<Vec<_>>();
-                alternatives.sort_by(|a, b| b.0.cmp(&a.0));
+                alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
+                    std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+                    cmp => cmp,
+                });
 
                 self.options.extend(
                     alternatives
@@ -217,7 +220,10 @@ impl Completer {
                                         .map(|m| (m.score(), alternative))
                                 })
                                 .collect::<Vec<_>>();
-                            alternatives.sort_by(|a, b| b.0.cmp(&a.0));
+                            alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
+                                std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+                                cmp => cmp,
+                            });
 
                             self.options.extend(alternatives.into_iter().map(|(_, s)| {
                                 Box::new(s.to_string()) as Box<dyn CompletionOption>
@@ -238,7 +244,10 @@ impl Completer {
                                         .map(|m| (m.score(), alternative))
                                 })
                                 .collect::<Vec<_>>();
-                            themes.sort_by(|a, b| b.0.cmp(&a.0));
+                            themes.sort_by(|a, b| match b.0.cmp(&a.0) {
+                                std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+                                cmp => cmp,
+                            });
 
                             self.options.extend(themes.into_iter().map(|(_, s)| {
                                 Box::new(s.to_string()) as Box<dyn CompletionOption>
