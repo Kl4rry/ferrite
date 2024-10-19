@@ -174,7 +174,7 @@ impl Completer {
                     })
                     .collect::<Vec<_>>();
                 alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
-                    std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+                    std::cmp::Ordering::Equal => b.1.cmp(a.1),
                     cmp => cmp,
                 });
 
@@ -221,7 +221,7 @@ impl Completer {
                                 })
                                 .collect::<Vec<_>>();
                             alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+                                std::cmp::Ordering::Equal => b.1.cmp(a.1),
                                 cmp => cmp,
                             });
 
@@ -245,7 +245,7 @@ impl Completer {
                                 })
                                 .collect::<Vec<_>>();
                             themes.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => b.1.cmp(&a.1),
+                                std::cmp::Ordering::Equal => b.1.cmp(a.1),
                                 cmp => cmp,
                             });
 

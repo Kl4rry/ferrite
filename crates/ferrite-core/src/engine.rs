@@ -1503,7 +1503,7 @@ impl Engine {
                     cmd.push(' ');
                 }
 
-                let exec = Exec::shell(cmd)
+                let exec = get_exec(cmd)
                     .stdout(Redirection::Pipe)
                     .stderr(Redirection::Pipe);
 
@@ -1604,6 +1604,20 @@ impl Engine {
 
     fn try_get_current_buffer_path(&self) -> Option<PathBuf> {
         self.get_current_buffer()?.0.file().map(|p| p.to_owned())
+    }
+}
+
+fn get_exec(cmd: String) -> Exec {
+    if cfg!(unix) {
+        match std::env::var("SHELL") {
+            Ok(shell) => Exec::cmd(shell).arg("-c").arg(cmd),
+            Err(err) => {
+                tracing::error!("{err}");
+                Exec::shell(cmd)
+            }
+        }
+    } else {
+        Exec::shell(cmd)
     }
 }
 
