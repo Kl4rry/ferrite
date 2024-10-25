@@ -48,6 +48,7 @@ rustix = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
 tempdir = { workspace = true }
+rand = { workspace = true }
 
 [features]
 embed-themes = ["dep:include_dir"]

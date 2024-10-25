@@ -39,6 +39,7 @@ memchr = "2.5.0"
 notify = "6.0.0"
 num-traits = "0.2.15"
 opener = "0.7.0"
+rand = "0.8.5"
 rayon = "1.7.0"
 ropey = "1.5.1"
 rustix = "0.38.34"
@@ -77,6 +78,10 @@ gui = ["dep:ferrite-gui"]
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.test]
+opt-level = 3
+codegen-backend = "llvm"
 
 [workspace]
 resolver = "2"

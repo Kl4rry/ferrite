@@ -536,12 +536,7 @@ impl Buffer {
     }
 
     pub fn update_affinity(&mut self, view_id: ViewId) {
-        let (column_idx, line_idx) = self.cursor_pos(view_id);
-        self.views[view_id].cursor.affinity = self
-            .rope
-            .line_without_line_ending(line_idx)
-            .byte_slice(..column_idx)
-            .width(0);
+        self.views[view_id].cursor.affinity = self.cursor_grapheme_column(view_id);
     }
 
     pub fn vertical_scroll(&mut self, view_id: ViewId, distance: i64) {
@@ -934,6 +929,11 @@ impl Buffer {
         if text.is_empty() {
             return;
         }
+        /*let mut text = Cow::Borrowed(text);
+        if memchr::memchr(b'\r', text.as_bytes()).is_some() {
+            text = text.replace("\r", "").into();
+        }
+        let text: &str = &text;*/
 
         self.history.begin(self.views[view_id].cursor, self.dirty);
 
@@ -2201,4 +2201,49 @@ enum Skipping {
 const fn is_utf8_char_boundary(byte: u8) -> bool {
     // This is bit magic equivalent to: b < 128 || b >= 192
     (byte as i8) >= -0x40
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn insert_random_ascii() {
+        for _ in 0..100 {
+            use rand::Rng;
+            fn get_random_text() -> String {
+                let mut rng = rand::thread_rng();
+                let mut output = Vec::new();
+                for _ in 0..rng.gen_range(0..100) {
+                    output.push(rng.gen_range(0..128));
+                }
+                unsafe { String::from_utf8_unchecked(output) }
+            }
+
+            let mut rng = rand::thread_rng();
+            let mut buffer = Buffer::new();
+            let view_id = buffer.get_first_view_or_create();
+
+            for _ in 0..1000 {
+                match rng.gen_range(0..5) {
+                    0 => {
+                        buffer.move_left_char(view_id, false);
+                    }
+                    1 => {
+                        buffer.move_left_char(view_id, false);
+                    }
+                    2 => {
+                        buffer.move_up(view_id, false, 0);
+                    }
+                    3 => {
+                        buffer.move_down(view_id, false, 0);
+                    }
+                    4 => {
+                        let text = get_random_text();
+                        buffer.insert_text(view_id, &text, false);
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
 }
