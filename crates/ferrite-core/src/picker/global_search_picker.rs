@@ -165,6 +165,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
                                 output.push(GlobalSearchMatch {
                                     buffer: buffer.clone(),
                                     name: name.clone(),
+                                    line: rope_line.trim_start_whitespace().to_string(),
                                     match_location: (
                                         Point::new(start_col, lnum),
                                         Point::new(end_col, lnum),
@@ -191,6 +192,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
 pub struct GlobalSearchMatch {
     pub buffer: Arc<Mutex<Buffer>>,
     pub name: String,
+    pub line: String,
     pub match_location: (Point<usize>, Point<usize>),
 }
 
@@ -200,7 +202,11 @@ impl Matchable for GlobalSearchMatch {
     }
 
     fn display(&self) -> Cow<str> {
-        Cow::Borrowed(&self.name)
+        format!(
+            "{}:{}: {}",
+            self.name, self.match_location.0.line, self.line
+        )
+        .into()
     }
 }
 

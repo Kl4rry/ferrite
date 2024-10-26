@@ -281,7 +281,8 @@ impl TuiApp {
                             theme,
                             &self.engine.config.editor,
                             "Matches",
-                        ),
+                        )
+                        .set_text_align(widgets::picker_widget::TextAlign::Left),
                         size,
                         global_search_picker,
                     );

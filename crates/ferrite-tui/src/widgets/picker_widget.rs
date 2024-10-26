@@ -20,10 +20,17 @@ use super::{
 };
 use crate::glue::convert_style;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextAlign {
+    Left,
+    Right,
+}
+
 pub struct PickerWidget<'a, M> {
     theme: &'a EditorTheme,
     config: &'a Editor,
     title: &'a str,
+    text_align: TextAlign,
     _phantom: PhantomData<M>,
 }
 
@@ -33,8 +40,14 @@ impl<'a, M> PickerWidget<'a, M> {
             theme,
             config,
             title,
+            text_align: TextAlign::Right,
             _phantom: PhantomData,
         }
+    }
+
+    pub fn set_text_align(mut self, text_align: TextAlign) -> Self {
+        self.text_align = text_align;
+        self
     }
 }
 
@@ -153,7 +166,9 @@ where
                 let elipsies_len = elipsies.len();
 
                 let mut diff = 0;
-                let result = if fuzzy_match.item.display().width() > width - 3 {
+                let result = if fuzzy_match.item.display().width() > width - 3
+                    && self.text_align == TextAlign::Right
+                {
                     let display = fuzzy_match.item.display();
                     let rope = RopeSlice::from(display.as_ref());
                     let slice = rope.last_n_columns(width - 4);
