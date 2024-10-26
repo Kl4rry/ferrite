@@ -81,7 +81,6 @@ opt-level = 3
 
 [profile.test]
 opt-level = 3
-codegen-backend = "llvm"
 
 [workspace]
 resolver = "2"
