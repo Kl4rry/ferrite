@@ -61,32 +61,38 @@ impl Case {
 }
 
 impl Buffer {
+    // TODO make multicursor aware
     pub fn transform_case(&mut self, view_id: ViewId, case: Case) {
-        if !self.views[view_id].cursor.has_selection() {
+        self.views[view_id].cursors.clear();
+        if !self.views[view_id].cursors.first().has_selection() {
             return;
         }
 
-        self.history.begin(self.views[view_id].cursor, self.dirty);
+        self.history
+            .begin(*self.views[view_id].cursors.first(), self.dirty);
         let start_byte_idx = self.views[view_id]
-            .cursor
+            .cursors
+            .first()
             .position
-            .min(self.views[view_id].cursor.anchor);
+            .min(self.views[view_id].cursors.first().anchor);
         let end_byte_idx = self.views[view_id]
-            .cursor
+            .cursors
+            .first()
             .position
-            .max(self.views[view_id].cursor.anchor);
+            .max(self.views[view_id].cursors.first().anchor);
         let string = self.rope.slice(start_byte_idx..end_byte_idx).to_string();
         let output = case.transform(&string);
 
         self.history
             .replace(&mut self.rope, start_byte_idx..end_byte_idx, &output);
 
-        if self.views[view_id].cursor.position < self.views[view_id].cursor.anchor {
-            self.views[view_id].cursor.position = start_byte_idx;
-            self.views[view_id].cursor.anchor = start_byte_idx + output.len();
+        if self.views[view_id].cursors.first().position < self.views[view_id].cursors.first().anchor
+        {
+            self.views[view_id].cursors.first_mut().position = start_byte_idx;
+            self.views[view_id].cursors.first_mut().anchor = start_byte_idx + output.len();
         } else {
-            self.views[view_id].cursor.anchor = start_byte_idx;
-            self.views[view_id].cursor.position = start_byte_idx + output.len();
+            self.views[view_id].cursors.first_mut().anchor = start_byte_idx;
+            self.views[view_id].cursors.first_mut().position = start_byte_idx + output.len();
         }
 
         self.update_affinity(view_id);

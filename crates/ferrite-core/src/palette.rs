@@ -248,7 +248,8 @@ impl CommandPalette {
                     }
                     Cmd::MoveRight { .. } => {
                         buffer.handle_input(*view_id, input)?;
-                        if buffer.cursor_is_eof(*view_id) {
+                        // TODO figure out if this really should be zero
+                        if buffer.cursor_is_eof(*view_id, 0) {
                             buffer.mark_dirty();
                         }
                     }

@@ -485,6 +485,7 @@ mod tests {
 pub mod layout {
     use std::path::{Path, PathBuf};
 
+    use ferrite_utility::vec1::Vec1;
     use serde::{Deserialize, Serialize};
     use slotmap::SlotMap;
 
@@ -531,7 +532,7 @@ pub mod layout {
                         let view = &buffer.views[*view_id];
                         Some(Self::Leaf(PaneKind::Buffer {
                             path,
-                            cursor: view.cursor,
+                            cursor: *view.cursors.first(),
                             line_pos: view.line_pos,
                             col_pos: view.col_pos,
                         }))
@@ -577,7 +578,7 @@ pub mod layout {
                             })?;
                         let view_id = buffer.create_view();
                         let view = &mut buffer.views[view_id];
-                        view.cursor = *cursor;
+                        view.cursors = Vec1::new(*cursor);
                         view.line_pos = *line_pos;
                         view.col_pos = *col_pos;
                         buffer.ensure_cursor_is_valid(view_id);
@@ -640,7 +641,7 @@ pub mod layout {
                         Some((buffer_id, buffer)) => {
                             let view_id = buffer.create_view();
                             let view = &mut buffer.views[view_id];
-                            view.cursor = *cursor;
+                            view.cursors = Vec1::new(*cursor);
                             view.line_pos = *line_pos;
                             view.col_pos = *col_pos;
                             super::PaneKind::Buffer(buffer_id, view_id)
@@ -668,7 +669,7 @@ pub mod layout {
                                 let view = &buffers[buffer_id].views[view_id];
                                 Some(PaneKind::Buffer {
                                     path: path.into(),
-                                    cursor: view.cursor,
+                                    cursor: *view.cursors.first(),
                                     line_pos: view.line_pos,
                                     col_pos: view.col_pos,
                                 })

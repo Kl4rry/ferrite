@@ -336,7 +336,7 @@ impl Engine {
                 {
                     Some(buffer_data) => {
                         if let Some(view_id) = buffer.get_first_view() {
-                            buffer_data.cursor = buffer.cursor(view_id);
+                            buffer_data.cursor = buffer.cursor(view_id, 0);
                             buffer_data.line_pos = buffer.line_pos(view_id);
                             buffer_data.col_pos = buffer.col_pos(view_id);
                             buffer_data.indent = buffer.indent;
@@ -349,7 +349,7 @@ impl Engine {
                         if let Some(view_id) = buffer.get_first_view() {
                             new_buffers.push(BufferData {
                                 path: path.to_path_buf(),
-                                cursor: buffer.cursor(view_id),
+                                cursor: buffer.cursor(view_id, 0),
                                 line_pos: buffer.line_pos(view_id),
                                 col_pos: buffer.col_pos(view_id),
                                 indent: buffer.indent,
@@ -922,10 +922,10 @@ impl Engine {
                         if let Some(file) = guard.file() {
                             if self.open_file(file) {
                                 let view_id = guard.get_first_view().unwrap();
-                                let cursor_line = guard.cursor_line_idx(view_id);
-                                let cursor_col = guard.cursor_grapheme_column(view_id);
-                                let anchor_line = guard.anchor_line_idx(view_id);
-                                let anchor_col = guard.anchor_grapheme_column(view_id);
+                                let cursor_line = guard.cursor_line_idx(view_id, 0);
+                                let cursor_col = guard.cursor_grapheme_column(view_id, 0);
+                                let anchor_line = guard.anchor_line_idx(view_id, 0);
+                                let anchor_col = guard.anchor_grapheme_column(view_id, 0);
                                 if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
                                     buffer.select_area(
                                         view_id,
@@ -1544,7 +1544,8 @@ impl Engine {
 
     pub fn open_selected_url(&mut self) {
         if let Some((buffer, view_id)) = self.get_current_buffer() {
-            let selection = buffer.get_selection(view_id);
+            // TODO do this for all selections not just primary
+            let selection = buffer.get_selection(view_id, 0);
             let mut finder = LinkFinder::new();
             finder.kinds(&[LinkKind::Url]);
             let spans: Vec<_> = finder.spans(&selection).collect();
@@ -1564,7 +1565,7 @@ impl Engine {
 
     pub fn search(&mut self) {
         if let Some((buffer, view_id)) = self.get_current_buffer() {
-            let selection = buffer.get_selection(view_id);
+            let selection = buffer.get_selection(view_id, 0);
             self.file_picker = None;
             self.buffer_picker = None;
             self.palette.focus(
@@ -1581,7 +1582,7 @@ impl Engine {
     pub fn global_search(&mut self) {
         let selection = self
             .get_current_buffer()
-            .map(|(buffer, view_id)| buffer.get_selection(view_id))
+            .map(|(buffer, view_id)| buffer.get_selection(view_id, 0))
             .unwrap_or_default();
         self.file_picker = None;
         self.buffer_picker = None;

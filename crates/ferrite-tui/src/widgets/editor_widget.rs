@@ -124,7 +124,7 @@ impl StatefulWidget for EditorWidget<'_> {
             );
         }
 
-        let current_line_number = buffer.cursor_line_idx(view_id) + 1;
+        let current_line_number = buffer.cursor_line_idx(view_id, 0) + 1;
 
         // We have to overwrite all rendered whitespace with the correct color
         let mut dim_cells = Vec::new();
@@ -294,27 +294,17 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            let mut cursor_rect = None;
+            let mut cursor_rects = Vec::new();
             if has_focus {
-                'exit: {
-                    if let Some((_, row)) = buffer.cursor_view_pos(view_id, text_area.height.into())
-                    {
-                        let column = buffer.cursor_grapheme_column(view_id) as i64
-                            - buffer.col_pos(view_id) as i64;
-
-                        if view.lines.get(row).is_some()
-                            && column < text_area.width as i64
-                            && column >= 0
-                        {
-                            cursor_rect = Some(Rect {
-                                x: text_area.x + column as u16,
-                                y: text_area.y + row as u16,
-                                width: 1,
-                                height: 1,
-                            });
-                            break 'exit;
-                        }
-                    }
+                for (column, row) in
+                    buffer.cursor_view_pos(view_id, text_area.width.into(), text_area.height.into())
+                {
+                    cursor_rects.push(Rect {
+                        x: text_area.x + column as u16,
+                        y: text_area.y + row as u16,
+                        width: 1,
+                        height: 1,
+                    });
                 }
             }
 
@@ -431,7 +421,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 cell.set_style(convert_style(&self.theme.ruler));
             }
 
-            if let Some(rect) = cursor_rect {
+            for rect in cursor_rects {
                 buf.set_style(
                     rect,
                     convert_style(&theme.text).add_modifier(tui::style::Modifier::REVERSED),
@@ -467,29 +457,30 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             if let Some(bg) = convert_style(&theme.selection).bg {
-                let Selection { start, end } = buffer.get_view_selection(view_id);
-                let line_pos = buffer.line_pos(view_id);
+                for Selection { start, end } in buffer.get_view_selection(view_id) {
+                    let line_pos = buffer.line_pos(view_id);
 
-                for y in 0..text_area.height {
-                    let line_idx = y as usize + line_pos;
-                    let width = if line_idx >= buffer.rope().len_lines() {
-                        0
-                    } else {
-                        buffer.rope().line_without_line_ending(line_idx).width(0)
-                    };
-                    for x in 0..text_area.width {
-                        if x as usize > width {
-                            break;
-                        }
-                        let current = Point {
-                            column: x.into(),
-                            line: y.into(),
+                    for y in 0..text_area.height {
+                        let line_idx = y as usize + line_pos;
+                        let width = if line_idx >= buffer.rope().len_lines() {
+                            0
+                        } else {
+                            buffer.rope().line_without_line_ending(line_idx).width(0)
                         };
-                        if current >= start && current < end {
-                            let cell = buf
-                                .cell_mut((x + text_area.left(), y + text_area.top()))
-                                .unwrap();
-                            cell.bg = bg;
+                        for x in 0..text_area.width {
+                            if x as usize > width {
+                                break;
+                            }
+                            let current = Point {
+                                column: x.into(),
+                                line: y.into(),
+                            };
+                            if current >= start && current < end {
+                                let cell = buf
+                                    .cell_mut((x + text_area.left(), y + text_area.top()))
+                                    .unwrap();
+                                cell.bg = bg;
+                            }
                         }
                     }
                 }
@@ -502,8 +493,8 @@ impl StatefulWidget for EditorWidget<'_> {
                     focus: self.has_focus,
                     encoding: buffer.encoding,
                     name: buffer.name().to_string(),
-                    line: buffer.cursor_pos(view_id).1 + 1,
-                    column: buffer.cursor_grapheme_column(view_id) + 1,
+                    line: buffer.cursor_pos(view_id, 0).1 + 1,
+                    column: buffer.cursor_grapheme_column(view_id, 0) + 1,
                     dirty: buffer.is_dirty(),
                     branch: &branch,
                     language: buffer.language_name().into(),
