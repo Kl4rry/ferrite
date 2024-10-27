@@ -38,7 +38,7 @@ impl JobManager {
     pub fn poll_jobs(&mut self) {
         let mut removed = 0;
         for i in 0..self.foreground_job.len() {
-            if self.foreground_job[i].is_finished() {
+            if self.foreground_job[i - removed].is_finished() {
                 let _ = self.foreground_job.remove(i - removed).join();
                 removed += 1;
             }

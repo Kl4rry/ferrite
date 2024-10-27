@@ -185,7 +185,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            Cmd::Save,
+            Cmd::Save(None),
             Exclusiveness::Exclusive,
         ),
         (

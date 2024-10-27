@@ -569,11 +569,6 @@ impl Engine {
             }
             Cmd::OpenFilePicker => self.open_file_picker(),
             Cmd::OpenBufferPicker => self.open_buffer_picker(),
-            Cmd::Save => {
-                if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() {
-                    self.save_buffer(buffer_id, None);
-                }
-            }
             Cmd::FilePickerReload => {
                 self.file_scanner = FileScanner::new(
                     env::current_dir().unwrap_or(PathBuf::from(".")),
@@ -689,12 +684,24 @@ impl Engine {
             Cmd::OpenFile(path) => {
                 self.open_file(path);
             }
-            Cmd::SaveFile(path) => {
+            Cmd::Save(path) => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
 
                 self.save_buffer(buffer_id, path);
+            }
+            Cmd::SaveAll => {
+                let mut buffers_to_save = Vec::new();
+                for (buffer_id, buffer) in &self.workspace.buffers {
+                    if buffer.file().is_some() {
+                        buffers_to_save.push(buffer_id);
+                    }
+                }
+
+                for buffer_id in buffers_to_save {
+                    self.save_buffer(buffer_id, None);
+                }
             }
             Cmd::Language(language) => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {

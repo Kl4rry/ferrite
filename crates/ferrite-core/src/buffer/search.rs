@@ -187,7 +187,7 @@ impl BufferSearcher {
 #[inline(always)]
 pub fn compare_char(lhs: &char, rhs: &char, case_insensitive: bool) -> bool {
     if case_insensitive {
-        lhs.to_ascii_lowercase() == rhs.to_ascii_lowercase()
+        lhs.eq_ignore_ascii_case(rhs)
     } else {
         lhs == rhs
     }
