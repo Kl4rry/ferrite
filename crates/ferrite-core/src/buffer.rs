@@ -55,10 +55,10 @@ fn get_buffer_proxy() -> Box<dyn EventLoopProxy> {
     PROXY.get().unwrap().dup()
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Cursor {
-    pub anchor: usize,
     pub position: usize,
+    pub anchor: usize,
     pub affinity: usize,
 }
 
@@ -98,12 +98,6 @@ impl Cursor {
 
     pub fn end(&self) -> usize {
         self.position.max(self.anchor)
-    }
-}
-
-impl PartialOrd for Cursor {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.position.partial_cmp(&other.position)
     }
 }
 
@@ -1035,33 +1029,33 @@ impl Buffer {
         self.history.finish();
     }
 
-    // TODO make multicursor aware
     pub fn home(&mut self, view_id: ViewId, expand_selection: bool) {
-        self.views[view_id].cursors.clear();
-        let (col, line_idx) = self.cursor_pos(view_id, 0);
-        let line = self.rope.line_without_line_ending(line_idx);
+        for i in 0..self.views[view_id].cursors.len() {
+            let (col, line_idx) = self.cursor_pos(view_id, i);
+            let line = self.rope.line_without_line_ending(line_idx);
 
-        let mut byte_col = 0;
-        for grapheme in line.grapehemes() {
-            if byte_col >= col {
-                byte_col = 0;
-                break;
+            let mut byte_col = 0;
+            for grapheme in line.grapehemes() {
+                if byte_col >= col {
+                    byte_col = 0;
+                    break;
+                }
+
+                if grapheme.chars().any(char::is_whitespace) {
+                    byte_col += grapheme.len_bytes();
+                } else {
+                    break;
+                }
             }
 
-            if grapheme.chars().any(char::is_whitespace) {
-                byte_col += grapheme.len_bytes();
-            } else {
-                break;
+            let byte = self.rope.line_to_byte(line_idx) + byte_col;
+            self.views[view_id].cursors[i].position = byte;
+            if !expand_selection {
+                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
             }
         }
 
-        let byte = self.rope.line_to_byte(line_idx) + byte_col;
-        self.views[view_id].cursors.first_mut().position = byte;
-        if !expand_selection {
-            self.views[view_id].cursors.first_mut().anchor =
-                self.views[view_id].cursors.first().position;
-        }
-
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
 
@@ -1070,18 +1064,18 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
     pub fn end(&mut self, view_id: ViewId, expand_selection: bool) {
-        self.views[view_id].cursors.clear();
-        let line_idx = self.cursor_line_idx(view_id, 0);
-        let byte = self.rope.line_to_byte(line_idx);
-        let line_len = self.rope.line_without_line_ending(line_idx).len_bytes();
-        self.views[view_id].cursors.first_mut().position = byte + line_len;
-        if !expand_selection {
-            self.views[view_id].cursors.first_mut().anchor =
-                self.views[view_id].cursors.first().position;
+        for i in 0..self.views[view_id].cursors.len() {
+            let line_idx = self.cursor_line_idx(view_id, i);
+            let byte = self.rope.line_to_byte(line_idx);
+            let line_len = self.rope.line_without_line_ending(line_idx).len_bytes();
+            self.views[view_id].cursors[i].position = byte + line_len;
+            if !expand_selection {
+                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+            }
         }
 
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
 
@@ -1122,17 +1116,10 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
     pub fn insert_text(&mut self, view_id: ViewId, text: &str, auto_indent: bool) {
-        self.views[view_id].cursors.clear();
         if text.is_empty() {
             return;
         }
-        /*let mut text = Cow::Borrowed(text);
-        if memchr::memchr(b'\r', text.as_bytes()).is_some() {
-            text = text.replace("\r", "").into();
-        }
-        let text: &str = &text;*/
 
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
@@ -1152,96 +1139,118 @@ impl Buffer {
 
         let lines = Rope::from_str(text).len_lines();
 
-        let (inserted_bytes, finish) = if self.views[view_id].cursors.first().has_selection() {
-            let start_byte_idx = self.views[view_id].cursors.first().start();
-            let end_byte_idx = self.views[view_id].cursors.first().end();
-            if let Some(pair) = get_pair_char(text) {
-                self.history.insert(&mut self.rope, start_byte_idx, text);
-                self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
-                self.views[view_id].cursors.first_mut().position = end_byte_idx;
-                self.views[view_id].cursors.first_mut().anchor = end_byte_idx;
-            } else {
-                self.history
-                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
-                self.views[view_id].cursors.first_mut().position =
-                    self.views[view_id].cursors.first().start();
-                self.views[view_id].cursors.first_mut().anchor =
-                    self.views[view_id].cursors.first_mut().position;
-            }
-            (text.len(), false)
-        } else if auto_indent && lines > 1 {
-            let indent = self.guess_indent(self.views[view_id].cursors.first().position);
-            let min_indent_width = Rope::from_str(&indent).width(0);
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+        let mut history_finish = false;
 
-            let mut smallest_indent_width = usize::MAX;
-            for line in Rope::from_str(text).lines() {
-                if line.is_whitespace() {
-                    continue;
-                }
-                let text_start_col = line.get_text_start_col(0);
-                smallest_indent_width = smallest_indent_width.min(text_start_col);
-            }
-
-            let current_line = self.rope.line(
-                self.rope
-                    .byte_to_line(self.views[view_id].cursors.first().position),
-            );
-            let current_line_is_whitespace = current_line.is_whitespace();
-            let current_line_text_start = current_line.get_text_start_col(0);
-
-            let mut input = String::new();
-            let mut first = true;
-            for line in Rope::from_str(text).lines() {
-                let line_text_start_col = line.get_text_start_col(0);
-                let extra_indent_width = line_text_start_col.saturating_sub(smallest_indent_width);
-                let string = line.to_string();
-                let trimmed = if line.is_whitespace() {
-                    string.as_str()
+        for (_, i) in cursors.iter().copied() {
+            let before_len_bytes = self.rope.len_bytes();
+            let (inserted_bytes, finish) = if self.views[view_id].cursors[i].has_selection() {
+                let start_byte_idx = self.views[view_id].cursors[i].start();
+                let end_byte_idx = self.views[view_id].cursors[i].end();
+                if let Some(pair) = get_pair_char(text) {
+                    self.history.insert(&mut self.rope, start_byte_idx, text);
+                    self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
+                    self.views[view_id].cursors[i].position = end_byte_idx;
+                    self.views[view_id].cursors[i].anchor = end_byte_idx;
                 } else {
-                    string.trim_start()
-                };
+                    self.history
+                        .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
+                    self.views[view_id].cursors[i].position =
+                        self.views[view_id].cursors[i].start();
+                    self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+                }
+                (text.len(), false)
+            } else if auto_indent && lines > 1 {
+                let indent = self.guess_indent(self.views[view_id].cursors[i].position);
+                let min_indent_width = Rope::from_str(&indent).width(0);
 
-                let total_indent_width = min_indent_width + extra_indent_width;
-                if first {
-                    if !line.is_whitespace() && current_line_is_whitespace {
-                        input.push_str(&self.indent.from_width(
-                            total_indent_width.saturating_sub(current_line_text_start),
-                        ));
+                let mut smallest_indent_width = usize::MAX;
+                for line in Rope::from_str(text).lines() {
+                    if line.is_whitespace() {
+                        continue;
                     }
-                    first = false;
-                } else {
-                    input.push_str(&self.indent.from_width(total_indent_width));
+                    let text_start_col = line.get_text_start_col(0);
+                    smallest_indent_width = smallest_indent_width.min(text_start_col);
                 }
 
-                input.push_str(trimmed);
+                let current_line = self.rope.line(
+                    self.rope
+                        .byte_to_line(self.views[view_id].cursors[i].position),
+                );
+                let current_line_is_whitespace = current_line.is_whitespace();
+                let current_line_text_start = current_line.get_text_start_col(0);
+
+                let mut input = String::new();
+                let mut first = true;
+                for line in Rope::from_str(text).lines() {
+                    let line_text_start_col = line.get_text_start_col(0);
+                    let extra_indent_width =
+                        line_text_start_col.saturating_sub(smallest_indent_width);
+                    let string = line.to_string();
+                    let trimmed = if line.is_whitespace() {
+                        string.as_str()
+                    } else {
+                        string.trim_start()
+                    };
+
+                    let total_indent_width = min_indent_width + extra_indent_width;
+                    if first {
+                        if !line.is_whitespace() && current_line_is_whitespace {
+                            input.push_str(&self.indent.from_width(
+                                total_indent_width.saturating_sub(current_line_text_start),
+                            ));
+                        }
+                        first = false;
+                    } else {
+                        input.push_str(&self.indent.from_width(total_indent_width));
+                    }
+
+                    input.push_str(trimmed);
+                }
+
+                self.history.insert(
+                    &mut self.rope,
+                    self.views[view_id].cursors[i].position,
+                    &input,
+                );
+                /*if let Some(pair) = get_pair_char(text) {
+                    self.history
+                        .insert(&mut self.rope, self.cursors[i].position + text.len(), pair);
+                }*/
+                (input.len(), true)
+            } else {
+                self.history.insert(
+                    &mut self.rope,
+                    self.views[view_id].cursors[i].position,
+                    text,
+                );
+                /*if let Some(pair) = get_pair_char(text) {
+                    self.history
+                        .insert(&mut self.rope, self.cursors[i].position + text.len(), pair);
+                }*/
+                (text.len(), false)
+            };
+
+            self.views[view_id].cursors[i].position += inserted_bytes;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            history_finish |= finish;
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(i + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
             }
-
-            self.history.insert(
-                &mut self.rope,
-                self.views[view_id].cursors.first().position,
-                &input,
-            );
-            /*if let Some(pair) = get_pair_char(text) {
-                self.history
-                    .insert(&mut self.rope, self.cursors.first().position + text.len(), pair);
-            }*/
-            (input.len(), true)
-        } else {
-            self.history.insert(
-                &mut self.rope,
-                self.views[view_id].cursors.first().position,
-                text,
-            );
-            /*if let Some(pair) = get_pair_char(text) {
-                self.history
-                    .insert(&mut self.rope, self.cursors.first().position + text.len(), pair);
-            }*/
-            (text.len(), false)
-        };
-
-        self.views[view_id].cursors.first_mut().position += inserted_bytes;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.views[view_id].cursors.first().position;
+        }
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1251,7 +1260,7 @@ impl Buffer {
         self.mark_dirty();
         self.ensure_every_cursor_is_valid();
 
-        if finish {
+        if history_finish {
             self.history.finish();
         }
     }

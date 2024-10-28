@@ -629,28 +629,28 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Up, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Up,
             },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Down, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Down,
             },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Right, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Key::new(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Right,
             },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Left, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Key::new(KeyCode::Left, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Left,
             },

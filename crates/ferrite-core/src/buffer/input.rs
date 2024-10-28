@@ -60,8 +60,6 @@ impl Buffer {
 
         self.update_interact();
 
-        tracing::error!("{:#?}", self.views[view_id].cursors);
-
         Ok(())
     }
 }
