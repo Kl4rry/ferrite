@@ -16,6 +16,7 @@ use ferrite_utility::{
     vec1::Vec1,
 };
 use ropey::{Rope, RopeSlice};
+use search::search_rope;
 use serde::{Deserialize, Serialize};
 use slotmap::SlotMap;
 
@@ -67,8 +68,12 @@ impl Cursor {
     }
 
     pub fn intersects(&self, other: Cursor) -> bool {
-        let range = self.position.min(self.anchor)..self.position.max(self.anchor);
-        range.contains(&other.position) || range.contains(&other.position)
+        let (start, end) = (
+            self.position.min(self.anchor),
+            self.position.max(self.anchor),
+        );
+        start <= other.position && end >= other.position
+            || start <= other.anchor && end >= other.anchor
     }
 
     pub fn coalesce(self, other: Cursor) -> Self {
@@ -85,6 +90,20 @@ impl Cursor {
                 affinity: self.affinity,
             }
         }
+    }
+
+    pub fn start(&self) -> usize {
+        self.position.min(self.anchor)
+    }
+
+    pub fn end(&self) -> usize {
+        self.position.max(self.anchor)
+    }
+}
+
+impl PartialOrd for Cursor {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.position.partial_cmp(&other.position)
     }
 }
 
@@ -146,21 +165,26 @@ impl Clone for View {
 
 impl View {
     pub fn coalesce_cursors(&mut self) {
-        let mut removed = 0;
-        for i in 0..self.cursors.len() {
-            for j in 0..self.cursors.len() {
-                if i == j || j == 0 {
-                    continue;
-                }
+        let mut new_cursors = Vec::new();
+        let mut coalesced = Vec::new();
 
-                if self.cursors[i - removed].intersects(self.cursors[j - removed]) {
-                    self.cursors[i - removed] =
-                        self.cursors[i - removed].coalesce(self.cursors[j - removed]);
-                    self.cursors.remove(j - removed);
-                    removed += 1;
+        for i in 0..self.cursors.len() {
+            if !coalesced.contains(&i) {
+                let mut cursor = self.cursors[i];
+                for j in 0..self.cursors.len() {
+                    if i == j {
+                        continue;
+                    }
+
+                    if self.cursors[i].intersects(self.cursors[j]) {
+                        cursor = self.cursors[i].coalesce(self.cursors[j]);
+                        coalesced.push(j);
+                    }
                 }
+                new_cursors.push(cursor);
             }
         }
+        self.cursors = Vec1::from_vec(new_cursors).unwrap();
     }
 
     pub fn clear(&mut self) {
@@ -370,7 +394,6 @@ impl Buffer {
 
     pub fn set_text(&mut self, text: &str) {
         self.rope = Rope::from(text);
-        self.history = History::default();
         if let Some(ref mut syntax) = self.syntax {
             syntax.update_text(self.rope.clone());
         }
@@ -530,6 +553,7 @@ impl Buffer {
         output
     }
 
+    // TODO make this incremental or parallell
     pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
         let view = &self.views[view_id];
         let mut output = Vec::new();
@@ -612,28 +636,25 @@ impl Buffer {
             .clamp(0, usize::MAX as i128 - 1) as usize;
     }
 
-    // TODO make this multicursor aware
-    // TODO make this remove selection but not move cursor
-    pub fn move_right_char(&mut self, view_id: ViewId, shift: bool) {
-        self.views[view_id].cursors.clear();
+    pub fn move_right_char(&mut self, view_id: ViewId, expand_selection: bool) {
+        for i in 0..self.views[view_id].cursors.len() {
+            if !self.views[view_id].cursors[i].has_selection() || expand_selection {
+                let new_idx = self
+                    .rope
+                    .next_grapheme_boundary_byte(self.views[view_id].cursors[i].position);
+                self.views[view_id].cursors[i].position = new_idx;
+            }
 
-        let new_idx = self
-            .rope
-            .next_grapheme_boundary_byte(self.views[view_id].cursors.first().position);
-        self.views[view_id].cursors.first_mut().position = new_idx;
-
-        if !shift {
-            if self.views[view_id].cursors.first().anchor
-                > self.views[view_id].cursors.first().position
-            {
-                self.views[view_id].cursors.first_mut().position =
-                    self.views[view_id].cursors.first().anchor;
-            } else {
-                self.views[view_id].cursors.first_mut().anchor =
-                    self.views[view_id].cursors.first().position;
+            if !expand_selection {
+                if self.views[view_id].cursors[i].anchor > self.views[view_id].cursors[i].position {
+                    self.views[view_id].cursors[i].position = self.views[view_id].cursors[i].anchor;
+                } else {
+                    self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+                }
             }
         }
 
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
 
@@ -642,28 +663,25 @@ impl Buffer {
         }
     }
 
-    // TODO make this multicursor aware
-    // TODO make this remove selection but not move cursor
-    pub fn move_left_char(&mut self, view_id: ViewId, shift: bool) {
-        self.views[view_id].cursors.clear();
+    pub fn move_left_char(&mut self, view_id: ViewId, expand_selection: bool) {
+        for i in 0..self.views[view_id].cursors.len() {
+            if !self.views[view_id].cursors[i].has_selection() || expand_selection {
+                let new_idx = self
+                    .rope
+                    .prev_grapheme_boundary_byte(self.views[view_id].cursors[i].position);
+                self.views[view_id].cursors[i].position = new_idx;
+            }
 
-        let new_idx = self
-            .rope
-            .prev_grapheme_boundary_byte(self.views[view_id].cursors.first().position);
-        self.views[view_id].cursors.first_mut().position = new_idx;
-
-        if !shift {
-            if self.views[view_id].cursors.first().anchor
-                < self.views[view_id].cursors.first().position
-            {
-                self.views[view_id].cursors.first_mut().position =
-                    self.views[view_id].cursors.first().anchor;
-            } else {
-                self.views[view_id].cursors.first_mut().anchor =
-                    self.views[view_id].cursors.first().position;
+            if !expand_selection {
+                if self.views[view_id].cursors[i].anchor < self.views[view_id].cursors[i].position {
+                    self.views[view_id].cursors[i].position = self.views[view_id].cursors[i].anchor;
+                } else {
+                    self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+                }
             }
         }
 
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
 
@@ -672,79 +690,109 @@ impl Buffer {
         }
     }
 
-    // TODO make this mulicursor aware
-    pub fn move_down(&mut self, view_id: ViewId, shift: bool, distance: usize) {
-        self.views[view_id].cursors.clear();
+    pub fn move_down(
+        &mut self,
+        view_id: ViewId,
+        expand_selection: bool,
+        create_cursor: bool,
+        distance: usize,
+    ) {
+        let cursors_len = self.views[view_id].cursors.len();
+        for i in 0..cursors_len {
+            let (column_idx, line_idx) = self.cursor_pos(view_id, i);
+            let new_line_idx = (line_idx + distance).min(self.rope.len_lines().saturating_sub(1));
+            if line_idx == new_line_idx {
+                continue;
+            }
 
-        let (column_idx, line_idx) = self.cursor_pos(view_id, 0);
-        let new_line_idx = (line_idx + distance).min(self.rope.len_lines().saturating_sub(1));
-        if line_idx == new_line_idx {
-            return;
+            let view: &mut View = &mut self.views[view_id];
+            let before_cursor = self
+                .rope
+                .line_without_line_ending(line_idx)
+                .byte_slice(..column_idx)
+                .width(0)
+                .max(view.cursors[i].affinity);
+            let next_line = self.rope.line_without_line_ending(new_line_idx);
+            let next_width = next_line.width(0);
+            let next_line_start = self.rope.line_to_byte(new_line_idx);
+
+            let new_cursor_pos = if next_width < before_cursor {
+                next_line_start + next_line.len_bytes()
+            } else {
+                let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
+                next_line_start + idx
+            };
+
+            if create_cursor {
+                view.cursors.push(Cursor {
+                    anchor: new_cursor_pos,
+                    position: new_cursor_pos,
+                    affinity: view.cursors[i].affinity,
+                });
+            } else {
+                view.cursors[i].position = new_cursor_pos;
+                if !expand_selection {
+                    view.cursors[i].anchor = view.cursors[i].position;
+                }
+            }
         }
 
-        let view: &mut View = &mut self.views[view_id];
-        let before_cursor = self
-            .rope
-            .line_without_line_ending(line_idx)
-            .byte_slice(..column_idx)
-            .width(0)
-            .max(view.cursors.first().affinity);
-        let next_line = self.rope.line_without_line_ending(new_line_idx);
-        let next_width = next_line.width(0);
-        let next_line_start = self.rope.line_to_byte(new_line_idx);
-
-        if next_width < before_cursor {
-            view.cursors.first_mut().position = next_line_start + next_line.len_bytes();
-        } else {
-            let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
-            view.cursors.first_mut().position = next_line_start + idx;
-        }
-
-        if !shift {
-            view.cursors.first_mut().anchor = view.cursors.first().position;
-        }
-
+        self.views[view_id].coalesce_cursors();
         self.history.finish();
 
-        if view.clamp_cursor {
+        if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
         }
     }
 
-    // TODO make this mulicursor aware
-    pub fn move_up(&mut self, view_id: ViewId, shift: bool, distance: usize) {
-        self.views[view_id].cursors.clear();
+    pub fn move_up(
+        &mut self,
+        view_id: ViewId,
+        expand_selection: bool,
+        create_cursor: bool,
+        distance: usize,
+    ) {
+        for i in 0..self.views[view_id].cursors.len() {
+            let (column_idx, line_idx) = self.cursor_pos(view_id, i);
+            if line_idx == 0 {
+                continue;
+            }
 
-        let (column_idx, line_idx) = self.cursor_pos(view_id, 0);
-        if line_idx == 0 {
-            return;
+            let new_line_idx = line_idx.saturating_sub(distance);
+
+            let view: &mut View = &mut self.views[view_id];
+            let before_cursor = self
+                .rope
+                .line_without_line_ending(line_idx)
+                .byte_slice(..column_idx)
+                .width(0)
+                .max(view.cursors[i].affinity);
+            let next_line = self.rope.line_without_line_ending(new_line_idx);
+            let next_width = next_line.width(0);
+            let next_line_start = self.rope.line_to_byte(new_line_idx);
+
+            let new_cursor_pos = if next_width < before_cursor {
+                next_line_start + next_line.len_bytes()
+            } else {
+                let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
+                next_line_start + idx
+            };
+
+            if create_cursor {
+                view.cursors.push(Cursor {
+                    anchor: new_cursor_pos,
+                    position: new_cursor_pos,
+                    affinity: view.cursors[i].affinity,
+                });
+            } else {
+                view.cursors[i].position = new_cursor_pos;
+                if !expand_selection {
+                    view.cursors[i].anchor = view.cursors[i].position;
+                }
+            }
         }
 
-        let new_line_idx = line_idx.saturating_sub(distance);
-
-        let before_cursor = self
-            .rope
-            .line_without_line_ending(line_idx)
-            .byte_slice(..column_idx)
-            .width(0)
-            .max(self.views[view_id].cursors.first().affinity);
-        let next_line = self.rope.line_without_line_ending(new_line_idx);
-        let next_width = next_line.width(0);
-        let next_line_start = self.rope.line_to_byte(new_line_idx);
-
-        if next_width < before_cursor {
-            self.views[view_id].cursors.first_mut().position =
-                next_line_start + next_line.len_bytes();
-        } else {
-            let idx = next_line.nth_next_grapheme_boundary_byte(0, before_cursor);
-            self.views[view_id].cursors.first_mut().position = next_line_start + idx;
-        }
-
-        if !shift {
-            self.views[view_id].cursors.first_mut().anchor =
-                self.views[view_id].cursors.first().position;
-        }
-
+        self.views[view_id].coalesce_cursors();
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
@@ -754,34 +802,74 @@ impl Buffer {
 
     // TODO make multicursor aware
     pub fn select_word(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
+        self.views[view_id].coalesce_cursors();
         // TODO add matching multi selection when already having a selection
-        if !self.views[view_id].cursors.first().has_selection() {
-            let mut start_byte_idx = self.views[view_id].cursors.first().position;
-            loop {
-                let new_idx = self.rope.prev_grapheme_boundary_byte(start_byte_idx);
-                let grapheme = self.rope.byte_slice(new_idx..start_byte_idx);
-                if new_idx == start_byte_idx || !grapheme.is_word_char() {
-                    break;
+        let has_selection = self.views[view_id]
+            .cursors
+            .iter()
+            .all(|cursor| cursor.has_selection());
+
+        if has_selection {
+            let mut last_cursor = Cursor {
+                position: 0,
+                anchor: 0,
+                affinity: 0,
+            };
+            for cursor in &*self.views[view_id].cursors {
+                if cursor.position.max(cursor.anchor) > last_cursor.position.max(last_cursor.anchor)
+                {
+                    last_cursor = *cursor;
                 }
-                start_byte_idx = new_idx;
             }
 
-            let mut end_byte_idx = self.views[view_id].cursors.first().position;
-            loop {
-                let new_idx = self.rope.next_grapheme_boundary_byte(end_byte_idx);
-                let grapheme = self.rope.byte_slice(end_byte_idx..new_idx);
-                if new_idx == end_byte_idx || !grapheme.is_word_char() {
-                    break;
-                }
-                end_byte_idx = new_idx;
+            let search_start = last_cursor.position.max(last_cursor.anchor);
+
+            let m = search_rope(
+                self.rope.byte_slice(search_start..),
+                self.get_selection(view_id, 0).to_string(),
+                false,
+                true,
+            )
+            .pop();
+
+            // TODO make looping around to beginning of buffer work
+            if let Some(m) = m {
+                self.views[view_id].cursors.push(Cursor {
+                    anchor: m.start_byte + search_start,
+                    position: m.end_byte + search_start,
+                    affinity: 0,
+                });
             }
+        } else {
+            for i in 0..self.views[view_id].cursors.len() {
+                let mut start_byte_idx = self.views[view_id].cursors[i].position;
+                loop {
+                    let new_idx = self.rope.prev_grapheme_boundary_byte(start_byte_idx);
+                    let grapheme = self.rope.byte_slice(new_idx..start_byte_idx);
+                    if new_idx == start_byte_idx || !grapheme.is_word_char() {
+                        break;
+                    }
+                    start_byte_idx = new_idx;
+                }
 
-            self.views[view_id].cursors.first_mut().position = end_byte_idx;
-            self.views[view_id].cursors.first_mut().anchor = start_byte_idx;
+                let mut end_byte_idx = self.views[view_id].cursors[i].position;
+                loop {
+                    let new_idx = self.rope.next_grapheme_boundary_byte(end_byte_idx);
+                    let grapheme = self.rope.byte_slice(end_byte_idx..new_idx);
+                    if new_idx == end_byte_idx || !grapheme.is_word_char() {
+                        break;
+                    }
+                    end_byte_idx = new_idx;
+                }
 
-            self.history.finish();
+                self.views[view_id].cursors[i].position = end_byte_idx;
+                self.views[view_id].cursors[i].anchor = start_byte_idx;
+            }
         }
+
+        self.views[view_id].coalesce_cursors();
+        self.update_affinity(view_id);
+        self.history.finish();
     }
 
     fn next_word_end(&self, view_id: ViewId, cursor_index: usize, greedy: bool) -> usize {
@@ -894,17 +982,19 @@ impl Buffer {
         current_idx
     }
 
-    // TODO make multicursor aware
-    pub fn move_right_word(&mut self, view_id: ViewId, shift: bool) {
-        self.views[view_id].cursors.clear();
-        let next_word = self.next_word_end(view_id, 0, true);
-        self.views[view_id].cursors.first_mut().position = next_word;
+    pub fn move_right_word(&mut self, view_id: ViewId, expand_selection: bool) {
+        for i in 0..self.views[view_id].cursors.len() {
+            if !self.views[view_id].cursors[i].has_selection() || expand_selection {
+                let next_word = self.next_word_end(view_id, i, true);
+                self.views[view_id].cursors[i].position = next_word;
+            }
 
-        if !shift {
-            self.views[view_id].cursors.first_mut().anchor =
-                self.views[view_id].cursors.first().position;
+            if !expand_selection {
+                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+            }
         }
 
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
 
@@ -913,17 +1003,19 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
-    pub fn move_left_word(&mut self, view_id: ViewId, shift: bool) {
-        self.views[view_id].cursors.clear();
-        let prev_word = self.prev_word_start(view_id, 0, true);
-        self.views[view_id].cursors.first_mut().position = prev_word;
+    pub fn move_left_word(&mut self, view_id: ViewId, expand_selection: bool) {
+        for i in 0..self.views[view_id].cursors.len() {
+            if !self.views[view_id].cursors[i].has_selection() || expand_selection {
+                let prev_word = self.prev_word_start(view_id, i, true);
+                self.views[view_id].cursors[i].position = prev_word;
+            }
 
-        if !shift {
-            self.views[view_id].cursors.first_mut().anchor =
-                self.views[view_id].cursors.first().position;
+            if !expand_selection {
+                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+            }
         }
 
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
 
@@ -944,7 +1036,7 @@ impl Buffer {
     }
 
     // TODO make multicursor aware
-    pub fn home(&mut self, view_id: ViewId, shift: bool) {
+    pub fn home(&mut self, view_id: ViewId, expand_selection: bool) {
         self.views[view_id].cursors.clear();
         let (col, line_idx) = self.cursor_pos(view_id, 0);
         let line = self.rope.line_without_line_ending(line_idx);
@@ -965,7 +1057,7 @@ impl Buffer {
 
         let byte = self.rope.line_to_byte(line_idx) + byte_col;
         self.views[view_id].cursors.first_mut().position = byte;
-        if !shift {
+        if !expand_selection {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
         }
@@ -979,13 +1071,13 @@ impl Buffer {
     }
 
     // TODO make multicursor aware
-    pub fn end(&mut self, view_id: ViewId, shift: bool) {
+    pub fn end(&mut self, view_id: ViewId, expand_selection: bool) {
         self.views[view_id].cursors.clear();
         let line_idx = self.cursor_line_idx(view_id, 0);
         let byte = self.rope.line_to_byte(line_idx);
         let line_len = self.rope.line_without_line_ending(line_idx).len_bytes();
         self.views[view_id].cursors.first_mut().position = byte + line_len;
-        if !shift {
+        if !expand_selection {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
         }
@@ -998,10 +1090,10 @@ impl Buffer {
         }
     }
 
-    pub fn start(&mut self, view_id: ViewId, shift: bool) {
+    pub fn start(&mut self, view_id: ViewId, expand_selection: bool) {
         self.views[view_id].cursors.clear();
         self.views[view_id].cursors.first_mut().position = 0;
-        if !shift {
+        if !expand_selection {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
         }
@@ -1014,10 +1106,10 @@ impl Buffer {
         }
     }
 
-    pub fn eof(&mut self, view_id: ViewId, shift: bool) {
+    pub fn eof(&mut self, view_id: ViewId, expand_selection: bool) {
         self.views[view_id].cursors.clear();
         self.views[view_id].cursors.first_mut().position = self.rope.len_bytes();
-        if !shift {
+        if !expand_selection {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
         }
@@ -1061,16 +1153,8 @@ impl Buffer {
         let lines = Rope::from_str(text).len_lines();
 
         let (inserted_bytes, finish) = if self.views[view_id].cursors.first().has_selection() {
-            let start_byte_idx = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.views[view_id].cursors.first().anchor);
-            let end_byte_idx = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .max(self.views[view_id].cursors.first().anchor);
+            let start_byte_idx = self.views[view_id].cursors.first().start();
+            let end_byte_idx = self.views[view_id].cursors.first().end();
             if let Some(pair) = get_pair_char(text) {
                 self.history.insert(&mut self.rope, start_byte_idx, text);
                 self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
@@ -1079,11 +1163,8 @@ impl Buffer {
             } else {
                 self.history
                     .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
-                self.views[view_id].cursors.first_mut().position = self.views[view_id]
-                    .cursors
-                    .first()
-                    .position
-                    .min(self.views[view_id].cursors.first().anchor);
+                self.views[view_id].cursors.first_mut().position =
+                    self.views[view_id].cursors.first().start();
                 self.views[view_id].cursors.first_mut().anchor =
                     self.views[view_id].cursors.first_mut().position;
             }
@@ -1218,16 +1299,8 @@ impl Buffer {
 
             (start_byte_idx, end_byte_idx)
         } else {
-            let start_byte_idx = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.views[view_id].cursors.first().anchor);
-            let end_byte_idx = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .max(self.views[view_id].cursors.first().anchor);
+            let start_byte_idx = self.views[view_id].cursors.first().start();
+            let end_byte_idx = self.views[view_id].cursors.first().end();
             (start_byte_idx, end_byte_idx)
         };
 
@@ -1292,16 +1365,8 @@ impl Buffer {
                 .next_grapheme_boundary_byte(self.views[view_id].cursors.first().position);
             (self.views[view_id].cursors.first().position, end_byte_idx)
         } else {
-            let start_byte_idx = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.views[view_id].cursors.first().anchor);
-            let end_byte_idx = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .max(self.views[view_id].cursors.first().anchor);
+            let start_byte_idx = self.views[view_id].cursors.first().start();
+            let end_byte_idx = self.views[view_id].cursors.first().end();
             (start_byte_idx, end_byte_idx)
         };
 
@@ -1411,13 +1476,9 @@ impl Buffer {
             return;
         }
 
-        let old_line_idx = self.rope.byte_to_line(
-            self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.views[view_id].cursors.first().anchor),
-        );
+        let old_line_idx = self
+            .rope
+            .byte_to_line(self.views[view_id].cursors.first().start());
         let offset = match dir {
             LineMoveDir::Up => -1,
             LineMoveDir::Down => 1,
@@ -1494,20 +1555,12 @@ impl Buffer {
             let cursor_line_idx = self.cursor_line_idx(view_id, 0);
             let anchor_line_idx = self.anchor_line_idx(view_id, 0);
 
-            let start = self.rope.byte_to_line(
-                self.views[view_id]
-                    .cursors
-                    .first()
-                    .position
-                    .min(self.views[view_id].cursors.first().anchor),
-            );
-            let end = self.rope.byte_to_line(
-                self.views[view_id]
-                    .cursors
-                    .first()
-                    .position
-                    .max(self.views[view_id].cursors.first().anchor),
-            );
+            let start = self
+                .rope
+                .byte_to_line(self.views[view_id].cursors.first().start());
+            let end = self
+                .rope
+                .byte_to_line(self.views[view_id].cursors.first().end());
 
             let last_line_at_start = self.views[view_id]
                 .cursors
@@ -1687,12 +1740,8 @@ impl Buffer {
         let multiple_cursors = self.views[view_id].cursors.len() > 1;
         let mut text = String::new();
         for i in 0..self.views[view_id].cursors.len() {
-            let start = self.views[view_id].cursors[i]
-                .position
-                .min(self.views[view_id].cursors[i].anchor);
-            let end = self.views[view_id].cursors[i]
-                .position
-                .max(self.views[view_id].cursors[i].anchor);
+            let start = self.views[view_id].cursors[i].start();
+            let end = self.views[view_id].cursors[i].end();
             let copied = if start == end {
                 self.rope.line(self.cursor_line_idx(view_id, i))
             } else {
@@ -1716,17 +1765,8 @@ impl Buffer {
         self.views[view_id].cursors.clear();
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
-        let mut start = self.views[view_id]
-            .cursors
-            .first()
-            .position
-            .min(self.views[view_id].cursors.first().anchor);
-        let mut end = self.views[view_id]
-            .cursors
-            .first()
-            .position
-            .max(self.views[view_id].cursors.first().anchor);
-
+        let mut start = self.views[view_id].cursors.first().start();
+        let mut end = self.views[view_id].cursors.first().end();
         if start == end {
             start = self.rope.line_to_byte(self.rope.byte_to_line(start));
             end = self.rope.end_of_line_byte(self.rope.byte_to_line(end));
@@ -1798,6 +1838,12 @@ impl Buffer {
             return Err(BufferError::NoPathSet);
         };
         self.history.finish();
+
+        let cursor = self
+            .get_first_view()
+            .map(|view_id| *self.views[view_id].cursors.first())
+            .unwrap_or_default();
+        self.history.begin(cursor, self.dirty);
 
         let (encoding, rope) = read::read_from_file(path)?;
         self.encoding = encoding;
@@ -1937,16 +1983,8 @@ impl Buffer {
         #[cfg(target_os = "linux")]
         {
             self.views[view_id].cursors.clear();
-            let start = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.views[view_id].cursors.first().anchor);
-            let end = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .max(self.views[view_id].cursors.first().anchor);
+            let start = self.views[view_id].cursors.first().start();
+            let end = self.views[view_id].cursors.first().end();
             clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
         }
     }
@@ -2081,12 +2119,8 @@ impl Buffer {
     }
 
     pub fn get_selection(&self, view_id: ViewId, cursor_index: usize) -> String {
-        let start = self.views[view_id].cursors[cursor_index]
-            .anchor
-            .min(self.views[view_id].cursors[cursor_index].position);
-        let end = self.views[view_id].cursors[cursor_index]
-            .anchor
-            .max(self.views[view_id].cursors[cursor_index].position);
+        let start = self.views[view_id].cursors[cursor_index].start();
+        let end = self.views[view_id].cursors[cursor_index].end();
         let slice = self.rope.byte_slice(start..end);
         slice.to_string()
     }
@@ -2161,20 +2195,12 @@ impl Buffer {
 
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
-        let start = self.rope.byte_to_line(
-            self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.views[view_id].cursors.first().anchor),
-        );
-        let end = self.rope.byte_to_line(
-            self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .max(self.views[view_id].cursors.first().anchor),
-        );
+        let start = self
+            .rope
+            .byte_to_line(self.views[view_id].cursors.first().start());
+        let end = self
+            .rope
+            .byte_to_line(self.views[view_id].cursors.first().end());
 
         let last_line_at_start = self.views[view_id]
             .cursors
@@ -2467,10 +2493,10 @@ mod tests {
                         buffer.move_left_char(view_id, false);
                     }
                     2 => {
-                        buffer.move_up(view_id, false, 0);
+                        buffer.move_up(view_id, false, false, 0);
                     }
                     3 => {
-                        buffer.move_down(view_id, false, 0);
+                        buffer.move_down(view_id, false, false, 0);
                     }
                     4 => {
                         let text = get_random_text();

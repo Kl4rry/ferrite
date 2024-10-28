@@ -1,13 +1,33 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Vec1<T> {
     inner: Vec<T>,
+}
+
+impl<T> Debug for Vec1<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.inner, f)
+    }
 }
 
 impl<T> Vec1<T> {
     pub fn new(first: T) -> Self {
         Self { inner: vec![first] }
+    }
+
+    pub fn from_vec(vec: Vec<T>) -> Option<Self> {
+        if vec.is_empty() {
+            None
+        } else {
+            Some(Self { inner: vec })
+        }
     }
 
     pub fn clear(&mut self) {

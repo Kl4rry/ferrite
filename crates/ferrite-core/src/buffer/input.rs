@@ -9,12 +9,14 @@ impl Buffer {
             MoveLeft { expand_selection } => self.move_left_char(view_id, expand_selection),
             MoveUp {
                 expand_selection,
+                create_cursor,
                 distance,
-            } => self.move_up(view_id, expand_selection, distance),
+            } => self.move_up(view_id, expand_selection, create_cursor, distance),
             MoveDown {
                 expand_selection,
+                create_cursor,
                 distance,
-            } => self.move_down(view_id, expand_selection, distance),
+            } => self.move_down(view_id, expand_selection, create_cursor, distance),
             MoveRightWord { expand_selection } => self.move_right_word(view_id, expand_selection),
             MoveLeftWord { expand_selection } => self.move_left_word(view_id, expand_selection),
             MoveLine(dir) if !self.read_only => self.move_line(view_id, dir),
@@ -57,6 +59,8 @@ impl Buffer {
         }
 
         self.update_interact();
+
+        tracing::error!("{:#?}", self.views[view_id].cursors);
 
         Ok(())
     }

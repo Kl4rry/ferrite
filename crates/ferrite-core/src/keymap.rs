@@ -385,9 +385,28 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Key::new(KeyCode::Up, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Cmd::MoveUp {
+                expand_selection: false,
+                create_cursor: true,
+                distance: 1,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Key::new(KeyCode::Down, KeyModifiers::ALT | KeyModifiers::SHIFT),
+            Cmd::MoveDown {
+                expand_selection: false,
+                create_cursor: true,
+                distance: 1,
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL),
             Cmd::MoveUp {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -396,6 +415,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Down, KeyModifiers::CONTROL),
             Cmd::MoveDown {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -404,6 +424,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
             Cmd::MoveUp {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -412,6 +433,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
             Cmd::MoveDown {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -420,6 +442,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Up, KeyModifiers::CONTROL),
             Cmd::MoveUp {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -428,6 +451,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Down, KeyModifiers::CONTROL),
             Cmd::MoveDown {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -436,6 +460,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
             Cmd::MoveUp {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -444,6 +469,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
             Cmd::MoveDown {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 10,
             },
             Exclusiveness::Exclusive,
@@ -452,6 +478,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Up, KeyModifiers::NONE),
             Cmd::MoveUp {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -460,6 +487,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Down, KeyModifiers::NONE),
             Cmd::MoveDown {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -468,6 +496,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Up, KeyModifiers::SHIFT),
             Cmd::MoveUp {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -476,6 +505,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Down, KeyModifiers::SHIFT),
             Cmd::MoveDown {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -484,6 +514,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Char('i'), KeyModifiers::CONTROL),
             Cmd::MoveUp {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -492,6 +523,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Key::new(KeyCode::Char('j'), KeyModifiers::CONTROL),
             Cmd::MoveDown {
                 expand_selection: false,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -503,6 +535,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             ),
             Cmd::MoveUp {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,
@@ -514,6 +547,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             ),
             Cmd::MoveDown {
                 expand_selection: true,
+                create_cursor: false,
                 distance: 1,
             },
             Exclusiveness::Exclusive,

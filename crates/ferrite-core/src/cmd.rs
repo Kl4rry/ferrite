@@ -74,10 +74,12 @@ pub enum Cmd {
     },
     MoveUp {
         expand_selection: bool,
+        create_cursor: bool,
         distance: usize,
     },
     MoveDown {
         expand_selection: bool,
+        create_cursor: bool,
         distance: usize,
     },
     MoveRightWord {

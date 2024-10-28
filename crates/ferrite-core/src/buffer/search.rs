@@ -4,7 +4,7 @@ use std::{
 };
 
 use ferrite_utility::{graphemes::RopeGraphemeExt as _, point::Point};
-use ropey::Rope;
+use ropey::{Rope, RopeSlice};
 
 use crate::event_loop_proxy::EventLoopProxy;
 
@@ -50,8 +50,6 @@ impl BufferSearcher {
             let mut case_insensitive = case_insensitive;
             let mut cursor_pos = Some(cursor_pos);
 
-            let mut match_buffer = Vec::new();
-
             // TODO don't block on every update do batch reciving
             while let Ok(update) = rx.recv() {
                 match update {
@@ -68,33 +66,8 @@ impl BufferSearcher {
                     }
                 }
 
-                let chars: Vec<_> = query.chars().collect();
-                let mut query_idx = 0;
-                let mut current_char = 1;
-
-                for ch in rope.chars() {
-                    if compare_char(&ch, &chars[query_idx], case_insensitive) {
-                        query_idx += 1;
-                    } else {
-                        query_idx = 0;
-                        if compare_char(&ch, &chars[query_idx], case_insensitive) {
-                            query_idx += 1;
-                        }
-                    }
-
-                    if query_idx >= chars.len() {
-                        let start_byte = rope.char_to_byte(current_char - chars.len());
-                        let end_byte = rope.char_to_byte(current_char);
-                        match_buffer.push(SearchMatch {
-                            start: rope.byte_to_point(start_byte),
-                            end: rope.byte_to_point(end_byte),
-                            start_byte,
-                            end_byte,
-                        });
-                        query_idx = 0;
-                    }
-                    current_char += 1;
-                }
+                let match_buffer =
+                    search_rope(rope.slice(..), query.clone(), case_insensitive, false);
 
                 let mut index = match cursor_pos.take() {
                     Some(cursor_pos) => {
@@ -120,7 +93,6 @@ impl BufferSearcher {
                 }
 
                 proxy.request_render();
-                match_buffer.clear();
             }
             tracing::info!("search thread exit");
         });
@@ -182,6 +154,46 @@ impl BufferSearcher {
     pub fn get_matches(&self) -> Arc<Mutex<(Vec<SearchMatch>, Option<usize>)>> {
         self.matches.clone()
     }
+}
+
+pub fn search_rope(
+    rope: RopeSlice,
+    query: String,
+    case_insensitive: bool,
+    stop_at_first: bool,
+) -> Vec<SearchMatch> {
+    let mut matches = Vec::new();
+    let chars: Vec<_> = query.chars().collect();
+    let mut query_idx = 0;
+    let mut current_char = 1;
+
+    for ch in rope.chars() {
+        if compare_char(&ch, &chars[query_idx], case_insensitive) {
+            query_idx += 1;
+        } else {
+            query_idx = 0;
+            if compare_char(&ch, &chars[query_idx], case_insensitive) {
+                query_idx += 1;
+            }
+        }
+
+        if query_idx >= chars.len() {
+            let start_byte = rope.char_to_byte(current_char - chars.len());
+            let end_byte = rope.char_to_byte(current_char);
+            matches.push(SearchMatch {
+                start: rope.byte_to_point(start_byte),
+                end: rope.byte_to_point(end_byte),
+                start_byte,
+                end_byte,
+            });
+            if stop_at_first {
+                break;
+            }
+            query_idx = 0;
+        }
+        current_char += 1;
+    }
+    matches
 }
 
 #[inline(always)]
