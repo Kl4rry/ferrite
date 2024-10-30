@@ -1149,7 +1149,7 @@ impl Buffer {
         cursors.sort();
         let mut history_finish = false;
 
-        for (_, i) in cursors.iter().copied() {
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
             let (inserted_bytes, finish) = if self.views[view_id].cursors[i].has_selection() {
                 let start_byte_idx = self.views[view_id].cursors[i].start();
@@ -1245,7 +1245,7 @@ impl Buffer {
 
             let after_len_bytes = self.rope.len_bytes();
             let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
-            for (_, i) in cursors.iter().copied().skip(i + 1) {
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
                 let cursor = &mut self.views[view_id].cursors[i];
                 cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
                 cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
@@ -1265,67 +1265,98 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
     pub fn backspace(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        // this is a bit hacky but it works
-        {
-            let line_idx = self.cursor_line_idx(view_id, 0);
-            let line_byte =
-                self.views[view_id].cursors.first().position - self.rope.line_to_byte(line_idx);
-            if !self.views[view_id].cursors.first().has_selection()
-                && line_byte <= self.rope.get_text_start_byte(line_idx)
-                && line_byte != 0
-            {
-                // FIXME back tab does not move the cursors.first() correctly when standing in the middle of the indentation
-                self.tab(view_id, true);
-                return;
-            }
-        }
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
 
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
-        let (start_byte_idx, end_byte_idx) = if !self.views[view_id].cursors.first().has_selection()
-        {
-            let start_byte_idx = self
-                .rope
-                .prev_grapheme_boundary_byte(self.views[view_id].cursors.first().position);
 
-            //let start_byte = self.rope.get_byte(start_byte_idx);
-            //let end_byte = self.rope.get_byte(start_byte_idx + 1);
-            let end_byte_idx = self.views[view_id].cursors.first().position;
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
 
-            // Remove pair
-            /*
-            let end_byte_idx = match (start_byte, end_byte) {
-                (Some(b'{'), Some(b'}')) => self.cursors.first().position + 1,
-                (Some(b'['), Some(b']')) => self.cursors.first().position + 1,
-                (Some(b'('), Some(b')')) => self.cursors.first().position + 1,
-                (Some(b'\''), Some(b'\'')) => self.cursors.first().position + 1,
-                (Some(b'"'), Some(b'"')) => self.cursors.first().position + 1,
-                _ => self.cursors.first().position,
-            };*/
+            let line_idx = self.cursor_line_idx(view_id, i);
+            let line_start_byte_idx = self.rope.line_to_byte(line_idx);
+            let line_byte = self.views[view_id].cursors[i].position - line_start_byte_idx;
 
-            (start_byte_idx, end_byte_idx)
-        } else {
-            let start_byte_idx = self.views[view_id].cursors.first().start();
-            let end_byte_idx = self.views[view_id].cursors.first().end();
-            (start_byte_idx, end_byte_idx)
-        };
+            let (start_byte_idx, end_byte_idx) = if !self.views[view_id].cursors[i].has_selection()
+                && line_byte <= self.rope.get_text_start_byte(line_idx)
+                && line_byte != 0
+            {
+                // TODO this might do something weird if multiple cursor are on the same line deleting the same indentation
+                let line_start: RopeSlice<'_> = self
+                    .rope
+                    .byte_slice(line_start_byte_idx..self.views[view_id].cursors[i].position);
+                let total_width = line_start.width(0);
+                let indent_width = self.indent.width();
+                let mut diff_width = total_width % indent_width;
+                if diff_width == 0 {
+                    diff_width = indent_width;
+                }
+                let mut byte_idx = line_start_byte_idx;
+                loop {
+                    let width = self.rope.byte_slice(line_start_byte_idx..byte_idx).width(0);
+                    if total_width - width <= diff_width {
+                        break;
+                    }
+                    byte_idx = self.rope.next_grapheme_boundary_byte(byte_idx);
+                }
+                (byte_idx, self.views[view_id].cursors[i].position)
+            } else if !self.views[view_id].cursors[i].has_selection() {
+                let start_byte_idx = self
+                    .rope
+                    .prev_grapheme_boundary_byte(self.views[view_id].cursors[i].position);
 
-        self.history
-            .remove(&mut self.rope, start_byte_idx..end_byte_idx);
+                //let start_byte = self.rope.get_byte(start_byte_idx);
+                //let end_byte = self.rope.get_byte(start_byte_idx + 1);
+                let end_byte_idx = self.views[view_id].cursors[i].position;
 
-        self.views[view_id].cursors.first_mut().position = start_byte_idx;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.views[view_id].cursors.first().position;
+                // Remove pair
+                /*
+                let end_byte_idx = match (start_byte, end_byte) {
+                    (Some(b'{'), Some(b'}')) => self.cursors[i].position + 1,
+                    (Some(b'['), Some(b']')) => self.cursors[i].position + 1,
+                    (Some(b'('), Some(b')')) => self.cursors[i].position + 1,
+                    (Some(b'\''), Some(b'\'')) => self.cursors[i].position + 1,
+                    (Some(b'"'), Some(b'"')) => self.cursors[i].position + 1,
+                    _ => self.cursors[i].position,
+                };*/
 
-        self.update_affinity(view_id);
+                (start_byte_idx, end_byte_idx)
+            } else {
+                let start_byte_idx = self.views[view_id].cursors[i].start();
+                let end_byte_idx = self.views[view_id].cursors[i].end();
+                (start_byte_idx, end_byte_idx)
+            };
 
-        if start_byte_idx != end_byte_idx {
-            self.mark_dirty();
-            self.ensure_every_cursor_is_valid();
+            self.history
+                .remove(&mut self.rope, start_byte_idx..end_byte_idx);
+
+            self.views[view_id].cursors[i].position = start_byte_idx;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            if start_byte_idx != end_byte_idx {
+                self.mark_dirty();
+            }
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
         }
+
+        self.views[view_id].coalesce_cursors();
+        self.update_affinity(view_id);
+        self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1364,34 +1395,54 @@ impl Buffer {
 
     // TODO make multicursor aware
     pub fn delete(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
-        let (start_byte_idx, end_byte_idx) = if !self.views[view_id].cursors.first().has_selection()
-        {
-            let end_byte_idx = self
-                .rope
-                .next_grapheme_boundary_byte(self.views[view_id].cursors.first().position);
-            (self.views[view_id].cursors.first().position, end_byte_idx)
-        } else {
-            let start_byte_idx = self.views[view_id].cursors.first().start();
-            let end_byte_idx = self.views[view_id].cursors.first().end();
-            (start_byte_idx, end_byte_idx)
-        };
 
-        self.history
-            .remove(&mut self.rope, start_byte_idx..end_byte_idx);
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
 
-        self.views[view_id].cursors.first_mut().position = start_byte_idx;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.views[view_id].cursors.first().position;
+            let (start_byte_idx, end_byte_idx) = if !self.views[view_id].cursors[i].has_selection()
+            {
+                let end_byte_idx = self
+                    .rope
+                    .next_grapheme_boundary_byte(self.views[view_id].cursors[i].position);
+                (self.views[view_id].cursors[i].position, end_byte_idx)
+            } else {
+                let start_byte_idx = self.views[view_id].cursors[i].start();
+                let end_byte_idx = self.views[view_id].cursors[i].end();
+                (start_byte_idx, end_byte_idx)
+            };
 
-        self.update_affinity(view_id);
+            self.history
+                .remove(&mut self.rope, start_byte_idx..end_byte_idx);
 
-        if start_byte_idx != end_byte_idx {
-            self.mark_dirty();
-            self.ensure_every_cursor_is_valid();
+            self.views[view_id].cursors[i].position = start_byte_idx;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            if start_byte_idx != end_byte_idx {
+                self.mark_dirty();
+            }
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
         }
+
+        self.ensure_every_cursor_is_valid();
+        self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1420,30 +1471,6 @@ impl Buffer {
             self.mark_dirty();
             self.ensure_every_cursor_is_valid();
         }
-
-        if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
-        }
-        self.history.finish();
-    }
-
-    // TODO make multicursor aware
-    pub fn new_line(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
-        self.end(view_id, false);
-        self.history.insert(
-            &mut self.rope,
-            self.views[view_id].cursors.first().position,
-            "\n",
-        );
-        self.views[view_id].cursors.first_mut().position += 1;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.views[view_id].cursors.first().position;
-        self.update_affinity(view_id);
-        self.mark_dirty();
-        self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -2113,6 +2140,7 @@ impl Buffer {
     }
 
     pub fn revert_buffer(&mut self, view_id: ViewId) {
+        // TODO fix infinte loop
         while self.dirty {
             self.undo(view_id);
         }
