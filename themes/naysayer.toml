@@ -1,0 +1,72 @@
+"editor.background" = { bg = "bg", fg = "text" }
+"editor.text" = { fg = "text" }
+"editor.line_nr" = { bg = "bg", fg = "line-fg" }
+"editor.current_line_nr" = { bg = "highlight-line", fg = "line-fg" }
+"editor.info_line" = { fg = "bg", bg = "text" }
+"editor.info_line.unfocused" = { fg = "text", bg = "bg" }
+"editor.selection" = { bg = "selection" }
+"editor.border" = { bg = "bg", fg = "text" }
+"editor.dim_text" = { bg = "line-fg" }
+"editor.ruler" = { fg = "line-fg" }
+"editor.error_text" = { fg = "red" }
+"editor.search.match" = { bg = "cyan" }
+"editor.fuzzy.match" = { fg = "red" }
+"editor.completer" = { bg = "text", fg = "bg" }
+"editor.completer.selected" = { bg = "bg", fg = "text" }
+
+[syntax]
+"attribute" = { fg = "text" }
+"type" = { fg = "text" }
+"type.builtin" = { fg = "builtin" }
+"constructor" = { fg = "functions" }
+"constant" = { fg = "constants" }
+"constant.builtin" = { fg = "builtin" }
+"constant.builtin.boolean" = { fg = "builtin" }
+"constant.character" = { fg = "text" }
+"constant.numeric" = { fg = "numbers" }
+"string" = { fg = "strings" }
+"comment" = { fg = "comments" }
+"variable" = { fg = "variables" }
+"variable.builtin" = { fg = "builtin" }
+"punctuation" = { fg = "punctuation" }
+"keyword" = { fg = "keywords" }
+"function" = { fg = "functions" }
+"function.method" = { fg = "methods" }
+"function.builtin" = { fg = "builtin" }
+"function.macro" = { fg = "macros" }
+"function.special" = { fg = "macros" }
+"tag.builtin" = { fg = "builtin" }
+"diff.plus" = { fg = "green" }
+"diff.minus" = { fg = "red" }
+"diff.delta" = { fg = "blue" }
+
+[palette]
+bg = "#062329"
+text = "#d1b897"
+builtin = "#ffffff"
+selection = "#0000ff"
+comments = "#44b340"
+punctuation = "#8cde94"
+keywords = "#ffffff"
+variables = "#c1d1e3"
+functions = "#ffffff"
+methods = "#c1d1e3"
+strings = "#2ec90c"
+constants = "#7ad0c6"
+macros = "#8cde94"
+numbers = "#7ad0c6"
+white = "#ffffff"
+error = "#ff0000"
+warning = "#ffaa00"
+highlight-line = "#0b3335"
+line-fg = "#126367"
+indent = "#aaaaaa"
+
+yellow = "#e6db74"
+orange = "#fd971f"
+red = "#f92672"
+magenta = "#fd5ff0"
+blue = "#66d9ef"
+green = "#a6e22e"
+cyan = "#a1efe4"
+violet = "#a381ff"
