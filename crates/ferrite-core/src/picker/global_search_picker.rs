@@ -68,7 +68,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rope_reader_test() {
+    fn rope_reader() {
         let text = include_str!("../../../../Cargo.toml");
         let rope = Rope::from(text);
         let mut buffer = Vec::new();

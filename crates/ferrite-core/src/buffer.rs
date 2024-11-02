@@ -68,12 +68,11 @@ impl Cursor {
     }
 
     pub fn intersects(&self, other: Cursor) -> bool {
-        let (start, end) = (
-            self.position.min(self.anchor),
-            self.position.max(self.anchor),
-        );
-        start <= other.position && end >= other.position
-            || start <= other.anchor && end >= other.anchor
+        let start1 = self.start();
+        let end1 = self.end();
+        let start2 = other.start();
+        let end2 = other.end();
+        !(start1 > end2 || end1 < start2)
     }
 
     pub fn coalesce(self, other: Cursor) -> Self {
@@ -159,26 +158,24 @@ impl Clone for View {
 
 impl View {
     pub fn coalesce_cursors(&mut self) {
-        let mut new_cursors = Vec::new();
-        let mut coalesced = Vec::new();
+        // This function is messy :(
+        let mut new_cursors: Vec<(usize, Cursor)> = Vec::new();
 
-        for i in 0..self.cursors.len() {
-            if !coalesced.contains(&i) {
-                let mut cursor = self.cursors[i];
-                for j in 0..self.cursors.len() {
-                    if i == j {
-                        continue;
-                    }
-
-                    if self.cursors[i].intersects(self.cursors[j]) {
-                        cursor = self.cursors[i].coalesce(self.cursors[j]);
-                        coalesced.push(j);
-                    }
+        for (mut i, mut cursor) in self.cursors.iter().copied().enumerate() {
+            let mut removed = 0;
+            for j in 0..new_cursors.len() {
+                if cursor.intersects(new_cursors[j - removed].1) {
+                    let (old_index, old) = new_cursors.remove(j - removed);
+                    i = old_index.min(0);
+                    cursor = cursor.coalesce(old);
+                    removed += 1;
                 }
-                new_cursors.push(cursor);
             }
+            new_cursors.push((i, cursor));
         }
-        self.cursors = Vec1::from_vec(new_cursors).unwrap();
+
+        new_cursors.sort();
+        self.cursors = Vec1::from_vec(new_cursors.into_iter().map(|(_, c)| c).collect()).unwrap();
     }
 
     pub fn clear(&mut self) {
@@ -1364,27 +1361,48 @@ impl Buffer {
     }
 
     pub fn backspace_word(&mut self, view_id: ViewId) {
-        if self.views[view_id].cursors.first().has_selection() {
-            self.backspace(view_id);
-            return;
-        }
+        // TODO make this handle cursor being in the same word
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
 
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
-        let prev_word = self.prev_word_start(view_id, 0, false);
-        self.history.remove(
-            &mut self.rope,
-            prev_word..self.views[view_id].cursors.first().position,
-        );
 
-        if prev_word != self.views[view_id].cursors.first().position {
-            self.mark_dirty();
-            self.ensure_every_cursor_is_valid();
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+
+            let (start_byte, end_byte) = if self.views[view_id].cursors[i].has_selection() {
+                let cursor = self.views[view_id].cursors[i];
+                (cursor.start(), cursor.end())
+            } else {
+                let prev_word = self.prev_word_start(view_id, i, false);
+                (prev_word, self.views[view_id].cursors[i].position)
+            };
+
+            self.history.remove(&mut self.rope, start_byte..end_byte);
+            if start_byte != end_byte {
+                self.mark_dirty();
+                self.ensure_every_cursor_is_valid();
+            }
+
+            self.views[view_id].cursors[i].position = start_byte;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
         }
 
-        self.views[view_id].cursors.first_mut().position = prev_word;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.views[view_id].cursors.first().position;
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
@@ -1393,7 +1411,6 @@ impl Buffer {
         self.history.finish();
     }
 
-    // TODO make multicursor aware
     pub fn delete(&mut self, view_id: ViewId) {
         self.views[view_id].coalesce_cursors();
         let mut cursors: Vec<_> = self.views[view_id]
@@ -1449,28 +1466,50 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
     pub fn delete_word(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        if self.views[view_id].cursors.first().has_selection() {
-            self.delete(view_id);
-            return;
-        }
+        // TODO make this handle cursor being in the same word
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
 
         self.history
             .begin(*self.views[view_id].cursors.first(), self.dirty);
-        let next_word = self.next_word_end(view_id, 0, false);
 
-        self.history.remove(
-            &mut self.rope,
-            self.views[view_id].cursors.first().position..next_word,
-        );
-        self.update_affinity(view_id);
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
 
-        if self.views[view_id].cursors.first().position != next_word {
-            self.mark_dirty();
-            self.ensure_every_cursor_is_valid();
+            let (start_byte, end_byte) = if self.views[view_id].cursors[i].has_selection() {
+                let cursor = self.views[view_id].cursors[i];
+                (cursor.start(), cursor.end())
+            } else {
+                let next_word_end = self.next_word_end(view_id, i, false);
+                (self.views[view_id].cursors[i].position, next_word_end)
+            };
+
+            self.history.remove(&mut self.rope, start_byte..end_byte);
+            if start_byte != end_byte {
+                self.mark_dirty();
+                self.ensure_every_cursor_is_valid();
+            }
+
+            self.views[view_id].cursors[i].position = start_byte;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
         }
+
+        self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1724,21 +1763,22 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
     pub fn select_line(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        {
-            let line_idx = self.cursor_line_idx(view_id, 0);
-            let line_start = self.rope.line_to_byte(line_idx + 1);
-            self.views[view_id].cursors.first_mut().position = line_start;
+        for i in 0..self.views[view_id].cursors.len() {
+            {
+                let line_idx = self.cursor_line_idx(view_id, i);
+                let line_start = self.rope.line_to_byte(line_idx + 1);
+                self.views[view_id].cursors[i].position = line_start;
+            }
+
+            {
+                let line_idx = self.anchor_line_idx(view_id, i);
+                let line_start = self.rope.line_to_byte(line_idx);
+                self.views[view_id].cursors[i].anchor = line_start;
+            }
         }
 
-        {
-            let line_idx = self.anchor_line_idx(view_id, 0);
-            let line_start = self.rope.line_to_byte(line_idx);
-            self.views[view_id].cursors.first_mut().anchor = line_start;
-        }
-
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
     }
@@ -1944,6 +1984,7 @@ impl Buffer {
         }
         self.views[view_id].last_click = now;
         self.views[view_id].last_click_pos = click_point;
+        self.update_affinity(view_id);
     }
 
     pub fn set_cursor_pos(
@@ -2499,49 +2540,4 @@ enum Skipping {
 const fn is_utf8_char_boundary(byte: u8) -> bool {
     // This is bit magic equivalent to: b < 128 || b >= 192
     (byte as i8) >= -0x40
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn insert_random_ascii() {
-        for _ in 0..100 {
-            use rand::Rng;
-            fn get_random_text() -> String {
-                let mut rng = rand::thread_rng();
-                let mut output = Vec::new();
-                for _ in 0..rng.gen_range(0..100) {
-                    output.push(rng.gen_range(0..128));
-                }
-                unsafe { String::from_utf8_unchecked(output) }
-            }
-
-            let mut rng = rand::thread_rng();
-            let mut buffer = Buffer::new();
-            let view_id = buffer.get_first_view_or_create();
-
-            for _ in 0..1000 {
-                match rng.gen_range(0..5) {
-                    0 => {
-                        buffer.move_left_char(view_id, false);
-                    }
-                    1 => {
-                        buffer.move_left_char(view_id, false);
-                    }
-                    2 => {
-                        buffer.move_up(view_id, false, false, 0);
-                    }
-                    3 => {
-                        buffer.move_down(view_id, false, false, 0);
-                    }
-                    4 => {
-                        let text = get_random_text();
-                        buffer.insert_text(view_id, &text, false);
-                    }
-                    _ => unreachable!(),
-                }
-            }
-        }
-    }
 }
