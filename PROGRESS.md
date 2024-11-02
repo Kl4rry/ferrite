@@ -20,7 +20,7 @@
 - [x] Highlighted line number
 - [x] Loading spinner
 - [x] Tab detection
-- [ ] Indetation deletion like vscode
+- [x] Indetation deletion like vscode
 - [x] Variable length tabs
 - [x] Command palette completion
 - [ ] Git mv aware rename/move command
