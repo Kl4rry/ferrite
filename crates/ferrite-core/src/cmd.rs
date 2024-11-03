@@ -146,6 +146,7 @@ pub enum Cmd {
     SwitchPane {
         direction: Direction,
     },
+    Number(Option<i64>),
 }
 
 impl Cmd {
@@ -256,6 +257,7 @@ impl Cmd {
                 Direction::Right => "Right pane",
                 Direction::Left => "Left pane",
             },
+            Number(_) => "Number",
         }
     }
 
@@ -357,6 +359,7 @@ impl Cmd {
             Trash => false,
             ForceRedraw => false,
             SwitchPane { .. } => false,
+            Number(_) => false,
         }
     }
 }

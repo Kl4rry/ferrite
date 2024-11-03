@@ -51,6 +51,7 @@ impl Buffer {
             Undo if !self.read_only => self.undo(view_id),
             Redo if !self.read_only => self.redo(view_id),
             RevertBuffer if !self.read_only => self.revert_buffer(view_id),
+            Number(number) if !self.read_only => self.number(view_id, number),
             _ => (),
         }
 

@@ -791,10 +791,8 @@ impl Buffer {
         }
     }
 
-    // TODO make multicursor aware
     pub fn select_word(&mut self, view_id: ViewId) {
         self.views[view_id].coalesce_cursors();
-        // TODO add matching multi selection when already having a selection
         let has_selection = self.views[view_id]
             .cursors
             .iter()
@@ -2181,9 +2179,14 @@ impl Buffer {
     }
 
     pub fn revert_buffer(&mut self, view_id: ViewId) {
-        // TODO fix infinte loop
+        let mut index = 0;
         while self.dirty {
             self.undo(view_id);
+            index += 1;
+            if index > 1000 {
+                tracing::error!("Infinte loop in revert buffer");
+                break;
+            }
         }
     }
 
@@ -2513,6 +2516,63 @@ impl Buffer {
             let view = &mut self.views[view_id];
             view.line_pos = self.rope.len_lines().min(view.line_pos);
         }
+    }
+
+    pub fn number(&mut self, view_id: ViewId, number: Option<i64>) {
+        self.history
+            .begin(*self.views[view_id].cursors.first(), self.dirty);
+
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+        let start = number.unwrap_or(0);
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+
+            let text = (start + cursor_loop_index as i64).to_string();
+            let inserted_bytes = text.len();
+            if self.views[view_id].cursors[i].has_selection() {
+                let start_byte_idx = self.views[view_id].cursors[i].start();
+                let end_byte_idx = self.views[view_id].cursors[i].end();
+
+                self.history
+                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
+                self.views[view_id].cursors[i].position = self.views[view_id].cursors[i].start();
+                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+            } else {
+                self.history.insert(
+                    &mut self.rope,
+                    self.views[view_id].cursors[i].position,
+                    text,
+                );
+            };
+
+            self.views[view_id].cursors[i].position += inserted_bytes;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
+
+        self.update_affinity(view_id);
+        self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
+
+        self.history.finish();
     }
 }
 
