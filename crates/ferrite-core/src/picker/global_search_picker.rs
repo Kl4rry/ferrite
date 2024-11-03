@@ -8,11 +8,9 @@ use std::{
 };
 
 use ferrite_utility::{graphemes::RopeGraphemeExt, point::Point};
-use grep::{
-    matcher::Matcher,
-    regex::RegexMatcherBuilder,
-    searcher::{sinks::UTF8, Searcher},
-};
+use grep_matcher::Matcher as _;
+use grep_regex::RegexMatcherBuilder;
+use grep_searcher::{sinks::UTF8, Searcher};
 use ignore::{WalkBuilder, WalkState};
 use ropey::{iter::Chunks, Rope};
 

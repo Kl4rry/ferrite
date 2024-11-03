@@ -20,7 +20,9 @@ executable-finder = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
-grep = { workspace = true }
+grep-matcher = { workspace = true }
+grep-regex = { workspace = true }
+grep-searcher = { workspace = true }
 heck = { workspace = true }
 humansize = { workspace = true }
 ignore = { workspace = true }
