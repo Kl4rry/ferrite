@@ -544,32 +544,6 @@ impl Buffer {
         output
     }
 
-    // TODO make this incremental or parallell
-    pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
-        let view = &self.views[view_id];
-        let mut output = Vec::new();
-        for i in 0..view.cursors.len() {
-            let pos = Point {
-                line: self.cursor_line_idx(view_id, i) as i64,
-                column: self.cursor_grapheme_column(view_id, i) as i64,
-            };
-
-            let anchor = Point {
-                line: self.anchor_line_idx(view_id, i) as i64,
-                column: self.anchor_grapheme_column(view_id, i) as i64,
-            };
-
-            let mut start = pos.min(anchor);
-            let mut end = pos.max(anchor);
-            start.line -= view.line_pos as i64;
-            end.line -= view.line_pos as i64;
-            start.column -= view.col_pos as i64;
-            end.column -= view.col_pos as i64;
-            output.push(Selection { start, end });
-        }
-        output
-    }
-
     pub fn cursor_line_idx(&self, view_id: ViewId, cursor_index: usize) -> usize {
         self.rope
             .byte_to_line(self.views[view_id].cursors[cursor_index].position)
@@ -2573,6 +2547,46 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         self.history.finish();
+    }
+
+    pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
+        let view = &self.views[view_id];
+        let mut output = Vec::new();
+        let view_start_byte = self
+            .rope
+            .line_to_byte(self.views[view_id].line_pos.min(self.rope.len_lines()));
+        let view_end_byte = self.rope.line_to_byte(
+            (self.views[view_id].line_pos + self.views[view_id].view_lines)
+                .min(self.rope.len_lines()),
+        );
+        let range = view_start_byte..view_end_byte;
+        for i in 0..view.cursors.len() {
+            {
+                let cursor = self.views[view_id].cursors[i];
+                if !range.contains(&cursor.position) && !range.contains(&cursor.anchor) {
+                    continue;
+                }
+            }
+
+            let pos = Point {
+                line: self.cursor_line_idx(view_id, i) as i64,
+                column: self.cursor_grapheme_column(view_id, i) as i64,
+            };
+
+            let anchor = Point {
+                line: self.anchor_line_idx(view_id, i) as i64,
+                column: self.anchor_grapheme_column(view_id, i) as i64,
+            };
+
+            let mut start = pos.min(anchor);
+            let mut end = pos.max(anchor);
+            start.line -= view.line_pos as i64;
+            end.line -= view.line_pos as i64;
+            start.column -= view.col_pos as i64;
+            end.column -= view.col_pos as i64;
+            output.push(Selection { start, end });
+        }
+        output
     }
 }
 
