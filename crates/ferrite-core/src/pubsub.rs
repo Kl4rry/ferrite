@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use flume::{Receiver, RecvError, SendError, Sender};
+use cb::{Receiver, RecvError, SendError, Sender};
 
 pub struct Publisher<T> {
     sender: Sender<()>,
@@ -50,7 +50,7 @@ impl<T> Clone for Subscriber<T> {
 }
 
 pub fn create<T>(value: T) -> (Publisher<T>, Subscriber<T>) {
-    let (sender, reciver) = flume::unbounded::<()>();
+    let (sender, reciver) = cb::unbounded::<()>();
     let data = Arc::new(value);
     (
         Publisher {
