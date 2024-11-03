@@ -1792,7 +1792,6 @@ impl Buffer {
                 text.push_str(chunk);
             }
             if copied.get_line_ending().is_none() && multiple_cursors {
-                // TODO figure out if this should be done even on the last cursor
                 text.push('\n');
             }
         }
@@ -1831,11 +1830,72 @@ impl Buffer {
         self.history.finish();
     }
 
-    // TODO make this multicursor aware
     pub fn paste(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        self.insert_text(view_id, &clipboard::get_contents(), true);
-        self.history.finish();
+        let text = clipboard::get_contents();
+        let rope = Rope::from_str(&text);
+
+        let lines = rope
+            .lines()
+            .filter(|line| line.line_without_line_ending(0).len_bytes() > 0)
+            .count();
+
+        if self.views[view_id].cursors.len() != lines {
+            self.insert_text(view_id, &text, true);
+            self.history.finish();
+            return;
+        }
+
+        self.history.begin(self.get_all_cursors(), self.dirty);
+
+        self.views[view_id].coalesce_cursors();
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+
+            let text = rope.line_without_line_ending(cursor_loop_index);
+            let inserted_bytes = text.len_bytes();
+            if self.views[view_id].cursors[i].has_selection() {
+                let start_byte_idx = self.views[view_id].cursors[i].start();
+                let end_byte_idx = self.views[view_id].cursors[i].end();
+
+                self.history
+                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
+                self.views[view_id].cursors[i].position = self.views[view_id].cursors[i].start();
+                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+            } else {
+                self.history.insert(
+                    &mut self.rope,
+                    self.views[view_id].cursors[i].position,
+                    text,
+                );
+            };
+
+            self.views[view_id].cursors[i].position += inserted_bytes;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
+
+        self.update_affinity(view_id);
+        self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
     }
 
     pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
