@@ -13,6 +13,10 @@ use ferrite_core::{
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
 
+#[cfg(feature = "talloc")]
+#[global_allocator]
+static GLOBAL: ferrite_talloc::Talloc = ferrite_talloc::Talloc;
+
 fn main() -> Result<ExitCode> {
     let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
         eprintln!("Unable to get project directory");

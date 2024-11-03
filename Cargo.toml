@@ -24,6 +24,7 @@ executable-finder = "0.3.0"
 ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-core = { path = "crates/ferrite-core" }
 ferrite-gui = { path = "crates/ferrite-gui" }
+ferrite-talloc = { path = "crates/ferrite-talloc" }
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
 ferrite-tui = { path = "crates/ferrite-tui" }
 ferrite-utility = { path = "crates/ferrite-utility" }
@@ -67,6 +68,7 @@ directories = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
 ferrite-gui = { workspace = true, optional = true }
+ferrite-talloc = { workspace = true, optional = true }
 ferrite-tui = { workspace = true, optional = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
@@ -76,6 +78,7 @@ tracing-subscriber = { workspace = true, features = ["json"] }
 default = ["tui"]
 tui = ["dep:ferrite-tui"]
 gui = ["dep:ferrite-gui"]
+talloc = ["dep:ferrite-talloc", "ferrite-tui/talloc"]
 
 [profile.dev.package."*"]
 opt-level = 3

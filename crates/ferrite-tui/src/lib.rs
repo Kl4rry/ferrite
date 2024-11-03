@@ -155,7 +155,11 @@ impl TuiApp {
         control_flow: &mut EventLoopControlFlow,
     ) {
         match event {
-            event_loop::TuiEvent::StartOfEvents => self.engine.start_of_events = Instant::now(),
+            event_loop::TuiEvent::StartOfEvents => {
+                self.engine.start_of_events = Instant::now();
+                #[cfg(feature = "talloc")]
+                ferrite_talloc::Talloc::reset_phase_allocations();
+            }
             event_loop::TuiEvent::Crossterm(event) => {
                 self.handle_crossterm_event(proxy, event, control_flow)
             }

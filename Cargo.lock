@@ -856,6 +856,7 @@ dependencies = [
  "ferrite-cli",
  "ferrite-core",
  "ferrite-gui",
+ "ferrite-talloc",
  "ferrite-tui",
  "tracing",
  "tracing-log",
@@ -933,6 +934,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrite-talloc"
+version = "0.1.0"
+
+[[package]]
 name = "ferrite-tree-sitter"
 version = "0.1.0"
 dependencies = [
@@ -980,6 +985,7 @@ dependencies = [
  "encoding_rs",
  "ferrite-cli",
  "ferrite-core",
+ "ferrite-talloc",
  "ferrite-utility",
  "ratatui",
  "rayon",

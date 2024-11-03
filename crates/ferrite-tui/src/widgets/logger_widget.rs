@@ -67,7 +67,20 @@ impl StatefulWidget for LoggerWidget<'_> {
         });
 
         buf.set_style(line_area, style);
-        let line = format!(" Frame time: {:?}", self.render_time);
+        #[cfg(not(feature = "talloc"))]
+        let line = format!(" Frame time: {:?}", self.render_time,);
+
+        #[cfg(feature = "talloc")]
+        let line = format!(
+            " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
+            self.render_time,
+            ferrite_core::byte_size::format_byte_size(
+                ferrite_talloc::Talloc::total_memory_allocated()
+            ),
+            ferrite_talloc::Talloc::num_allocations(),
+            ferrite_talloc::Talloc::phase_allocations()
+        );
+
         buf.set_stringn(
             line_area.x,
             line_area.y,
