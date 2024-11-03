@@ -2599,11 +2599,15 @@ impl Buffer {
             (self.views[view_id].line_pos + self.views[view_id].view_lines)
                 .min(self.rope.len_lines()),
         );
-        let range = view_start_byte..view_end_byte;
+        let view_cursor = Cursor {
+            position: view_start_byte,
+            anchor: view_end_byte,
+            affinity: 0,
+        };
         for i in 0..view.cursors.len() {
             {
                 let cursor = self.views[view_id].cursors[i];
-                if !range.contains(&cursor.position) && !range.contains(&cursor.anchor) {
+                if !view_cursor.intersects(cursor) {
                     continue;
                 }
             }
