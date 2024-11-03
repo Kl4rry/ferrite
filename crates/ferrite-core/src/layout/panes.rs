@@ -581,7 +581,7 @@ pub mod layout {
                         view.cursors = Vec1::new(*cursor);
                         view.line_pos = *line_pos;
                         view.col_pos = *col_pos;
-                        buffer.ensure_cursor_is_valid(view_id);
+                        buffer.ensure_cursors_are_valid(view_id);
 
                         Some(super::Pane::Leaf(super::PaneKind::Buffer(
                             buffer_id, view_id,

@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::Result;
+use ferrite_utility::vec1::Vec1;
 use serde::{Deserialize, Serialize};
 use slotmap::{Key, SlotMap};
 
@@ -34,7 +35,7 @@ pub struct WorkspaceData {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BufferData {
     pub path: PathBuf,
-    pub cursor: Cursor,
+    pub cursors: Vec1<Cursor>,
     pub line_pos: usize,
     pub col_pos: usize,
     pub language: String,

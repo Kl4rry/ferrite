@@ -177,10 +177,6 @@ impl View {
         new_cursors.sort();
         self.cursors = Vec1::from_vec(new_cursors.into_iter().map(|(_, c)| c).collect()).unwrap();
     }
-
-    pub fn clear(&mut self) {
-        self.cursors.clear();
-    }
 }
 
 slotmap::new_key_type! {
@@ -1837,6 +1833,7 @@ impl Buffer {
 
     // TODO make this multicursor aware
     pub fn paste(&mut self, view_id: ViewId) {
+        self.views[view_id].cursors.clear();
         self.insert_text(view_id, &clipboard::get_contents(), true);
         self.history.finish();
     }
@@ -1872,7 +1869,7 @@ impl Buffer {
         self.history.replace(&mut self.rope, byte_range, text);
         self.set_cursor_pos(view_id, 0, cursor_col, cursor_line);
         self.set_anchor_pos(view_id, 0, anchor_col, anchor_line);
-        self.ensure_cursor_is_valid(view_id);
+        self.ensure_cursors_are_valid(view_id);
         self.history.finish();
     }
 
@@ -1956,7 +1953,6 @@ impl Buffer {
         col: usize,
         line: usize,
     ) {
-        self.views[view_id].cursors.clear();
         let line_idx: usize = line.min(self.rope.len_lines().saturating_sub(1));
 
         let next_line = self.rope.line_without_line_ending(line_idx);
@@ -2183,7 +2179,7 @@ impl Buffer {
         self.rope.len_bytes()
     }
 
-    pub fn ensure_cursor_is_valid(&mut self, view_id: ViewId) {
+    pub fn ensure_cursors_are_valid(&mut self, view_id: ViewId) {
         let num_cursors = self.views[view_id].cursors.len();
         for i in 0..num_cursors {
             self.views[view_id].cursors[i].position = self.views[view_id].cursors[i]
@@ -2299,7 +2295,7 @@ impl Buffer {
         self.set_cursor_pos(view_id, cursor_col, cursor_line, 0);
         self.set_anchor_pos(view_id, anchor_col, anchor_line, 0);
 
-        self.ensure_cursor_is_valid(view_id);
+        self.ensure_cursors_are_valid(view_id);
         self.mark_dirty();
         self.ensure_every_cursor_is_valid();
 
@@ -2342,7 +2338,7 @@ impl Buffer {
 
             searcher.update_buffer(self.rope.clone(), None);
 
-            self.ensure_cursor_is_valid(view_id);
+            self.ensure_cursors_are_valid(view_id);
             self.mark_dirty();
             self.ensure_every_cursor_is_valid();
 
@@ -2433,18 +2429,11 @@ impl Buffer {
     }
 
     pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
-        let cursor = buffer_data.cursor;
-        let line_pos = buffer_data.line_pos;
-        self.vertical_scroll(view_id, line_pos as i64);
-        let postion = self
-            .rope()
-            .byte_to_point(cursor.position.min(self.len_bytes()));
-        let anchor = self
-            .rope()
-            .byte_to_point(cursor.anchor.min(self.len_bytes()));
-        self.set_cursor_pos(view_id, 0, postion.column, postion.line);
-        self.set_anchor_pos(view_id, 0, anchor.column, anchor.line);
-        self.ensure_cursor_is_valid(view_id);
+        for cursor in buffer_data.cursors.iter() {
+            self.views[view_id].cursors.push(*cursor);
+        }
+        self.views[view_id].cursors.remove(0);
+        self.ensure_cursors_are_valid(view_id);
     }
 
     pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
@@ -2476,7 +2465,7 @@ impl Buffer {
     pub fn ensure_every_cursor_is_valid(&mut self) {
         let view_ids = self.views.keys().collect::<Vec<_>>();
         for view_id in view_ids {
-            self.ensure_cursor_is_valid(view_id);
+            self.ensure_cursors_are_valid(view_id);
             let view = &mut self.views[view_id];
             view.line_pos = self.rope.len_lines().min(view.line_pos);
         }

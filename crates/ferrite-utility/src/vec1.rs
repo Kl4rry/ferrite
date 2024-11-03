@@ -1,7 +1,10 @@
 use std::{
-    fmt::Debug,
+    fmt::{self, Debug},
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+use serde::{ser::SerializeSeq as _, Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct Vec1<T> {
@@ -87,5 +90,68 @@ impl<T> Deref for Vec1<T> {
 impl<T> DerefMut for Vec1<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
+    }
+}
+
+impl<T> serde::Serialize for Vec1<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+        for e in &self.inner {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+struct Vec1Visitor<T> {
+    marker: PhantomData<fn() -> Vec1<T>>,
+}
+
+impl<T> Vec1Visitor<T> {
+    fn new() -> Self {
+        Vec1Visitor {
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'de, T> serde::de::Visitor<'de> for Vec1Visitor<T>
+where
+    T: Deserialize<'de> + Default,
+{
+    type Value = Vec1<T>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an sequence with atleast len 1")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: serde::de::SeqAccess<'de>,
+    {
+        let mut vec: Vec<T> = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+        while let Some(v) = seq.next_element()? {
+            vec.push(v);
+        }
+
+        Ok(Vec1::from_vec(vec).unwrap_or_default())
+    }
+}
+
+impl<'de, T> Deserialize<'de> for Vec1<T>
+where
+    T: Deserialize<'de> + Default,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Vec1<T>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_seq(Vec1Visitor::new())
     }
 }

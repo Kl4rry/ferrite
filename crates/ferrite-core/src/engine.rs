@@ -336,7 +336,7 @@ impl Engine {
                 {
                     Some(buffer_data) => {
                         if let Some(view_id) = buffer.get_first_view() {
-                            buffer_data.cursor = buffer.cursor(view_id, 0);
+                            buffer_data.cursors = buffer.views[view_id].cursors.clone();
                             buffer_data.line_pos = buffer.line_pos(view_id);
                             buffer_data.col_pos = buffer.col_pos(view_id);
                             buffer_data.indent = buffer.indent;
@@ -349,7 +349,7 @@ impl Engine {
                         if let Some(view_id) = buffer.get_first_view() {
                             new_buffers.push(BufferData {
                                 path: path.to_path_buf(),
-                                cursor: buffer.cursor(view_id, 0),
+                                cursors: buffer.views[view_id].cursors.clone(),
                                 line_pos: buffer.line_pos(view_id),
                                 col_pos: buffer.col_pos(view_id),
                                 indent: buffer.indent,
@@ -1543,20 +1543,24 @@ impl Engine {
     }
 
     pub fn open_selected_url(&mut self) {
-        if let Some((buffer, view_id)) = self.get_current_buffer() {
-            // TODO do this for all selections not just primary
-            let selection = buffer.get_selection(view_id, 0);
-            let mut finder = LinkFinder::new();
-            finder.kinds(&[LinkKind::Url]);
-            let spans: Vec<_> = finder.spans(&selection).collect();
-            if spans.is_empty() {
-                if let Err(err) = opener::open(selection) {
-                    self.palette.set_error(err);
-                }
-            } else {
-                for span in spans {
-                    if let Err(err) = opener::open(span.as_str()) {
+        if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
+            for i in 0..self.workspace.buffers[buffer_id].views[view_id]
+                .cursors
+                .len()
+            {
+                let selection = self.workspace.buffers[buffer_id].get_selection(view_id, i);
+                let mut finder = LinkFinder::new();
+                finder.kinds(&[LinkKind::Url]);
+                let spans: Vec<_> = finder.spans(&selection).collect();
+                if spans.is_empty() {
+                    if let Err(err) = opener::open(selection) {
                         self.palette.set_error(err);
+                    }
+                } else {
+                    for span in spans {
+                        if let Err(err) = opener::open(span.as_str()) {
+                            self.palette.set_error(err);
+                        }
                     }
                 }
             }

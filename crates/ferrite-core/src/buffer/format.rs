@@ -95,6 +95,7 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 }
 
 impl Buffer {
+    // TODO make this multicursor aware
     pub fn format(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
         self.views[view_id].cursors.clear();
 
