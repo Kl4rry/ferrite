@@ -550,7 +550,7 @@ impl Buffer {
             .byte_to_line(self.views[view_id].cursors[cursor_index].anchor)
     }
 
-    pub fn cursor_pos(&self, view_id: ViewId, cursor_index: usize) -> (usize, usize) {
+    pub fn cursor_byte_pos(&self, view_id: ViewId, cursor_index: usize) -> (usize, usize) {
         let current_line = self.cursor_line_idx(view_id, cursor_index);
         let start_of_line = self.rope.line_to_byte(current_line);
         let column = self.views[view_id].cursors[cursor_index].position - start_of_line;
@@ -558,7 +558,7 @@ impl Buffer {
         (column, current_line)
     }
 
-    pub fn anchor_pos(&self, view_id: ViewId, cursor_index: usize) -> (usize, usize) {
+    pub fn anchor_byte_pos(&self, view_id: ViewId, cursor_index: usize) -> (usize, usize) {
         let current_line = self.anchor_line_idx(view_id, cursor_index);
         let start_of_line = self.rope.line_to_byte(current_line);
         let column = self.views[view_id].cursors[cursor_index].anchor - start_of_line;
@@ -567,14 +567,14 @@ impl Buffer {
     }
 
     pub fn cursor_grapheme_column(&self, view_id: ViewId, cursor_index: usize) -> usize {
-        let (column_idx, line_idx) = self.cursor_pos(view_id, cursor_index);
+        let (column_idx, line_idx) = self.cursor_byte_pos(view_id, cursor_index);
         let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
         start.width(0)
     }
 
     pub fn anchor_grapheme_column(&self, view_id: ViewId, cursor_index: usize) -> usize {
-        let (column_idx, line_idx) = self.anchor_pos(view_id, cursor_index);
+        let (column_idx, line_idx) = self.anchor_byte_pos(view_id, cursor_index);
         let line = self.rope.line(line_idx);
         let start = line.byte_slice(..column_idx);
         start.width(0)
@@ -660,7 +660,7 @@ impl Buffer {
     ) {
         let cursors_len = self.views[view_id].cursors.len();
         for i in 0..cursors_len {
-            let (column_idx, line_idx) = self.cursor_pos(view_id, i);
+            let (column_idx, line_idx) = self.cursor_byte_pos(view_id, i);
             let new_line_idx = (line_idx + distance).min(self.rope.len_lines().saturating_sub(1));
             if line_idx == new_line_idx {
                 continue;
@@ -714,7 +714,7 @@ impl Buffer {
         distance: usize,
     ) {
         for i in 0..self.views[view_id].cursors.len() {
-            let (column_idx, line_idx) = self.cursor_pos(view_id, i);
+            let (column_idx, line_idx) = self.cursor_byte_pos(view_id, i);
             if line_idx == 0 {
                 continue;
             }
@@ -996,7 +996,7 @@ impl Buffer {
 
     pub fn home(&mut self, view_id: ViewId, expand_selection: bool) {
         for i in 0..self.views[view_id].cursors.len() {
-            let (col, line_idx) = self.cursor_pos(view_id, i);
+            let (col, line_idx) = self.cursor_byte_pos(view_id, i);
             let line = self.rope.line_without_line_ending(line_idx);
 
             let mut byte_col = 0;
@@ -1485,8 +1485,8 @@ impl Buffer {
         self.views[view_id].cursors.clear();
         self.history.begin(self.get_all_cursors(), self.dirty);
         let len_lines = self.rope.len_lines();
-        let (cursor_col, cursor_line_idx) = self.cursor_pos(view_id, 0);
-        let (anchor_col, anchor_line_idx) = self.anchor_pos(view_id, 0);
+        let (cursor_col, cursor_line_idx) = self.cursor_byte_pos(view_id, 0);
+        let (anchor_col, anchor_line_idx) = self.anchor_byte_pos(view_id, 0);
 
         let cursor_byte_idx_in_line =
             self.views[view_id].cursors.first().position - self.rope.line_to_byte(cursor_line_idx);
@@ -1924,8 +1924,8 @@ impl Buffer {
     pub fn replace(&mut self, view_id: ViewId, byte_range: Range<usize>, text: &str) {
         self.views[view_id].cursors.clear();
         self.history.begin(self.get_all_cursors(), self.dirty);
-        let (cursor_col, cursor_line) = self.cursor_pos(view_id, 0);
-        let (anchor_col, anchor_line) = self.anchor_pos(view_id, 0);
+        let (cursor_col, cursor_line) = self.cursor_byte_pos(view_id, 0);
+        let (anchor_col, anchor_line) = self.anchor_byte_pos(view_id, 0);
         self.history.replace(&mut self.rope, byte_range, text);
         self.set_cursor_pos(view_id, 0, cursor_col, cursor_line);
         self.set_anchor_pos(view_id, 0, anchor_col, anchor_line);
