@@ -106,8 +106,7 @@ impl Buffer {
             return Ok(());
         }
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let new_rope = format(formatter, self.rope.clone())?;
 
         let len = self.rope.len_bytes();
@@ -148,8 +147,7 @@ impl Buffer {
             return Ok(());
         }
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let new_rope = format_selection(
             formatter,
             self.rope.clone(),

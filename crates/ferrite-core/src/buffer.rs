@@ -18,7 +18,7 @@ use ferrite_utility::{
 use ropey::{Rope, RopeSlice};
 use search::search_rope;
 use serde::{Deserialize, Serialize};
-use slotmap::SlotMap;
+use slotmap::{SecondaryMap, SlotMap};
 
 use self::{error::BufferError, history::History, search::BufferSearcher};
 use super::{
@@ -1090,8 +1090,7 @@ impl Buffer {
             return;
         }
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         fn get_pair_char(s: &str) -> Option<&str> {
             Some(match s {
@@ -1244,8 +1243,7 @@ impl Buffer {
             .collect();
         cursors.sort();
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
@@ -1343,8 +1341,7 @@ impl Buffer {
             .collect();
         cursors.sort();
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
@@ -1393,8 +1390,7 @@ impl Buffer {
             .collect();
         cursors.sort();
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
@@ -1449,8 +1445,7 @@ impl Buffer {
             .collect();
         cursors.sort();
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
@@ -1492,8 +1487,7 @@ impl Buffer {
     // TODO make multicursor aware
     pub fn move_line(&mut self, view_id: ViewId, dir: LineMoveDir) {
         self.views[view_id].cursors.clear();
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let len_lines = self.rope.len_lines();
         let (cursor_col, cursor_line_idx) = self.cursor_pos(view_id, 0);
         let (anchor_col, anchor_line_idx) = self.anchor_pos(view_id, 0);
@@ -1594,8 +1588,7 @@ impl Buffer {
             return;
         }
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         {
             let cursor_col = self.cursor_grapheme_column(view_id, 0);
             let anchor_col = self.anchor_grapheme_column(view_id, 0);
@@ -1755,28 +1748,32 @@ impl Buffer {
         self.history.finish();
     }
 
-    // TODO make multicursor aware
     pub fn undo(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        self.history.undo(
-            &mut self.rope,
-            self.views[view_id].cursors.first_mut(),
-            &mut self.dirty,
-        );
+        let mut cursors = self.get_all_cursors();
+        self.history
+            .undo(&mut self.rope, &mut cursors, &mut self.dirty);
+        for (view_id, cursors) in cursors {
+            if let Some(view) = self.views.get_mut(view_id) {
+                view.cursors = cursors;
+            }
+        }
+        self.ensure_every_cursor_is_valid();
         self.queue_syntax_update();
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
         }
     }
 
-    // TODO make multicursor aware
     pub fn redo(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
-        self.history.redo(
-            &mut self.rope,
-            self.views[view_id].cursors.first_mut(),
-            &mut self.dirty,
-        );
+        let mut cursors = self.get_all_cursors();
+        self.history
+            .redo(&mut self.rope, &mut cursors, &mut self.dirty);
+        for (view_id, cursors) in cursors {
+            if let Some(view) = self.views.get_mut(view_id) {
+                view.cursors = cursors;
+            }
+        }
+        self.ensure_every_cursor_is_valid();
         self.queue_syntax_update();
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1811,8 +1808,7 @@ impl Buffer {
     // TODO make multicursor aware
     pub fn cut(&mut self, view_id: ViewId) {
         self.views[view_id].cursors.clear();
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let mut start = self.views[view_id].cursors.first().start();
         let mut end = self.views[view_id].cursors.first().end();
         if start == end {
@@ -1870,8 +1866,7 @@ impl Buffer {
     // TODO make this multicursor aware
     pub fn replace(&mut self, view_id: ViewId, byte_range: Range<usize>, text: &str) {
         self.views[view_id].cursors.clear();
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let (cursor_col, cursor_line) = self.cursor_pos(view_id, 0);
         let (anchor_col, anchor_line) = self.anchor_pos(view_id, 0);
         self.history.replace(&mut self.rope, byte_range, text);
@@ -1886,12 +1881,7 @@ impl Buffer {
             return Err(BufferError::NoPathSet);
         };
         self.history.finish();
-
-        let cursor = self
-            .get_first_view()
-            .map(|view_id| *self.views[view_id].cursors.first())
-            .unwrap_or_default();
-        self.history.begin(cursor, self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         let (encoding, rope) = read::read_from_file(path)?;
         self.encoding = encoding;
@@ -2248,8 +2238,7 @@ impl Buffer {
             return;
         }
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let start = self
             .rope
             .byte_to_line(self.views[view_id].cursors.first().start());
@@ -2322,9 +2311,10 @@ impl Buffer {
     }
 
     pub fn replace_all(&mut self, view_id: ViewId, replacement: String) {
+        let cursors = self.get_all_cursors();
         let view = &mut self.views[view_id];
         if let Some(searcher) = &mut view.searcher {
-            self.history.begin(*view.cursors.first(), self.dirty);
+            self.history.begin(cursors, self.dirty);
             let matches = searcher.get_matches();
             let guard = matches.lock().unwrap();
             let (matches, _) = &*guard;
@@ -2493,8 +2483,7 @@ impl Buffer {
     }
 
     pub fn number(&mut self, view_id: ViewId, number: Option<i64>) {
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         self.views[view_id].coalesce_cursors();
         let mut cursors: Vec<_> = self.views[view_id]
@@ -2587,6 +2576,15 @@ impl Buffer {
             output.push(Selection { start, end });
         }
         output
+    }
+
+    pub fn get_all_cursors(&self) -> SecondaryMap<ViewId, Vec1<Cursor>> {
+        let mut map = SecondaryMap::new();
+        for (view_id, view) in &self.views {
+            map.insert(view_id, view.cursors.clone());
+        }
+
+        map
     }
 }
 

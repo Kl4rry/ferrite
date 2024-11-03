@@ -68,8 +68,7 @@ impl Buffer {
             return;
         }
 
-        self.history
-            .begin(*self.views[view_id].cursors.first(), self.dirty);
+        self.history.begin(self.get_all_cursors(), self.dirty);
         let start_byte_idx = self.views[view_id]
             .cursors
             .first()

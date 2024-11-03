@@ -1,9 +1,10 @@
 use std::{mem, ops::Range};
 
-use ferrite_utility::graphemes::RopeGraphemeExt;
+use ferrite_utility::{graphemes::RopeGraphemeExt, vec1::Vec1};
 use ropey::Rope;
+use slotmap::SecondaryMap;
 
-use super::Cursor;
+use super::{Cursor, ViewId};
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 enum EditClass {
@@ -87,7 +88,7 @@ impl EditKind {
 struct Frame {
     finished: bool,
     edit_class: EditClass,
-    cursor: Cursor,
+    cursors: SecondaryMap<ViewId, Vec1<Cursor>>,
     edits: Vec<EditKind>,
     dirty: bool,
 }
@@ -140,19 +141,19 @@ impl History {
         self.edit(rope, replace);
     }
 
-    pub fn begin(&mut self, cursor: Cursor, dirty: bool) {
+    pub fn begin(&mut self, cursors: SecondaryMap<ViewId, Vec1<Cursor>>, dirty: bool) {
         self.stack.truncate((self.current_frame + 1) as usize);
 
         self.stack.push(Frame {
             finished: false,
             edit_class: EditClass::Other,
-            cursor,
+            cursors: cursors.clone(),
             edits: Vec::new(),
             dirty,
         });
         self.current_frame += 1;
 
-        self.stack[self.current_frame as usize].cursor = cursor;
+        self.stack[self.current_frame as usize].cursors = cursors;
     }
 
     pub fn finish(&mut self) {
@@ -163,7 +164,12 @@ impl History {
         }
     }
 
-    pub fn undo(&mut self, rope: &mut Rope, cursor: &mut Cursor, dirty: &mut bool) {
+    pub fn undo(
+        &mut self,
+        rope: &mut Rope,
+        cursors: &mut SecondaryMap<ViewId, Vec1<Cursor>>,
+        dirty: &mut bool,
+    ) {
         if self.current_frame.is_negative() {
             return;
         }
@@ -174,10 +180,8 @@ impl History {
             for edit in frame.edits.iter_mut().rev() {
                 *edit = edit.apply(rope);
             }
-            mem::swap(&mut frame.cursor, cursor);
+            mem::swap(&mut frame.cursors, cursors);
             mem::swap(&mut frame.dirty, dirty);
-            cursor.position = rope.ensure_grapheme_boundary_next_byte(cursor.position);
-            cursor.anchor = rope.ensure_grapheme_boundary_next_byte(cursor.anchor);
             self.current_frame -= 1;
 
             if frame.finished {
@@ -199,7 +203,12 @@ impl History {
         }
     }
 
-    pub fn redo(&mut self, rope: &mut Rope, cursor: &mut Cursor, dirty: &mut bool) {
+    pub fn redo(
+        &mut self,
+        rope: &mut Rope,
+        cursors: &mut SecondaryMap<ViewId, Vec1<Cursor>>,
+        dirty: &mut bool,
+    ) {
         let mut last_class = None;
 
         loop {
@@ -212,10 +221,8 @@ impl History {
             for edit in &mut frame.edits {
                 *edit = edit.apply(rope);
             }
-            mem::swap(&mut frame.cursor, cursor);
+            mem::swap(&mut frame.cursors, cursors);
             mem::swap(&mut frame.dirty, dirty);
-            cursor.position = rope.ensure_grapheme_boundary_next_byte(cursor.position);
-            cursor.anchor = rope.ensure_grapheme_boundary_next_byte(cursor.anchor);
 
             if frame.finished {
                 break;
