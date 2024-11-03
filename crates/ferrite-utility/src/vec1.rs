@@ -48,13 +48,21 @@ impl<T> Vec1<T> {
         self.inner.pop()
     }
 
-    // It's a bit yank that this containers first() requires T to be Copy just beacuse cursor is Copy
     pub fn first(&self) -> &T {
-        unsafe { self.get_unchecked(0) }
+        unsafe { self.inner.get_unchecked(0) }
     }
 
     pub fn first_mut(&mut self) -> &mut T {
-        unsafe { self.get_unchecked_mut(0) }
+        unsafe { self.inner.get_unchecked_mut(0) }
+    }
+
+    pub fn end(&self) -> &T {
+        unsafe { self.inner.get_unchecked(self.inner.len() - 1) }
+    }
+
+    pub fn end_mut(&mut self) -> &mut T {
+        let len = self.inner.len();
+        unsafe { self.inner.get_unchecked_mut(len - 1) }
     }
 
     pub fn remove(&mut self, index: usize) -> Option<T> {

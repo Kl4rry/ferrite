@@ -826,6 +826,8 @@ impl Buffer {
             }
         }
 
+        self.center_on_cursor(view_id);
+
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
