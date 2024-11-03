@@ -3,6 +3,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+/// A debugging allocator that tracks number of allocations and memory used
 pub struct Talloc;
 
 impl Talloc {
