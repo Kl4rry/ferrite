@@ -642,9 +642,7 @@ impl Engine {
                 }
             }
             Cmd::Split(direction) => {
-                let mut buffer = Buffer::new();
-                let view_id = buffer.create_view();
-                let (buffer_id, _) = self.insert_buffer(buffer, view_id, false);
+                let (buffer_id, view_id) = self.get_next_buffer();
                 self.workspace
                     .panes
                     .split(PaneKind::Buffer(buffer_id, view_id), direction);
@@ -1321,6 +1319,12 @@ impl Engine {
             }
         }
 
+        if next_buffer.is_none() {
+            if let Some((buffer_id, buffer)) = buffers.first_mut() {
+                next_buffer = Some((*buffer_id, buffer.create_view()));
+            }
+        }
+
         next_buffer.unwrap_or_else(|| {
             let mut buffer = Buffer::new();
             let view_id = buffer.create_view();
@@ -1576,7 +1580,10 @@ impl Engine {
                 "search",
                 CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
             );
-            if !selection.is_empty() {
+            if !selection.is_empty()
+                && self.palette.mode() == Some("search")
+                && self.palette.get_line().is_some()
+            {
                 self.palette.set_line(selection);
             }
         }
@@ -1594,7 +1601,10 @@ impl Engine {
             "global-search",
             CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
         );
-        if !selection.is_empty() {
+        if !selection.is_empty()
+            && self.palette.mode() == Some("global-search")
+            && self.palette.get_line().is_some()
+        {
             self.palette.set_line(selection);
         }
     }

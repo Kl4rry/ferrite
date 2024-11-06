@@ -137,6 +137,13 @@ impl CommandPalette {
         }
     }
 
+    pub fn get_line(&self) -> Option<String> {
+        if let PaletteState::Input { buffer, .. } = &self.state {
+            return Some(buffer.rope().to_string());
+        }
+        None
+    }
+
     pub fn update_prompt(&mut self, new_prompt: impl Into<String>) {
         match &mut self.state {
             PaletteState::Input { prompt, .. } => *prompt = new_prompt.into(),
