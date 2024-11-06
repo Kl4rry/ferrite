@@ -336,7 +336,11 @@ impl Engine {
                 {
                     Some(buffer_data) => {
                         if let Some(view_id) = buffer.get_first_view() {
-                            buffer_data.cursors = buffer.views[view_id].cursors.clone();
+                            if buffer_data.cursors != buffer.views[view_id].cursors {
+                                buffer_data
+                                    .cursors
+                                    .replace_with_slice(&buffer.views[view_id].cursors);
+                            }
                             buffer_data.line_pos = buffer.line_pos(view_id);
                             buffer_data.col_pos = buffer.col_pos(view_id);
                             buffer_data.indent = buffer.indent;

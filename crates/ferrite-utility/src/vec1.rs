@@ -6,7 +6,7 @@ use std::{
 
 use serde::{ser::SerializeSeq as _, Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Vec1<T> {
     inner: Vec<T>,
 }
@@ -73,6 +73,16 @@ impl<T> Vec1<T> {
             return Some(self.inner.remove(index));
         }
         None
+    }
+
+    pub fn replace_with_slice(&mut self, slice: &[T])
+    where
+        T: Clone,
+    {
+        if !slice.is_empty() {
+            self.inner.clear();
+            self.inner.extend_from_slice(slice);
+        }
     }
 }
 
