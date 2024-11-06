@@ -534,7 +534,7 @@ impl Buffer {
             let line = self.cursor_line_idx(view_id, i);
             let col = self.cursor_grapheme_column(view_id, i);
             if col >= start_col && col < end_col && line >= start_line && line < end_line {
-                output.push((col, line - start_line))
+                output.push((col - start_col, line - start_line))
             }
         }
         output
