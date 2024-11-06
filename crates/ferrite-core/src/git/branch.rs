@@ -3,9 +3,14 @@ use std::{
     process::Command,
     sync::{Arc, Mutex},
     thread,
+    time::Duration,
 };
 
-use notify::{RecommendedWatcher, Watcher};
+use notify_debouncer_full::{
+    new_debouncer,
+    notify::{self, RecommendedWatcher, RecursiveMode},
+    DebounceEventResult, Debouncer, NoCache,
+};
 
 use crate::event_loop_proxy::EventLoopProxy;
 
@@ -53,7 +58,7 @@ fn get_git_directory() -> Option<String> {
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
     proxy: Box<dyn EventLoopProxy>,
-    _watcher: Option<RecommendedWatcher>,
+    _watcher: Option<Debouncer<RecommendedWatcher, NoCache>>,
 }
 
 impl BranchWatcher {
@@ -66,8 +71,10 @@ impl BranchWatcher {
             let thread_proxy = proxy.dup();
 
             if let Some(git_dir) = get_git_directory() {
-                watcher = match notify::recommended_watcher(
-                    move |_: std::result::Result<notify::event::Event, notify::Error>| {
+                watcher = match new_debouncer(
+                    Duration::from_secs(1),
+                    None,
+                    move |_: DebounceEventResult| {
                         if let Some(branch) = get_current_branch() {
                             {
                                 let mut guard = current_branch_thread.lock().unwrap();
@@ -84,20 +91,19 @@ impl BranchWatcher {
                         }
                     },
                 ) {
-                    Ok(watcher) => Some(watcher),
+                    Ok(mut watcher) => {
+                        if let Err(err) =
+                            watcher.watch(&PathBuf::from(git_dir), RecursiveMode::NonRecursive)
+                        {
+                            tracing::error!("Error starting branch watcher {err}");
+                        }
+                        Some(watcher)
+                    }
                     Err(err) => {
                         tracing::error!("Error starting branch watcher {err}");
                         None
                     }
                 };
-
-                if let Some(watcher) = &mut watcher {
-                    if let Err(err) =
-                        watcher.watch(&PathBuf::from(git_dir), notify::RecursiveMode::NonRecursive)
-                    {
-                        tracing::error!("Error starting branch watcher {err}");
-                    }
-                }
             }
         }
 

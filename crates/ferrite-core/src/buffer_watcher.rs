@@ -1,13 +1,17 @@
-use std::{collections::HashMap, path::PathBuf, sync::mpsc};
+use std::{collections::HashMap, path::PathBuf, sync::mpsc, time::Duration};
 
 use anyhow::Result;
-use notify::{Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{
+    new_debouncer,
+    notify::{RecommendedWatcher, RecursiveMode},
+    DebounceEventResult, Debouncer, NoCache,
+};
 use slotmap::SlotMap;
 
 use crate::{buffer::Buffer, event_loop_proxy::EventLoopProxy, workspace::BufferId};
 
 pub struct BufferWatcher {
-    watcher: RecommendedWatcher,
+    watcher: Debouncer<RecommendedWatcher, NoCache>,
     buffers: HashMap<PathBuf, bool>,
     update_rx: mpsc::Receiver<PathBuf>,
 }
@@ -15,18 +19,25 @@ pub struct BufferWatcher {
 impl BufferWatcher {
     pub fn new(proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
         let (tx, rx) = mpsc::channel();
-        let watcher = notify::recommended_watcher(move |event: Result<Event, Error>| {
-            if let Ok(mut event) = event {
-                if event.kind.is_modify() {
-                    if let Some(path) = event.paths.pop() {
-                        let _ = tx.send(path);
-                        proxy.request_render();
+
+        let debouncer = new_debouncer(
+            Duration::from_secs(1),
+            None,
+            move |result: DebounceEventResult| {
+                if let Ok(events) = result {
+                    for mut event in events {
+                        if event.kind.is_modify() {
+                            if let Some(path) = event.event.paths.pop() {
+                                let _ = tx.send(path);
+                                proxy.request_render();
+                            }
+                        }
                     }
                 }
-            }
-        });
+            },
+        );
 
-        let watcher = match watcher {
+        let watcher = match debouncer {
             Ok(watcher) => watcher,
             Err(err) => {
                 tracing::error!("Error starting buffer watcher: {err}");

@@ -30,7 +30,7 @@ include_dir = { workspace = true, optional = true }
 lexical-sort = { workspace = true }
 linkify = { workspace = true }
 memchr = { workspace = true }
-notify = { workspace = true }
+notify-debouncer-full = { workspace = true }
 opener = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }

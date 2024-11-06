@@ -2496,6 +2496,8 @@ impl Buffer {
         }
         self.views[view_id].cursors.remove(0);
         self.ensure_cursors_are_valid(view_id);
+        self.views[view_id].line_pos = buffer_data.line_pos;
+        self.views[view_id].col_pos = buffer_data.col_pos;
     }
 
     pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {

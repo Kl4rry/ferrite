@@ -2,10 +2,15 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::mpsc,
+    time::Duration,
 };
 
 use anyhow::Result;
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{
+    new_debouncer,
+    notify::{self, RecommendedWatcher, RecursiveMode},
+    DebounceEventResult, Debouncer, NoCache,
+};
 use serde::Deserialize;
 
 use crate::event_loop_proxy::EventLoopProxy;
@@ -37,7 +42,7 @@ where
 }
 
 pub struct FileWatcher<T, C> {
-    _watcher: RecommendedWatcher,
+    _watcher: Debouncer<RecommendedWatcher, NoCache>,
     rx: mpsc::Receiver<Result<T>>,
     _phantom: std::marker::PhantomData<C>,
 }
@@ -52,25 +57,28 @@ where
         let (tx, rx) = mpsc::channel();
 
         let path_buf: PathBuf = path.to_path_buf();
-        let mut watcher = notify::recommended_watcher(
-            move |event: std::result::Result<notify::event::Event, notify::Error>| {
-                if let Ok(event) = event {
-                    match event.kind {
-                        notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
-                            let data: Result<T> = C::from_file(&path_buf);
-                            let _ = tx.send(data);
-                            proxy.request_render();
+        let mut debouncer = new_debouncer(
+            Duration::from_millis(250),
+            None,
+            move |result: DebounceEventResult| {
+                if let Ok(events) = result {
+                    for event in events {
+                        match event.kind {
+                            notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
+                                let data: Result<T> = C::from_file(&path_buf);
+                                let _ = tx.send(data);
+                                proxy.request_render();
+                            }
+                            _ => (),
                         }
-                        _ => (),
                     }
                 }
             },
         )?;
-
-        let _ = watcher.watch(path, RecursiveMode::NonRecursive);
+        let _ = debouncer.watch(path, RecursiveMode::NonRecursive);
 
         Ok(Self {
-            _watcher: watcher,
+            _watcher: debouncer,
             rx,
             _phantom: std::marker::PhantomData,
         })

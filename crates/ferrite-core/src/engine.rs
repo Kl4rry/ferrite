@@ -1132,6 +1132,7 @@ impl Engine {
                         .iter()
                         .find(|b| b.path == real_path)
                     {
+                        tracing::warn!("HERE");
                         buffer.load_view_data(view_id, buffer_data);
                         buffer.load_buffer_data(buffer_data);
                     }
