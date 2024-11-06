@@ -1,5 +1,4 @@
 use std::{
-    path::PathBuf,
     process::Command,
     sync::{Arc, Mutex},
     thread,
@@ -92,9 +91,7 @@ impl BranchWatcher {
                     },
                 ) {
                     Ok(mut watcher) => {
-                        if let Err(err) =
-                            watcher.watch(&PathBuf::from(git_dir), RecursiveMode::NonRecursive)
-                        {
+                        if let Err(err) = watcher.watch(&git_dir, RecursiveMode::NonRecursive) {
                             tracing::error!("Error starting branch watcher {err}");
                         }
                         Some(watcher)

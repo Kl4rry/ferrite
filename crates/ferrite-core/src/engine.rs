@@ -900,10 +900,25 @@ impl Engine {
                     if let Some(choice) = picker.get_choice() {
                         self.workspace.buffers[choice.id].update_interact();
                         self.buffer_picker = None;
-                        let old = self.workspace.panes.replace_current(PaneKind::Buffer(
-                            choice.id,
-                            self.workspace.buffers[choice.id].create_view(),
-                        ));
+
+                        let buffer = &mut self.workspace.buffers[choice.id];
+                        let view_id = buffer.create_view();
+                        if let Some(path) = buffer.file() {
+                            if let Some(buffer_data) = self
+                                .workspace
+                                .buffer_extra_data
+                                .iter()
+                                .find(|b| b.path == path)
+                            {
+                                buffer.load_view_data(view_id, buffer_data);
+                                buffer.load_buffer_data(buffer_data);
+                            }
+                        }
+
+                        let old = self
+                            .workspace
+                            .panes
+                            .replace_current(PaneKind::Buffer(choice.id, view_id));
                         if let PaneKind::Buffer(id, view_id) = old {
                             let buffer = &mut self.workspace.buffers[id];
                             buffer.remove_view(view_id);
@@ -1132,7 +1147,6 @@ impl Engine {
                         .iter()
                         .find(|b| b.path == real_path)
                     {
-                        tracing::warn!("HERE");
                         buffer.load_view_data(view_id, buffer_data);
                         buffer.load_buffer_data(buffer_data);
                     }
@@ -1323,6 +1337,21 @@ impl Engine {
         if next_buffer.is_none() {
             if let Some((buffer_id, buffer)) = buffers.first_mut() {
                 next_buffer = Some((*buffer_id, buffer.create_view()));
+            }
+        }
+
+        if let Some((buffer_id, view_id)) = next_buffer {
+            if let Some(real_path) = self.workspace.buffers[buffer_id].file() {
+                if let Some(buffer_data) = self
+                    .workspace
+                    .buffer_extra_data
+                    .iter()
+                    .find(|b| b.path == real_path)
+                {
+                    let buffer = &mut self.workspace.buffers[buffer_id];
+                    buffer.load_view_data(view_id, buffer_data);
+                    buffer.load_buffer_data(buffer_data);
+                }
             }
         }
 
