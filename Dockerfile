@@ -11,10 +11,8 @@ WORKDIR /ferrite
 COPY . .
 
 RUN cargo fetch
-RUN cargo build --release --all-features
+RUN cargo build --release
 
 FROM ubuntu:latest
 
 COPY --from=build /ferrite/target/release/ferrite ./ferrite
-
-CMD ["echo"]
