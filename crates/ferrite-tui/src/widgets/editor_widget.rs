@@ -493,7 +493,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     focus: self.has_focus,
                     encoding: buffer.encoding,
                     name: buffer.name().to_string(),
-                    line: buffer.cursor_byte_pos(view_id, 0).1 + 1,
+                    line: buffer.cursor_line_idx(view_id, 0) + 1,
                     column: buffer.cursor_grapheme_column(view_id, 0) + 1,
                     dirty: buffer.is_dirty(),
                     branch: &branch,
