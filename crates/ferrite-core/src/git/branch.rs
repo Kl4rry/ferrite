@@ -8,7 +8,7 @@ use std::{
 use notify_debouncer_full::{
     new_debouncer,
     notify::{self, RecommendedWatcher, RecursiveMode},
-    DebounceEventResult, Debouncer, NoCache,
+    DebounceEventResult, Debouncer, RecommendedCache,
 };
 
 use crate::event_loop_proxy::EventLoopProxy;
@@ -57,7 +57,7 @@ fn get_git_directory() -> Option<String> {
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
     proxy: Box<dyn EventLoopProxy>,
-    _watcher: Option<Debouncer<RecommendedWatcher, NoCache>>,
+    _watcher: Option<Debouncer<RecommendedWatcher, RecommendedCache>>,
 }
 
 impl BranchWatcher {

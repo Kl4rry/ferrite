@@ -4,14 +4,14 @@ use anyhow::Result;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{RecommendedWatcher, RecursiveMode},
-    DebounceEventResult, Debouncer, NoCache,
+    DebounceEventResult, Debouncer, RecommendedCache,
 };
 use slotmap::SlotMap;
 
 use crate::{buffer::Buffer, event_loop_proxy::EventLoopProxy, workspace::BufferId};
 
 pub struct BufferWatcher {
-    watcher: Debouncer<RecommendedWatcher, NoCache>,
+    watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
     buffers: HashMap<PathBuf, bool>,
     update_rx: mpsc::Receiver<PathBuf>,
 }

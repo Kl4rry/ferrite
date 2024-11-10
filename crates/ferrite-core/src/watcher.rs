@@ -9,7 +9,7 @@ use anyhow::Result;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{self, RecommendedWatcher, RecursiveMode},
-    DebounceEventResult, Debouncer, NoCache,
+    DebounceEventResult, Debouncer, RecommendedCache,
 };
 use serde::Deserialize;
 
@@ -42,7 +42,7 @@ where
 }
 
 pub struct FileWatcher<T, C> {
-    _watcher: Debouncer<RecommendedWatcher, NoCache>,
+    _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
     rx: mpsc::Receiver<Result<T>>,
     _phantom: std::marker::PhantomData<C>,
 }
