@@ -379,12 +379,12 @@ impl TuiApp {
                                 {
                                     self.engine.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
+                                        let buffer = &self.engine.workspace.buffers[buffer_id];
                                         self.drag_start = Some(Point::new(
-                                            event.column as usize,
-                                            event.row as usize,
+                                            event.column as usize + buffer.col_pos(view_id),
+                                            event.row as usize + buffer.line_pos(view_id),
                                         ));
 
-                                        let buffer = &self.engine.workspace.buffers[buffer_id];
                                         let (_, left_offset) =
                                             lines_to_left_offset(buffer.len_lines());
                                         let column = ((event.column as usize)
@@ -424,11 +424,10 @@ impl TuiApp {
                                                 lines_to_left_offset(buffer.len_lines());
 
                                             let anchor = {
-                                                let column = (column + buffer.col_pos(view_id))
+                                                let column = column
                                                     .saturating_sub(left_offset)
                                                     .saturating_sub(pane_rect.x);
-                                                let line = (line + buffer.line_pos(view_id))
-                                                    .saturating_sub(pane_rect.y);
+                                                let line = line.saturating_sub(pane_rect.y);
                                                 Point::new(column, line)
                                             };
 
