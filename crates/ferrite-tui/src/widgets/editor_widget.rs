@@ -13,7 +13,10 @@ use ferrite_utility::{
     graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH},
     point::Point,
 };
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{
+    iter::IndexedParallelIterator,
+    prelude::{IntoParallelRefIterator, ParallelIterator},
+};
 use ropey::RopeSlice;
 use tui::{
     layout::Rect,
@@ -347,6 +350,7 @@ impl StatefulWidget for EditorWidget<'_> {
             if let Some(rope) = syntax_rope {
                 let highlights: Vec<_> = highlights
                     .par_iter()
+                    .take(1000)
                     .map(|(start, end, style)| {
                         let start_point = rope.byte_to_point((*start).min(rope.len_bytes()));
                         let end_point = rope.byte_to_point((*end).min(rope.len_bytes()));
