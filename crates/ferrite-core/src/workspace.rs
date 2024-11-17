@@ -11,6 +11,7 @@ use slotmap::{Key, SlotMap};
 use super::buffer::Buffer;
 use crate::{
     buffer::{Cursor, ViewId},
+    file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,
     layout::panes::{layout::Layout, PaneKind, Panes},
 };
@@ -21,6 +22,7 @@ slotmap::new_key_type! {
 
 pub struct Workspace {
     pub buffers: SlotMap<BufferId, Buffer>,
+    pub file_explorers: SlotMap<FileExplorerId, FileExplorer>,
     pub buffer_extra_data: Vec<BufferData>,
     pub panes: Panes,
 }
@@ -50,6 +52,7 @@ impl Default for Workspace {
         let buffer_id = buffers.insert(buffer);
         Self {
             buffers,
+            file_explorers: SlotMap::with_key(),
             buffer_extra_data: Vec::new(),
             panes: Panes::new(buffer_id, view_id),
         }
@@ -62,7 +65,7 @@ impl Workspace {
         let mut workspace_data = WorkspaceData {
             buffers: self.buffer_extra_data.clone(),
             open_buffers: Vec::new(),
-            layout: Layout::from_panes(&self.panes, &self.buffers),
+            layout: Layout::from_panes(&self.panes, &self.buffers, &self.file_explorers),
         };
 
         for (path, buffer) in self
@@ -89,6 +92,7 @@ impl Workspace {
 
     pub fn load_workspace(load_buffers: bool) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
+        let mut file_explorers: SlotMap<FileExplorerId, FileExplorer> = SlotMap::with_key();
 
         let workspace_file = get_workspace_path(std::env::current_dir()?)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
@@ -124,7 +128,7 @@ impl Workspace {
 
         let mut panes = workspace
             .layout
-            .to_panes(&mut buffers)
+            .to_panes(&mut buffers, &mut file_explorers)
             .unwrap_or_else(|| Panes::new(BufferId::null(), ViewId::null()));
 
         if buffers.is_empty() {
@@ -149,6 +153,7 @@ impl Workspace {
 
         Ok(Self {
             buffers,
+            file_explorers,
             buffer_extra_data: workspace.buffers.clone(),
             panes,
         })

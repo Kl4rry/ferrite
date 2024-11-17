@@ -15,7 +15,7 @@ cc = "1.0.79"
 chardetng = "0.1.17"
 clap = { version = "4.5.6", default-features = false }
 content_inspector = "0.2.4"
-crossterm = "0.28.0" # Emoji are broken after 0.25.0 on windows
+crossterm = "0.28.0"
 detect-indent = "0.1.0"
 directories = "5.0.0"
 dunce = "1.0.4"

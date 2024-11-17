@@ -27,7 +27,10 @@ use ferrite_core::{
 use ferrite_utility::point::Point;
 use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
 use tui::layout::{Margin, Position, Rect};
-use widgets::{choord_widget::ChoordWidget, logger_widget::LoggerWidget};
+use widgets::{
+    choord_widget::ChoordWidget, file_explorer_widget::FileExplorerWidget,
+    logger_widget::LoggerWidget,
+};
 
 use self::{
     event_loop::{TuiEvent, TuiEventLoop, TuiEventLoopProxy},
@@ -210,6 +213,7 @@ impl TuiApp {
                                     view_id,
                                     !self.engine.palette.has_focus()
                                         && self.engine.file_picker.is_none()
+                                        && self.engine.buffer_picker.is_none()
                                         && current_pane == pane,
                                     self.engine.branch_watcher.current_branch(),
                                     self.engine.spinner.current(),
@@ -234,9 +238,21 @@ impl TuiApp {
                                 }
                             }
                         }
+                        PaneKind::FileExplorer(file_explorer_id) => {
+                            let has_focus = !self.engine.palette.has_focus()
+                                && self.engine.file_picker.is_none()
+                                && self.engine.buffer_picker.is_none()
+                                && current_pane == pane;
+                            f.render_stateful_widget(
+                                FileExplorerWidget::new(theme, has_focus),
+                                ferrite_to_tui_rect(pane_rect),
+                                &mut self.engine.workspace.file_explorers[file_explorer_id],
+                            );
+                        }
                         PaneKind::Logger => {
                             let has_focus = !self.engine.palette.has_focus()
                                 && self.engine.file_picker.is_none()
+                                && self.engine.buffer_picker.is_none()
                                 && current_pane == pane;
                             f.render_stateful_widget(
                                 LoggerWidget::new(theme, self.engine.last_render_time, has_focus),

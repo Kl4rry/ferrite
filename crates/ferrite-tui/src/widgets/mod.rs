@@ -3,6 +3,7 @@ pub mod centered_text_widget;
 pub mod choord_widget;
 pub mod completer_widget;
 pub mod editor_widget;
+pub mod file_explorer_widget;
 pub mod info_line;
 pub mod logger_widget;
 pub mod one_line_input_widget;

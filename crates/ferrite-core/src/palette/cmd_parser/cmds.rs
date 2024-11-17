@@ -45,6 +45,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("trash", None, true).build(|_| Cmd::Trash),
         CmdBuilder::new("url-open", None, true).build(|_| Cmd::UrlOpen),
         CmdBuilder::new("save-all", None, true).build(|_| Cmd::SaveAll),
+        CmdBuilder::new("open-file-explorer", Some(("path", CmdTemplateArg::Path)), true).build(|args| Cmd::OpenFileExplorer(args[0].take().map(|arg| arg.unwrap_path()))),
         CmdBuilder::new("number", Some(("start", CmdTemplateArg::Int)), true).build(|args| Cmd::Number(args[0].take().map(|arg| arg.unwrap_int()))),
         CmdBuilder::new("revert-buffer", None, true).add_alias("rb").build(|_| Cmd::RevertBuffer),
         CmdBuilder::new("open", Some(("path", CmdTemplateArg::Path)), false).add_alias("o").build(|args| Cmd::OpenFile(args[0].take().unwrap().unwrap_path())),

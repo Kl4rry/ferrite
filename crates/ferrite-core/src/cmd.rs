@@ -147,6 +147,7 @@ pub enum Cmd {
         direction: Direction,
     },
     Number(Option<i64>),
+    OpenFileExplorer(Option<PathBuf>),
 }
 
 impl Cmd {
@@ -258,6 +259,7 @@ impl Cmd {
                 Direction::Left => "Left pane",
             },
             Number(_) => "Number",
+            OpenFileExplorer(_) => "Open file explorer",
         }
     }
 
@@ -360,6 +362,7 @@ impl Cmd {
             ForceRedraw => false,
             SwitchPane { .. } => false,
             Number(_) => false,
+            OpenFileExplorer(_) => false,
         }
     }
 }

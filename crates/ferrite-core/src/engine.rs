@@ -27,6 +27,7 @@ use crate::{
         Config,
     },
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
+    file_explorer::FileExplorer,
     git::branch::BranchWatcher,
     indent::Indentation,
     job_manager::{JobHandle, JobManager},
@@ -573,6 +574,7 @@ impl Engine {
             }
             Cmd::OpenFilePicker => self.open_file_picker(),
             Cmd::OpenBufferPicker => self.open_buffer_picker(),
+            Cmd::OpenFileExplorer(path) => self.open_file_explorer(path),
             Cmd::FilePickerReload => {
                 self.file_scanner = FileScanner::new(
                     env::current_dir().unwrap_or(PathBuf::from(".")),
@@ -967,6 +969,13 @@ impl Engine {
                                 self.palette.set_error(err);
                             }
                         }
+                        PaneKind::FileExplorer(file_explorer_id) => {
+                            if let Some(choice) =
+                                self.workspace.file_explorers[file_explorer_id].handle_input(input)
+                            {
+                                self.open_file(choice);
+                            }
+                        }
                         PaneKind::Logger => self.logger_state.handle_input(input),
                     }
                 }
@@ -1307,6 +1316,34 @@ impl Engine {
         self.insert_buffer(buffer, view_id, true);
     }
 
+    pub fn open_file_explorer(&mut self, path: Option<PathBuf>) {
+        let file_explorer_id =
+            self.workspace
+                .file_explorers
+                .insert(FileExplorer::new(path.unwrap_or_else(|| {
+                    self.get_current_buffer()
+                        .and_then(|(buffer, _)| {
+                            buffer
+                                .file()
+                                .and_then(|path| path.parent().map(|path| path.to_owned()))
+                        })
+                        .unwrap_or_else(|| std::env::current_dir().unwrap())
+                })));
+        let old = self
+            .workspace
+            .panes
+            .replace_current(PaneKind::FileExplorer(file_explorer_id));
+        match old {
+            PaneKind::Buffer(buffer_id, view_id) => {
+                self.workspace.buffers[buffer_id].remove_view(view_id);
+            }
+            PaneKind::FileExplorer(file_explorer_id) => {
+                self.workspace.file_explorers.remove(file_explorer_id);
+            }
+            PaneKind::Logger => (),
+        }
+    }
+
     pub fn close_current_buffer(&mut self) {
         let Some((buffer, _)) = self.get_current_buffer() else {
             self.force_close_current_buffer();
@@ -1377,6 +1414,12 @@ impl Engine {
                     if self.workspace.buffers[buffer_id].is_disposable() {
                         self.workspace.buffers.remove(buffer_id);
                     }
+                }
+                PaneKind::FileExplorer(file_explorer_id) => {
+                    self.workspace.file_explorers.remove(file_explorer_id);
+                    self.workspace
+                        .panes
+                        .remove_pane(PaneKind::FileExplorer(file_explorer_id));
                 }
                 PaneKind::Logger => {
                     self.workspace.panes.remove_pane(PaneKind::Logger);

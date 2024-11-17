@@ -4,7 +4,7 @@ use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use slotmap::Key;
 
-use crate::{buffer::ViewId, workspace::BufferId};
+use crate::{buffer::ViewId, file_explorer::FileExplorerId, workspace::BufferId};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Rect {
@@ -35,6 +35,7 @@ impl Rect {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PaneKind {
     Buffer(BufferId, ViewId),
+    FileExplorer(FileExplorerId),
     Logger,
 }
 
@@ -244,6 +245,7 @@ impl Pane {
         match self {
             Pane::Leaf(leaf) => match leaf {
                 PaneKind::Buffer(buffer_id, _) => *buffer_id == id,
+                PaneKind::FileExplorer(_) => false,
                 PaneKind::Logger => false,
             },
             Pane::Internal { left, right, .. } => {
@@ -483,7 +485,11 @@ mod tests {
 }
 
 pub mod layout {
-    use std::path::{Path, PathBuf};
+    use std::{
+        collections::HashMap,
+        ffi::OsString,
+        path::{Path, PathBuf},
+    };
 
     use ferrite_utility::vec1::Vec1;
     use serde::{Deserialize, Serialize};
@@ -492,6 +498,7 @@ pub mod layout {
     use super::{Pane, Panes, Split};
     use crate::{
         buffer::{Buffer, Cursor},
+        file_explorer::{FileExplorer, FileExplorerId},
         workspace::BufferId,
     };
 
@@ -523,7 +530,11 @@ pub mod layout {
             }
         }
 
-        fn from_pane_node(pane: &Pane, buffers: &SlotMap<BufferId, Buffer>) -> Option<Self> {
+        fn from_pane_node(
+            pane: &Pane,
+            buffers: &SlotMap<BufferId, Buffer>,
+            file_explorers: &SlotMap<FileExplorerId, FileExplorer>,
+        ) -> Option<Self> {
             match pane {
                 Pane::Leaf(pane_kind) => match pane_kind {
                     super::PaneKind::Buffer(buffer_id, view_id) => {
@@ -537,6 +548,13 @@ pub mod layout {
                             col_pos: view.col_pos,
                         }))
                     }
+                    super::PaneKind::FileExplorer(file_explorer_id) => {
+                        let file_explorer = &file_explorers[*file_explorer_id];
+                        Some(Self::Leaf(PaneKind::FileExplorer {
+                            path: file_explorer.directory().into(),
+                            history: file_explorer.history.clone(),
+                        }))
+                    }
                     super::PaneKind::Logger => Some(Self::Leaf(PaneKind::Logger)),
                 },
                 Pane::Internal {
@@ -545,8 +563,8 @@ pub mod layout {
                     split,
                     ratio,
                 } => {
-                    let left = Node::from_pane_node(left, buffers);
-                    let right = Node::from_pane_node(right, buffers);
+                    let left = Node::from_pane_node(left, buffers, file_explorers);
+                    let right = Node::from_pane_node(right, buffers, file_explorers);
                     match (left, right) {
                         (Some(left), Some(right)) => Some(Node::Internal {
                             left: Box::new(left),
@@ -562,7 +580,11 @@ pub mod layout {
             }
         }
 
-        fn to_pane(&self, buffers: &mut SlotMap<BufferId, Buffer>) -> Option<Pane> {
+        fn to_pane(
+            &self,
+            buffers: &mut SlotMap<BufferId, Buffer>,
+            file_explorers: &mut SlotMap<FileExplorerId, FileExplorer>,
+        ) -> Option<Pane> {
             match self {
                 Node::Leaf(pane_kind) => match pane_kind {
                     PaneKind::Buffer {
@@ -587,6 +609,13 @@ pub mod layout {
                             buffer_id, view_id,
                         )))
                     }
+                    PaneKind::FileExplorer { path, history } => {
+                        Some(super::Pane::Leaf(super::PaneKind::FileExplorer({
+                            let mut fe = FileExplorer::new(path.into());
+                            fe.history = history.clone();
+                            file_explorers.insert(fe)
+                        })))
+                    }
                     PaneKind::Logger => Some(super::Pane::Leaf(super::PaneKind::Logger)),
                 },
                 Node::Internal {
@@ -595,8 +624,8 @@ pub mod layout {
                     split,
                     ratio,
                 } => {
-                    let left = left.to_pane(buffers);
-                    let right = right.to_pane(buffers);
+                    let left = left.to_pane(buffers, file_explorers);
+                    let right = right.to_pane(buffers, file_explorers);
                     match (left, right) {
                         (Some(left), Some(right)) => Some(super::Pane::Internal {
                             left: Box::new(left),
@@ -621,13 +650,21 @@ pub mod layout {
             line_pos: usize,
             col_pos: usize,
         },
+        FileExplorer {
+            path: PathBuf,
+            history: HashMap<PathBuf, OsString>,
+        },
         Logger,
     }
 
     impl Layout {
-        pub fn to_panes(&self, buffers: &mut SlotMap<BufferId, Buffer>) -> Option<super::Panes> {
-            let pane = self.node.as_ref()?.to_pane(buffers)?;
-            let current_pane = match &self.current_pane {
+        pub fn to_panes(
+            &self,
+            buffers: &mut SlotMap<BufferId, Buffer>,
+            file_explorers: &mut SlotMap<FileExplorerId, FileExplorer>,
+        ) -> Option<super::Panes> {
+            let pane = self.node.as_ref()?.to_pane(buffers, file_explorers)?;
+            let pane_kind = match &self.current_pane {
                 Some(PaneKind::Buffer {
                     path,
                     cursor,
@@ -649,17 +686,28 @@ pub mod layout {
                         None => pane.get_first_leaf(),
                     }
                 }
+                Some(PaneKind::FileExplorer { path, history }) => {
+                    let mut fe = FileExplorer::new(path.into());
+                    fe.history = history.clone();
+                    let file_explorer_id = file_explorers.insert(fe);
+                    super::PaneKind::FileExplorer(file_explorer_id)
+                }
                 Some(PaneKind::Logger) => super::PaneKind::Logger,
                 None => pane.get_first_leaf(),
             };
+            let current_pane = pane_kind;
             Some(super::Panes {
                 node: pane,
                 current_pane,
             })
         }
 
-        pub fn from_panes(panes: &Panes, buffers: &SlotMap<BufferId, Buffer>) -> Self {
-            let node = Node::from_pane_node(&panes.node, buffers);
+        pub fn from_panes(
+            panes: &Panes,
+            buffers: &SlotMap<BufferId, Buffer>,
+            file_explorers: &SlotMap<FileExplorerId, FileExplorer>,
+        ) -> Self {
+            let node = Node::from_pane_node(&panes.node, buffers, file_explorers);
             let current_pane = match panes.current_pane {
                 super::PaneKind::Buffer(buffer_id, view_id) => {
                     let path = buffers[buffer_id].file();
@@ -679,6 +727,14 @@ pub mod layout {
                         })
                     })
                     .flatten()
+                }
+                super::PaneKind::FileExplorer(file_explorer_id) => {
+                    let fe = &file_explorers[file_explorer_id];
+                    let directory = fe.directory();
+                    Some(PaneKind::FileExplorer {
+                        path: directory.into(),
+                        history: fe.history.clone(),
+                    })
                 }
                 super::PaneKind::Logger => Some(PaneKind::Logger),
             };
