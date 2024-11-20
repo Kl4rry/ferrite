@@ -657,7 +657,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Char('t'), KeyModifiers::CONTROL),
+            Key::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
             Cmd::OpenFileExplorer(None),
             Exclusiveness::Exclusive,
         ),
