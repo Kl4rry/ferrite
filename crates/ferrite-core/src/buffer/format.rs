@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::Rope;
 use subprocess::{Exec, PopenError, Redirection};
 
@@ -95,10 +94,7 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 }
 
 impl Buffer {
-    // TODO make this multicursor aware
     pub fn format(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
-        self.views[view_id].cursors.clear();
-
         if self.read_only {
             return Ok(());
         }
@@ -110,36 +106,30 @@ impl Buffer {
         self.history.begin(self.get_all_cursors(), self.dirty);
         let new_rope = format(formatter, self.rope.clone())?;
 
+        let cursor_positions = self.get_cursor_positions(view_id);
+
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
-        // TODO position curser better then using byte offset
-        let pos = self.rope.ensure_grapheme_boundary_next_byte(
-            self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.rope.len_bytes()),
-        );
+        for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
+            self.set_cursor_pos(view_id, i, pos.column, pos.line);
+            self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
+        }
 
-        self.views[view_id].cursors.first_mut().position = pos;
-        self.views[view_id].cursors.first_mut().anchor = pos;
-
-        self.update_affinity(view_id);
+        self.ensure_every_cursor_is_valid();
+        self.views[view_id].coalesce_cursors();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
         }
 
         self.mark_dirty();
+
         self.history.finish();
         Ok(())
     }
 
-    // TODO make this multicursor aware
     pub fn format_selection(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
-        self.views[view_id].cursors.clear();
-
         if self.read_only {
             return Ok(());
         }
@@ -155,28 +145,25 @@ impl Buffer {
             self.views[view_id].cursors.first(),
         )?;
 
+        let cursor_positions = self.get_cursor_positions(view_id);
+
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
-        // TODO position curser better then using byte offset
-        let pos = self.rope.ensure_grapheme_boundary_next_byte(
-            self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .min(self.rope.len_bytes()),
-        );
+        for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
+            self.set_cursor_pos(view_id, i, pos.column, pos.line);
+            self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
+        }
 
-        self.views[view_id].cursors.first_mut().position = pos;
-        self.views[view_id].cursors.first_mut().anchor = pos;
-
-        self.update_affinity(view_id);
+        self.ensure_every_cursor_is_valid();
+        self.views[view_id].coalesce_cursors();
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
         }
 
         self.mark_dirty();
+
         self.history.finish();
         Ok(())
     }

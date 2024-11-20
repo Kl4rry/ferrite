@@ -2591,6 +2591,58 @@ impl Buffer {
         self.history.finish();
     }
 
+    pub fn trim_trailing_whitespace(&mut self, view_id: ViewId) {
+        self.history.begin(self.get_all_cursors(), self.dirty);
+
+        self.views[view_id].coalesce_cursors();
+
+        let cursor_positions = self.get_cursor_positions(view_id);
+
+        let len_before = self.rope.len_bytes();
+
+        for i in 0..self.rope.len_lines() {
+            let line = self.rope.line_without_line_ending(i);
+            let line_len_bytes = line.len_bytes();
+            let line_start_byte_idx = self.rope.line_to_byte(i);
+
+            {
+                let mut last_non_whitespace_byte_idx = 0;
+                let mut byte_idx = 0;
+                for grapheme in line.grapehemes() {
+                    if !grapheme.is_whitespace() {
+                        last_non_whitespace_byte_idx = byte_idx + grapheme.len_bytes();
+                    }
+                    byte_idx += grapheme.len_bytes();
+                }
+
+                self.history.remove(
+                    &mut self.rope,
+                    (line_start_byte_idx + last_non_whitespace_byte_idx)
+                        ..(line_start_byte_idx + line_len_bytes),
+                );
+            }
+        }
+
+        let len_after = self.rope.len_bytes();
+
+        for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
+            self.set_cursor_pos(view_id, i, pos.column, pos.line);
+            self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
+        }
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
+
+        self.update_affinity(view_id);
+        if len_before != len_after {
+            self.mark_dirty();
+        }
+        self.ensure_every_cursor_is_valid();
+
+        self.history.finish();
+    }
+
     pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
         let view = &self.views[view_id];
         let mut output = Vec::new();
@@ -2633,6 +2685,24 @@ impl Buffer {
             output.push(Selection { start, end });
         }
         output
+    }
+
+    pub fn get_cursor_positions(&self, view_id: ViewId) -> Vec<(Point<usize>, Point<usize>)> {
+        let mut cursor_positions = Vec::new();
+        for i in 0..self.views[view_id].cursors.len() {
+            let pos = Point {
+                line: self.cursor_line_idx(view_id, i),
+                column: self.cursor_grapheme_column(view_id, i),
+            };
+
+            let anchor = Point {
+                line: self.anchor_line_idx(view_id, i),
+                column: self.anchor_grapheme_column(view_id, i),
+            };
+
+            cursor_positions.push((pos, anchor));
+        }
+        cursor_positions
     }
 
     pub fn get_all_cursors(&self) -> SecondaryMap<ViewId, Vec1<Cursor>> {

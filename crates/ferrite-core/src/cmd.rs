@@ -148,6 +148,7 @@ pub enum Cmd {
     },
     Number(Option<i64>),
     OpenFileExplorer(Option<PathBuf>),
+    TrimTrailingWhitespace,
 }
 
 impl Cmd {
@@ -260,6 +261,7 @@ impl Cmd {
             },
             Number(_) => "Number",
             OpenFileExplorer(_) => "Open file explorer",
+            TrimTrailingWhitespace => "Trim trailing whitespace",
         }
     }
 
@@ -363,6 +365,7 @@ impl Cmd {
             SwitchPane { .. } => false,
             Number(_) => false,
             OpenFileExplorer(_) => false,
+            TrimTrailingWhitespace => false,
         }
     }
 }
