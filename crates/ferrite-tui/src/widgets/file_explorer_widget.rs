@@ -31,6 +31,7 @@ impl StatefulWidget for FileExplorerWidget<'_> {
         }
 
         Clear.render(area, buf);
+        buf.set_style(area, convert_style(&self.theme.background));
 
         if area.height > 1 {
             let height = area.height.saturating_sub(1);
