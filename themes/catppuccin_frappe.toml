@@ -1,5 +1,5 @@
-"editor.line_nr" = { fg = "surface1", bg = "mantle" }
-"editor.current_line_nr" = { fg = "text", bg = "mantle" }
+"editor.line_nr" = { fg = "surface1", bg = "base" }
+"editor.current_line_nr" = { fg = "text", bg = "base" }
 "editor.text" = { fg = "text" }
 "editor.dim_text" = { fg = "surface0" }
 "editor.info_line" = { fg = "subtext1", bg = "mantle" }
@@ -7,6 +7,7 @@
 "editor.background" = { fg = "text", bg = "base" }
 "editor.selection" = { bg = "surface1"}
 "editor.border" = { bg = "base", fg = "text" }
+"editor.pane_border" = { bg = "base", fg = "crust" }
 "editor.ruler" = { fg = "surface0" }
 "editor.error_text" = { fg = "red" }
 "editor.search.match" = { bg = "search_match" }

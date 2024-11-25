@@ -220,12 +220,13 @@ impl Pane {
                     );
                 }
                 Split::Vertical => {
-                    let first = (rect.width as f32 * ratio) as usize;
-                    let second = rect.width - first;
+                    let width = rect.width.saturating_sub(1);
+                    let first = (width as f32 * ratio) as usize;
+                    let second = width - first;
                     left.get_pane_bounds(bounds, Rect::new(rect.x, rect.y, first, rect.height));
                     right.get_pane_bounds(
                         bounds,
-                        Rect::new(rect.x + first, rect.y, second, rect.height),
+                        Rect::new(rect.x + first + 1, rect.y, second, rect.height),
                     );
                 }
             },

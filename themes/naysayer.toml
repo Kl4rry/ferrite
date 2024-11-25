@@ -6,6 +6,7 @@
 "editor.info_line.unfocused" = { fg = "text", bg = "bg" }
 "editor.selection" = { bg = "selection" }
 "editor.border" = { bg = "bg", fg = "text" }
+"editor.pane_border" = { bg = "bg", fg = "line-fg" }
 "editor.dim_text" = { bg = "line-fg" }
 "editor.ruler" = { fg = "line-fg" }
 "editor.error_text" = { fg = "red" }

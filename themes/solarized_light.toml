@@ -7,6 +7,7 @@
 "editor.background" = { bg = "base03", fg = "base1" }
 "editor.selection" = { bg = "base0175"}
 "editor.border" = { bg = "base03", fg = "base1" }
+"editor.pane_border" = { bg = "base03", fg = "base1" }
 "editor.ruler" = { fg = "base02" }
 "editor.error_text" = { fg = "red" }
 "editor.search.match" = { bg = "base015" }

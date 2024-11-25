@@ -25,7 +25,7 @@ use ferrite_core::{
     picker::{buffer_picker::BufferItem, global_search_picker::GlobalSearchMatch},
 };
 use ferrite_utility::point::Point;
-use glue::{ferrite_to_tui_rect, tui_to_ferrite_rect};
+use glue::{convert_style, ferrite_to_tui_rect, tui_to_ferrite_rect};
 use tui::layout::{Margin, Position, Rect};
 use widgets::{
     choord_widget::ChoordWidget, file_explorer_widget::FileExplorerWidget,
@@ -195,6 +195,14 @@ impl TuiApp {
                     size.height
                         .saturating_sub(self.engine.palette.height() as u16),
                 );
+
+                for x in editor_size.x..(editor_size.x + editor_size.width) {
+                    for y in editor_size.y..(editor_size.y + editor_size.height) {
+                        let cell = f.buffer_mut().cell_mut((x, y)).unwrap();
+                        cell.set_symbol("│");
+                        cell.set_style(convert_style(&theme.pane_border));
+                    }
+                }
 
                 self.buffer_area = editor_size;
                 let current_pane = self.engine.workspace.panes.get_current_pane();

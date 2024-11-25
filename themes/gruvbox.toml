@@ -1,13 +1,14 @@
 
-"editor.line_nr" = { fg = "fg4", bg = "bg2" }
-"editor.current_line_nr" = { fg = "fg1", bg = "bg2" }
+"editor.line_nr" = { fg = "fg4", bg = "bg0" }
+"editor.current_line_nr" = { fg = "fg1", bg = "bg0" }
 "editor.text" = { fg = "fg1" }
 "editor.dim_text" = { fg = "ruler" }
 "editor.info_line" = { fg = "fg2", bg = "bg1" }
 "editor.info_line.unfocused" = { fg = "fg4", bg = "bg1" }
 "editor.background" = { bg = "bg0", fg = "fg1" }
 "editor.selection" = { bg = "bg3"}
-"editor.border" = { bg = "bg0", fg = "fg1" }
+"editor.border" = { fg = "fg1", bg = "bg0" }
+"editor.pane_border" = { fg = "fg1", bg = "bg0" }
 "editor.ruler" = { fg = "ruler" }
 "editor.error_text" = { fg = "red1" }
 "editor.search.match" = { bg = "search_match" }
