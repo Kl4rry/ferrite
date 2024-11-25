@@ -26,7 +26,7 @@ impl GuiRenderer {
         height: f32,
     ) -> Self {
         let mut font_system = FontSystem::new();
-        font_system.db_mut().set_monospace_family("9x15");
+        font_system.db_mut().set_monospace_family("Fira Code");
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
         let mut atlas = TextAtlas::new(device, queue, &cache, surface_format);
