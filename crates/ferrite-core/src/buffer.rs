@@ -2025,8 +2025,16 @@ impl Buffer {
             self.views[view_id].cursors[cursor_index].position =
                 next_line_start + next_line.len_bytes();
         } else {
-            let idx = next_line.nth_next_grapheme_boundary_byte(0, col);
-            self.views[view_id].cursors[cursor_index].position = next_line_start + idx;
+            let mut width = 0;
+            let mut byte_idx = 0;
+            for grapeheme in next_line.grapehemes() {
+                width += grapeheme.width(width);
+                byte_idx += grapeheme.len_bytes();
+                if width >= col {
+                    break;
+                }
+            }
+            self.views[view_id].cursors[cursor_index].position = next_line_start + byte_idx;
         }
         self.views[view_id].cursors[cursor_index].anchor =
             self.views[view_id].cursors[cursor_index].position;
