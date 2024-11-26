@@ -34,7 +34,7 @@
 - [ ] Multiline comment
 - [ ] Diff tool
 - [x] Project wide search using ripgrep that displays matches in multibuffers
-- [ ] File tree
+- [x] File tree
 - [ ] Basic auto complete recommendations based on words in document
 - [x] Relative line numbers
 - [ ] Softwrapping
