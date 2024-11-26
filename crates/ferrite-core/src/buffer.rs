@@ -132,8 +132,8 @@ impl Default for View {
             clamp_cursor: true,
             searcher: None,
             replacement: None,
-            view_lines: 100000,
-            view_columns: 100000,
+            view_lines: 100, // semi resonable default
+            view_columns: 100, // semi resonable default
         }
     }
 }
