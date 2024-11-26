@@ -132,7 +132,7 @@ impl Default for View {
             clamp_cursor: true,
             searcher: None,
             replacement: None,
-            view_lines: 100, // semi resonable default
+            view_lines: 100,   // semi resonable default
             view_columns: 100, // semi resonable default
         }
     }
@@ -2610,12 +2610,10 @@ impl Buffer {
         self.history.finish();
     }
 
-    pub fn trim_trailing_whitespace(&mut self, view_id: ViewId) {
+    pub fn trim_trailing_whitespace(&mut self) {
         self.history.begin(self.get_all_cursors(), self.dirty);
 
-        self.views[view_id].coalesce_cursors();
-
-        let cursor_positions = self.get_cursor_positions(view_id);
+        let cursor_positions = self.get_cursor_positions();
 
         let len_before = self.rope.len_bytes();
 
@@ -2644,20 +2642,17 @@ impl Buffer {
 
         let len_after = self.rope.len_bytes();
 
-        for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
-            self.set_cursor_pos(view_id, i, pos.column, pos.line);
-            self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
+        self.restore_cursor_positions(cursor_positions);
+
+        for view_id in self.views.keys().collect::<Vec<_>>() {
+            if self.views[view_id].clamp_cursor {
+                self.center_on_cursor(view_id);
+            }
         }
 
-        if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
-        }
-
-        self.update_affinity(view_id);
         if len_before != len_after {
             self.mark_dirty();
         }
-        self.ensure_every_cursor_is_valid();
 
         self.history.finish();
     }
@@ -2706,22 +2701,40 @@ impl Buffer {
         output
     }
 
-    pub fn get_cursor_positions(&self, view_id: ViewId) -> Vec<(Point<usize>, Point<usize>)> {
-        let mut cursor_positions = Vec::new();
-        for i in 0..self.views[view_id].cursors.len() {
-            let pos = Point {
-                line: self.cursor_line_idx(view_id, i),
-                column: self.cursor_grapheme_column(view_id, i),
-            };
+    pub fn get_cursor_positions(&self) -> SecondaryMap<ViewId, Vec<(Point<usize>, Point<usize>)>> {
+        let mut map = SecondaryMap::new();
+        for view_id in self.views.keys() {
+            let mut cursor_positions = Vec::new();
+            for i in 0..self.views[view_id].cursors.len() {
+                let pos = Point {
+                    line: self.cursor_line_idx(view_id, i),
+                    column: self.cursor_grapheme_column(view_id, i),
+                };
 
-            let anchor = Point {
-                line: self.anchor_line_idx(view_id, i),
-                column: self.anchor_grapheme_column(view_id, i),
-            };
+                let anchor = Point {
+                    line: self.anchor_line_idx(view_id, i),
+                    column: self.anchor_grapheme_column(view_id, i),
+                };
 
-            cursor_positions.push((pos, anchor));
+                cursor_positions.push((pos, anchor));
+            }
+            map.insert(view_id, cursor_positions);
         }
-        cursor_positions
+        map
+    }
+
+    pub fn restore_cursor_positions(
+        &mut self,
+        map: SecondaryMap<ViewId, Vec<(Point<usize>, Point<usize>)>>,
+    ) {
+        for (view_id, cursor_positions) in map {
+            for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
+                self.set_cursor_pos(view_id, i, pos.column, pos.line);
+                self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
+            }
+            self.views[view_id].coalesce_cursors();
+        }
+        self.ensure_every_cursor_is_valid();
     }
 
     pub fn get_all_cursors(&self) -> SecondaryMap<ViewId, Vec1<Cursor>> {

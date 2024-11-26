@@ -9,6 +9,8 @@ case_insensitive_search = true
 render_whitespace = "trailing"
 line_number = "absolute"
 pipe_shell_palette = true
+auto_trim_whitespace = true
+auto_format = false
 
 [picker]
 show_hidden = false

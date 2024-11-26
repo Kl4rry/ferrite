@@ -14,6 +14,8 @@ pub struct Language {
     pub name: String,
     pub format: Option<String>,
     pub format_selection: Option<String>,
+    pub auto_trim_whitespace: Option<bool>,
+    pub auto_format: Option<bool>,
 }
 
 impl Languages {
@@ -54,6 +56,10 @@ impl Languages {
             return Err(anyhow::Error::msg("Unable to find project directory"));
         };
         Ok(directories.config_dir().join("languages.toml"))
+    }
+
+    pub fn from_name(&self, name: &str) -> Option<&Language> {
+        self.languages.iter().find(|language| language.name == name)
     }
 }
 

@@ -684,7 +684,11 @@ impl Engine {
                 }
             }
             Cmd::FormatSelection => self.format_selection_current_buffer(),
-            Cmd::Format => self.format_current_buffer(),
+            Cmd::Format => {
+                if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() {
+                    self.format_buffer(buffer_id);
+                }
+            }
             Cmd::OpenFile(path) => {
                 self.open_file(path);
             }
@@ -1072,12 +1076,7 @@ impl Engine {
             return;
         };
         let buffer_lang = self.workspace.buffers[buffer_id].language_name();
-        let config = self
-            .config
-            .languages
-            .languages
-            .iter()
-            .find(|lang| lang.name == buffer_lang);
+        let config = self.config.languages.from_name(buffer_lang);
         let Some(config) = config else {
             self.palette
                 .set_error(format!("No language config found for `{buffer_lang}`"));
@@ -1096,30 +1095,23 @@ impl Engine {
         }
     }
 
-    pub fn format_current_buffer(&mut self) {
-        if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
-            let buffer_lang = self.workspace.buffers[buffer_id].language_name();
-            let config = self
-                .config
-                .languages
-                .languages
-                .iter()
-                .find(|lang| lang.name == buffer_lang);
-            let Some(config) = config else {
-                self.palette
-                    .set_error(format!("No language config found for `{buffer_lang}`"));
-                return;
-            };
+    pub fn format_buffer(&mut self, buffer_id: BufferId) {
+        let buffer_lang = self.workspace.buffers[buffer_id].language_name();
+        let config = self.config.languages.from_name(buffer_lang);
+        let Some(config) = config else {
+            self.palette
+                .set_error(format!("No language config found for `{buffer_lang}`"));
+            return;
+        };
 
-            let Some(fmt) = &config.format else {
-                self.palette
-                    .set_error(format!("No formatter found for `{buffer_lang}`"));
-                return;
-            };
+        let Some(fmt) = &config.format else {
+            self.palette
+                .set_error(format!("No formatter found for `{buffer_lang}`"));
+            return;
+        };
 
-            if let Err(err) = self.workspace.buffers[buffer_id].format(view_id, fmt) {
-                self.palette.set_error(err);
-            }
+        if let Err(err) = self.workspace.buffers[buffer_id].format(fmt) {
+            self.palette.set_error(err);
         }
     }
 
@@ -1538,10 +1530,29 @@ impl Engine {
             }
         }
 
-        let Some(path) = buffer.file() else {
+        let Some(path) = buffer.file().map(|p| p.to_owned()) else {
             self.palette.set_msg(buffer::error::BufferError::NoPathSet);
             return;
         };
+
+        let config = self.config.languages.from_name(buffer.language_name());
+        let fmt = config.and_then(|config| config.format.clone());
+        let auto_trim = config
+            .and_then(|language| language.auto_trim_whitespace)
+            .unwrap_or(self.config.editor.auto_trim_whitespace);
+        let auto_format = config
+            .and_then(|language| language.auto_format)
+            .unwrap_or(self.config.editor.auto_format);
+
+        if auto_trim {
+            buffer.trim_trailing_whitespace();
+        }
+
+        if auto_format {
+            if let Some(fmt) = fmt {
+                let _ = buffer.format(&fmt);
+            }
+        }
 
         let job = self.job_manager.spawn_foreground_job(
             move |(buffer_id, encoding, line_ending, rope, path, last_edit)| {

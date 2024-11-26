@@ -239,6 +239,11 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Key::new(KeyCode::Tab, KeyModifiers::CONTROL),
+            Cmd::OpenBufferPicker,
+            Exclusiveness::Exclusive,
+        ),
+        (
             Key::new(KeyCode::Char('z'), KeyModifiers::CONTROL),
             Cmd::Undo,
             Exclusiveness::Exclusive,

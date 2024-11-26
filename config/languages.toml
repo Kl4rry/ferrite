@@ -12,3 +12,7 @@ format_selection = "clang-format --offset=%start% --length=%len%"
 name = "c"
 format = "clang-format"
 format_selection = "clang-format --offset=%start% --length=%len%"
+
+[[language]]
+name = "markdown"
+auto_trim_whitespace = false

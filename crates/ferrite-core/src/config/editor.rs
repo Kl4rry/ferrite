@@ -39,6 +39,10 @@ pub struct Editor {
     pub case_insensitive_search: bool,
     #[serde(default = "get_true")]
     pub pipe_shell_palette: bool,
+    #[serde(default = "get_true")]
+    pub auto_trim_whitespace: bool,
+    #[serde(default = "get_false")]
+    pub auto_format: bool,
     #[serde(default)]
     pub line_number: LineNumber,
     #[serde(default)]

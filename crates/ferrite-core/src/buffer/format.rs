@@ -94,7 +94,7 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 }
 
 impl Buffer {
-    pub fn format(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
+    pub fn format(&mut self, formatter: &str) -> Result<(), PopenError> {
         if self.read_only {
             return Ok(());
         }
@@ -106,22 +106,12 @@ impl Buffer {
         self.history.begin(self.get_all_cursors(), self.dirty);
         let new_rope = format(formatter, self.rope.clone())?;
 
-        let cursor_positions = self.get_cursor_positions(view_id);
+        let cursor_positions = self.get_cursor_positions();
 
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
-        for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
-            self.set_cursor_pos(view_id, i, pos.column, pos.line);
-            self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
-        }
-
-        self.ensure_every_cursor_is_valid();
-        self.views[view_id].coalesce_cursors();
-
-        if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
-        }
+        self.restore_cursor_positions(cursor_positions);
 
         self.mark_dirty();
 
@@ -145,18 +135,12 @@ impl Buffer {
             self.views[view_id].cursors.first(),
         )?;
 
-        let cursor_positions = self.get_cursor_positions(view_id);
+        let cursor_positions = self.get_cursor_positions();
 
         let len = self.rope.len_bytes();
         self.history.replace(&mut self.rope, 0..len, &new_rope);
 
-        for (i, (pos, anchor)) in cursor_positions.into_iter().enumerate() {
-            self.set_cursor_pos(view_id, i, pos.column, pos.line);
-            self.set_anchor_pos(view_id, i, anchor.column, anchor.line);
-        }
-
-        self.ensure_every_cursor_is_valid();
-        self.views[view_id].coalesce_cursors();
+        self.restore_cursor_positions(cursor_positions);
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);

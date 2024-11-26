@@ -52,7 +52,7 @@ impl Buffer {
             Redo if !self.read_only => self.redo(view_id),
             RevertBuffer if !self.read_only => self.revert_buffer(view_id),
             Number(number) if !self.read_only => self.number(view_id, number),
-            TrimTrailingWhitespace if !self.read_only => self.trim_trailing_whitespace(view_id),
+            TrimTrailingWhitespace if !self.read_only => self.trim_trailing_whitespace(),
             _ => (),
         }
 
