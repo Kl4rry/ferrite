@@ -336,7 +336,7 @@ impl Engine {
                     .find(|buffer| buffer.path == path)
                 {
                     Some(buffer_data) => {
-                        if let Some(view_id) = buffer.get_first_view() {
+                        if let Some(view_id) = buffer.get_last_used_view() {
                             if buffer_data.cursors != buffer.views[view_id].cursors {
                                 buffer_data
                                     .cursors
@@ -351,7 +351,7 @@ impl Engine {
                         }
                     }
                     None => {
-                        if let Some(view_id) = buffer.get_first_view() {
+                        if let Some(view_id) = buffer.get_last_used_view() {
                             new_buffers.push(BufferData {
                                 path: path.to_path_buf(),
                                 cursors: buffer.views[view_id].cursors.clone(),
@@ -904,7 +904,7 @@ impl Engine {
                 } else if let Some(picker) = &mut self.buffer_picker {
                     let _ = picker.handle_input(input);
                     if let Some(choice) = picker.get_choice() {
-                        self.workspace.buffers[choice.id].update_interact();
+                        self.workspace.buffers[choice.id].update_interact(None);
                         self.buffer_picker = None;
 
                         let buffer = &mut self.workspace.buffers[choice.id];
@@ -1140,7 +1140,7 @@ impl Engine {
                 == Some(&real_path)
         }) {
             Some((id, buffer)) => {
-                buffer.update_interact();
+                buffer.update_interact(None);
                 let view_id = buffer.create_view();
                 let replaced = self
                     .workspace

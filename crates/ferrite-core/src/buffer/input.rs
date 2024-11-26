@@ -60,7 +60,7 @@ impl Buffer {
             searcher.update_buffer(self.rope.clone(), None);
         }
 
-        self.update_interact();
+        self.update_interact(Some(view_id));
 
         Ok(())
     }

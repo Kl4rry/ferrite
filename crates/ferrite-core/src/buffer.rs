@@ -18,7 +18,7 @@ use ferrite_utility::{
 use ropey::{Rope, RopeSlice};
 use search::search_rope;
 use serde::{Deserialize, Serialize};
-use slotmap::{SecondaryMap, SlotMap};
+use slotmap::{Key, SecondaryMap, SlotMap};
 
 use self::{error::BufferError, history::History, search::BufferSearcher};
 use super::{
@@ -196,6 +196,7 @@ pub struct Buffer {
     pub encoding: &'static Encoding,
     pub indent: Indentation,
     last_interact: Instant,
+    last_used_view: ViewId,
     // syntax highlight
     syntax: Option<Syntax>,
     history: History,
@@ -224,6 +225,7 @@ impl Clone for Buffer {
             syntax: Some(syntax),
             history: self.history.clone(),
             last_interact: self.last_interact,
+            last_used_view: self.last_used_view,
             views: self.views.clone(),
         }
     }
@@ -245,6 +247,7 @@ impl Default for Buffer {
             syntax: None,
             history: History::default(),
             last_interact: Instant::now(),
+            last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
         }
     }
@@ -2139,8 +2142,19 @@ impl Buffer {
         self.last_interact
     }
 
-    pub fn update_interact(&mut self) {
+    pub fn get_last_used_view(&self) -> Option<ViewId> {
+        if self.views.contains_key(self.last_used_view) {
+            Some(self.last_used_view)
+        } else {
+            self.views.keys().next()
+        }
+    }
+
+    pub fn update_interact(&mut self, view_id: Option<ViewId>) {
         self.last_interact = Instant::now();
+        if let Some(view_id) = view_id {
+            self.last_used_view = view_id;
+        }
     }
 
     pub fn queue_syntax_update(&mut self) {
@@ -2499,10 +2513,7 @@ impl Buffer {
     }
 
     pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
-        for cursor in buffer_data.cursors.iter() {
-            self.views[view_id].cursors.push(*cursor);
-        }
-        self.views[view_id].cursors.remove(0);
+        self.views[view_id].cursors = buffer_data.cursors.clone();
         self.ensure_cursors_are_valid(view_id);
         self.views[view_id].line_pos = buffer_data.line_pos;
         self.views[view_id].col_pos = buffer_data.col_pos;
