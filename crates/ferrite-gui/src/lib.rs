@@ -45,13 +45,13 @@ struct GuiApp {
     _proxy: Box<dyn EventLoopProxy>,
     gui_renderer: GuiRenderer,
     // rendering stuff
-    window: Arc<Window>,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     scale_factor: f64,
+    window: Arc<Window>,
 }
 
 impl GuiApp {
