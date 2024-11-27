@@ -440,15 +440,13 @@ impl Panes {
             Direction::Up => Rect::new(cb.x, cb.y.saturating_sub(1), 1, 1),
             Direction::Down => Rect::new(cb.x, cb.y + cb.height + 1, 1, 1),
             Direction::Right => Rect::new(cb.x + cb.width + 1, cb.y, 1, 1),
-            Direction::Left => Rect::new(cb.x.saturating_sub(1), cb.y, 1, 1),
+            Direction::Left => Rect::new(cb.x.saturating_sub(2), cb.y, 1, 1),
         };
 
         // This is retarded and I can't be bother to figure out why its needed
         if cb.y == 0 && dir == Direction::Up {
             return;
         }
-
-        tracing::error!("BOUNDS: {bounds_check:?}");
 
         if let Some((new_pane, _)) = bounds
             .iter()
