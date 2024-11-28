@@ -992,6 +992,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "crossterm",
+ "directories",
  "encoding_rs",
  "ferrite-cli",
  "ferrite-core",

@@ -2701,6 +2701,7 @@ impl Buffer {
         output
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn get_cursor_positions(&self) -> SecondaryMap<ViewId, Vec<(Point<usize>, Point<usize>)>> {
         let mut map = SecondaryMap::new();
         for view_id in self.views.keys() {
@@ -2723,6 +2724,7 @@ impl Buffer {
         map
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn restore_cursor_positions(
         &mut self,
         map: SecondaryMap<ViewId, Vec<(Point<usize>, Point<usize>)>>,

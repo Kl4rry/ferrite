@@ -1,9 +1,11 @@
 use ferrite_core::{file_explorer::FileExplorer, theme::EditorTheme};
+use ferrite_utility::trim::trim_path;
 use tui::{
     layout::Rect,
     widgets::{Clear, StatefulWidget, Widget},
 };
 
+use super::one_line_input_widget::OneLineInputWidget;
 use crate::glue::convert_style;
 
 pub struct FileExplorerWidget<'a> {
@@ -33,7 +35,7 @@ impl StatefulWidget for FileExplorerWidget<'_> {
         Clear.render(area, buf);
         buf.set_style(area, convert_style(&self.theme.background));
 
-        if area.height > 1 {
+        if area.height > 2 {
             let height = area.height.saturating_sub(1);
             let page = state.index() / height as usize;
             let start = page * height as usize;
@@ -64,21 +66,47 @@ impl StatefulWidget for FileExplorerWidget<'_> {
             }
         }
 
-        let info_line_y = area.y + area.height - 1;
-        buf.set_stringn(
-            area.x,
-            info_line_y,
-            format!("Dir: {}", state.directory().to_string_lossy()),
-            area.width as usize,
-            convert_style(&self.theme.text),
-        );
-        let info_line_area = Rect::new(area.x, info_line_y, area.width, 1);
-        if self.has_focus {
-            buf.set_style(info_line_area, convert_style(&self.theme.info_line));
-        } else {
-            buf.set_style(
-                info_line_area,
-                convert_style(&self.theme.info_line_unfocused),
+        if area.height > 1 {
+            let info_line_y = area.y + area.height - 1;
+
+            // Its a bit bruh to do this every single fram
+            let directory = if let Some(directories) = directories::UserDirs::new() {
+                let home = directories.home_dir();
+                let trimmed = trim_path(&home.to_string_lossy(), state.directory());
+                if trimmed.len() < state.directory().to_string_lossy().len() {
+                    format!("~/{trimmed}")
+                } else {
+                    trimmed
+                }
+            } else {
+                state.directory().to_string_lossy().into()
+            };
+
+            buf.set_stringn(
+                area.x,
+                info_line_y,
+                format!("Dir: {}", directory),
+                area.width as usize,
+                convert_style(&self.theme.text),
+            );
+            let info_line_area = Rect::new(area.x, info_line_y, area.width, 1);
+            if self.has_focus {
+                buf.set_style(info_line_area, convert_style(&self.theme.info_line));
+            } else {
+                buf.set_style(
+                    info_line_area,
+                    convert_style(&self.theme.info_line_unfocused),
+                );
+            }
+        }
+
+        {
+            let input_line_y = area.y + area.height - 2;
+            let input_line_area = Rect::new(area.x, input_line_y, area.width, 1);
+            OneLineInputWidget::new(self.theme, self.has_focus).render(
+                input_line_area,
+                buf,
+                &mut state.buffer,
             );
         }
     }

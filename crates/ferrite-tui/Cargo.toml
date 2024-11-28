@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 crossterm = { workspace = true }
+directories = { workspace = true }
 encoding_rs = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
