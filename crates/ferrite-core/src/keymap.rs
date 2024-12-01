@@ -294,11 +294,6 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Enter, KeyModifiers::CONTROL),
-            Cmd::NewLine,
-            Exclusiveness::Exclusive,
-        ),
-        (
             Key::new(KeyCode::Enter, KeyModifiers::NONE),
             Cmd::Char('\n'),
             Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),

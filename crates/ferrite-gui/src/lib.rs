@@ -5,23 +5,29 @@ use std::{
 };
 
 use anyhow::Result;
+use backend::WgpuBackend;
 use event_loop_wrapper::EventLoopProxyWrapper;
 use ferrite_cli::Args;
 use ferrite_core::{
+    clipboard,
     cmd::Cmd,
-    engine::Engine,
-    event_loop_proxy::{EventLoopProxy, UserEvent},
+    event_loop_proxy::{EventLoopControlFlow, UserEvent},
+    keymap::{self, keycode::KeyModifiers},
     logger::LogMessage,
 };
-use gui_renderer::GuiRenderer;
+use ferrite_tui::TuiApp;
+use ferrite_utility::line_ending::LineEnding;
+use glue::convert_keycode;
 use winit::{
     event::{Event, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder},
+    keyboard::Key,
     window::{Window, WindowBuilder},
 };
 
+mod backend;
 mod event_loop_wrapper;
-mod gui_renderer;
+mod glue;
 
 pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     {
@@ -41,9 +47,7 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
 }
 
 struct GuiApp {
-    engine: Engine,
-    _proxy: Box<dyn EventLoopProxy>,
-    gui_renderer: GuiRenderer,
+    tui_app: TuiApp<WgpuBackend>,
     // rendering stuff
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -52,6 +56,7 @@ struct GuiApp {
     size: winit::dpi::PhysicalSize<u32>,
     scale_factor: f64,
     window: Arc<Window>,
+    modifiers: KeyModifiers,
 }
 
 impl GuiApp {
@@ -60,8 +65,7 @@ impl GuiApp {
         event_loop: &EventLoop<UserEvent>,
         rx: mpsc::Receiver<LogMessage>,
     ) -> Result<Self> {
-        let proxy = Box::new(EventLoopProxyWrapper::new(event_loop.create_proxy()));
-        let engine = Engine::new(args, proxy.dup(), rx)?;
+        let event_loop_wrapper = EventLoopProxyWrapper::new(event_loop.create_proxy());
 
         let window = Arc::new(
             WindowBuilder::new()
@@ -127,14 +131,14 @@ impl GuiApp {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::AutoNoVsync,
+            present_mode: wgpu::PresentMode::AutoVsync,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![],
             desired_maximum_frame_latency: 1,
         };
         surface.configure(&device, &config);
 
-        let gui_renderer = GuiRenderer::new(
+        let backend = WgpuBackend::new(
             &device,
             &queue,
             surface_format,
@@ -142,14 +146,14 @@ impl GuiApp {
             size.height as f32,
         );
 
+        let tui_app = TuiApp::new(args, event_loop_wrapper, backend, rx)?;
+
         let scale_factor = 1.0;
 
         window.set_visible(true);
 
         Ok(Self {
-            engine,
-            _proxy: proxy,
-            gui_renderer,
+            tui_app,
             window,
             surface,
             device,
@@ -157,26 +161,135 @@ impl GuiApp {
             config,
             size,
             scale_factor,
+            modifiers: KeyModifiers::empty(),
         })
     }
 
     pub fn run(mut self, event_loop: EventLoop<UserEvent>) {
+        let mut control_flow = EventLoopControlFlow::Poll;
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
         event_loop
             .run(move |event, event_loop| match event {
+                Event::NewEvents(_) => {
+                    self.tui_app.start_of_events();
+                }
+                Event::UserEvent(event) => {
+                    self.tui_app
+                        .engine
+                        .handle_app_event(event, &mut control_flow);
+                }
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::Resized(physical_size) => {
                         self.resize(physical_size);
+                        self.window.request_redraw();
                     }
                     WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                         self.scale_factor = scale_factor;
                     }
                     WindowEvent::MouseWheel { delta, .. } => {
-                        if let Some((buffer, view_id)) = self.engine.get_current_buffer_mut() {
+                        if let Some((buffer, view_id)) =
+                            self.tui_app.engine.get_current_buffer_mut()
+                        {
                             if let MouseScrollDelta::LineDelta(_, y) = delta {
                                 buffer
-                                    .handle_input(view_id, Cmd::VerticalScroll(-y as i64))
+                                    .handle_input(view_id, Cmd::VerticalScroll(-y as i64 * 3))
                                     .unwrap();
+                            }
+                        }
+                    }
+                    WindowEvent::KeyboardInput { event, .. } => {
+                        tracing::trace!("{:?}", event);
+                        if event.state.is_pressed() {
+                            match event.logical_key {
+                                Key::Named(key) => {
+                                    match key {
+                                        winit::keyboard::NamedKey::Control => {
+                                            self.modifiers |= KeyModifiers::CONTROL
+                                        }
+                                        winit::keyboard::NamedKey::Alt => {
+                                            self.modifiers |= KeyModifiers::ALT
+                                        }
+                                        winit::keyboard::NamedKey::Shift => {
+                                            self.modifiers |= KeyModifiers::SHIFT
+                                        }
+                                        winit::keyboard::NamedKey::Super => {
+                                            self.modifiers |= KeyModifiers::SUPER
+                                        }
+                                        winit::keyboard::NamedKey::Hyper => {
+                                            self.modifiers |= KeyModifiers::HYPER
+                                        }
+                                        winit::keyboard::NamedKey::Meta => {
+                                            self.modifiers |= KeyModifiers::META
+                                        }
+                                        _ => (),
+                                    }
+                                    if let Some(keycode) = convert_keycode(key) {
+                                        let cmd = keymap::get_command_from_input(
+                                            keycode,
+                                            self.modifiers,
+                                            self.tui_app.engine.get_current_keymappings(),
+                                        );
+                                        if let Some(cmd) = cmd {
+                                            self.tui_app
+                                                .engine
+                                                .handle_input_command(cmd, &mut control_flow);
+                                            return;
+                                        }
+                                    }
+                                }
+                                Key::Character(s) => {
+                                    if s.chars().count() == 1 {
+                                        let ch = s.chars().next().unwrap();
+                                        let cmd = if LineEnding::from_char(ch).is_some() {
+                                            Some(Cmd::Char('\n'))
+                                        } else {
+                                            keymap::get_command_from_input(
+                                                keymap::keycode::KeyCode::Char(
+                                                    s.chars().next().unwrap(),
+                                                ),
+                                                self.modifiers,
+                                                self.tui_app.engine.get_current_keymappings(),
+                                            )
+                                        };
+                                        if let Some(cmd) = cmd {
+                                            self.tui_app
+                                                .engine
+                                                .handle_input_command(cmd, &mut control_flow);
+                                            return;
+                                        }
+                                    } else {
+                                        self.tui_app.engine.handle_input_command(
+                                            Cmd::Insert(s.to_string()),
+                                            &mut control_flow,
+                                        );
+                                        return;
+                                    };
+                                }
+                                _ => (),
+                            }
+                        } else {
+                            if let Key::Named(key) = event.logical_key {
+                                match key {
+                                    winit::keyboard::NamedKey::Control => {
+                                        self.modifiers.remove(KeyModifiers::CONTROL)
+                                    }
+                                    winit::keyboard::NamedKey::Alt => {
+                                        self.modifiers.remove(KeyModifiers::ALT)
+                                    }
+                                    winit::keyboard::NamedKey::Shift => {
+                                        self.modifiers.remove(KeyModifiers::SHIFT)
+                                    }
+                                    winit::keyboard::NamedKey::Super => {
+                                        self.modifiers.remove(KeyModifiers::SUPER)
+                                    }
+                                    winit::keyboard::NamedKey::Hyper => {
+                                        self.modifiers.remove(KeyModifiers::HYPER)
+                                    }
+                                    winit::keyboard::NamedKey::Meta => {
+                                        self.modifiers.remove(KeyModifiers::META)
+                                    }
+                                    _ => (),
+                                }
                             }
                         }
                     }
@@ -190,6 +303,19 @@ impl GuiApp {
                     event => self.input(event),
                 },
                 Event::AboutToWait => {
+                    self.tui_app.engine.do_polling(&mut control_flow);
+                    match control_flow {
+                        EventLoopControlFlow::Poll => {
+                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll)
+                        }
+                        EventLoopControlFlow::Wait => {
+                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait)
+                        }
+                        EventLoopControlFlow::Exit => event_loop.exit(),
+                        EventLoopControlFlow::WaitMax(duration) => event_loop.set_control_flow(
+                            winit::event_loop::ControlFlow::wait_duration(duration),
+                        ),
+                    }
                     self.window.request_redraw();
                 }
                 _ => {}
@@ -202,7 +328,9 @@ impl GuiApp {
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
-        self.gui_renderer
+        self.tui_app
+            .terminal
+            .backend_mut()
             .resize(self.size.width as f32, self.size.height as f32);
     }
 
@@ -219,12 +347,12 @@ impl GuiApp {
                 label: Some("Render Encoder"),
             });
 
-        let theme = &self.engine.themes[&self.engine.config.editor.theme];
+        let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
 
         {
             let color = theme.background.bg.clone().unwrap_or_default();
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render pass"),
+                label: Some("Main render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -244,38 +372,33 @@ impl GuiApp {
                 occlusion_query_set: None,
             });
 
-            if let Some((buffer, view_id)) = self.engine.get_current_buffer_mut() {
-                let lines = (self.size.height as f32 / 19.0).ceil() as usize;
-                eprintln!("lines: {lines}");
-                buffer.set_view_lines(view_id, lines);
-                //let view = buffer.get_buffer_view(view_id);
-                let start = Instant::now();
-                let mut render_input = String::new();
-                for chunk in buffer.rope().chunks() {
-                    render_input.push_str(chunk);
-                }
-                eprintln!("text: {:?}", Instant::now().duration_since(start));
-                //for line in view.lines {
-                //let line = line.text.to_string();
-                //render_input.push_str(&line);
-                //}
-                let start = Instant::now();
-                self.gui_renderer.prepare(
-                    &self.device,
-                    &self.queue,
-                    render_input,
-                    buffer.views[view_id].line_pos,
-                );
-                eprintln!("prepare: {:?}", Instant::now().duration_since(start));
-                let start = Instant::now();
-                self.gui_renderer.render(&mut rpass);
-                eprintln!("render: {:?}", Instant::now().duration_since(start));
-            }
+            self.tui_app.render();
+
+            let start = Instant::now();
+            self.tui_app.terminal.backend_mut().prepare(
+                &self.device,
+                &self.queue,
+                &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
+            );
+            eprintln!("prepare: {:?}", Instant::now().duration_since(start));
+
+            let start = Instant::now();
+            self.tui_app.terminal.backend_mut().render(&mut rpass);
+            eprintln!("prepare: {:?}", Instant::now().duration_since(start));
         }
 
         self.queue.submit(iter::once(encoder.finish()));
         output.present();
 
+        self.tui_app.engine.last_render_time =
+            Instant::now().duration_since(self.tui_app.engine.start_of_events);
+
         Ok(())
+    }
+}
+
+impl Drop for GuiApp {
+    fn drop(&mut self) {
+        let _ = clipboard::uninit();
     }
 }

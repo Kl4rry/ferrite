@@ -22,7 +22,6 @@ impl Buffer {
             MoveLine(dir) if !self.read_only => self.move_line(view_id, dir),
             Insert(text) if !self.read_only => self.insert_text(view_id, &text, true),
             Char(ch) if !self.read_only => self.insert_text(view_id, &String::from(ch), true),
-            NewLine if !self.read_only => self.insert_text(view_id, "\n", true),
             Backspace if !self.read_only => self.backspace(view_id),
             BackspaceWord if !self.read_only => self.backspace_word(view_id),
             Delete if !self.read_only => self.delete(view_id),
