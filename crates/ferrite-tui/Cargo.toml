@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-crossterm = { workspace = true }
 directories = { workspace = true }
 encoding_rs = { workspace = true }
 ferrite-cli = { workspace = true }
@@ -15,7 +14,7 @@ ferrite-utility = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }
 tracing = { workspace = true }
-tui = { workspace = true }
+tui = { workspace = true, default-features = false }
 unicode-width = { workspace = true }
 
 [features]

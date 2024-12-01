@@ -127,7 +127,7 @@ fn main() -> Result<ExitCode> {
     match args.ui {
         Some(Ui::Tui) => {
             #[cfg(feature = "tui")]
-            if let Err(err) = ferrite_tui::run(&args, rx) {
+            if let Err(err) = ferrite_term::run(&args, rx) {
                 tracing::error!("{err}");
                 return Err(err);
             }
@@ -151,7 +151,7 @@ fn main() -> Result<ExitCode> {
         }
         None => {
             #[cfg(feature = "tui")]
-            ferrite_tui::run(&args, rx)?;
+            ferrite_term::run(&args, rx)?;
             #[cfg(not(feature = "tui"))]
             ferrite_gui::run(&args)?;
         }

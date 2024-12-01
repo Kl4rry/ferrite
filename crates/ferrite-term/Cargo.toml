@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+name = "ferrite-term"
+version = "0.1.0"
+
+[dependencies]
+anyhow = { workspace = true }
+crossterm = { workspace = true }
+ferrite-cli = { workspace = true }
+ferrite-core = { workspace = true }
+ferrite-tui = { workspace = true }
+ferrite-utility = { workspace = true }
+tracing = { workspace = true }
+tui = { workspace = true, default-features = true }

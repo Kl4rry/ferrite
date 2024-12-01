@@ -42,8 +42,24 @@ impl GuiRenderer {
 
         let viewport = Viewport::new(device, &cache);
 
-        let mut buffer = Buffer::new(&mut font_system, Metrics::new(15.0, 19.0));
-        buffer.set_monospace_width(&mut font_system, Some(2.0));
+        let metrics = Metrics::relative(15.0, 1.20);
+        let mut buffer = Buffer::new(&mut font_system, metrics);
+        // borrowed from cosmic term
+        let (_cell_width, _cell_height) = {
+            buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
+
+            // Use size of space to determine cell size
+            buffer.set_text(
+                &mut font_system,
+                " ",
+                Attrs::new().family(Family::Monospace),
+                Shaping::Advanced,
+            );
+            let layout = buffer.line_layout(&mut font_system, 0).unwrap();
+            let w = layout[0].w;
+            buffer.set_monospace_width(&mut font_system, Some(w));
+            (w, metrics.line_height)
+        };
         buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
 
         Self {
