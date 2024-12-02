@@ -1,7 +1,7 @@
 use std::{
     env, iter,
     sync::{mpsc, Arc},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use anyhow::Result;
@@ -173,10 +173,9 @@ impl GuiApp {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         event_loop
             .run(move |event, event_loop| match event {
-                Event::NewEvents(cause) => {
+                Event::NewEvents(_) => {
                     self.control_flow = EventLoopControlFlow::Wait;
                     self.tui_app.start_of_events();
-                    eprintln!("NEW EVENTS: {:?}\n", cause);
                 }
                 Event::UserEvent(event) => {
                     self.tui_app
@@ -197,31 +196,28 @@ impl GuiApp {
                     event => self.input(event_loop, event),
                 },
                 Event::AboutToWait => {
-                    self.window.request_redraw();
                     self.tui_app.engine.do_polling(&mut self.control_flow);
-                    eprintln!("{:?}", self.control_flow);
                     match self.control_flow {
                         EventLoopControlFlow::Poll => {
-                            //event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
                         }
                         EventLoopControlFlow::Wait => {
-                            //event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
                         }
                         EventLoopControlFlow::Exit => event_loop.exit(),
                         EventLoopControlFlow::WaitMax(duration) => {
-                            if duration > Duration::from_secs(10000) {
-                                //event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
-                            } else {
-                                //event_loop.set_control_flow(
-                                //    winit::event_loop::ControlFlow::wait_duration(duration),
-                                //);
-                            }
+                            event_loop.set_control_flow(
+                                winit::event_loop::ControlFlow::wait_duration(duration),
+                            );
                         }
                     }
+                    self.tui_app.render();
+                    if self.tui_app.terminal.backend().redraw {
+                        self.window.request_redraw();
+                        self.tui_app.terminal.backend_mut().redraw = false;
+                    }
                 }
-                event => {
-                    eprintln!("{:?}", event);
-                }
+                _event => (),
             })
             .unwrap();
     }
@@ -406,8 +402,6 @@ impl GuiApp {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-
-            self.tui_app.render();
 
             let start = Instant::now();
             self.tui_app.terminal.backend_mut().prepare(
