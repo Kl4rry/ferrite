@@ -12,6 +12,7 @@ ferrite-tui = { workspace = true }
 ferrite-utility = { workspace = true }
 glyphon = "0.7.0"
 pollster = "0.3.0"
+cosmic-text = { version = "0.12.1", features = ["shape-run-cache"] }
 tracing = { workspace = true }
 tui = { workspace = true, default-features = false }
 unicode-width = { workspace = true }

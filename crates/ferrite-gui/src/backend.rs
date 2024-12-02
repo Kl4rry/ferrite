@@ -27,7 +27,7 @@ pub struct WgpuBackend {
     cell_height: f32,
     pub columns: u16,
     pub lines: u16,
-    // buffer
+    pub redraw: bool,
     buffer: Buffer,
     cells: Vec<(Vec<Cell>, bool)>,
 }
@@ -103,6 +103,7 @@ impl WgpuBackend {
             lines,
             buffer,
             cells,
+            redraw: true,
         }
     }
 
@@ -150,23 +151,25 @@ impl WgpuBackend {
                 continue;
             }
             let mut attr_list = AttrsList::new(default_attrs);
-            attr_list.add_span(1..3, default_attrs.color(glyphon::Color::rgb(255, 0, 255)));
-            attr_list.add_span(2..9, default_attrs.color(glyphon::Color::rgb(255, 0, 0)));
-            eprintln!("{:#?}", attr_list.spans());
             let mut line_text = String::new();
+            let mut idx = 0;
             for cell in line {
-                /*let mut attrs = default_attrs;
+                let mut attrs = default_attrs;
                 if let tui::style::Color::Rgb(r, g, b) = cell.fg {
                     let color = glyphon::Color::rgb(r, g, b);
-                }*/
-                line_text.push_str(cell.symbol());
+                    attrs = attrs.color(color);
+                }
+                let symbol = cell.symbol();
+                line_text.push_str(symbol);
+                attr_list.add_span(idx..(idx + symbol.len()), attrs);
+                idx += symbol.len();
             }
-            //self.buffer.set_rich_text(font_system, spans, default_attrs, shaping);
 
-            self.buffer.lines[i].set_text(
+            self.buffer.lines[i] = BufferLine::new(
                 &line_text,
                 glyphon::cosmic_text::LineEnding::Lf,
                 attr_list,
+                Shaping::Advanced,
             );
             *dirty = false;
         }
@@ -179,6 +182,7 @@ impl WgpuBackend {
             horizontal: 0.0,
         });
         self.buffer.shape_until_scroll(&mut self.font_system, false);
+        self.font_system.shape_run_cache.trim(1024);
         eprintln!("shape: {:?}", Instant::now().duration_since(start));
 
         self.viewport.update(
@@ -233,6 +237,7 @@ impl Backend for WgpuBackend {
             let (line, dirty) = &mut self.cells[line as usize];
             line[column as usize] = cell.clone();
             *dirty = true;
+            self.redraw = true;
         }
         Ok(())
     }

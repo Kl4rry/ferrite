@@ -935,6 +935,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cgmath",
+ "cosmic-text",
  "ferrite-cli",
  "ferrite-core",
  "ferrite-tui",
