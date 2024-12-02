@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use ferrite_core::theme::EditorTheme;
 use glyphon::{
-    Attrs, Buffer, Cache, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache, TextArea,
-    TextAtlas, TextBounds, TextRenderer, Viewport,
+    cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Family, FontSystem, Metrics,
+    Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use tui::{
     backend::WindowSize,
@@ -25,11 +25,11 @@ pub struct WgpuBackend {
     height: f32,
     cell_width: f32,
     cell_height: f32,
-    columns: u16,
-    lines: u16,
+    pub columns: u16,
+    pub lines: u16,
     // buffer
     buffer: Buffer,
-    cells: Vec<Vec<Cell>>,
+    cells: Vec<(Vec<Cell>, bool)>,
 }
 
 impl WgpuBackend {
@@ -68,7 +68,7 @@ impl WgpuBackend {
                 &mut font_system,
                 " ",
                 Attrs::new().family(Family::Monospace),
-                Shaping::Advanced,
+                Shaping::Basic,
             );
             let layout = buffer.line_layout(&mut font_system, 0).unwrap();
             let w = layout[0].w;
@@ -80,13 +80,13 @@ impl WgpuBackend {
         let columns = (width / cell_width) as u16;
         let lines = (height / cell_height) as u16;
 
-        let mut cells: Vec<Vec<Cell>> = Vec::new();
+        let mut cells = Vec::new();
         for _ in 0..lines {
             let mut line = Vec::with_capacity(columns.into());
             for _ in 0..columns {
                 line.push(Cell::default());
             }
-            cells.push(line);
+            cells.push((line, true));
         }
 
         Self {
@@ -117,8 +117,9 @@ impl WgpuBackend {
             for _ in 0..self.columns {
                 line.push(Cell::default());
             }
-            self.cells.push(line);
+            self.cells.push((line, true));
         }
+        let _ = self.clear();
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, theme: &EditorTheme) {
@@ -127,39 +128,57 @@ impl WgpuBackend {
         self.buffer
             .set_size(&mut self.font_system, Some(self.width), Some(self.height));
 
-        self.buffer.lines.clear();
         let fg = convert_style(&theme.text)
             .0
             .unwrap_or(glyphon::Color::rgb(0, 0, 0));
         /*et bg = convert_style(&theme.background)
         .1
         .unwrap_or(glyphon::Color::rgb(1, 1, 1));*/
+
         let default_attrs = Attrs::new().color(fg).family(Family::Monospace);
-        let mut spans = Vec::new();
-        for line in &self.cells {
+        self.buffer.lines.resize(
+            self.cells.len(),
+            BufferLine::new(
+                "",
+                glyphon::cosmic_text::LineEnding::Lf,
+                AttrsList::new(default_attrs),
+                Shaping::Basic,
+            ),
+        );
+        for (i, (line, dirty)) in self.cells.iter_mut().enumerate() {
+            if !*dirty {
+                continue;
+            }
+            let mut attr_list = AttrsList::new(default_attrs);
+            attr_list.add_span(1..3, default_attrs.color(glyphon::Color::rgb(255, 0, 255)));
+            attr_list.add_span(2..9, default_attrs.color(glyphon::Color::rgb(255, 0, 0)));
+            eprintln!("{:#?}", attr_list.spans());
+            let mut line_text = String::new();
             for cell in line {
-                let mut attrs = default_attrs;
+                /*let mut attrs = default_attrs;
                 if let tui::style::Color::Rgb(r, g, b) = cell.fg {
                     let color = glyphon::Color::rgb(r, g, b);
-                    attrs = attrs.color(color);
-                }
-                spans.push((cell.symbol(), attrs));
+                }*/
+                line_text.push_str(cell.symbol());
             }
-            spans.push(("\n", default_attrs));
+            //self.buffer.set_rich_text(font_system, spans, default_attrs, shaping);
+
+            self.buffer.lines[i].set_text(
+                &line_text,
+                glyphon::cosmic_text::LineEnding::Lf,
+                attr_list,
+            );
+            *dirty = false;
         }
         eprintln!("text: {:?}", Instant::now().duration_since(start));
 
         let start = Instant::now();
-        self.buffer.set_rich_text(
-            &mut self.font_system,
-            spans,
-            default_attrs,
-            Shaping::Advanced,
-        );
-        eprintln!("set: {:?}", Instant::now().duration_since(start));
-
-        let start = Instant::now();
-        self.buffer.shape_until_scroll(&mut self.font_system, true);
+        self.buffer.set_scroll(Scroll {
+            line: 0,
+            vertical: 0.0,
+            horizontal: 0.0,
+        });
+        self.buffer.shape_until_scroll(&mut self.font_system, false);
         eprintln!("shape: {:?}", Instant::now().duration_since(start));
 
         self.viewport.update(
@@ -211,7 +230,9 @@ impl Backend for WgpuBackend {
         I: Iterator<Item = (u16, u16, &'a tui::buffer::Cell)>,
     {
         for (column, line, cell) in content {
-            self.cells[line as usize][column as usize] = cell.clone();
+            let (line, dirty) = &mut self.cells[line as usize];
+            line[column as usize] = cell.clone();
+            *dirty = true;
         }
         Ok(())
     }
@@ -225,13 +246,13 @@ impl Backend for WgpuBackend {
     }
 
     fn clear(&mut self) -> std::io::Result<()> {
-        /*eprintln!("clear");
         self.buffer.lines.clear();
-        for line in &mut self.cells {
+        for (line, dirty) in &mut self.cells {
             for cell in line {
                 cell.reset();
             }
-        }*/
+            *dirty = true;
+        }
         Ok(())
     }
 

@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use crate::palette::PalettePromptEvent;
 
+#[derive(Debug)]
 pub enum UserEvent {
     PaletteEvent { mode: String, content: String },
     PromptEvent(PalettePromptEvent),

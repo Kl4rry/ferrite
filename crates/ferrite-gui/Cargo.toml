@@ -14,5 +14,6 @@ glyphon = "0.7.0"
 pollster = "0.3.0"
 tracing = { workspace = true }
 tui = { workspace = true, default-features = false }
+unicode-width = { workspace = true }
 wgpu = "23.0.0"
 winit = "0.29.15"

@@ -1,7 +1,7 @@
 use std::{
     env, iter,
     sync::{mpsc, Arc},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
@@ -20,7 +20,7 @@ use ferrite_utility::line_ending::LineEnding;
 use glue::convert_keycode;
 use winit::{
     event::{Event, MouseScrollDelta, WindowEvent},
-    event_loop::{EventLoop, EventLoopBuilder},
+    event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
     keyboard::Key,
     window::{Window, WindowBuilder},
 };
@@ -48,6 +48,7 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
 
 struct GuiApp {
     tui_app: TuiApp<WgpuBackend>,
+    control_flow: EventLoopControlFlow,
     // rendering stuff
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -131,7 +132,7 @@ impl GuiApp {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::AutoVsync,
+            present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             view_formats: vec![],
             desired_maximum_frame_latency: 1,
@@ -152,8 +153,11 @@ impl GuiApp {
 
         window.set_visible(true);
 
+        let control_flow = EventLoopControlFlow::Wait;
+
         Ok(Self {
             tui_app,
+            control_flow,
             window,
             surface,
             device,
@@ -166,159 +170,58 @@ impl GuiApp {
     }
 
     pub fn run(mut self, event_loop: EventLoop<UserEvent>) {
-        let mut control_flow = EventLoopControlFlow::Poll;
-        event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+        event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         event_loop
             .run(move |event, event_loop| match event {
-                Event::NewEvents(_) => {
+                Event::NewEvents(cause) => {
+                    self.control_flow = EventLoopControlFlow::Wait;
                     self.tui_app.start_of_events();
+                    eprintln!("NEW EVENTS: {:?}\n", cause);
                 }
                 Event::UserEvent(event) => {
                     self.tui_app
                         .engine
-                        .handle_app_event(event, &mut control_flow);
+                        .handle_app_event(event, &mut self.control_flow);
+                    if self.control_flow == EventLoopControlFlow::Exit {
+                        event_loop.exit();
+                    }
                 }
                 Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::Resized(physical_size) => {
-                        self.resize(physical_size);
-                        self.window.request_redraw();
-                    }
-                    WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                        self.scale_factor = scale_factor;
-                    }
-                    WindowEvent::MouseWheel { delta, .. } => {
-                        if let Some((buffer, view_id)) =
-                            self.tui_app.engine.get_current_buffer_mut()
-                        {
-                            if let MouseScrollDelta::LineDelta(_, y) = delta {
-                                buffer
-                                    .handle_input(view_id, Cmd::VerticalScroll(-y as i64 * 3))
-                                    .unwrap();
-                            }
-                        }
-                    }
-                    WindowEvent::KeyboardInput { event, .. } => {
-                        tracing::trace!("{:?}", event);
-                        if event.state.is_pressed() {
-                            match event.logical_key {
-                                Key::Named(key) => {
-                                    match key {
-                                        winit::keyboard::NamedKey::Control => {
-                                            self.modifiers |= KeyModifiers::CONTROL
-                                        }
-                                        winit::keyboard::NamedKey::Alt => {
-                                            self.modifiers |= KeyModifiers::ALT
-                                        }
-                                        winit::keyboard::NamedKey::Shift => {
-                                            self.modifiers |= KeyModifiers::SHIFT
-                                        }
-                                        winit::keyboard::NamedKey::Super => {
-                                            self.modifiers |= KeyModifiers::SUPER
-                                        }
-                                        winit::keyboard::NamedKey::Hyper => {
-                                            self.modifiers |= KeyModifiers::HYPER
-                                        }
-                                        winit::keyboard::NamedKey::Meta => {
-                                            self.modifiers |= KeyModifiers::META
-                                        }
-                                        _ => (),
-                                    }
-                                    if let Some(keycode) = convert_keycode(key) {
-                                        let cmd = keymap::get_command_from_input(
-                                            keycode,
-                                            self.modifiers,
-                                            self.tui_app.engine.get_current_keymappings(),
-                                        );
-                                        if let Some(cmd) = cmd {
-                                            self.tui_app
-                                                .engine
-                                                .handle_input_command(cmd, &mut control_flow);
-                                            return;
-                                        }
-                                    }
-                                }
-                                Key::Character(s) => {
-                                    if s.chars().count() == 1 {
-                                        let ch = s.chars().next().unwrap();
-                                        let cmd = if LineEnding::from_char(ch).is_some() {
-                                            Some(Cmd::Char('\n'))
-                                        } else {
-                                            keymap::get_command_from_input(
-                                                keymap::keycode::KeyCode::Char(
-                                                    s.chars().next().unwrap(),
-                                                ),
-                                                self.modifiers,
-                                                self.tui_app.engine.get_current_keymappings(),
-                                            )
-                                        };
-                                        if let Some(cmd) = cmd {
-                                            self.tui_app
-                                                .engine
-                                                .handle_input_command(cmd, &mut control_flow);
-                                            return;
-                                        }
-                                    } else {
-                                        self.tui_app.engine.handle_input_command(
-                                            Cmd::Insert(s.to_string()),
-                                            &mut control_flow,
-                                        );
-                                        return;
-                                    };
-                                }
-                                _ => (),
-                            }
-                        } else {
-                            if let Key::Named(key) = event.logical_key {
-                                match key {
-                                    winit::keyboard::NamedKey::Control => {
-                                        self.modifiers.remove(KeyModifiers::CONTROL)
-                                    }
-                                    winit::keyboard::NamedKey::Alt => {
-                                        self.modifiers.remove(KeyModifiers::ALT)
-                                    }
-                                    winit::keyboard::NamedKey::Shift => {
-                                        self.modifiers.remove(KeyModifiers::SHIFT)
-                                    }
-                                    winit::keyboard::NamedKey::Super => {
-                                        self.modifiers.remove(KeyModifiers::SUPER)
-                                    }
-                                    winit::keyboard::NamedKey::Hyper => {
-                                        self.modifiers.remove(KeyModifiers::HYPER)
-                                    }
-                                    winit::keyboard::NamedKey::Meta => {
-                                        self.modifiers.remove(KeyModifiers::META)
-                                    }
-                                    _ => (),
-                                }
-                            }
-                        }
-                    }
                     WindowEvent::CloseRequested => event_loop.exit(),
                     WindowEvent::RedrawRequested => match self.render() {
-                        Ok(_) => (),
+                        Ok(()) => (),
                         Err(wgpu::SurfaceError::Lost) => self.resize(self.size),
                         Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
                         Err(e) => eprintln!("Surface error: {:?}", e),
                     },
-                    event => self.input(event),
+                    event => self.input(event_loop, event),
                 },
                 Event::AboutToWait => {
-                    self.tui_app.engine.do_polling(&mut control_flow);
-                    match control_flow {
+                    self.window.request_redraw();
+                    self.tui_app.engine.do_polling(&mut self.control_flow);
+                    eprintln!("{:?}", self.control_flow);
+                    match self.control_flow {
                         EventLoopControlFlow::Poll => {
-                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll)
+                            //event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
                         }
                         EventLoopControlFlow::Wait => {
-                            event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait)
+                            //event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
                         }
                         EventLoopControlFlow::Exit => event_loop.exit(),
-                        EventLoopControlFlow::WaitMax(duration) => event_loop.set_control_flow(
-                            winit::event_loop::ControlFlow::wait_duration(duration),
-                        ),
+                        EventLoopControlFlow::WaitMax(duration) => {
+                            if duration > Duration::from_secs(10000) {
+                                //event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+                            } else {
+                                //event_loop.set_control_flow(
+                                //    winit::event_loop::ControlFlow::wait_duration(duration),
+                                //);
+                            }
+                        }
                     }
-                    self.window.request_redraw();
                 }
-                _ => {}
+                event => {
+                    eprintln!("{:?}", event);
+                }
             })
             .unwrap();
     }
@@ -332,9 +235,142 @@ impl GuiApp {
             .terminal
             .backend_mut()
             .resize(self.size.width as f32, self.size.height as f32);
+        let backend = self.tui_app.terminal.backend();
+        let columns = backend.columns;
+        let lines = backend.lines;
+        let _ = self.tui_app.terminal.resize(tui::layout::Rect {
+            x: 0,
+            y: 0,
+            width: columns,
+            height: lines,
+        });
     }
 
-    pub fn input(&mut self, _event: WindowEvent) {}
+    pub fn input(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>, event: WindowEvent) {
+        match event {
+            WindowEvent::Resized(physical_size) => {
+                self.resize(physical_size);
+                self.window.request_redraw();
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                self.scale_factor = scale_factor;
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                if let Some((buffer, view_id)) = self.tui_app.engine.get_current_buffer_mut() {
+                    if let MouseScrollDelta::LineDelta(_, y) = delta {
+                        buffer
+                            .handle_input(view_id, Cmd::VerticalScroll(-y as i64 * 3))
+                            .unwrap();
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                tracing::trace!("{:?}", event);
+                let mut control_flow = self.control_flow;
+                if event.state.is_pressed() {
+                    match event.logical_key {
+                        Key::Named(key) => {
+                            match key {
+                                winit::keyboard::NamedKey::Control => {
+                                    self.modifiers |= KeyModifiers::CONTROL
+                                }
+                                winit::keyboard::NamedKey::Alt => {
+                                    self.modifiers |= KeyModifiers::ALT
+                                }
+                                winit::keyboard::NamedKey::Shift => {
+                                    self.modifiers |= KeyModifiers::SHIFT
+                                }
+                                winit::keyboard::NamedKey::Super => {
+                                    self.modifiers |= KeyModifiers::SUPER
+                                }
+                                winit::keyboard::NamedKey::Hyper => {
+                                    self.modifiers |= KeyModifiers::HYPER
+                                }
+                                winit::keyboard::NamedKey::Meta => {
+                                    self.modifiers |= KeyModifiers::META
+                                }
+                                _ => (),
+                            }
+                            if let Some(keycode) = convert_keycode(key) {
+                                let cmd = keymap::get_command_from_input(
+                                    keycode,
+                                    self.modifiers,
+                                    self.tui_app.engine.get_current_keymappings(),
+                                );
+                                if let Some(cmd) = cmd {
+                                    self.tui_app
+                                        .engine
+                                        .handle_input_command(cmd, &mut control_flow);
+                                    if control_flow == EventLoopControlFlow::Exit {
+                                        event_loop.exit();
+                                    }
+                                    return;
+                                }
+                            }
+                        }
+                        Key::Character(s) => {
+                            if s.chars().count() == 1 {
+                                let ch = s.chars().next().unwrap();
+                                let cmd = if LineEnding::from_char(ch).is_some() {
+                                    Some(Cmd::Char('\n'))
+                                } else {
+                                    keymap::get_command_from_input(
+                                        keymap::keycode::KeyCode::Char(s.chars().next().unwrap()),
+                                        self.modifiers,
+                                        self.tui_app.engine.get_current_keymappings(),
+                                    )
+                                };
+                                if let Some(cmd) = cmd {
+                                    self.tui_app
+                                        .engine
+                                        .handle_input_command(cmd, &mut control_flow);
+                                    if control_flow == EventLoopControlFlow::Exit {
+                                        event_loop.exit();
+                                    }
+                                    return;
+                                }
+                            } else {
+                                self.tui_app.engine.handle_input_command(
+                                    Cmd::Insert(s.to_string()),
+                                    &mut control_flow,
+                                );
+                                if control_flow == EventLoopControlFlow::Exit {
+                                    event_loop.exit();
+                                }
+                                return;
+                            };
+                        }
+                        _ => (),
+                    }
+                } else {
+                    if let Key::Named(key) = event.logical_key {
+                        match key {
+                            winit::keyboard::NamedKey::Control => {
+                                self.modifiers.remove(KeyModifiers::CONTROL)
+                            }
+                            winit::keyboard::NamedKey::Alt => {
+                                self.modifiers.remove(KeyModifiers::ALT)
+                            }
+                            winit::keyboard::NamedKey::Shift => {
+                                self.modifiers.remove(KeyModifiers::SHIFT)
+                            }
+                            winit::keyboard::NamedKey::Super => {
+                                self.modifiers.remove(KeyModifiers::SUPER)
+                            }
+                            winit::keyboard::NamedKey::Hyper => {
+                                self.modifiers.remove(KeyModifiers::HYPER)
+                            }
+                            winit::keyboard::NamedKey::Meta => {
+                                self.modifiers.remove(KeyModifiers::META)
+                            }
+                            _ => (),
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
 
     pub fn render(&mut self) -> std::result::Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -357,7 +393,6 @@ impl GuiApp {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        // FIXME this color is not actually correct
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: color.r.powf(2.2) as f64,
                             g: color.g.powf(2.2) as f64,
