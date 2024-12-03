@@ -261,84 +261,9 @@ impl GuiApp {
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                tracing::trace!("{:?}", event);
+                tracing::info!("{:?}", event);
                 let mut control_flow = self.control_flow;
-                if event.state.is_pressed() {
-                    match event.logical_key {
-                        Key::Named(key) => {
-                            match key {
-                                winit::keyboard::NamedKey::Control => {
-                                    self.modifiers |= KeyModifiers::CONTROL
-                                }
-                                winit::keyboard::NamedKey::Alt => {
-                                    self.modifiers |= KeyModifiers::ALT
-                                }
-                                winit::keyboard::NamedKey::Shift => {
-                                    self.modifiers |= KeyModifiers::SHIFT
-                                }
-                                winit::keyboard::NamedKey::Super => {
-                                    self.modifiers |= KeyModifiers::SUPER
-                                }
-                                winit::keyboard::NamedKey::Hyper => {
-                                    self.modifiers |= KeyModifiers::HYPER
-                                }
-                                winit::keyboard::NamedKey::Meta => {
-                                    self.modifiers |= KeyModifiers::META
-                                }
-                                _ => (),
-                            }
-                            if let Some(keycode) = convert_keycode(key) {
-                                let cmd = keymap::get_command_from_input(
-                                    keycode,
-                                    self.modifiers,
-                                    self.tui_app.engine.get_current_keymappings(),
-                                );
-                                if let Some(cmd) = cmd {
-                                    self.tui_app
-                                        .engine
-                                        .handle_input_command(cmd, &mut control_flow);
-                                    if control_flow == EventLoopControlFlow::Exit {
-                                        event_loop.exit();
-                                    }
-                                    return;
-                                }
-                            }
-                        }
-                        Key::Character(s) => {
-                            if s.chars().count() == 1 {
-                                let ch = s.chars().next().unwrap();
-                                let cmd = if LineEnding::from_char(ch).is_some() {
-                                    Some(Cmd::Char('\n'))
-                                } else {
-                                    keymap::get_command_from_input(
-                                        keymap::keycode::KeyCode::Char(s.chars().next().unwrap()),
-                                        self.modifiers,
-                                        self.tui_app.engine.get_current_keymappings(),
-                                    )
-                                };
-                                if let Some(cmd) = cmd {
-                                    self.tui_app
-                                        .engine
-                                        .handle_input_command(cmd, &mut control_flow);
-                                    if control_flow == EventLoopControlFlow::Exit {
-                                        event_loop.exit();
-                                    }
-                                    return;
-                                }
-                            } else {
-                                self.tui_app.engine.handle_input_command(
-                                    Cmd::Insert(s.to_string()),
-                                    &mut control_flow,
-                                );
-                                if control_flow == EventLoopControlFlow::Exit {
-                                    event_loop.exit();
-                                }
-                                return;
-                            };
-                        }
-                        _ => (),
-                    }
-                } else {
+                if !event.state.is_pressed() {
                     if let Key::Named(key) = event.logical_key {
                         match key {
                             winit::keyboard::NamedKey::Control => {
@@ -362,6 +287,85 @@ impl GuiApp {
                             _ => (),
                         }
                     }
+                    return;
+                }
+
+                match event.logical_key {
+                    Key::Named(key) => {
+                        let modifier = match key {
+                            winit::keyboard::NamedKey::Control => KeyModifiers::CONTROL,
+                            winit::keyboard::NamedKey::Alt => KeyModifiers::ALT,
+                            winit::keyboard::NamedKey::Shift => KeyModifiers::SHIFT,
+                            winit::keyboard::NamedKey::Super => KeyModifiers::SUPER,
+                            winit::keyboard::NamedKey::Hyper => KeyModifiers::HYPER,
+                            winit::keyboard::NamedKey::Meta => KeyModifiers::META,
+                            _ => KeyModifiers::NONE,
+                        };
+                        if !modifier.is_empty() {
+                            self.modifiers |= modifier;
+                            return;
+                        }
+
+                        if let Some(keycode) = convert_keycode(key) {
+                            let cmd = keymap::get_command_from_input(
+                                keycode,
+                                self.modifiers,
+                                self.tui_app.engine.get_current_keymappings(),
+                            );
+                            if let Some(cmd) = cmd {
+                                self.tui_app
+                                    .engine
+                                    .handle_input_command(cmd, &mut control_flow);
+                                if control_flow == EventLoopControlFlow::Exit {
+                                    event_loop.exit();
+                                }
+                                return;
+                            }
+                        }
+                    }
+                    Key::Character(s) => {
+                        if s.chars().count() == 1 {
+                            let ch = s.chars().next().unwrap();
+                            let cmd = if LineEnding::from_char(ch).is_some() {
+                                Some(Cmd::Char('\n'))
+                            } else {
+                                keymap::get_command_from_input(
+                                    keymap::keycode::KeyCode::Char(s.chars().next().unwrap()),
+                                    self.modifiers,
+                                    self.tui_app.engine.get_current_keymappings(),
+                                )
+                            };
+                            if let Some(cmd) = cmd {
+                                self.tui_app
+                                    .engine
+                                    .handle_input_command(cmd, &mut control_flow);
+                                if control_flow == EventLoopControlFlow::Exit {
+                                    event_loop.exit();
+                                }
+                                return;
+                            }
+                        } else {
+                            self.tui_app.engine.handle_input_command(
+                                Cmd::Insert(s.to_string()),
+                                &mut control_flow,
+                            );
+                            if control_flow == EventLoopControlFlow::Exit {
+                                event_loop.exit();
+                            }
+                            return;
+                        };
+                    }
+                    _ => (),
+                }
+
+                if let Some(text) = event.text {
+                    self.tui_app
+                        .engine
+                        .handle_input_command(Cmd::Insert(text.to_string()), &mut control_flow);
+                    if control_flow == EventLoopControlFlow::Exit {
+                        event_loop.exit();
+                    }
+                    return;
                 }
             }
             _ => (),
@@ -403,17 +407,13 @@ impl GuiApp {
                 occlusion_query_set: None,
             });
 
-            let start = Instant::now();
             self.tui_app.terminal.backend_mut().prepare(
                 &self.device,
                 &self.queue,
                 &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
             );
-            eprintln!("prepare: {:?}", Instant::now().duration_since(start));
 
-            let start = Instant::now();
             self.tui_app.terminal.backend_mut().render(&mut rpass);
-            eprintln!("prepare: {:?}", Instant::now().duration_since(start));
         }
 
         self.queue.submit(iter::once(encoder.finish()));

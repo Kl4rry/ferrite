@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use ferrite_core::theme::EditorTheme;
 use glyphon::{
     cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Family, FontSystem, Metrics,
@@ -125,7 +123,6 @@ impl WgpuBackend {
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, theme: &EditorTheme) {
         let mut text_areas = Vec::new();
-        let start = Instant::now();
         self.buffer
             .set_size(&mut self.font_system, Some(self.width), Some(self.height));
 
@@ -173,9 +170,7 @@ impl WgpuBackend {
             );
             *dirty = false;
         }
-        eprintln!("text: {:?}", Instant::now().duration_since(start));
 
-        let start = Instant::now();
         self.buffer.set_scroll(Scroll {
             line: 0,
             vertical: 0.0,
@@ -183,7 +178,6 @@ impl WgpuBackend {
         });
         self.buffer.shape_until_scroll(&mut self.font_system, false);
         self.font_system.shape_run_cache.trim(1024);
-        eprintln!("shape: {:?}", Instant::now().duration_since(start));
 
         self.viewport.update(
             queue,
