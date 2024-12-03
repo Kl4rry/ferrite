@@ -1,8 +1,11 @@
+use std::mem;
+
 use ferrite_core::theme::EditorTheme;
 use glyphon::{
     cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Family, FontSystem, Metrics,
     Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
+use quad_renderer::{Quad, QuadRenderer};
 use tui::{
     backend::WindowSize,
     buffer::Cell,
@@ -13,12 +16,15 @@ use wgpu::RenderPass;
 
 use crate::glue::convert_style;
 
+mod quad_renderer;
+
 pub struct WgpuBackend {
     font_system: FontSystem,
     swash_cache: SwashCache,
     atlas: TextAtlas,
     text_renderer: TextRenderer,
     viewport: Viewport,
+    quad_renderer: QuadRenderer,
     width: f32,
     height: f32,
     cell_width: f32,
@@ -27,14 +33,14 @@ pub struct WgpuBackend {
     pub lines: u16,
     pub redraw: bool,
     buffer: Buffer,
-    cells: Vec<(Vec<Cell>, bool)>,
+    cells: Vec<Vec<Cell>>,
 }
 
 impl WgpuBackend {
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        surface_format: wgpu::TextureFormat,
+        config: &wgpu::SurfaceConfiguration,
         width: f32,
         height: f32,
     ) -> Self {
@@ -42,7 +48,7 @@ impl WgpuBackend {
         font_system.db_mut().set_monospace_family("Fira Code");
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
-        let mut atlas = TextAtlas::new(device, queue, &cache, surface_format);
+        let mut atlas = TextAtlas::new(device, queue, &cache, config.format);
         let text_renderer = TextRenderer::new(
             &mut atlas,
             device,
@@ -84,8 +90,10 @@ impl WgpuBackend {
             for _ in 0..columns {
                 line.push(Cell::default());
             }
-            cells.push((line, true));
+            cells.push(line);
         }
+
+        let quad_renderer = QuadRenderer::new(device, config);
 
         Self {
             font_system,
@@ -93,6 +101,7 @@ impl WgpuBackend {
             viewport,
             atlas,
             text_renderer,
+            quad_renderer,
             width,
             height,
             cell_width,
@@ -106,6 +115,7 @@ impl WgpuBackend {
     }
 
     pub fn resize(&mut self, width: f32, height: f32) {
+        self.quad_renderer.resize(width, height);
         self.width = width;
         self.height = height;
         self.columns = (width / self.cell_width) as u16;
@@ -116,24 +126,25 @@ impl WgpuBackend {
             for _ in 0..self.columns {
                 line.push(Cell::default());
             }
-            self.cells.push((line, true));
+            self.cells.push(line);
         }
         let _ = self.clear();
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, theme: &EditorTheme) {
+        self.quad_renderer.clear();
         let mut text_areas = Vec::new();
         self.buffer
             .set_size(&mut self.font_system, Some(self.width), Some(self.height));
 
-        let fg = convert_style(&theme.text)
+        let default_fg = convert_style(&theme.text)
             .0
             .unwrap_or(glyphon::Color::rgb(0, 0, 0));
-        /*et bg = convert_style(&theme.background)
-        .1
-        .unwrap_or(glyphon::Color::rgb(1, 1, 1));*/
+        let default_bg = convert_style(&theme.background)
+            .1
+            .unwrap_or(glyphon::Color::rgb(255, 255, 255));
 
-        let default_attrs = Attrs::new().color(fg).family(Family::Monospace);
+        let default_attrs = Attrs::new().color(default_fg).family(Family::Monospace);
         self.buffer.lines.resize(
             self.cells.len(),
             BufferLine::new(
@@ -143,32 +154,51 @@ impl WgpuBackend {
                 Shaping::Basic,
             ),
         );
-        for (i, (line, dirty)) in self.cells.iter_mut().enumerate() {
-            if !*dirty {
-                continue;
-            }
+        for (line_idx, line) in self.cells.iter_mut().enumerate() {
             let mut attr_list = AttrsList::new(default_attrs);
             let mut line_text = String::new();
             let mut idx = 0;
-            for cell in line {
+            // TODO handle cells that are wider then 1
+            for (col_idx, cell) in line.iter().enumerate() {
                 let mut attrs = default_attrs;
+                let mut fg = default_fg;
+                let mut bg = default_bg;
                 if let tui::style::Color::Rgb(r, g, b) = cell.fg {
-                    let color = glyphon::Color::rgb(r, g, b);
-                    attrs = attrs.color(color);
+                    fg = glyphon::Color::rgb(r, g, b);
                 }
+
+                if let tui::style::Color::Rgb(r, g, b) = cell.bg {
+                    bg = glyphon::Color::rgb(r, g, b);
+                }
+
+                if cell.modifier.contains(tui::style::Modifier::REVERSED) {
+                    mem::swap(&mut fg, &mut bg);
+                }
+
+                attrs = attrs.color(fg);
                 let symbol = cell.symbol();
                 line_text.push_str(symbol);
                 attr_list.add_span(idx..(idx + symbol.len()), attrs);
                 idx += symbol.len();
+                //if bg != default_bg {
+                self.quad_renderer.push_quad(
+                    Quad {
+                        x: col_idx as f32 * self.cell_width,
+                        y: line_idx as f32 * self.cell_height,
+                        width: self.cell_width,
+                        height: self.cell_height,
+                    },
+                    bg,
+                );
+                //}
             }
 
-            self.buffer.lines[i] = BufferLine::new(
+            self.buffer.lines[line_idx] = BufferLine::new(
                 &line_text,
                 glyphon::cosmic_text::LineEnding::Lf,
                 attr_list,
                 Shaping::Advanced,
             );
-            *dirty = false;
         }
 
         self.buffer.set_scroll(Scroll {
@@ -198,7 +228,7 @@ impl WgpuBackend {
                 right: self.width as i32,
                 bottom: self.height as i32,
             },
-            default_color: glyphon::Color::rgb(205, 214, 244),
+            default_color: default_fg,
             custom_glyphs: &[],
         });
 
@@ -213,9 +243,12 @@ impl WgpuBackend {
                 &mut self.swash_cache,
             )
             .unwrap();
+
+        self.quad_renderer.prepare(device, queue);
     }
 
     pub fn render<'rpass>(&'rpass mut self, rpass: &mut RenderPass<'rpass>) {
+        self.quad_renderer.render(rpass);
         self.text_renderer
             .render(&self.atlas, &self.viewport, rpass)
             .unwrap();
@@ -228,9 +261,8 @@ impl Backend for WgpuBackend {
         I: Iterator<Item = (u16, u16, &'a tui::buffer::Cell)>,
     {
         for (column, line, cell) in content {
-            let (line, dirty) = &mut self.cells[line as usize];
+            let line = &mut self.cells[line as usize];
             line[column as usize] = cell.clone();
-            *dirty = true;
             self.redraw = true;
         }
         Ok(())
@@ -246,11 +278,10 @@ impl Backend for WgpuBackend {
 
     fn clear(&mut self) -> std::io::Result<()> {
         self.buffer.lines.clear();
-        for (line, dirty) in &mut self.cells {
+        for line in &mut self.cells {
             for cell in line {
                 cell.reset();
             }
-            *dirty = true;
         }
         Ok(())
     }

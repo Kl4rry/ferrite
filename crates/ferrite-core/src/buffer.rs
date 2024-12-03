@@ -686,11 +686,11 @@ impl Buffer {
                 let mut width = 0;
                 let mut byte_idx = 0;
                 for grapeheme in next_line.grapehemes() {
-                    width += grapeheme.width(width);
-                    byte_idx += grapeheme.len_bytes();
                     if width >= before_cursor {
                         break;
                     }
+                    width += grapeheme.width(width);
+                    byte_idx += grapeheme.len_bytes();
                 }
                 next_line_start + byte_idx
             };
@@ -749,11 +749,11 @@ impl Buffer {
                 let mut width = 0;
                 let mut byte_idx = 0;
                 for grapeheme in next_line.grapehemes() {
-                    width += grapeheme.width(width);
-                    byte_idx += grapeheme.len_bytes();
                     if width >= before_cursor {
                         break;
                     }
+                    width += grapeheme.width(width);
+                    byte_idx += grapeheme.len_bytes();
                 }
                 next_line_start + byte_idx
             };
@@ -2047,11 +2047,11 @@ impl Buffer {
             let mut width = 0;
             let mut byte_idx = 0;
             for grapeheme in next_line.grapehemes() {
-                width += grapeheme.width(width);
-                byte_idx += grapeheme.len_bytes();
                 if width >= col {
                     break;
                 }
+                width += grapeheme.width(width);
+                byte_idx += grapeheme.len_bytes();
             }
             self.views[view_id].cursors[cursor_index].position = next_line_start + byte_idx;
         }

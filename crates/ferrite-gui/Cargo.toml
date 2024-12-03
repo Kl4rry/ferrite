@@ -5,16 +5,18 @@ edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
+bytemuck = "1.20.0"
 cgmath = "0.18.0"
+cosmic-text = { version = "0.12.1", features = ["shape-run-cache"] }
+crevice = { version = "0.17.0", features = ["cgmath"] }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
 ferrite-tui = { workspace = true }
 ferrite-utility = { workspace = true }
 glyphon = "0.7.0"
 pollster = "0.3.0"
-cosmic-text = { version = "0.12.1", features = ["shape-run-cache"] }
 tracing = { workspace = true }
 tui = { workspace = true, default-features = false }
 unicode-width = { workspace = true }
-wgpu = "23.0.0"
+wgpu = { version = "23.0.0", features = ["glsl"] }
 winit = "0.29.15"

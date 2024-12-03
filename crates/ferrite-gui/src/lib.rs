@@ -142,7 +142,7 @@ impl GuiApp {
         let backend = WgpuBackend::new(
             &device,
             &queue,
-            surface_format,
+            &config,
             size.width as f32,
             size.height as f32,
         );
@@ -261,7 +261,7 @@ impl GuiApp {
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                tracing::info!("{:?}", event);
+                tracing::trace!("{:?}", event);
                 let mut control_flow = self.control_flow;
                 if !event.state.is_pressed() {
                     if let Key::Named(key) = event.logical_key {
@@ -394,9 +394,9 @@ impl GuiApp {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: color.r.powf(2.2) as f64,
-                            g: color.g.powf(2.2) as f64,
-                            b: color.b.powf(2.2) as f64,
+                            r: color.r.powf(2.0) as f64,
+                            g: color.g.powf(2.0) as f64,
+                            b: color.b.powf(2.0) as f64,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
