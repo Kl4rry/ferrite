@@ -30,3 +30,4 @@ padding = 1
 [gui]
 font_family = "Fira Code"
 font_weight = "normal"
+cursor_type = "line"

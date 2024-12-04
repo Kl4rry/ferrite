@@ -267,6 +267,9 @@ impl GuiApp {
 
     pub fn input(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>, event: WindowEvent) {
         match event {
+            WindowEvent::Focused(false) => {
+                self.modifiers = KeyModifiers::empty();
+            }
             WindowEvent::Resized(physical_size) => {
                 self.resize(physical_size);
                 self.window.request_redraw();

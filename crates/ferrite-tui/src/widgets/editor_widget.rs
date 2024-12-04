@@ -4,7 +4,7 @@ use ferrite_core::{
     buffer::{search::SearchMatch, Buffer, Selection, ViewId},
     config::{
         self,
-        editor::{Editor, LineNumber},
+        editor::{CursorType, Editor, LineNumber},
     },
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
@@ -429,10 +429,21 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             for rect in cursor_rects {
-                buf.set_style(
-                    rect,
-                    convert_style(&theme.text).add_modifier(tui::style::Modifier::REVERSED),
-                );
+                match self.config.gui.cursor_type {
+                    CursorType::Block => {
+                        buf.set_style(
+                            rect,
+                            convert_style(&theme.text).add_modifier(tui::style::Modifier::REVERSED),
+                        );
+                    }
+                    CursorType::Line => {
+                        buf.set_style(
+                            rect,
+                            tui::style::Style::default()
+                                .add_modifier(tui::style::Modifier::SLOW_BLINK),
+                        );
+                    }
+                }
             }
 
             let matches = buffer

@@ -2,9 +2,9 @@ use std::mem;
 
 use ferrite_core::{config::editor::FontWeight, theme::EditorTheme};
 use glyphon::{
-    cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Family, FontSystem, Metrics,
-    Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
-    Weight,
+    cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Color, Family, FontSystem,
+    Metrics, Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer,
+    Viewport, Weight,
 };
 use quad_renderer::{Quad, QuadRenderer};
 use tui::{
@@ -26,7 +26,8 @@ pub struct WgpuBackend {
     atlas: TextAtlas,
     text_renderer: TextRenderer,
     viewport: Viewport,
-    quad_renderer: QuadRenderer,
+    bottom_quad_renderer: QuadRenderer,
+    top_quad_renderer: QuadRenderer,
     width: f32,
     height: f32,
     pub cell_width: f32,
@@ -102,7 +103,8 @@ impl WgpuBackend {
             cells.push(line);
         }
 
-        let quad_renderer = QuadRenderer::new(device, config);
+        let bottom_quad_renderer = QuadRenderer::new(device, config);
+        let top_quad_renderer = QuadRenderer::new(device, config);
 
         Self {
             font_system,
@@ -110,7 +112,8 @@ impl WgpuBackend {
             viewport,
             atlas,
             text_renderer,
-            quad_renderer,
+            bottom_quad_renderer,
+            top_quad_renderer,
             width,
             height,
             cell_width,
@@ -126,7 +129,8 @@ impl WgpuBackend {
     }
 
     pub fn resize(&mut self, width: f32, height: f32) {
-        self.quad_renderer.resize(width, height);
+        self.bottom_quad_renderer.resize(width, height);
+        self.top_quad_renderer.resize(width, height);
         self.width = width;
         self.height = height;
         self.columns = (width / self.cell_width) as u16;
@@ -143,7 +147,8 @@ impl WgpuBackend {
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, theme: &EditorTheme) {
-        self.quad_renderer.clear();
+        self.bottom_quad_renderer.clear();
+        self.top_quad_renderer.clear();
         let mut text_areas = Vec::new();
         self.buffer
             .set_size(&mut self.font_system, Some(self.width), Some(self.height));
@@ -195,7 +200,7 @@ impl WgpuBackend {
                 attr_list.add_span(idx..(idx + symbol.len()), attrs);
                 idx += symbol.len();
                 // TODO greedy mesh here
-                self.quad_renderer.push_quad(
+                self.bottom_quad_renderer.push_quad(
                     Quad {
                         x: col_idx as f32 * self.cell_width,
                         y: line_idx as f32 * self.cell_height,
@@ -204,6 +209,19 @@ impl WgpuBackend {
                     },
                     bg,
                 );
+
+                if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
+                    let cursor_width = 2.0;
+                    self.top_quad_renderer.push_quad(
+                        Quad {
+                            x: col_idx as f32 * self.cell_width,
+                            y: line_idx as f32 * self.cell_height,
+                            width: cursor_width,
+                            height: self.cell_height,
+                        },
+                        Color::rgb(82, 139, 255),
+                    );
+                }
             }
 
             self.buffer.lines[line_idx] = BufferLine::new(
@@ -257,14 +275,16 @@ impl WgpuBackend {
             )
             .unwrap();
 
-        self.quad_renderer.prepare(device, queue);
+        self.bottom_quad_renderer.prepare(device, queue);
+        self.top_quad_renderer.prepare(device, queue);
     }
 
     pub fn render<'rpass>(&'rpass mut self, rpass: &mut RenderPass<'rpass>) {
-        self.quad_renderer.render(rpass);
+        self.bottom_quad_renderer.render(rpass);
         self.text_renderer
             .render(&self.atlas, &self.viewport, rpass)
             .unwrap();
+        self.top_quad_renderer.render(rpass);
     }
 
     pub fn set_font_family(&mut self, font_family: &str) {

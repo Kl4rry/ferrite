@@ -15,8 +15,8 @@ use crossterm::{
 use event_loop::{TuiEvent, TuiEventLoop, TuiEventLoopProxy};
 use ferrite_cli::Args;
 use ferrite_core::{
-    buffer::Buffer, clipboard, cmd::Cmd, event_loop_proxy::EventLoopControlFlow, keymap,
-    layout::panes::PaneKind, logger::LogMessage,
+    buffer::Buffer, clipboard, cmd::Cmd, config::editor::CursorType,
+    event_loop_proxy::EventLoopControlFlow, keymap, layout::panes::PaneKind, logger::LogMessage,
 };
 use ferrite_tui::{
     glue::{ferrite_to_tui_rect, tui_to_ferrite_rect},
@@ -122,6 +122,7 @@ impl TermApp {
             }
             event_loop::TuiEvent::Render => {
                 self.tui_app.engine.do_polling(control_flow);
+                self.tui_app.engine.config.editor.gui.cursor_type = CursorType::Block;
                 self.tui_app.render();
                 self.tui_app.engine.last_render_time =
                     Instant::now().duration_since(self.tui_app.engine.start_of_events);

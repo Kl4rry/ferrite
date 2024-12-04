@@ -92,12 +92,22 @@ pub enum FontWeight {
     Black = 900,
 }
 
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CursorType {
+    Block,
+    #[default]
+    Line,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Gui {
     #[serde(default = "default_font")]
     pub font_family: String,
     #[serde(default)]
     pub font_weight: FontWeight,
+    #[serde(default)]
+    pub cursor_type: CursorType,
 }
 
 impl Default for Gui {
@@ -105,6 +115,7 @@ impl Default for Gui {
         Self {
             font_family: default_font(),
             font_weight: FontWeight::default(),
+            cursor_type: CursorType::default(),
         }
     }
 }
