@@ -11,6 +11,7 @@ use ferrite_cli::Args;
 use ferrite_core::{
     clipboard,
     cmd::Cmd,
+    config::editor::{default_font, FontWeight},
     event_loop_proxy::{EventLoopControlFlow, UserEvent},
     keymap::{self, keycode::KeyModifiers},
     logger::LogMessage,
@@ -145,6 +146,8 @@ impl GuiApp {
             &config,
             size.width as f32,
             size.height as f32,
+            default_font(),
+            FontWeight::Normal,
         );
 
         let tui_app = TuiApp::new(args, event_loop_wrapper, backend, rx)?;
@@ -191,7 +194,7 @@ impl GuiApp {
                         Ok(()) => (),
                         Err(wgpu::SurfaceError::Lost) => self.resize(self.size),
                         Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
-                        Err(e) => eprintln!("Surface error: {:?}", e),
+                        Err(e) => tracing::error!("Surface error: {:?}", e),
                     },
                     event => self.input(event_loop, event),
                 },
@@ -211,6 +214,14 @@ impl GuiApp {
                             );
                         }
                     }
+                    self.tui_app
+                        .terminal
+                        .backend_mut()
+                        .set_font_family(&self.tui_app.engine.config.editor.gui.font_family);
+                    self.tui_app
+                        .terminal
+                        .backend_mut()
+                        .set_font_weight(self.tui_app.engine.config.editor.gui.font_weight);
                     self.tui_app.render();
                     if self.tui_app.terminal.backend().redraw {
                         self.window.request_redraw();

@@ -1,9 +1,10 @@
 use std::mem;
 
-use ferrite_core::theme::EditorTheme;
+use ferrite_core::{config::editor::FontWeight, theme::EditorTheme};
 use glyphon::{
     cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Family, FontSystem, Metrics,
     Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    Weight,
 };
 use quad_renderer::{Quad, QuadRenderer};
 use tui::{
@@ -35,6 +36,9 @@ pub struct WgpuBackend {
     pub redraw: bool,
     buffer: Buffer,
     cells: Vec<Vec<Cell>>,
+    // font config
+    font_family: String,
+    font_weight: FontWeight,
 }
 
 impl WgpuBackend {
@@ -44,9 +48,11 @@ impl WgpuBackend {
         config: &wgpu::SurfaceConfiguration,
         width: f32,
         height: f32,
+        font_family: String,
+        font_weight: FontWeight,
     ) -> Self {
         let mut font_system = FontSystem::new();
-        font_system.db_mut().set_monospace_family("Fira Code");
+        font_system.db_mut().set_monospace_family(&font_family);
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
         let mut atlas = TextAtlas::new(device, queue, &cache, config.format);
@@ -72,7 +78,9 @@ impl WgpuBackend {
             buffer.set_text(
                 &mut font_system,
                 " ",
-                Attrs::new().family(Family::Monospace),
+                Attrs::new()
+                    .weight(Weight(font_weight as u16))
+                    .family(Family::Monospace),
                 Shaping::Basic,
             );
             let layout = buffer.line_layout(&mut font_system, 0).unwrap();
@@ -112,6 +120,8 @@ impl WgpuBackend {
             buffer,
             cells,
             redraw: true,
+            font_family,
+            font_weight,
         }
     }
 
@@ -145,7 +155,10 @@ impl WgpuBackend {
             .1
             .unwrap_or(glyphon::Color::rgb(255, 255, 255));
 
-        let default_attrs = Attrs::new().color(default_fg).family(Family::Monospace);
+        let default_attrs = Attrs::new()
+            .weight(Weight(self.font_weight as u16))
+            .color(default_fg)
+            .family(Family::Monospace);
         self.buffer.lines.resize(
             self.cells.len(),
             BufferLine::new(
@@ -253,6 +266,17 @@ impl WgpuBackend {
         self.text_renderer
             .render(&self.atlas, &self.viewport, rpass)
             .unwrap();
+    }
+
+    pub fn set_font_family(&mut self, font_family: &str) {
+        if font_family != self.font_family {
+            self.font_system.db_mut().set_monospace_family(font_family);
+            self.font_family = font_family.to_string();
+        }
+    }
+
+    pub fn set_font_weight(&mut self, weight: FontWeight) {
+        self.font_weight = weight;
     }
 }
 

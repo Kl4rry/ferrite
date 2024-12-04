@@ -26,3 +26,7 @@ left = ["size"]
 center = ["file"]
 right = ["branch", "position", "encoding", "language", "spinner"]
 padding = 1
+
+[gui]
+font_family = "Fira Code"
+font_weight = "normal"

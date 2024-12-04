@@ -7,6 +7,10 @@ pub fn default_theme() -> String {
     "default".into()
 }
 
+pub fn default_font() -> String {
+    "Fira Code".into()
+}
+
 pub fn default_rulers() -> Vec<u16> {
     vec![80]
 }
@@ -51,6 +55,8 @@ pub struct Editor {
     pub picker: PickerConfig,
     #[serde(default)]
     pub info_line: InfoLineConfig,
+    #[serde(default)]
+    pub gui: Gui,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
@@ -69,6 +75,38 @@ pub enum LineNumber {
     Absolute,
     None,
     Relative,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FontWeight {
+    Thin = 100,
+    ExtraLight = 200,
+    Light = 300,
+    #[default]
+    Normal = 400,
+    Medium = 500,
+    Semibold = 600,
+    Bold = 700,
+    ExtraBold = 800,
+    Black = 900,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Gui {
+    #[serde(default = "default_font")]
+    pub font_family: String,
+    #[serde(default)]
+    pub font_weight: FontWeight,
+}
+
+impl Default for Gui {
+    fn default() -> Self {
+        Self {
+            font_family: default_font(),
+            font_weight: FontWeight::default(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
