@@ -240,6 +240,7 @@ impl GuiApp {
             width: columns,
             height: lines,
         });
+        self.tui_app.render();
     }
 
     pub fn input(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>, event: WindowEvent) {
