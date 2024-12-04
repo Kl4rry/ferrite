@@ -177,7 +177,6 @@ impl WgpuBackend {
             let mut attr_list = AttrsList::new(default_attrs);
             let mut line_text = String::new();
             let mut idx = 0;
-            // TODO handle cells that are wider then 1
             for (col_idx, cell) in line.iter().enumerate() {
                 let mut attrs = default_attrs;
                 let mut fg = default_fg;
