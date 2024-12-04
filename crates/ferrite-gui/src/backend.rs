@@ -194,7 +194,7 @@ impl WgpuBackend {
                 line_text.push_str(symbol);
                 attr_list.add_span(idx..(idx + symbol.len()), attrs);
                 idx += symbol.len();
-                //if bg != default_bg {
+                // TODO greedy mesh here
                 self.quad_renderer.push_quad(
                     Quad {
                         x: col_idx as f32 * self.cell_width,
@@ -204,7 +204,6 @@ impl WgpuBackend {
                     },
                     bg,
                 );
-                //}
             }
 
             self.buffer.lines[line_idx] = BufferLine::new(
