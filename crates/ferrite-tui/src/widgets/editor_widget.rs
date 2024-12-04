@@ -194,7 +194,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         text_area.x + current_width as u16,
                         text_area.y + i as u16,
                         text,
-                        text_area.width as usize,
+                        text_area.width as usize - current_width,
                         theme,
                     );
                     text.width()
@@ -224,18 +224,18 @@ impl StatefulWidget for EditorWidget<'_> {
                         }
                         grapheme_buffer
                             .extend(std::iter::repeat(" ").take(tab_width.saturating_sub(1)));
-                        render_text(
+                        current_width += render_text(
                             &grapheme_buffer,
                             convert_style(&theme.dim_text),
                             current_width,
                         );
                         grapheme_buffer.clear();
-                        current_width += tab_width;
                         continue;
                     }
 
                     if grapheme.chars().any(|ch| ch.is_ascii_control()) {
-                        render_text("�", convert_style(&theme.text), current_width);
+                        current_width +=
+                            render_text("�", convert_style(&theme.text), current_width);
                     } else if grapheme.is_whitespace() {
                         let width = grapheme.width(current_width);
                         if render_whitespace(current_width, line.text_end_col) {
@@ -254,9 +254,12 @@ impl StatefulWidget for EditorWidget<'_> {
                         for ch in grapheme.chars() {
                             grapheme_buffer.push(ch);
                         }
-                        render_text(&grapheme_buffer, convert_style(&theme.text), current_width);
+                        current_width += render_text(
+                            &grapheme_buffer,
+                            convert_style(&theme.text),
+                            current_width,
+                        );
                         grapheme_buffer.clear();
-                        current_width += grapheme.width(current_width);
                     }
                 }
             }
