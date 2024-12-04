@@ -900,12 +900,18 @@ impl Engine {
             }
             Cmd::ZoomIn => {
                 self.scale += 0.1;
+                self.palette
+                    .set_msg(format!("Zoom: {}%", (self.scale * 100.0) as u64));
             }
             Cmd::ZoomOut => {
                 self.scale -= 0.1;
+                self.palette
+                    .set_msg(format!("Zoom: {}%", (self.scale * 100.0) as u64));
             }
             Cmd::ResetZoom => {
                 self.scale = 1.0;
+                self.palette
+                    .set_msg(format!("Zoom: {}%", (self.scale * 100.0) as u64));
             }
             input => {
                 if self.palette.has_focus() {
