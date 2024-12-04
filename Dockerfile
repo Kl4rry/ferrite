@@ -11,7 +11,7 @@ WORKDIR /ferrite
 COPY . .
 
 RUN cargo fetch
-RUN cargo build --release --features gui
+RUN cargo build --release
 
 FROM ubuntu:latest
 
