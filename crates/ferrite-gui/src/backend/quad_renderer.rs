@@ -105,7 +105,9 @@ impl Uniform {
 pub struct QuadRenderer {
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    vertex_buffer_len: u64,
     index_buffer: wgpu::Buffer,
+    index_buffer_len: u64,
     num_indices: u32,
     uniform: Uniform,
     uniform_buffer: wgpu::Buffer,
@@ -179,16 +181,20 @@ impl QuadRenderer {
             cache: None,
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer_len = 128;
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Quad Vertex Buffer"),
-            contents: bytemuck::cast_slice(&[Vertex::default()]),
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            size: vertex_buffer_len * mem::size_of::<Vertex>() as u64,
+            mapped_at_creation: false,
         });
 
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer_len = 128;
+        let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Quad Index Buffer"),
-            contents: bytemuck::cast_slice(&[0]),
-            usage: wgpu::BufferUsages::INDEX,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            size: index_buffer_len * mem::size_of::<u32>() as u64,
+            mapped_at_creation: false,
         });
 
         let uniform = Uniform::from_size(config.width as f32, config.height as f32);
@@ -213,7 +219,9 @@ impl QuadRenderer {
         Self {
             pipeline,
             vertex_buffer,
+            vertex_buffer_len,
             index_buffer,
+            index_buffer_len,
             num_indices: 0,
             uniform,
             uniform_buffer,
@@ -281,17 +289,31 @@ impl QuadRenderer {
         let value_std140 = self.uniform.as_std140();
         queue.write_buffer(&self.uniform_buffer, 0, value_std140.as_bytes());
 
-        self.vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Quad Vertex Buffer"),
-            contents: bytemuck::cast_slice(&self.vertices),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        if self.vertex_buffer_len < self.vertices.len() as u64 {
+            while self.vertex_buffer_len < self.vertices.len() as u64 {
+                self.vertex_buffer_len *= 2;
+            }
+            self.vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Quad Vertex Buffer"),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                size: self.vertex_buffer_len * mem::size_of::<Vertex>() as u64,
+                mapped_at_creation: false,
+            });
+        }
+        queue.write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
 
-        self.index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Quad Index Buffer"),
-            contents: bytemuck::cast_slice(&self.indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        if self.index_buffer_len < self.indices.len() as u64 {
+            while self.index_buffer_len < self.indices.len() as u64 {
+                self.index_buffer_len *= 2;
+            }
+            self.index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Quad Index Buffer"),
+                usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+                size: self.index_buffer_len * mem::size_of::<u32>() as u64,
+                mapped_at_creation: false,
+            });
+        }
+        queue.write_buffer(&self.index_buffer, 0, bytemuck::cast_slice(&self.indices));
 
         self.num_indices = self.indices.len() as u32;
     }
