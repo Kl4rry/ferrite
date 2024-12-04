@@ -119,7 +119,7 @@ impl QuadRenderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Quad render pipeline layout"),
-                bind_group_layouts: &[&Uniform::get_bind_group_layout(&device)],
+                bind_group_layouts: &[&Uniform::get_bind_group_layout(device)],
                 push_constant_ranges: &[],
             });
 
@@ -200,7 +200,7 @@ impl QuadRenderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let uniform_bind_group_layout = Uniform::get_bind_group_layout(&device);
+        let uniform_bind_group_layout = Uniform::get_bind_group_layout(device);
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &uniform_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
@@ -229,7 +229,7 @@ impl QuadRenderer {
     }
 
     pub fn push_quad(&mut self, quad: Quad, color: Color) {
-        self.indices.push(self.vertices.len() as u32 + 0);
+        self.indices.push(self.vertices.len() as u32);
         self.indices.push(self.vertices.len() as u32 + 1);
         self.indices.push(self.vertices.len() as u32 + 2);
         self.indices.push(self.vertices.len() as u32 + 2);

@@ -77,7 +77,7 @@ tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["json"] }
 
 [features]
-default = ["tui"]
+default = ["tui", "gui"]
 tui = ["dep:ferrite-term"]
 gui = ["dep:ferrite-gui"]
 talloc = ["dep:ferrite-talloc", "ferrite-tui/talloc"]

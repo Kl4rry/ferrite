@@ -21,7 +21,7 @@ pub struct Args {
     #[arg(long)]
     pub log_level: Option<String>,
     /// Type UI to use
-    #[arg(long)]
+    #[arg(long, default_value = "auto")]
     pub ui: Option<Ui>,
     /// Tail log file
     #[arg(long)]
@@ -32,12 +32,16 @@ pub struct Args {
     /// Overwrite existing config
     #[arg(long)]
     pub overwrite: bool,
+    /// Wait for editor to close
+    #[arg(long)]
+    pub wait: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum Ui {
     Tui,
     Gui,
+    Auto,
 }
 
 pub fn parse() -> Args {

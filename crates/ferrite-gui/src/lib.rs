@@ -377,7 +377,6 @@ impl GuiApp {
                     if control_flow == EventLoopControlFlow::Exit {
                         event_loop.exit();
                     }
-                    return;
                 }
             }
             _ => (),
@@ -398,7 +397,7 @@ impl GuiApp {
         let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
 
         {
-            let color = theme.background.bg.clone().unwrap_or_default();
+            let color = theme.background.bg.unwrap_or_default();
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Main render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -440,6 +439,6 @@ impl GuiApp {
 
 impl Drop for GuiApp {
     fn drop(&mut self) {
-        let _ = clipboard::uninit();
+        clipboard::uninit();
     }
 }

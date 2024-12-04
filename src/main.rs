@@ -8,7 +8,7 @@ use anyhow::Result;
 use ferrite_cli::Ui;
 use ferrite_core::{
     config::{editor::Editor, keymap::Keymap, languages::Languages},
-    logger::LoggerSink,
+    logger::{LogMessage, LoggerSink},
 };
 use tracing::Level;
 use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
@@ -16,6 +16,45 @@ use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
 #[cfg(feature = "talloc")]
 #[global_allocator]
 static GLOBAL: ferrite_talloc::Talloc = ferrite_talloc::Talloc;
+
+/*#[cfg(not(target_os = "windows"))]
+fn maybe_disown(args: &ferrite_cli::Args) {
+    if args.wait || !io::stdout().is_terminal() {
+        return;
+    }
+    if let Ok(current_exe) = env::current_exe() {
+        let child = process::Command::new(&current_exe)
+            .stdin(process::Stdio::null())
+            .stdout(process::Stdio::null())
+            .stderr(process::Stdio::null())
+            .args(env::args().skip(1))
+            .spawn();
+        assert!(child.is_ok());
+        process::exit(0);
+    } else {
+        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+    }
+}*/
+
+#[cfg(feature = "tui")]
+fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+    if let Err(err) = ferrite_term::run(args, rx) {
+        tracing::error!("{err}");
+        return Err(err);
+    }
+    Ok(())
+}
+
+#[cfg(feature = "gui")]
+fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+    //#[cfg(not(target_os = "windows"))]
+    //maybe_disown(&args);
+    if let Err(err) = ferrite_gui::run(args, rx) {
+        tracing::error!("{err}");
+        return Err(err);
+    }
+    Ok(())
+}
 
 fn main() -> Result<ExitCode> {
     let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
@@ -28,19 +67,19 @@ fn main() -> Result<ExitCode> {
 
     if args.init {
         Editor::create_default_config(args.overwrite)?;
-        println!(
+        eprintln!(
             "Created default editor config at: `{}`",
             Editor::get_default_location()?.to_string_lossy()
         );
 
         Languages::create_default_config(args.overwrite)?;
-        println!(
+        eprintln!(
             "Created default language config at: `{}`",
             Languages::get_default_location()?.to_string_lossy()
         );
 
         Keymap::create_default_config(args.overwrite)?;
-        println!(
+        eprintln!(
             "Created default keymap at: `{}`",
             Keymap::get_default_location()?.to_string_lossy()
         );
@@ -127,10 +166,8 @@ fn main() -> Result<ExitCode> {
     match args.ui {
         Some(Ui::Tui) => {
             #[cfg(feature = "tui")]
-            if let Err(err) = ferrite_term::run(&args, rx) {
-                tracing::error!("{err}");
-                return Err(err);
-            }
+            run_tui(&args, rx)?;
+
             #[cfg(not(feature = "tui"))]
             {
                 eprintln!("Ferrite has not been compiled with tui");
@@ -139,21 +176,26 @@ fn main() -> Result<ExitCode> {
         }
         Some(Ui::Gui) => {
             #[cfg(feature = "gui")]
-            if let Err(err) = ferrite_gui::run(&args, rx) {
-                tracing::error!("{err}");
-                return Err(err);
-            }
+            run_gui(&args, rx)?;
+
             #[cfg(not(feature = "gui"))]
             {
                 eprintln!("Ferrite has not been compiled with gui");
                 return Ok(ExitCode::FAILURE);
             }
         }
-        None => {
+        _ => {
             #[cfg(feature = "tui")]
-            ferrite_term::run(&args, rx)?;
-            #[cfg(not(feature = "tui"))]
-            ferrite_gui::run(&args)?;
+            if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+                ferrite_term::run(&args, rx)?;
+                return Ok(ExitCode::SUCCESS);
+            } else {
+                #[cfg(not(feature = "gui"))]
+                anyhow::bail!("stdout must is not a tty");
+            }
+
+            #[cfg(feature = "gui")]
+            run_gui(&args, rx)?;
         }
     }
 
