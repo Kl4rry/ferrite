@@ -14,13 +14,20 @@ use ferrite_core::{
     config::editor::{default_font, FontWeight},
     event_loop_proxy::{EventLoopControlFlow, UserEvent},
     keymap::{self, keycode::KeyModifiers},
+    layout::panes::PaneKind,
     logger::LogMessage,
 };
-use ferrite_tui::TuiApp;
-use ferrite_utility::line_ending::LineEnding;
+use ferrite_tui::{
+    glue::{ferrite_to_tui_rect, tui_to_ferrite_rect},
+    widgets::editor_widget::lines_to_left_offset,
+    TuiApp,
+};
+use ferrite_utility::{line_ending::LineEnding, point::Point};
 use glue::convert_keycode;
+use tui::layout::Position;
 use winit::{
-    event::{Event, MouseScrollDelta, WindowEvent},
+    dpi::PhysicalPosition,
+    event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
     keyboard::Key,
     window::{Window, WindowBuilder},
@@ -59,6 +66,8 @@ struct GuiApp {
     scale_factor: f64,
     window: Arc<Window>,
     modifiers: KeyModifiers,
+    mouse_position: PhysicalPosition<f64>,
+    primary_mouse_button_pressed: bool,
 }
 
 impl GuiApp {
@@ -169,6 +178,8 @@ impl GuiApp {
             size,
             scale_factor,
             modifiers: KeyModifiers::empty(),
+            mouse_position: PhysicalPosition::default(),
+            primary_mouse_button_pressed: false,
         })
     }
 
@@ -379,7 +390,157 @@ impl GuiApp {
                     }
                 }
             }
+            WindowEvent::CursorMoved { position, .. } => {
+                let backend = self.tui_app.terminal.backend();
+                self.mouse_position = position;
+
+                if self.primary_mouse_button_pressed {
+                    let column = (self.mouse_position.x / backend.cell_width as f64) as u16;
+                    let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
+                    self.handle_drag(column, line);
+                }
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let backend = self.tui_app.terminal.backend();
+
+                let column = (self.mouse_position.x / backend.cell_width as f64) as u16;
+                let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
+                self.handle_click(column, line, state, button);
+            }
             _ => (),
+        }
+    }
+
+    pub fn handle_click(
+        &mut self,
+        column: u16,
+        line: u16,
+        state: ElementState,
+        button: MouseButton,
+    ) {
+        let input = 'block: {
+            match (state, button) {
+                (ElementState::Pressed, MouseButton::Middle) => {
+                    for (pane_kind, pane_rect) in self
+                        .tui_app
+                        .engine
+                        .workspace
+                        .panes
+                        .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                    {
+                        if ferrite_to_tui_rect(pane_rect).contains(Position::new(column, line)) {
+                            self.tui_app.engine.workspace.panes.make_current(pane_kind);
+                            if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
+                                let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
+                                let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                                let column = ((column as usize) + buffer.col_pos(view_id))
+                                    .saturating_sub(pane_rect.x)
+                                    .saturating_sub(left_offset);
+                                let line = (line as usize + buffer.line_pos(view_id))
+                                    .saturating_sub(pane_rect.y);
+                                break 'block Some(Cmd::PastePrimary(column, line));
+                            }
+                        }
+                    }
+
+                    None
+                }
+                (ElementState::Pressed, MouseButton::Left) => {
+                    self.primary_mouse_button_pressed = true;
+                    for (pane_kind, pane_rect) in self
+                        .tui_app
+                        .engine
+                        .workspace
+                        .panes
+                        .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                    {
+                        if ferrite_to_tui_rect(pane_rect).contains(Position::new(column, line)) {
+                            self.tui_app.engine.workspace.panes.make_current(pane_kind);
+                            if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
+                                let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
+                                self.tui_app.drag_start = Some(Point::new(
+                                    column as usize + buffer.col_pos(view_id),
+                                    line as usize + buffer.line_pos(view_id),
+                                ));
+
+                                let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                                let column = ((column as usize) + buffer.col_pos(view_id))
+                                    .saturating_sub(pane_rect.x)
+                                    .saturating_sub(left_offset);
+                                let line = (line as usize + buffer.line_pos(view_id))
+                                    .saturating_sub(pane_rect.y);
+                                break 'block Some(Cmd::ClickCell(column, line));
+                            }
+                        }
+                    }
+
+                    None
+                }
+                (ElementState::Released, MouseButton::Left) => {
+                    self.tui_app.drag_start = None;
+                    self.primary_mouse_button_pressed = false;
+                    None
+                }
+                _ => None,
+            }
+        };
+        self.tui_app.engine.buffer_area = tui_to_ferrite_rect(self.tui_app.buffer_area);
+        if let Some(input) = input {
+            self.tui_app
+                .engine
+                // EventLoopControlFlow is just a dummy value as mouse input should not affect control flow
+                .handle_input_command(input, &mut EventLoopControlFlow::Poll);
+        }
+    }
+
+    pub fn handle_drag(&mut self, drag_column: u16, drag_line: u16) {
+        let input = 'block: {
+            for (pane_kind, pane_rect) in self
+                .tui_app
+                .engine
+                .workspace
+                .panes
+                .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+            {
+                if ferrite_to_tui_rect(pane_rect).contains(Position::new(drag_column, drag_line)) {
+                    self.tui_app.engine.workspace.panes.make_current(pane_kind);
+                    if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
+                        // TODO maybe scroll more of the buffer into view when going outside its bounds
+                        if let Some(Point { line, column }) = self.tui_app.drag_start {
+                            let buffer = &mut self.tui_app.engine.workspace.buffers[buffer_id];
+                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+
+                            let anchor = {
+                                let column = column
+                                    .saturating_sub(left_offset)
+                                    .saturating_sub(pane_rect.x);
+                                let line = line.saturating_sub(pane_rect.y);
+                                Point::new(column, line)
+                            };
+
+                            let cursor = {
+                                let column = ((drag_column as usize) + buffer.col_pos(view_id))
+                                    .saturating_sub(left_offset)
+                                    .saturating_sub(pane_rect.x);
+                                let line = (drag_line as usize + buffer.line_pos(view_id))
+                                    .saturating_sub(pane_rect.y);
+                                Point::new(column, line)
+                            };
+
+                            break 'block Some(Cmd::SelectArea { cursor, anchor });
+                        }
+                    }
+                }
+            }
+            None
+        };
+
+        self.tui_app.engine.buffer_area = tui_to_ferrite_rect(self.tui_app.buffer_area);
+        if let Some(input) = input {
+            self.tui_app
+                .engine
+                // EventLoopControlFlow is just a dummy value as mouse input should not affect control flow
+                .handle_input_command(input, &mut EventLoopControlFlow::Poll);
         }
     }
 
