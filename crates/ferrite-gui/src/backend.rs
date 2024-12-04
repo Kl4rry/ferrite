@@ -12,6 +12,7 @@ use tui::{
     layout::{Position, Size},
     prelude::Backend,
 };
+use unicode_width::UnicodeWidthStr;
 use wgpu::RenderPass;
 
 use crate::glue::convert_style;
@@ -263,6 +264,18 @@ impl Backend for WgpuBackend {
         for (column, line, cell) in content {
             let line = &mut self.cells[line as usize];
             line[column as usize] = cell.clone();
+            let cell_width = cell.symbol().width();
+            if cell_width > 1 {
+                if let Some(next_cell) = &mut line.get_mut(column as usize) {
+                    next_cell.set_symbol("");
+                }
+            } else if cell_width == 1 {
+                if let Some(next_cell) = &mut line.get_mut(column as usize + 1) {
+                    if next_cell.symbol() == "" {
+                        next_cell.set_char(' ');
+                    }
+                }
+            }
             self.redraw = true;
         }
         Ok(())
