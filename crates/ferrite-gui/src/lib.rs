@@ -396,7 +396,7 @@ impl GuiApp {
                 self.mouse_position = position;
 
                 if self.primary_mouse_button_pressed {
-                    let column = (self.mouse_position.x / backend.cell_width as f64) as u16;
+                    let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
                     let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
                     self.handle_drag(column, line);
                 }
@@ -404,7 +404,7 @@ impl GuiApp {
             WindowEvent::MouseInput { state, button, .. } => {
                 let backend = self.tui_app.terminal.backend();
 
-                let column = (self.mouse_position.x / backend.cell_width as f64) as u16;
+                let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
                 let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
                 self.handle_click(column, line, state, button);
             }
