@@ -148,6 +148,9 @@ pub enum Cmd {
     Number(Option<i64>),
     OpenFileExplorer(Option<PathBuf>),
     TrimTrailingWhitespace,
+    ZoomIn,
+    ZoomOut,
+    ResetZoom,
 }
 
 impl Cmd {
@@ -260,6 +263,9 @@ impl Cmd {
             Number(_) => "Number",
             OpenFileExplorer(_) => "Open file explorer",
             TrimTrailingWhitespace => "Trim trailing whitespace",
+            ZoomIn => "Zoom in",
+            ZoomOut => "Zoom out",
+            ResetZoom => "Reset zoom",
         }
     }
 
@@ -363,6 +369,9 @@ impl Cmd {
             Number(_) => false,
             OpenFileExplorer(_) => false,
             TrimTrailingWhitespace => false,
+            ZoomIn => false,
+            ZoomOut => false,
+            ResetZoom => false,
         }
     }
 }

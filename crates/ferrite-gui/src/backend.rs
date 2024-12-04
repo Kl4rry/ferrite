@@ -20,6 +20,29 @@ use crate::glue::convert_style;
 
 mod quad_renderer;
 
+fn calculate_cell_size(
+    font_system: &mut FontSystem,
+    metrics: Metrics,
+    font_weight: FontWeight,
+) -> (f32, f32) {
+    let mut buffer = Buffer::new(font_system, metrics);
+    buffer.set_wrap(font_system, glyphon::Wrap::None);
+
+    // Use size of space to determine cell size
+    buffer.set_text(
+        font_system,
+        " ",
+        Attrs::new()
+            .weight(Weight(font_weight as u16))
+            .family(Family::Monospace),
+        Shaping::Basic,
+    );
+    let layout = buffer.line_layout(font_system, 0).unwrap();
+    let w = layout[0].w;
+    buffer.set_monospace_width(font_system, Some(w));
+    (w, metrics.line_height)
+}
+
 pub struct WgpuBackend {
     font_system: FontSystem,
     swash_cache: SwashCache,
@@ -37,6 +60,7 @@ pub struct WgpuBackend {
     pub redraw: bool,
     buffer: Buffer,
     cells: Vec<Vec<Cell>>,
+    scale: f32,
     // font config
     font_family: String,
     font_weight: FontWeight,
@@ -72,23 +96,7 @@ impl WgpuBackend {
         let metrics = Metrics::relative(15.0, 1.20);
         let mut buffer = Buffer::new(&mut font_system, metrics);
         // borrowed from cosmic term
-        let (cell_width, cell_height) = {
-            buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
-
-            // Use size of space to determine cell size
-            buffer.set_text(
-                &mut font_system,
-                " ",
-                Attrs::new()
-                    .weight(Weight(font_weight as u16))
-                    .family(Family::Monospace),
-                Shaping::Basic,
-            );
-            let layout = buffer.line_layout(&mut font_system, 0).unwrap();
-            let w = layout[0].w;
-            buffer.set_monospace_width(&mut font_system, Some(w));
-            (w, metrics.line_height)
-        };
+        let (cell_width, cell_height) = calculate_cell_size(&mut font_system, metrics, font_weight);
         buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
 
         let columns = (width / cell_width) as u16;
@@ -123,6 +131,7 @@ impl WgpuBackend {
             buffer,
             cells,
             redraw: true,
+            scale: 1.0,
             font_family,
             font_weight,
         }
@@ -295,6 +304,21 @@ impl WgpuBackend {
 
     pub fn set_font_weight(&mut self, weight: FontWeight) {
         self.font_weight = weight;
+    }
+
+    pub fn set_scale(&mut self, scale: f32) {
+        self.scale = scale;
+        let metrics = Metrics::relative(15.0 * self.scale, 1.20);
+        self.buffer.set_metrics(&mut self.font_system, metrics);
+        let (cell_width, cell_height) =
+            calculate_cell_size(&mut self.font_system, metrics, self.font_weight);
+        self.cell_width = cell_width;
+        self.cell_height = cell_height;
+        self.resize(self.width, self.height);
+    }
+
+    pub fn scale(&self) -> f32 {
+        self.scale
     }
 }
 

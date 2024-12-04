@@ -77,6 +77,7 @@ pub struct Engine {
     pub buffer_watcher: Option<BufferWatcher>,
     pub buffer_area: Rect,
     pub force_redraw: bool,
+    pub scale: f32,
 }
 
 impl Engine {
@@ -273,6 +274,7 @@ impl Engine {
                 height: 10,
             },
             force_redraw: false,
+            scale: 1.0,
         })
     }
 
@@ -895,6 +897,15 @@ impl Engine {
                 self.workspace
                     .panes
                     .switch_pane_direction(direction, self.buffer_area);
+            }
+            Cmd::ZoomIn => {
+                self.scale += 0.1;
+            }
+            Cmd::ZoomOut => {
+                self.scale -= 0.1;
+            }
+            Cmd::ResetZoom => {
+                self.scale = 1.0;
             }
             input => {
                 if self.palette.has_focus() {
