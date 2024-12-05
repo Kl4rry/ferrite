@@ -19,7 +19,8 @@ static GLOBAL: ferrite_talloc::Talloc = ferrite_talloc::Talloc;
 
 /*#[cfg(not(target_os = "windows"))]
 fn maybe_disown(args: &ferrite_cli::Args) {
-    if args.wait || !io::stdout().is_terminal() {
+    use std::{env, io::IsTerminal, process};
+    if args.wait || !std::io::stdout().is_terminal() {
         return;
     }
     if let Ok(current_exe) = env::current_exe() {
@@ -185,6 +186,12 @@ fn main() -> Result<ExitCode> {
             }
         }
         _ => {
+            #[cfg(feature = "gui")]
+            if std::env::var("WAYLAND_DISPLAY").is_ok() {
+                run_gui(&args, rx)?;
+                return Ok(ExitCode::SUCCESS);
+            }
+
             #[cfg(feature = "tui")]
             if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
                 ferrite_term::run(&args, rx)?;
