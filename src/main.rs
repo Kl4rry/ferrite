@@ -17,7 +17,7 @@ use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
 #[global_allocator]
 static GLOBAL: ferrite_talloc::Talloc = ferrite_talloc::Talloc;
 
-/*#[cfg(not(target_os = "windows"))]
+#[cfg(not(target_os = "windows"))]
 fn maybe_disown(args: &ferrite_cli::Args) {
     use std::{env, io::IsTerminal, process};
     if args.wait || !std::io::stdout().is_terminal() {
@@ -35,7 +35,7 @@ fn maybe_disown(args: &ferrite_cli::Args) {
     } else {
         eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
     }
-}*/
+}
 
 #[cfg(feature = "tui")]
 fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
@@ -48,8 +48,8 @@ fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<(
 
 #[cfg(feature = "gui")]
 fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
-    //#[cfg(not(target_os = "windows"))]
-    //maybe_disown(&args);
+    #[cfg(not(target_os = "windows"))]
+    maybe_disown(args);
     if let Err(err) = ferrite_gui::run(args, rx) {
         tracing::error!("{err}");
         return Err(err);
@@ -174,6 +174,7 @@ fn main() -> Result<ExitCode> {
                 eprintln!("Ferrite has not been compiled with tui");
                 return Ok(ExitCode::FAILURE);
             }
+            return Ok(ExitCode::SUCCESS);
         }
         Some(Ui::Gui) => {
             #[cfg(feature = "gui")]
@@ -184,6 +185,7 @@ fn main() -> Result<ExitCode> {
                 eprintln!("Ferrite has not been compiled with gui");
                 return Ok(ExitCode::FAILURE);
             }
+            return Ok(ExitCode::SUCCESS);
         }
         _ => {
             #[cfg(feature = "gui")]

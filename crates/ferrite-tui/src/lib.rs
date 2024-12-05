@@ -1,10 +1,6 @@
-use std::{
-    io::{self, IsTerminal},
-    sync::mpsc,
-    time::Instant,
-};
+use std::{sync::mpsc, time::Instant};
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use ferrite_cli::Args;
 use ferrite_core::{
     engine::Engine,
@@ -57,10 +53,6 @@ where
         logger::set_proxy(engine.proxy.dup());
 
         let Size { width, height } = backend.size()?;
-
-        if !io::stdout().is_terminal() {
-            bail!("Stdout must be a terminal");
-        }
 
         Ok(Self {
             terminal: tui::Terminal::new(backend)?,
