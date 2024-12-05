@@ -156,7 +156,11 @@ where
                                 && self.engine.buffer_picker.is_none()
                                 && current_pane == pane;
                             f.render_stateful_widget(
-                                FileExplorerWidget::new(theme, has_focus),
+                                FileExplorerWidget::new(
+                                    theme,
+                                    &self.engine.config.editor,
+                                    has_focus,
+                                ),
                                 ferrite_to_tui_rect(pane_rect),
                                 &mut self.engine.workspace.file_explorers[file_explorer_id],
                             );
@@ -228,7 +232,12 @@ where
                     (self.engine.palette.height() as u16).min(size.height),
                 );
                 f.render_stateful_widget(
-                    CmdPaletteWidget::new(theme, self.engine.palette.has_focus(), size),
+                    CmdPaletteWidget::new(
+                        theme,
+                        &self.engine.config.editor,
+                        self.engine.palette.has_focus(),
+                        size,
+                    ),
                     palette_size,
                     &mut self.engine.palette,
                 );

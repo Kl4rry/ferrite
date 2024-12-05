@@ -106,7 +106,11 @@ where
                 height: 1,
             };
 
-            OneLineInputWidget::new(self.theme, true).render(input_area, buf, state.search_field());
+            OneLineInputWidget::new(self.theme, self.config, true).render(
+                input_area,
+                buf,
+                state.search_field(),
+            );
 
             let count = format!("{}/{}", state.get_matches().len(), state.get_total());
             let count_width = count.width();

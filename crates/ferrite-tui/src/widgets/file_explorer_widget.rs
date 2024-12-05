@@ -1,4 +1,4 @@
-use ferrite_core::{file_explorer::FileExplorer, theme::EditorTheme};
+use ferrite_core::{config::editor::Editor, file_explorer::FileExplorer, theme::EditorTheme};
 use ferrite_utility::trim::trim_path;
 use tui::{
     layout::Rect,
@@ -10,12 +10,17 @@ use crate::glue::convert_style;
 
 pub struct FileExplorerWidget<'a> {
     theme: &'a EditorTheme,
+    config: &'a Editor,
     has_focus: bool,
 }
 
 impl<'a> FileExplorerWidget<'a> {
-    pub fn new(theme: &'a EditorTheme, has_focus: bool) -> Self {
-        Self { theme, has_focus }
+    pub fn new(theme: &'a EditorTheme, config: &'a Editor, has_focus: bool) -> Self {
+        Self {
+            theme,
+            config,
+            has_focus,
+        }
     }
 }
 
@@ -103,7 +108,7 @@ impl StatefulWidget for FileExplorerWidget<'_> {
         {
             let input_line_y = area.y + area.height - 2;
             let input_line_area = Rect::new(area.x, input_line_y, area.width, 1);
-            OneLineInputWidget::new(self.theme, self.has_focus).render(
+            OneLineInputWidget::new(self.theme, self.config, self.has_focus).render(
                 input_line_area,
                 buf,
                 &mut state.buffer,

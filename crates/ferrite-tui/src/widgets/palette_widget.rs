@@ -1,4 +1,5 @@
 use ferrite_core::{
+    config::editor::Editor,
     palette::{CommandPalette, PaletteState},
     theme::EditorTheme,
 };
@@ -10,14 +11,21 @@ use crate::glue::convert_style;
 
 pub struct CmdPaletteWidget<'a> {
     theme: &'a EditorTheme,
+    config: &'a Editor,
     focused: bool,
     total_area: Rect,
 }
 
 impl<'a> CmdPaletteWidget<'a> {
-    pub fn new(theme: &'a EditorTheme, focused: bool, total_area: Rect) -> Self {
+    pub fn new(
+        theme: &'a EditorTheme,
+        config: &'a Editor,
+        focused: bool,
+        total_area: Rect,
+    ) -> Self {
         Self {
             theme,
+            config,
             focused,
             total_area,
         }
@@ -56,7 +64,8 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                     height: 1,
                 };
 
-                OneLineInputWidget::new(self.theme, self.focused).render(input_area, buf, buffer);
+                OneLineInputWidget::new(self.theme, self.config, self.focused)
+                    .render(input_area, buf, buffer);
 
                 if self.focused && (mode == "command" || mode == "shell") {
                     let completer_area = {

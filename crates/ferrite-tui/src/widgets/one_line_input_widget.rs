@@ -1,16 +1,29 @@
-use ferrite_core::{buffer::Buffer, theme::EditorTheme};
-use tui::{layout::Rect, style::Style, widgets::StatefulWidget};
+use ferrite_core::{
+    buffer::Buffer,
+    config::editor::{CursorType, Editor},
+    theme::EditorTheme,
+};
+use tui::{
+    layout::Rect,
+    style::{self, Style},
+    widgets::StatefulWidget,
+};
 
 use crate::glue::convert_style;
 
 pub struct OneLineInputWidget<'a> {
     theme: &'a EditorTheme,
+    config: &'a Editor,
     focused: bool,
 }
 
 impl<'a> OneLineInputWidget<'a> {
-    pub fn new(theme: &'a EditorTheme, focused: bool) -> Self {
-        Self { theme, focused }
+    pub fn new(theme: &'a EditorTheme, config: &'a Editor, focused: bool) -> Self {
+        Self {
+            theme,
+            config,
+            focused,
+        }
     }
 }
 
@@ -61,10 +74,20 @@ impl StatefulWidget for OneLineInputWidget<'_> {
         };
 
         if cursor_area.intersects(area) && self.focused {
-            buf.set_style(
-                cursor_area,
-                Style::default().add_modifier(tui::style::Modifier::REVERSED),
-            );
+            match self.config.gui.cursor_type {
+                CursorType::Block => {
+                    buf.set_style(
+                        cursor_area,
+                        convert_style(&self.theme.text).add_modifier(style::Modifier::REVERSED),
+                    );
+                }
+                CursorType::Line => {
+                    buf.set_style(
+                        cursor_area,
+                        Style::default().add_modifier(style::Modifier::SLOW_BLINK),
+                    );
+                }
+            }
         }
     }
 }
