@@ -343,9 +343,7 @@ impl GuiApp {
                                     self.modifiers,
                                     self.tui_app.engine.get_current_keymappings(),
                                 );
-                                if cmd.is_some() {
-                                    break 'block cmd;
-                                }
+                                break 'block cmd;
                             }
                         }
                         Key::Character(s) => {
@@ -360,9 +358,7 @@ impl GuiApp {
                                         self.tui_app.engine.get_current_keymappings(),
                                     )
                                 };
-                                if cmd.is_some() {
-                                    break 'block cmd;
-                                }
+                                break 'block cmd;
                             } else {
                                 break 'block Some(Cmd::Insert(s.to_string()));
                             };
