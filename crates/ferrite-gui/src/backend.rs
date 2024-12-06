@@ -77,6 +77,9 @@ impl WgpuBackend {
         font_weight: FontWeight,
     ) -> Self {
         let mut font_system = FontSystem::new();
+        font_system
+            .db_mut()
+            .load_font_data(include_bytes!("../../../fonts/FiraCode-Retina.ttf").to_vec());
         font_system.db_mut().set_monospace_family(&font_family);
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
@@ -97,6 +100,7 @@ impl WgpuBackend {
         let mut buffer = Buffer::new(&mut font_system, metrics);
         // borrowed from cosmic term
         let (cell_width, cell_height) = calculate_cell_size(&mut font_system, metrics, font_weight);
+        buffer.set_monospace_width(&mut font_system, Some(cell_width));
         buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
 
         let columns = (width / cell_width) as u16;
@@ -245,7 +249,7 @@ impl WgpuBackend {
             vertical: 0.0,
             horizontal: 0.0,
         });
-        self.buffer.shape_until_scroll(&mut self.font_system, false);
+        self.buffer.shape_until_scroll(&mut self.font_system, true);
         self.font_system.shape_run_cache.trim(1024);
 
         self.viewport.update(
@@ -333,14 +337,9 @@ impl Backend for WgpuBackend {
             let cell_width = cell.symbol().width();
             #[allow(clippy::comparison_chain)]
             if cell_width > 1 {
-                if let Some(next_cell) = &mut line.get_mut(column as usize) {
-                    next_cell.set_symbol("");
-                }
-            } else if cell_width == 1 {
                 if let Some(next_cell) = &mut line.get_mut(column as usize + 1) {
-                    if next_cell.symbol() == "" {
-                        next_cell.set_char(' ');
-                    }
+                    next_cell.reset();
+                    next_cell.set_symbol("");
                 }
             }
             self.redraw = true;
