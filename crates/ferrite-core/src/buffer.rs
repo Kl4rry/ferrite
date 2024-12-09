@@ -1102,13 +1102,15 @@ impl Buffer {
         }
     }
 
-    pub fn insert_text(&mut self, view_id: ViewId, text: &str, auto_indent: bool) {
-        if text.is_empty() {
-            return;
-        }
-
-        self.history.begin(self.get_all_cursors(), self.dirty);
-
+    /// `insert_text_raw` is a buffer internal function for inserting text without checks or validation
+    fn insert_text_raw(
+        &mut self,
+        view_id: ViewId,
+        cursor_index: usize,
+        text: &str,
+        auto_indent: bool,
+        surround: bool,
+    ) -> bool {
         fn get_pair_char(s: &str) -> Option<&str> {
             Some(match s {
                 "{" => "}",
@@ -1122,7 +1124,106 @@ impl Buffer {
             })
         }
 
-        let lines = Rope::from_str(text).len_lines();
+        let (inserted_bytes, finish) = if self.views[view_id].cursors[cursor_index].has_selection()
+        {
+            let start_byte_idx = self.views[view_id].cursors[cursor_index].start();
+            let end_byte_idx = self.views[view_id].cursors[cursor_index].end();
+            if let (Some(pair), true) = (get_pair_char(text), surround) {
+                self.history.insert(&mut self.rope, start_byte_idx, text);
+                self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
+                self.views[view_id].cursors[cursor_index].position = end_byte_idx;
+                self.views[view_id].cursors[cursor_index].anchor = end_byte_idx;
+            } else {
+                self.history
+                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
+                self.views[view_id].cursors[cursor_index].position =
+                    self.views[view_id].cursors[cursor_index].start();
+                self.views[view_id].cursors[cursor_index].anchor =
+                    self.views[view_id].cursors[cursor_index].position;
+            }
+            (text.len(), false)
+        } else if auto_indent {
+            let indent = self.guess_indent(self.views[view_id].cursors[cursor_index].position);
+            let min_indent_width = Rope::from_str(&indent).width(0);
+
+            let mut smallest_indent_width = usize::MAX;
+            for line in Rope::from_str(text).lines() {
+                if line.is_whitespace() {
+                    continue;
+                }
+                let text_start_col = line.get_text_start_col(0);
+                smallest_indent_width = smallest_indent_width.min(text_start_col);
+            }
+
+            let current_line = self.rope.line(
+                self.rope
+                    .byte_to_line(self.views[view_id].cursors[cursor_index].position),
+            );
+            let current_line_is_whitespace = current_line.is_whitespace();
+            let current_line_text_start = current_line.get_text_start_col(0);
+
+            let mut input = String::new();
+            let mut first = true;
+            for line in Rope::from_str(text).lines() {
+                let line_text_start_col = line.get_text_start_col(0);
+                let extra_indent_width = line_text_start_col.saturating_sub(smallest_indent_width);
+                let string = line.to_string();
+                let trimmed = if line.is_whitespace() {
+                    string.as_str()
+                } else {
+                    string.trim_start()
+                };
+
+                let total_indent_width = min_indent_width + extra_indent_width;
+                if first {
+                    if !line.is_whitespace() && current_line_is_whitespace {
+                        input.push_str(&self.indent.from_width(
+                            total_indent_width.saturating_sub(current_line_text_start),
+                        ));
+                    }
+                    first = false;
+                } else {
+                    input.push_str(&self.indent.from_width(total_indent_width));
+                }
+
+                input.push_str(trimmed);
+            }
+
+            self.history.insert(
+                &mut self.rope,
+                self.views[view_id].cursors[cursor_index].position,
+                &input,
+            );
+            /*if let Some(pair) = get_pair_char(text) {
+                self.history
+                    .insert(&mut self.rope, self.cursors[cursor_index].position + text.len(), pair);
+            }*/
+            (input.len(), true)
+        } else {
+            self.history.insert(
+                &mut self.rope,
+                self.views[view_id].cursors[cursor_index].position,
+                text,
+            );
+            /*if let Some(pair) = get_pair_char(text) {
+                self.history
+                    .insert(&mut self.rope, self.cursors[cursor_index].position + text.len(), pair);
+            }*/
+            (text.len(), false)
+        };
+
+        self.views[view_id].cursors[cursor_index].position += inserted_bytes;
+        self.views[view_id].cursors[cursor_index].anchor =
+            self.views[view_id].cursors[cursor_index].position;
+        finish
+    }
+
+    pub fn insert_text(&mut self, view_id: ViewId, text: &str, auto_indent: bool) {
+        if text.is_empty() {
+            return;
+        }
+
+        self.history.begin(self.get_all_cursors(), self.dirty);
 
         self.views[view_id].coalesce_cursors();
         let mut cursors: Vec<_> = self.views[view_id]
@@ -1136,97 +1237,7 @@ impl Buffer {
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
-            let (inserted_bytes, finish) = if self.views[view_id].cursors[i].has_selection() {
-                let start_byte_idx = self.views[view_id].cursors[i].start();
-                let end_byte_idx = self.views[view_id].cursors[i].end();
-                if let Some(pair) = get_pair_char(text) {
-                    self.history.insert(&mut self.rope, start_byte_idx, text);
-                    self.history.insert(&mut self.rope, end_byte_idx + 1, pair);
-                    self.views[view_id].cursors[i].position = end_byte_idx;
-                    self.views[view_id].cursors[i].anchor = end_byte_idx;
-                } else {
-                    self.history
-                        .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
-                    self.views[view_id].cursors[i].position =
-                        self.views[view_id].cursors[i].start();
-                    self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
-                }
-                (text.len(), false)
-            } else if auto_indent && lines > 1 {
-                let indent = self.guess_indent(self.views[view_id].cursors[i].position);
-                let min_indent_width = Rope::from_str(&indent).width(0);
-
-                let mut smallest_indent_width = usize::MAX;
-                for line in Rope::from_str(text).lines() {
-                    if line.is_whitespace() {
-                        continue;
-                    }
-                    let text_start_col = line.get_text_start_col(0);
-                    smallest_indent_width = smallest_indent_width.min(text_start_col);
-                }
-
-                let current_line = self.rope.line(
-                    self.rope
-                        .byte_to_line(self.views[view_id].cursors[i].position),
-                );
-                let current_line_is_whitespace = current_line.is_whitespace();
-                let current_line_text_start = current_line.get_text_start_col(0);
-
-                let mut input = String::new();
-                let mut first = true;
-                for line in Rope::from_str(text).lines() {
-                    let line_text_start_col = line.get_text_start_col(0);
-                    let extra_indent_width =
-                        line_text_start_col.saturating_sub(smallest_indent_width);
-                    let string = line.to_string();
-                    let trimmed = if line.is_whitespace() {
-                        string.as_str()
-                    } else {
-                        string.trim_start()
-                    };
-
-                    let total_indent_width = min_indent_width + extra_indent_width;
-                    if first {
-                        if !line.is_whitespace() && current_line_is_whitespace {
-                            input.push_str(&self.indent.from_width(
-                                total_indent_width.saturating_sub(current_line_text_start),
-                            ));
-                        }
-                        first = false;
-                    } else {
-                        input.push_str(&self.indent.from_width(total_indent_width));
-                    }
-
-                    input.push_str(trimmed);
-                }
-
-                self.history.insert(
-                    &mut self.rope,
-                    self.views[view_id].cursors[i].position,
-                    &input,
-                );
-                /*if let Some(pair) = get_pair_char(text) {
-                    self.history
-                        .insert(&mut self.rope, self.cursors[i].position + text.len(), pair);
-                }*/
-                (input.len(), true)
-            } else {
-                self.history.insert(
-                    &mut self.rope,
-                    self.views[view_id].cursors[i].position,
-                    text,
-                );
-                /*if let Some(pair) = get_pair_char(text) {
-                    self.history
-                        .insert(&mut self.rope, self.cursors[i].position + text.len(), pair);
-                }*/
-                (text.len(), false)
-            };
-
-            self.views[view_id].cursors[i].position += inserted_bytes;
-            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
-
-            history_finish |= finish;
+            history_finish |= self.insert_text_raw(view_id, i, text, auto_indent, true);
 
             let after_len_bytes = self.rope.len_bytes();
             let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
@@ -1860,7 +1871,7 @@ impl Buffer {
             .filter(|line| line.line_without_line_ending(0).len_bytes() > 0)
             .count();
 
-        if self.views[view_id].cursors.len() != lines || self.views[view_id].cursors.len() == 1 {
+        if self.views[view_id].cursors.len() != lines {
             self.insert_text(view_id, &text, true);
             self.history.finish();
             return;
@@ -1877,29 +1888,12 @@ impl Buffer {
             .collect();
         cursors.sort();
 
-        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+        for (cursor_loop_index, (_, _i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
 
             let text = rope.line_without_line_ending(cursor_loop_index);
-            let inserted_bytes = text.len_bytes();
-            if self.views[view_id].cursors[i].has_selection() {
-                let start_byte_idx = self.views[view_id].cursors[i].start();
-                let end_byte_idx = self.views[view_id].cursors[i].end();
-
-                self.history
-                    .replace(&mut self.rope, start_byte_idx..end_byte_idx, text);
-                self.views[view_id].cursors[i].position = self.views[view_id].cursors[i].start();
-                self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
-            } else {
-                self.history.insert(
-                    &mut self.rope,
-                    self.views[view_id].cursors[i].position,
-                    text,
-                );
-            };
-
-            self.views[view_id].cursors[i].position += inserted_bytes;
-            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+            // TODO remove this `to_string`
+            self.insert_text_raw(view_id, cursor_loop_index, &text.to_string(), true, false);
 
             let after_len_bytes = self.rope.len_bytes();
             let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
@@ -1917,6 +1911,7 @@ impl Buffer {
         self.update_affinity(view_id);
         self.mark_dirty();
         self.ensure_every_cursor_is_valid();
+        self.history.finish();
     }
 
     pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
