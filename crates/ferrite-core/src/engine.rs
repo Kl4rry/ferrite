@@ -1151,6 +1151,15 @@ impl Engine {
             Some((id, buffer)) => {
                 buffer.update_interact(None);
                 let view_id = buffer.create_view();
+                if let Some(buffer_data) = self
+                    .workspace
+                    .buffer_extra_data
+                    .iter()
+                    .find(|b| b.path == real_path)
+                {
+                    buffer.load_view_data(view_id, buffer_data);
+                    buffer.load_buffer_data(buffer_data);
+                }
                 let replaced = self
                     .workspace
                     .panes
