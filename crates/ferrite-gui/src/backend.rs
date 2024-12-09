@@ -335,7 +335,6 @@ impl Backend for WgpuBackend {
             let line = &mut self.cells[line as usize];
             line[column as usize] = cell.clone();
             let cell_width = cell.symbol().width();
-            #[allow(clippy::comparison_chain)]
             if cell_width > 1 {
                 if let Some(next_cell) = &mut line.get_mut(column as usize + 1) {
                     next_cell.reset();
