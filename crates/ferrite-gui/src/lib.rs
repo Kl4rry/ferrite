@@ -39,7 +39,6 @@ mod glue;
 
 pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     {
-        let default_panic = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
             println!();
             let _ = std::fs::write("./panic.txt", format!("{info:?}"));
