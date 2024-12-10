@@ -1156,6 +1156,7 @@ impl Engine {
                     let view_id = buffer.create_view();
                     let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
                     self.load_view_data(buffer_id, view_id);
+
                     true
                 }
                 Err(err) => {
@@ -1509,9 +1510,18 @@ impl Engine {
             if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
                 self.workspace.buffers[buffer_id].remove_view(view_id);
             }
-            self.workspace
+            let old = self
+                .workspace
                 .panes
                 .replace_current(PaneKind::Buffer(buffer_id, view_id));
+
+            if let PaneKind::Buffer(id, view_id) = old {
+                let buffer = &mut self.workspace.buffers[id];
+                buffer.remove_view(view_id);
+                if buffer.is_disposable() {
+                    self.workspace.buffers.remove(id);
+                }
+            }
         }
         (buffer_id, &mut self.workspace.buffers[buffer_id])
     }
