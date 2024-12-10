@@ -43,7 +43,10 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
         std::panic::set_hook(Box::new(move |info| {
             println!();
             let _ = std::fs::write("./panic.txt", format!("{info:?}"));
-            default_panic(info);
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            let panic_info = format!("{backtrace}\n{info}");
+            let _ = std::fs::write("panic.txt", &panic_info);
+            println!("{}", panic_info);
         }));
     }
 
