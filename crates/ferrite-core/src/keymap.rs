@@ -672,6 +672,14 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Key::new(
+                KeyCode::Char('k'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ),
+            Cmd::RemoveLine,
+            Exclusiveness::Exclusive,
+        ),
+        (
             Key::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
             Cmd::InputMode {
                 name: "chords".into(),

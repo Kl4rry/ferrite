@@ -1776,6 +1776,54 @@ impl Buffer {
         self.history.finish();
     }
 
+    pub fn remove_line(&mut self, view_id: ViewId) {
+        self.views[view_id].coalesce_cursors();
+
+        let cursor_positions = self.get_cursor_positions();
+
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+
+        self.history.begin(self.get_all_cursors(), self.dirty);
+
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+
+            {
+                let line_idx = self.cursor_line_idx(view_id, i);
+                let end_byte_idx = self.rope.line_to_byte(line_idx + 1);
+
+                let line_idx = self.anchor_line_idx(view_id, i);
+                let start_byte_idx = self.rope.line_to_byte(line_idx);
+
+                self.history
+                    .remove(&mut self.rope, start_byte_idx..end_byte_idx);
+            }
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        self.restore_cursor_positions(cursor_positions);
+        self.views[view_id].coalesce_cursors();
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
+        self.mark_dirty();
+        self.history.finish();
+    }
+
     pub fn undo(&mut self, view_id: ViewId) {
         let mut cursors = self.get_all_cursors();
         self.history

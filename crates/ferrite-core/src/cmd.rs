@@ -117,6 +117,7 @@ pub enum Cmd {
     SelectAll,
     SelectLine,
     SelectWord,
+    RemoveLine,
     Cut,
     PastePrimary(usize, usize),
     Tab {
@@ -183,6 +184,7 @@ impl Cmd {
             Start { .. } => "Start",
             SelectAll => "Select all",
             SelectLine => "Select line",
+            RemoveLine => "Remove line",
             SelectWord => "Select word",
             Copy => "Cpy",
             Cut => "Cut",
@@ -299,6 +301,7 @@ impl Cmd {
             SelectAll => false,
             SelectLine => true,
             SelectWord => true,
+            RemoveLine => true,
             Copy => false,
             Cut => false,
             Paste => true,

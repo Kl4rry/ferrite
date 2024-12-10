@@ -33,6 +33,7 @@ impl Buffer {
             SelectAll => self.select_all(view_id),
             SelectWord => self.select_word(view_id),
             SelectLine => self.select_line(view_id),
+            RemoveLine => self.remove_line(view_id),
             Copy => self.copy(view_id),
             Cut if !self.read_only => self.cut(view_id),
             Paste if !self.read_only => self.paste(view_id),
