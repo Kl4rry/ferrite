@@ -42,7 +42,7 @@ use crate::{
     picker::{
         buffer_picker::{BufferFindProvider, BufferItem},
         file_picker::FileFindProvider,
-        file_previewer::FilePreviewer,
+        file_previewer::{is_text_file, FilePreviewer},
         file_scanner::FileScanner,
         global_search_picker::{GlobalSearchMatch, GlobalSearchPreviewer, GlobalSearchProvider},
         Picker,
@@ -1659,6 +1659,16 @@ impl Engine {
         self.shell_jobs.push(job);
     }
 
+    fn os_open_url(&mut self, url: impl AsRef<Path>) {
+        if is_text_file(url.as_ref()).unwrap_or(false) {
+            self.open_file(url.as_ref());
+            return;
+        }
+        if let Err(err) = opener::open(url.as_ref()) {
+            self.palette.set_error(err);
+        }
+    }
+
     pub fn open_selected_url(&mut self) {
         if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
             for i in 0..self.workspace.buffers[buffer_id].views[view_id]
@@ -1670,14 +1680,10 @@ impl Engine {
                 finder.kinds(&[LinkKind::Url]);
                 let spans: Vec<_> = finder.spans(&selection).collect();
                 if spans.is_empty() {
-                    if let Err(err) = opener::open(selection) {
-                        self.palette.set_error(err);
-                    }
+                    self.os_open_url(&selection);
                 } else {
                     for span in spans {
-                        if let Err(err) = opener::open(span.as_str()) {
-                            self.palette.set_error(err);
-                        }
+                        self.os_open_url(span.as_str());
                     }
                 }
             }
