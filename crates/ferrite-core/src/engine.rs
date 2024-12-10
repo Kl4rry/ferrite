@@ -1154,15 +1154,6 @@ impl Engine {
             None => match Buffer::from_file(&real_path) {
                 Ok(mut buffer) => {
                     let view_id = buffer.create_view();
-                    if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane()
-                    {
-                        self.load_view_data(buffer_id, view_id);
-                        let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
-                        if current_buf.is_disposable() {
-                            *current_buf = buffer;
-                            return true;
-                        }
-                    }
                     let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
                     self.load_view_data(buffer_id, view_id);
                     true
