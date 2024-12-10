@@ -930,17 +930,7 @@ impl Engine {
 
                         let buffer = &mut self.workspace.buffers[choice.id];
                         let view_id = buffer.create_view();
-                        if let Some(path) = buffer.file() {
-                            if let Some(buffer_data) = self
-                                .workspace
-                                .buffer_extra_data
-                                .iter()
-                                .find(|b| b.path == path)
-                            {
-                                buffer.load_view_data(view_id, buffer_data);
-                                buffer.load_buffer_data(buffer_data);
-                            }
-                        }
+                        self.load_view_data(choice.id, view_id);
 
                         let old = self
                             .workspace
@@ -1151,15 +1141,7 @@ impl Engine {
             Some((id, buffer)) => {
                 buffer.update_interact(None);
                 let view_id = buffer.create_view();
-                if let Some(buffer_data) = self
-                    .workspace
-                    .buffer_extra_data
-                    .iter()
-                    .find(|b| b.path == real_path)
-                {
-                    buffer.load_view_data(view_id, buffer_data);
-                    buffer.load_buffer_data(buffer_data);
-                }
+                self.load_view_data(id, view_id);
                 let replaced = self
                     .workspace
                     .panes
@@ -1172,25 +1154,17 @@ impl Engine {
             None => match Buffer::from_file(&real_path) {
                 Ok(mut buffer) => {
                     let view_id = buffer.create_view();
-                    if let Some(buffer_data) = self
-                        .workspace
-                        .buffer_extra_data
-                        .iter()
-                        .find(|b| b.path == real_path)
-                    {
-                        buffer.load_view_data(view_id, buffer_data);
-                        buffer.load_buffer_data(buffer_data);
-                    }
-
                     if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane()
                     {
+                        self.load_view_data(buffer_id, view_id);
                         let current_buf = self.workspace.buffers.get_mut(buffer_id).unwrap();
                         if current_buf.is_disposable() {
                             *current_buf = buffer;
                             return true;
                         }
                     }
-                    self.insert_buffer(buffer, view_id, true);
+                    let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
+                    self.load_view_data(buffer_id, view_id);
                     true
                 }
                 Err(err) => {
@@ -1380,6 +1354,23 @@ impl Engine {
         );
     }
 
+    fn load_view_data(&mut self, buffer_id: BufferId, view_id: ViewId) {
+        if let Some(real_path) = self.workspace.buffers[buffer_id].file() {
+            if let Some(buffer_data) = self
+                .workspace
+                .buffer_extra_data
+                .iter()
+                .find(|b| b.path == real_path)
+            {
+                tracing::error!("real_path: {:?}", real_path);
+                let buffer = &mut self.workspace.buffers[buffer_id];
+                buffer.load_view_data(view_id, buffer_data);
+                buffer.load_buffer_data(buffer_data);
+            }
+        }
+        let _ = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::Nop);
+    }
+
     /// Gets a buffer that can be used to replace the current pane with
     fn get_next_buffer(&mut self) -> (BufferId, ViewId) {
         let mut next_buffer = None;
@@ -1400,18 +1391,7 @@ impl Engine {
         }
 
         if let Some((buffer_id, view_id)) = next_buffer {
-            if let Some(real_path) = self.workspace.buffers[buffer_id].file() {
-                if let Some(buffer_data) = self
-                    .workspace
-                    .buffer_extra_data
-                    .iter()
-                    .find(|b| b.path == real_path)
-                {
-                    let buffer = &mut self.workspace.buffers[buffer_id];
-                    buffer.load_view_data(view_id, buffer_data);
-                    buffer.load_buffer_data(buffer_data);
-                }
-            }
+            self.load_view_data(buffer_id, view_id);
         }
 
         next_buffer.unwrap_or_else(|| {

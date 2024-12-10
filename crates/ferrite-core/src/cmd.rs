@@ -15,6 +15,7 @@ pub enum LineMoveDir {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Cmd {
+    Nop,
     OpenFile(PathBuf),
     Cd(PathBuf),
     Save(Option<PathBuf>),
@@ -157,6 +158,7 @@ impl Cmd {
     fn as_str(&self) -> &str {
         use Cmd::*;
         match self {
+            Nop => "Nop",
             Repeat { .. } => "Repeat",
             MoveRight { .. } => "Move right",
             MoveLeft { .. } => "Move left",
@@ -272,6 +274,7 @@ impl Cmd {
     pub fn is_repeatable(&self) -> bool {
         use Cmd::*;
         match self {
+            Nop => false,
             Repeat => false,
             MoveRight { .. } => true,
             MoveLeft { .. } => true,

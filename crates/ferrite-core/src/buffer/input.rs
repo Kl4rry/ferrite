@@ -52,7 +52,8 @@ impl Buffer {
             RevertBuffer if !self.read_only => self.revert_buffer(view_id),
             Number(number) if !self.read_only => self.number(view_id, number),
             TrimTrailingWhitespace if !self.read_only => self.trim_trailing_whitespace(),
-            _ => (),
+            Nop => self.update_interact(Some(view_id)),
+            _ => return Ok(()),
         }
 
         if let Some(searcher) = &mut self.views[view_id].searcher {
