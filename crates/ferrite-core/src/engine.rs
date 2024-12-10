@@ -1353,7 +1353,6 @@ impl Engine {
                 .iter()
                 .find(|b| b.path == real_path)
             {
-                tracing::error!("real_path: {:?}", real_path);
                 let buffer = &mut self.workspace.buffers[buffer_id];
                 buffer.load_view_data(view_id, buffer_data);
                 buffer.load_buffer_data(buffer_data);
