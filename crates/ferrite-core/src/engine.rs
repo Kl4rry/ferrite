@@ -1607,7 +1607,7 @@ impl Engine {
                     cmd.push(' ');
                 }
 
-                let exec = get_exec(cmd)
+                let exec = get_exec(&cmd)
                     .stdout(Redirection::Pipe)
                     .stderr(Redirection::Pipe);
 
@@ -1623,13 +1623,7 @@ impl Engine {
                 }
 
                 let mut buffer = Buffer::from_bytes(&stdout.unwrap())?;
-                let first_line = buffer.rope().line(0);
-                let name = if first_line.len_chars() > 15 {
-                    format!("{}...", first_line.slice(..15))
-                } else {
-                    first_line.to_string()
-                };
-                buffer.set_name(name);
+                buffer.set_name(cmd);
                 buffer.read_only = read_only;
 
                 Ok((pipe, buffer))
@@ -1728,7 +1722,7 @@ impl Engine {
     }
 }
 
-fn get_exec(cmd: String) -> Exec {
+fn get_exec(cmd: &str) -> Exec {
     if cfg!(unix) {
         match std::env::var("SHELL") {
             Ok(shell) => Exec::cmd(shell).arg("-c").arg(cmd),
