@@ -1,9 +1,11 @@
 use std::{
     collections::HashMap,
-    env, io,
+    env,
+    io::{self, Read},
     num::NonZeroUsize,
     path::{Path, PathBuf},
-    sync::{mpsc, Arc},
+    process::{Command, Stdio},
+    sync::{atomic::Ordering, mpsc, Arc},
     time::{Duration, Instant},
 };
 
@@ -11,8 +13,9 @@ use anyhow::Result;
 use ferrite_cli::Args;
 use ferrite_utility::{line_ending, point::Point, trim::trim_path};
 use linkify::{LinkFinder, LinkKind};
+use ropey::Rope;
 use slotmap::{Key as _, SlotMap};
-use subprocess::{Exec, Redirection};
+use timeout_readwrite::TimeoutReadExt;
 
 use crate::{
     buffer::{self, encoding::get_encoding, Buffer, ViewId},
@@ -30,8 +33,8 @@ use crate::{
     file_explorer::FileExplorer,
     git::branch::BranchWatcher,
     indent::Indentation,
-    job_manager::{JobHandle, JobManager},
-    jobs::SaveBufferJob,
+    job_manager::{JobHandle, JobManager, Progress},
+    jobs::{SaveBufferJob, ShellJobHandle},
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
     palette::{
@@ -66,7 +69,7 @@ pub struct Engine {
     pub file_scanner: FileScanner,
     pub job_manager: JobManager,
     pub save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
-    pub shell_jobs: Vec<JobHandle<Result<(bool, Buffer), anyhow::Error>>>,
+    pub shell_jobs: Vec<(Option<BufferId>, ShellJobHandle)>,
     pub spinner: Spinner,
     pub logger_state: LoggerState,
     pub choord: Option<String>,
@@ -372,7 +375,7 @@ impl Engine {
             .extend_from_slice(&new_buffers);
 
         for job in &mut self.save_jobs {
-            if let Ok(result) = job.recv_try() {
+            if let Ok(result) = job.try_recv() {
                 match result {
                     Ok(job) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(job.buffer_id) {
@@ -397,29 +400,36 @@ impl Engine {
         }
         self.save_jobs.retain(|job| !job.is_finished());
 
-        let mut new_buffers = Vec::new();
-        {
-            for job in &mut self.shell_jobs {
-                if let Ok(result) = job.recv_try() {
-                    match result {
-                        Ok((pipe, buffer)) => {
-                            if pipe {
-                                new_buffers.push(buffer);
-                            } else {
-                                self.palette.set_msg(buffer);
+        for (buffer_id, job) in &mut self.shell_jobs {
+            if let Ok(result) = job.poll_progress() {
+                match result {
+                    Progress::End(Ok((buffer_id, rope))) => {
+                        if let Some(buffer_id) = buffer_id {
+                            if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
+                                buffer.replace_rope(rope);
                             }
+                        } else {
+                            self.palette.set_msg(rope.to_string());
                         }
-                        Err(e) => self.palette.set_error(e),
+                    }
+                    Progress::End(Err(e)) => self.palette.set_error(e),
+                    Progress::Progress((buffer_id, rope)) => {
+                        if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
+                            buffer.replace_rope(rope);
+                            buffer.auto_detect_language();
+                        }
                     }
                 }
             }
-        }
-        self.shell_jobs.retain(|job| !job.is_finished());
 
-        for mut buffer in new_buffers {
-            let view_id = buffer.create_view();
-            self.insert_buffer(buffer, view_id, true);
+            if let Some(buffer_id) = buffer_id {
+                if !self.workspace.buffers.contains_key(*buffer_id) {
+                    job.kill();
+                }
+            }
         }
+
+        self.shell_jobs.retain(|job| !job.1.is_finished());
 
         self.job_manager.poll_jobs();
 
@@ -1561,7 +1571,7 @@ impl Engine {
         }
 
         let job = self.job_manager.spawn_foreground_job(
-            move |(buffer_id, encoding, line_ending, rope, path, last_edit)| {
+            move |_, _, (buffer_id, encoding, line_ending, rope, path, last_edit)| {
                 let written = buffer::write::write(encoding, line_ending, rope.clone(), &path)?;
                 Ok(SaveBufferJob {
                     buffer_id,
@@ -1596,41 +1606,105 @@ impl Engine {
     }
 
     pub fn run_shell_command(&mut self, args: Vec<PathBuf>, pipe: bool, read_only: bool) {
+        let mut cmd = String::new();
+        for arg in args
+            .into_iter()
+            .map(|path| path.to_string_lossy().to_string())
+        {
+            cmd.push_str(&arg);
+            cmd.push(' ');
+        }
+
+        let buffer_id = if pipe {
+            let mut buffer = Buffer::new();
+            let view_id = buffer.create_view();
+            buffer.set_name(cmd.clone());
+            buffer.read_only = read_only;
+            Some(self.insert_buffer(buffer, view_id, true).0)
+        } else {
+            None
+        };
+
         let job = self.job_manager.spawn_foreground_job(
-            move |()| -> Result<_, anyhow::Error> {
-                let mut cmd = String::new();
-                for arg in args
-                    .into_iter()
-                    .map(|path| path.to_string_lossy().to_string())
+            move |killed, progressor, ()| -> Result<_, anyhow::Error> {
+                let mut command = get_exec(&cmd);
+                command.stdout(Stdio::piped());
+                command.stderr(Stdio::piped());
+                command.stdin(Stdio::null());
+                #[cfg(target_os = "linux")]
                 {
-                    cmd.push_str(&arg);
-                    cmd.push(' ');
+                    std::os::unix::process::CommandExt::process_group(&mut command, 0);
+                    unsafe {
+                        std::os::unix::process::CommandExt::pre_exec(&mut command, || {
+                            Ok(rustix::stdio::dup2_stderr(rustix::stdio::stdout())?)
+                        })
+                    };
+                }
+                let mut child = command.spawn()?;
+                let mut stdout = child
+                    .stdout
+                    .take()
+                    .unwrap()
+                    .with_timeout(Duration::from_millis(20));
+                let mut rope = Rope::new();
+                let mut buffer = Vec::new();
+                let mut bytes = [0u8; 4096];
+                let status = loop {
+                    if let Ok(read_bytes) = stdout.read(&mut bytes) {
+                        if read_bytes > 0 {
+                            buffer.extend_from_slice(&bytes[..read_bytes]);
+                            if let Some(buffer_id) = buffer_id {
+                                let mut slice = &buffer[..];
+                                let mut total = 0;
+                                while let Some(idx) = memchr::memchr(b'\n', slice) {
+                                    let len = idx + 1;
+                                    let line = String::from_utf8_lossy(&slice[..len]);
+                                    let rope_line = Rope::from_str(&line);
+                                    rope.append(rope_line);
+                                    slice = &slice[len..];
+                                    total += len;
+                                }
+                                progressor.make_progress((buffer_id, rope.clone()));
+                                buffer.drain(..total);
+                            }
+                            continue;
+                        }
+                    }
+                    match child.try_wait() {
+                        Ok(None) => {
+                            if killed.load(Ordering::Relaxed) {
+                                #[cfg(not(target_os = "linux"))]
+                                if let Err(err) = child.kill() {
+                                    tracing::error!("Error killing child: {err}");
+                                }
+                                #[cfg(target_os = "linux")]
+                                {
+                                    if let Err(err) = rustix::process::kill_process_group(
+                                        rustix::process::Pid::from_raw(child.id() as i32).unwrap(),
+                                        rustix::process::Signal::Term,
+                                    ) {
+                                        tracing::error!("Error killing child: {err}");
+                                    }
+                                }
+                            }
+                            continue;
+                        }
+                        Ok(Some(s)) => {
+                            break s;
+                        }
+                        Err(err) => tracing::error!("error: {err}"),
+                    }
+                };
+
+                if !status.success() && !pipe {
+                    return Err(anyhow::Error::msg(rope.to_string()));
                 }
 
-                let exec = get_exec(&cmd)
-                    .stdout(Redirection::Pipe)
-                    .stderr(Redirection::Pipe);
-
-                let mut popen = exec.popen()?;
-
-                let (stdout, stderr) = popen.communicate_bytes(None)?;
-                let status = popen.wait()?;
-
-                if !status.success() {
-                    return Err(anyhow::Error::msg(
-                        String::from_utf8_lossy(&stderr.unwrap()).to_string(),
-                    ));
-                }
-
-                let mut buffer = Buffer::from_bytes(&stdout.unwrap())?;
-                buffer.set_name(cmd);
-                buffer.read_only = read_only;
-
-                Ok((pipe, buffer))
+                Ok((buffer_id, rope))
             },
             (),
         );
-        self.shell_jobs.push(job);
+        self.shell_jobs.push((buffer_id, job));
     }
 
     fn os_open_url(&mut self, url: impl AsRef<Path>) {
@@ -1722,17 +1796,30 @@ impl Engine {
     }
 }
 
-fn get_exec(cmd: &str) -> Exec {
+fn get_exec(cmd: &str) -> Command {
+    #[cfg(unix)]
+    pub const SHELL: [&str; 2] = ["sh", "-c"];
+
+    #[cfg(windows)]
+    pub const SHELL: [&str; 2] = ["cmd.exe", "/c"];
     if cfg!(unix) {
         match std::env::var("SHELL") {
-            Ok(shell) => Exec::cmd(shell).arg("-c").arg(cmd),
+            Ok(shell) => {
+                let mut command = Command::new(shell);
+                command.arg("-c").arg(cmd);
+                command
+            }
             Err(err) => {
                 tracing::error!("{err}");
-                Exec::shell(cmd)
+                let mut command = Command::new(SHELL[0]);
+                command.arg(SHELL[1]).arg(cmd);
+                command
             }
         }
     } else {
-        Exec::shell(cmd)
+        let mut command = Command::new(SHELL[0]);
+        command.arg(SHELL[1]).arg(cmd);
+        command
     }
 }
 
@@ -1741,5 +1828,8 @@ impl Drop for Engine {
         if let Err(e) = self.workspace.save_workspace() {
             tracing::error!("Error saving workspace: {e}");
         };
+        for job in &mut self.shell_jobs {
+            job.1.kill();
+        }
     }
 }

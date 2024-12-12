@@ -52,6 +52,7 @@ slotmap = "1.0.7"
 sublime_fuzzy = "0.7.0"
 subprocess = "0.2.9"
 tempdir = "0.3.7"
+timeout-readwrite = "0.4.0"
 toml = { version = "0.7.1", default-features = false }
 tracing = "0.1.40"
 tracing-log = "0.2.0"

@@ -1,24 +1,60 @@
 use std::{
-    sync::mpsc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
     thread::{self, JoinHandle},
 };
 
 use crate::event_loop_proxy::EventLoopProxy;
 
-pub struct JobHandle<T> {
-    recv: mpsc::Receiver<T>,
+pub struct JobHandle<T, P = ()> {
+    end_recv: mpsc::Receiver<T>,
+    progress_recv: mpsc::Receiver<P>,
     finished: bool,
+    killed: Arc<AtomicBool>,
 }
 
-impl<T> JobHandle<T> {
-    pub fn recv_try(&mut self) -> Result<T, mpsc::TryRecvError> {
-        let result = self.recv.try_recv();
+pub enum Progress<T, P> {
+    Progress(P),
+    End(T),
+}
+
+impl<T> JobHandle<T, ()> {
+    pub fn try_recv(&mut self) -> Result<T, mpsc::TryRecvError> {
+        let result = self.end_recv.try_recv();
         self.finished |= result.is_ok();
         result
+    }
+}
+
+impl<T, P> JobHandle<T, P> {
+    pub fn poll_progress(&mut self) -> Result<Progress<T, P>, mpsc::TryRecvError> {
+        if let Ok(progress) = self.progress_recv.try_recv() {
+            return Ok(Progress::Progress(progress));
+        }
+
+        let result = self.end_recv.try_recv()?;
+        self.finished = true;
+        Ok(Progress::End(result))
+    }
+
+    pub fn kill(&mut self) {
+        self.killed.store(true, Ordering::Relaxed);
     }
 
     pub fn is_finished(&self) -> bool {
         self.finished
+    }
+}
+
+pub struct Progressor<T> {
+    sender: mpsc::Sender<T>,
+}
+
+impl<T> Progressor<T> {
+    pub fn make_progress(&mut self, t: T) {
+        let _ = self.sender.send(t);
     }
 }
 
@@ -50,24 +86,36 @@ impl JobManager {
     pub fn spawn_foreground_job<
         I: Send + 'static,
         O: Send + 'static,
-        F: FnOnce(I) -> O + Send + 'static,
+        P: Send + 'static,
+        F: FnOnce(Arc<AtomicBool>, &mut Progressor<P>, I) -> O + Send + 'static,
     >(
         &mut self,
         f: F,
         input: I,
-    ) -> JobHandle<O> {
-        let (tx, rx) = mpsc::channel();
+    ) -> JobHandle<O, P> {
+        let killed = Arc::new(AtomicBool::new(false));
+        let (end_tx, end_rx) = mpsc::channel();
+        let (progress_tx, progress_rx) = mpsc::channel();
         let proxy = self.proxy.dup();
+        let thread_killed = killed.clone();
         let handle = thread::spawn(move || {
-            let output = f(input);
-            let _ = tx.send(output);
+            let output = f(
+                thread_killed,
+                &mut Progressor {
+                    sender: progress_tx,
+                },
+                input,
+            );
+            let _ = end_tx.send(output);
             proxy.request_render();
         });
 
         self.foreground_job.push(handle);
         JobHandle {
-            recv: rx,
+            end_recv: end_rx,
+            progress_recv: progress_rx,
             finished: false,
+            killed,
         }
     }
 }

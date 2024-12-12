@@ -17,7 +17,7 @@ fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
         .args(&parts.collect::<Vec<_>>())
         .stdin(Redirection::Pipe)
         .stdout(Redirection::Pipe)
-        .stderr(Redirection::Pipe)
+        .stderr(Redirection::Merge)
         .popen()?;
 
     let mut input = Vec::new();
@@ -28,15 +28,16 @@ fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
     let mut com = child
         .communicate_start(Some(input))
         .limit_time(Duration::from_secs(3));
-    let (stdout, stderr) = com.read()?;
+    let (stdout, _) = com.read()?;
     let exit_status = child.wait()?;
 
+    let output = String::from_utf8_lossy(&stdout.unwrap()).into();
     if exit_status.success() {
-        Ok(String::from_utf8_lossy(&stdout.unwrap()).into())
+        Ok(output)
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            String::from_utf8_lossy(&stderr.unwrap()),
+            output,
         ))?
     }
 }
@@ -69,7 +70,7 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
     let mut child = cmd
         .stdin(Redirection::Pipe)
         .stdout(Redirection::Pipe)
-        .stderr(Redirection::Pipe)
+        .stderr(Redirection::Merge)
         .popen()?;
 
     let mut input = Vec::new();
@@ -80,15 +81,16 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
     let mut com = child
         .communicate_start(Some(input))
         .limit_time(Duration::from_secs(3));
-    let (stdout, stderr) = com.read()?;
+    let (stdout, _) = com.read()?;
     let exit_status = child.wait()?;
 
+    let output = String::from_utf8_lossy(&stdout.unwrap()).into();
     if exit_status.success() {
-        Ok(String::from_utf8_lossy(&stdout.unwrap()).into())
+        Ok(output)
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            String::from_utf8_lossy(&stderr.unwrap()),
+            output,
         ))?
     }
 }

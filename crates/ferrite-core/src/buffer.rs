@@ -382,10 +382,56 @@ impl Buffer {
         })
     }
 
+    pub fn auto_detect_language(&mut self) {
+        let syntax = match self.syntax.as_mut() {
+            Some(syntax) => syntax,
+            None => {
+                self.syntax = Some(Syntax::new(get_buffer_proxy()));
+                self.syntax.as_mut().unwrap()
+            }
+        };
+        if let Some(language) = detect_language(None, self.rope.clone()) {
+            if let Err(err) = syntax.set_language(language) {
+                tracing::error!("Error setting language: {err}");
+            }
+            syntax.update_text(self.rope.clone());
+        }
+    }
+
     pub fn set_text(&mut self, text: &str) {
         self.rope = Rope::from(text);
         if let Some(ref mut syntax) = self.syntax {
             syntax.update_text(self.rope.clone());
+        }
+    }
+
+    /// Replaces ropye, moves all cursors to end of file and autoscrolls
+    pub fn replace_rope(&mut self, rope: Rope) {
+        let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
+        let mut map = SecondaryMap::new();
+        for view_id in self.views.keys() {
+            let view = &self.views[view_id];
+            if view.view_lines + view.line_pos >= self.rope.len_lines() {
+                let space_left =
+                    (view.view_lines + view.line_pos).saturating_sub(self.rope.len_lines());
+                let scroll = added_lines.saturating_sub(space_left);
+                map.insert(view_id, scroll);
+            }
+        }
+
+        self.rope = rope;
+        if let Some(ref mut syntax) = self.syntax {
+            syntax.update_text(self.rope.clone());
+        }
+        for view_id in self.views.keys().collect::<Vec<_>>().into_iter() {
+            if let Some(scroll) = map.get(view_id) {
+                self.vertical_scroll(view_id, *scroll as i64);
+            }
+            // Disable cursor clamping here so pipe from shell command works
+            let before = self.views[view_id].clamp_cursor;
+            self.views[view_id].clamp_cursor = false;
+            self.eof(view_id, false);
+            self.views[view_id].clamp_cursor = before;
         }
     }
 
