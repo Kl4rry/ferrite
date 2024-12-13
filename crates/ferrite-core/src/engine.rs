@@ -1661,26 +1661,29 @@ impl Engine {
                 let mut rope = Rope::new();
                 let mut buffer = Vec::new();
                 let mut bytes = [0u8; 4096];
+                let mut dirty = false;
                 let status = loop {
                     if let Ok(read_bytes) = stdout.read(&mut bytes) {
                         if read_bytes > 0 {
                             buffer.extend_from_slice(&bytes[..read_bytes]);
-                            if let Some(buffer_id) = buffer_id {
-                                let mut slice = &buffer[..];
-                                let mut total = 0;
-                                while let Some(idx) = memchr::memchr(b'\n', slice) {
-                                    let len = idx + 1;
-                                    let line = String::from_utf8_lossy(&slice[..len]);
-                                    let rope_line = Rope::from_str(&line);
-                                    rope.append(rope_line);
-                                    slice = &slice[len..];
-                                    total += len;
-                                }
-                                progressor.make_progress((buffer_id, rope.clone()));
-                                buffer.drain(..total);
+                            let mut slice = &buffer[..];
+                            let mut total = 0;
+                            while let Some(idx) = memchr::memchr(b'\n', slice) {
+                                let len = idx + 1;
+                                let line = String::from_utf8_lossy(&slice[..len]);
+                                let rope_line = Rope::from_str(&line);
+                                rope.append(rope_line);
+                                slice = &slice[len..];
+                                total += len;
                             }
+                            dirty = true;
+                            buffer.drain(..total);
                             continue;
                         }
+                    }
+                    if let (Some(buffer_id), true) = (buffer_id, dirty) {
+                        progressor.make_progress((buffer_id, rope.clone()));
+                        dirty = false;
                     }
                     match child.try_wait() {
                         Ok(None) => {
