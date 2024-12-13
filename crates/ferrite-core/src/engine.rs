@@ -429,6 +429,18 @@ impl Engine {
             }
         }
 
+        for (buffer_id, buffer) in &mut self.workspace.buffers {
+            for view_id in buffer.views.keys().collect::<Vec<_>>() {
+                if !self
+                    .workspace
+                    .panes
+                    .contains(PaneKind::Buffer(buffer_id, view_id))
+                {
+                    buffer.views.remove(view_id);
+                }
+            }
+        }
+
         self.shell_jobs.retain(|job| !job.1.is_finished());
 
         self.job_manager.poll_jobs();
