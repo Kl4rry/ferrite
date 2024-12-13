@@ -1,10 +1,10 @@
 ### Basic features
 - [x] VScode/windows like cursor movement
-- [ ] Multicursor
+- [x] Multicursor
 - [x] Search
 - [x] Replace
 - [x] Replace all
-- [ ] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
+- [x] Find/Match command that creates selections from substring match (Like vscode CTRL + D)
 - [x] Mouse jumping and selection
 - [x] Command palette
 - [x] Command palette auto complete
@@ -45,7 +45,7 @@
 - [ ] git integration
 
 ### Gui
-- [ ] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
+- [x] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
 
 ### TODO list
 Figure out ipc stuff.
