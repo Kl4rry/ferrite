@@ -29,8 +29,9 @@ use crate::{glue::convert_style, rect_ext::RectExt};
 
 pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
     let line_number_max_width = lines.to_string().len().add(1).max(4);
-    const MAGIC_NUMBER: usize = 4;
-    let left_offset = MAGIC_NUMBER + line_number_max_width;
+    const BEFORE_PADDING: usize = 1;
+    const AFTER_PADDING: usize = 2;
+    let left_offset = BEFORE_PADDING + AFTER_PADDING + line_number_max_width;
     (line_number_max_width, left_offset)
 }
 
@@ -120,7 +121,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 Rect {
                     x: area.left(),
                     y: area.top(),
-                    width: (line_number_max_width as u16 + 2).min(area.width),
+                    width: (line_number_max_width as u16).min(area.width),
                     height: area.height,
                 },
                 convert_style(&theme.line_nr),
@@ -153,7 +154,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     };
                     let line_number_str = line_number.to_string();
                     let line_number_str = format!(
-                        " {}{} ",
+                        " {}{}",
                         " ".repeat(
                             line_number_max_width
                                 - line_number_str.len()

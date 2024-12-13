@@ -30,7 +30,7 @@ use winit::{
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
     keyboard::Key,
-    window::{Window, WindowBuilder},
+    window::{CursorIcon, Window, WindowBuilder},
 };
 
 mod backend;
@@ -393,11 +393,12 @@ impl GuiApp {
                 let backend = self.tui_app.terminal.backend();
                 self.mouse_position = position;
 
+                let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
+                let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
                 if self.primary_mouse_button_pressed {
-                    let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
-                    let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
                     self.handle_drag(column, line);
                 }
+                self.handle_hover(column, line);
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let backend = self.tui_app.terminal.backend();
@@ -408,6 +409,30 @@ impl GuiApp {
             }
             _ => (),
         }
+    }
+
+    pub fn handle_hover(&mut self, column: u16, line: u16) {
+        let mut cursor = CursorIcon::Default;
+        for (pane_kind, pane_rect) in self
+            .tui_app
+            .engine
+            .workspace
+            .panes
+            .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+        {
+            if let PaneKind::Buffer(buffer_id, _) = pane_kind {
+                let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
+                let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                let mut rect = ferrite_to_tui_rect(pane_rect);
+                rect.x += left_offset as u16;
+                rect.width = rect.width.saturating_sub(left_offset as u16);
+                rect.height = rect.height.saturating_sub(1);
+                if rect.contains(Position::new(column, line)) {
+                    cursor = CursorIcon::Text
+                }
+            }
+        }
+        self.window.set_cursor_icon(cursor);
     }
 
     pub fn handle_click(
