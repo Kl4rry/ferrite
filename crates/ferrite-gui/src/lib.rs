@@ -189,7 +189,7 @@ impl GuiApp {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
         event_loop
             .run(move |event, event_loop| match event {
-                Event::NewEvents(cause) => {
+                Event::NewEvents(_) => {
                     self.tui_app.start_of_events();
                 }
                 Event::UserEvent(event) => {
