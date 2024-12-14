@@ -63,7 +63,6 @@ pub enum Cmd {
     Format,
     FormatSelection,
     GitReload,
-    GitDiff,
     RevertBuffer,
     Trash,
     Repeat,
@@ -256,7 +255,6 @@ impl Cmd {
             ForceClose => "Force close buffer",
             FormatSelection => "Format selection",
             GitReload => "Git reload",
-            GitDiff => "Git diff",
             Trash => "Move to trash",
             ForceRedraw => "Force redraw",
             SwitchPane { direction } => match direction {
@@ -370,7 +368,6 @@ impl Cmd {
             ForceClose => false,
             FormatSelection => false,
             GitReload => false,
-            GitDiff => false,
             Trash => false,
             ForceRedraw => false,
             SwitchPane { .. } => false,

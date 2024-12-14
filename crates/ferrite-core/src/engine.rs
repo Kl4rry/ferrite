@@ -912,9 +912,6 @@ impl Engine {
                 let _ = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::RevertBuffer);
             }
             Cmd::GitReload => self.branch_watcher.force_reload(),
-            Cmd::GitDiff => {
-                self.run_shell_command(vec!["git".into(), "diff".into()], true, true);
-            }
             Cmd::SwitchPane { direction } => {
                 self.workspace
                     .panes
