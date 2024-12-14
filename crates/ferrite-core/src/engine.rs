@@ -935,6 +935,17 @@ impl Engine {
                 self.palette
                     .set_msg(format!("Zoom: {}%", (self.scale * 100.0).round() as u64));
             }
+            Cmd::KillJob => {
+                if let Some((current_buffer_id, _)) = self.get_current_buffer_id() {
+                    for (buffer_id, job) in &mut self.shell_jobs {
+                        if let Some(buffer_id) = buffer_id {
+                            if *buffer_id == current_buffer_id {
+                                job.kill();
+                            }
+                        }
+                    }
+                }
+            }
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);

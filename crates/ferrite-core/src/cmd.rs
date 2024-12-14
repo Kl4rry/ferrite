@@ -153,6 +153,7 @@ pub enum Cmd {
     ZoomIn,
     ZoomOut,
     ResetZoom,
+    KillJob,
 }
 
 impl Cmd {
@@ -270,6 +271,7 @@ impl Cmd {
             ZoomIn => "Zoom in",
             ZoomOut => "Zoom out",
             ResetZoom => "Reset zoom",
+            KillJob => "Kill job",
         }
     }
 
@@ -378,6 +380,7 @@ impl Cmd {
             ZoomIn => false,
             ZoomOut => false,
             ResetZoom => false,
+            KillJob => false,
         }
     }
 }
