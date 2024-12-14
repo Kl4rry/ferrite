@@ -101,14 +101,6 @@ pub fn get_default_choords() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(
-                KeyCode::Char('f'),
-                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-            ),
-            Cmd::GlobalSearch,
-            Exclusiveness::Exclusive,
-        ),
-        (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
             Cmd::OpenShellPalette,
             Exclusiveness::Exclusive,
@@ -269,6 +261,14 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         (
             Key::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             Cmd::Search,
+            Exclusiveness::Exclusive,
+        ),
+        (
+            Key::new(
+                KeyCode::Char('f'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ),
+            Cmd::GlobalSearch,
             Exclusiveness::Exclusive,
         ),
         (
