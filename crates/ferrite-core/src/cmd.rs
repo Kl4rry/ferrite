@@ -153,6 +153,9 @@ pub enum Cmd {
     ZoomOut,
     ResetZoom,
     KillJob,
+    RunAction {
+        name: String,
+    },
 }
 
 impl Cmd {
@@ -270,6 +273,7 @@ impl Cmd {
             ZoomOut => "Zoom out",
             ResetZoom => "Reset zoom",
             KillJob => "Kill job",
+            RunAction { .. } => "Run",
         }
     }
 
@@ -378,6 +382,7 @@ impl Cmd {
             ZoomOut => false,
             ResetZoom => false,
             KillJob => false,
+            RunAction { .. } => true,
         }
     }
 }

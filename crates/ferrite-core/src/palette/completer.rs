@@ -253,6 +253,30 @@ impl Completer {
                                 Box::new(s.to_string()) as Box<dyn CompletionOption>
                             }));
                         }
+                        CmdTemplateArg::Action => {
+                            let mut actions = self
+                                .ctx
+                                .actions
+                                .iter()
+                                .filter_map(|alternative| {
+                                    if text.is_empty() {
+                                        return Some((0, alternative));
+                                    }
+                                    FuzzySearch::new(text, alternative)
+                                        .score_with(&Scoring::emphasize_distance())
+                                        .best_match()
+                                        .map(|m| (m.score(), alternative))
+                                })
+                                .collect::<Vec<_>>();
+                            actions.sort_by(|a, b| match b.0.cmp(&a.0) {
+                                std::cmp::Ordering::Equal => b.1.cmp(a.1),
+                                cmp => cmp,
+                            });
+
+                            self.options.extend(actions.into_iter().map(|(_, s)| {
+                                Box::new(s.to_string()) as Box<dyn CompletionOption>
+                            }));
+                        }
                         _ => (),
                     }
                 }
@@ -267,6 +291,7 @@ impl Completer {
 
 pub struct CompleterContext {
     themes: Vec<String>,
+    actions: Vec<String>,
     external: bool,
     force_arg_type: Option<CmdTemplateArg>,
 }
@@ -274,11 +299,13 @@ pub struct CompleterContext {
 impl CompleterContext {
     pub fn new(
         themes: Vec<String>,
+        actions: Vec<String>,
         external: bool,
         force_arg_type: Option<CmdTemplateArg>,
     ) -> Self {
         Self {
             themes,
+            actions,
             external,
             force_arg_type,
         }

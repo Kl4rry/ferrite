@@ -685,6 +685,13 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Key::new(KeyCode::F(5), KeyModifiers::empty()),
+            Cmd::RunAction {
+                name: "build".into(),
+            },
+            Exclusiveness::Exclusive,
+        ),
+        (
             Key::new(
                 KeyCode::Char('k'),
                 KeyModifiers::CONTROL | KeyModifiers::SHIFT,

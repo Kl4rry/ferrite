@@ -212,7 +212,7 @@ impl Engine {
 
         let job_manager = JobManager::new(proxy.dup());
 
-        let mut workspace = match Workspace::load_workspace(buffers.is_empty()) {
+        let mut workspace = match Workspace::load_workspace(buffers.is_empty(), proxy.dup()) {
             Ok(workspace) => workspace,
             Err(err) => {
                 tracing::error!("Error loading workspace: {err}");
@@ -525,6 +525,7 @@ impl Engine {
                     "shell",
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
+                        self.workspace.config.actions.keys().cloned().collect(),
                         true,
                         Some(CmdTemplateArg::Path),
                     ),
@@ -559,7 +560,12 @@ impl Engine {
                 self.palette.focus(
                     "> ",
                     "command",
-                    CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        self.workspace.config.actions.keys().cloned().collect(),
+                        false,
+                        None,
+                    ),
                 );
             }
             Cmd::PromptGoto => {
@@ -569,7 +575,12 @@ impl Engine {
                 self.palette.focus(
                     "goto: ",
                     "goto",
-                    CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        self.workspace.config.actions.keys().cloned().collect(),
+                        false,
+                        None,
+                    ),
                 );
             }
             Cmd::Search => self.search(),
@@ -655,7 +666,7 @@ impl Engine {
                             }
                         }
 
-                        self.workspace = match Workspace::load_workspace(true) {
+                        self.workspace = match Workspace::load_workspace(true, self.proxy.dup()) {
                             Ok(workspace) => workspace,
                             Err(err) => {
                                 let msg = format!("Error loading workspace: {err}");
@@ -943,6 +954,18 @@ impl Engine {
                     }
                 }
             }
+            Cmd::RunAction { name } => match self.workspace.config.actions.get(&name) {
+                Some(args) => {
+                    self.run_shell_command(
+                        args.to_vec().into_iter().map(|s| s.into()).collect(),
+                        true,
+                        false,
+                    );
+                }
+                None => {
+                    self.palette.set_error(format!("Action '{name}' not found"));
+                }
+            },
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);
@@ -1769,7 +1792,12 @@ impl Engine {
             self.palette.focus(
                 self.get_search_prompt(false),
                 "search",
-                CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
+                CompleterContext::new(
+                    self.themes.keys().cloned().collect(),
+                    self.workspace.config.actions.keys().cloned().collect(),
+                    false,
+                    None,
+                ),
             );
             if !selection.is_empty()
                 && self.palette.mode() == Some("search")
@@ -1790,7 +1818,12 @@ impl Engine {
         self.palette.focus(
             self.get_search_prompt(true),
             "global-search",
-            CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
+            CompleterContext::new(
+                self.themes.keys().cloned().collect(),
+                self.workspace.config.actions.keys().cloned().collect(),
+                false,
+                None,
+            ),
         );
         if !selection.is_empty()
             && self.palette.mode() == Some("global-search")
@@ -1809,7 +1842,12 @@ impl Engine {
             self.palette.focus(
                 "replace: ",
                 "replace",
-                CompleterContext::new(self.themes.keys().cloned().collect(), false, None),
+                CompleterContext::new(
+                    self.themes.keys().cloned().collect(),
+                    self.workspace.config.actions.keys().cloned().collect(),
+                    false,
+                    None,
+                ),
             );
         }
     }

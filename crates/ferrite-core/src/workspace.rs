@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -11,13 +12,28 @@ use slotmap::{Key, SlotMap};
 use super::buffer::Buffer;
 use crate::{
     buffer::{Cursor, ViewId},
+    event_loop_proxy::EventLoopProxy,
     file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,
     layout::panes::{layout::Layout, PaneKind, Panes},
+    watcher::{FileWatcher, TomlConfig},
 };
 
 slotmap::new_key_type! {
     pub struct BufferId;
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct WorkspaceConfig {
+    pub actions: HashMap<String, Vec1<String>>,
+}
+
+impl WorkspaceConfig {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let config_path = get_config_path(path);
+        let string = fs::read_to_string(config_path)?;
+        Ok(toml::from_str(&string)?)
+    }
 }
 
 pub struct Workspace {
@@ -25,6 +41,8 @@ pub struct Workspace {
     pub file_explorers: SlotMap<FileExplorerId, FileExplorer>,
     pub buffer_extra_data: Vec<BufferData>,
     pub panes: Panes,
+    pub config: WorkspaceConfig,
+    pub config_watcher: Option<FileWatcher<WorkspaceConfig, TomlConfig>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -55,13 +73,16 @@ impl Default for Workspace {
             file_explorers: SlotMap::with_key(),
             buffer_extra_data: Vec::new(),
             panes: Panes::new(buffer_id, view_id),
+            config: WorkspaceConfig::default(),
+            config_watcher: None,
         }
     }
 }
 
 impl Workspace {
     pub fn save_workspace(&self) -> Result<()> {
-        let workspace_file = get_workspace_path(std::env::current_dir()?)?;
+        let workspace_dir = std::env::current_dir()?;
+        let workspace_file = get_workspace_path(workspace_dir)?;
         let mut workspace_data = WorkspaceData {
             buffers: self.buffer_extra_data.clone(),
             open_buffers: Vec::new(),
@@ -90,11 +111,12 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn load_workspace(load_buffers: bool) -> Result<Self> {
+    pub fn load_workspace(load_buffers: bool, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
         let mut file_explorers: SlotMap<FileExplorerId, FileExplorer> = SlotMap::with_key();
 
-        let workspace_file = get_workspace_path(std::env::current_dir()?)?;
+        let workspace_dir = std::env::current_dir()?;
+        let workspace_file = get_workspace_path(&workspace_dir)?;
         let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
 
         if load_buffers {
@@ -151,11 +173,24 @@ impl Workspace {
             buffer.ensure_every_cursor_is_valid();
         }
 
+        let config = WorkspaceConfig::load(&workspace_dir).unwrap_or_else(|err| {
+            tracing::error!("Error loading workspace config: {err}");
+            WorkspaceConfig::default()
+        });
+
+        let mut config_watcher = None;
+        match FileWatcher::new(get_config_path(&workspace_dir), proxy.dup()) {
+            Ok(watcher) => config_watcher = Some(watcher),
+            Err(err) => tracing::error!("Error starting language config watcher: {err}"),
+        }
+
         Ok(Self {
             buffers,
             file_explorers,
             buffer_extra_data: workspace.buffers.clone(),
             panes,
+            config,
+            config_watcher,
         })
     }
 }
@@ -176,4 +211,8 @@ pub fn get_workspace_path(workspace_path: impl AsRef<Path>) -> Result<PathBuf> {
             .unwrap_or_default()
             .to_string_lossy()
     )))
+}
+
+pub fn get_config_path(workspace_path: impl AsRef<Path>) -> PathBuf {
+    workspace_path.as_ref().join(".editor/ferrite/config.toml")
 }

@@ -10,6 +10,7 @@ pub enum CmdTemplateArg {
     String,
     Path,
     Theme,
+    Action,
 }
 
 impl CmdTemplateArg {
@@ -25,6 +26,7 @@ impl CmdTemplateArg {
             CmdTemplateArg::Int => Ok(CommandArg::Int(token.parse()?)),
             CmdTemplateArg::String => Ok(CommandArg::String(token)),
             CmdTemplateArg::Theme => Ok(CommandArg::String(token)),
+            CmdTemplateArg::Action => Ok(CommandArg::String(token)),
             CmdTemplateArg::Path => {
                 let home_dir = if let Some(directories) = directories::UserDirs::new() {
                     directories.home_dir().into()
