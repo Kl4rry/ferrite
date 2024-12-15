@@ -826,6 +826,31 @@ impl Buffer {
         }
     }
 
+    fn select_word_raw(&mut self, view_id: ViewId, cursor_idx: usize) {
+        let mut start_byte_idx = self.views[view_id].cursors[cursor_idx].position;
+        loop {
+            let new_idx = self.rope.prev_grapheme_boundary_byte(start_byte_idx);
+            let grapheme = self.rope.byte_slice(new_idx..start_byte_idx);
+            if new_idx == start_byte_idx || !grapheme.is_word_char() {
+                break;
+            }
+            start_byte_idx = new_idx;
+        }
+
+        let mut end_byte_idx = self.views[view_id].cursors[cursor_idx].position;
+        loop {
+            let new_idx = self.rope.next_grapheme_boundary_byte(end_byte_idx);
+            let grapheme = self.rope.byte_slice(end_byte_idx..new_idx);
+            if new_idx == end_byte_idx || !grapheme.is_word_char() {
+                break;
+            }
+            end_byte_idx = new_idx;
+        }
+
+        self.views[view_id].cursors[cursor_idx].position = end_byte_idx;
+        self.views[view_id].cursors[cursor_idx].anchor = start_byte_idx;
+    }
+
     pub fn select_word(&mut self, view_id: ViewId) {
         self.views[view_id].coalesce_cursors();
         let has_selection = self.views[view_id]
@@ -866,28 +891,7 @@ impl Buffer {
             }
         } else {
             for i in 0..self.views[view_id].cursors.len() {
-                let mut start_byte_idx = self.views[view_id].cursors[i].position;
-                loop {
-                    let new_idx = self.rope.prev_grapheme_boundary_byte(start_byte_idx);
-                    let grapheme = self.rope.byte_slice(new_idx..start_byte_idx);
-                    if new_idx == start_byte_idx || !grapheme.is_word_char() {
-                        break;
-                    }
-                    start_byte_idx = new_idx;
-                }
-
-                let mut end_byte_idx = self.views[view_id].cursors[i].position;
-                loop {
-                    let new_idx = self.rope.next_grapheme_boundary_byte(end_byte_idx);
-                    let grapheme = self.rope.byte_slice(end_byte_idx..new_idx);
-                    if new_idx == end_byte_idx || !grapheme.is_word_char() {
-                        break;
-                    }
-                    end_byte_idx = new_idx;
-                }
-
-                self.views[view_id].cursors[i].position = end_byte_idx;
-                self.views[view_id].cursors[i].anchor = start_byte_idx;
+                self.select_word_raw(view_id, i);
             }
         }
 
@@ -1802,19 +1806,23 @@ impl Buffer {
         }
     }
 
+    fn select_line_raw(&mut self, view_id: ViewId, cursor_idx: usize) {
+        {
+            let line_idx = self.cursor_line_idx(view_id, cursor_idx);
+            let line_start = self.rope.line_to_byte(line_idx + 1);
+            self.views[view_id].cursors[cursor_idx].position = line_start;
+        }
+
+        {
+            let line_idx = self.anchor_line_idx(view_id, cursor_idx);
+            let line_start = self.rope.line_to_byte(line_idx);
+            self.views[view_id].cursors[cursor_idx].anchor = line_start;
+        }
+    }
+
     pub fn select_line(&mut self, view_id: ViewId) {
         for i in 0..self.views[view_id].cursors.len() {
-            {
-                let line_idx = self.cursor_line_idx(view_id, i);
-                let line_start = self.rope.line_to_byte(line_idx + 1);
-                self.views[view_id].cursors[i].position = line_start;
-            }
-
-            {
-                let line_idx = self.anchor_line_idx(view_id, i);
-                let line_start = self.rope.line_to_byte(line_idx);
-                self.views[view_id].cursors[i].anchor = line_start;
-            }
+            self.select_line_raw(view_id, i);
         }
 
         self.views[view_id].coalesce_cursors();
@@ -2090,9 +2098,18 @@ impl Buffer {
         }
     }
 
-    pub fn handle_click(&mut self, view_id: ViewId, col: usize, line: usize) {
-        self.views[view_id].cursors.clear();
-        self.set_cursor_pos(view_id, 0, col, line);
+    pub fn handle_click(&mut self, view_id: ViewId, spawn_cursor: bool, col: usize, line: usize) {
+        let cursor_idx = if spawn_cursor {
+            self.views[view_id].cursors.push(Cursor::default());
+            self.views[view_id].cursors.len() - 1
+        } else {
+            self.views[view_id].cursors.clear();
+            0
+        };
+        self.set_cursor_pos(view_id, cursor_idx, col, line);
+        self.views[view_id].cursors[cursor_idx].affinity =
+            self.cursor_grapheme_column(view_id, cursor_idx);
+
         let click_point = Point::new(col, line);
         let now = Instant::now();
         if now.duration_since(self.views[view_id].last_click) < Duration::from_millis(500)
@@ -2100,11 +2117,15 @@ impl Buffer {
         {
             self.views[view_id].clicks_in_a_row += 1;
             if self.views[view_id].clicks_in_a_row == 1 {
-                self.select_word(view_id);
-                self.copy_selection_to_primary(view_id);
+                self.select_word_raw(view_id, cursor_idx);
+                if !spawn_cursor {
+                    self.copy_selection_to_primary(view_id);
+                }
             } else if self.views[view_id].clicks_in_a_row == 2 {
-                self.select_line(view_id);
-                self.copy_selection_to_primary(view_id);
+                self.select_line_raw(view_id, cursor_idx);
+                if !spawn_cursor {
+                    self.copy_selection_to_primary(view_id);
+                }
             } else {
                 self.views[view_id].clicks_in_a_row = 0;
             }
@@ -2113,7 +2134,7 @@ impl Buffer {
         }
         self.views[view_id].last_click = now;
         self.views[view_id].last_click_pos = click_point;
-        self.update_affinity(view_id);
+        self.views[view_id].coalesce_cursors();
     }
 
     pub fn set_cursor_pos(

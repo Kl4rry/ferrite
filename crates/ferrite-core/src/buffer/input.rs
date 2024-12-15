@@ -43,7 +43,9 @@ impl Buffer {
             Tab { back } if !self.read_only => self.tab(view_id, back),
             VerticalScroll(distance) => self.vertical_scroll(view_id, distance),
             Escape => self.escape(view_id),
-            ClickCell(col, line) => self.handle_click(view_id, col, line),
+            ClickCell(spawn_cursor, col, line) => {
+                self.handle_click(view_id, spawn_cursor, col, line)
+            }
             SelectArea { cursor, anchor } => self.select_area(view_id, cursor, anchor, true),
             NextMatch => self.next_match(view_id),
             PrevMatch => self.prev_match(view_id),

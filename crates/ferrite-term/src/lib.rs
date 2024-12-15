@@ -213,7 +213,7 @@ impl TermApp {
                                         .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos(view_id))
                                             .saturating_sub(pane_rect.y);
-                                        break 'block Some(Cmd::ClickCell(column, line));
+                                        break 'block Some(Cmd::ClickCell(false, column, line));
                                     }
                                 }
                             }

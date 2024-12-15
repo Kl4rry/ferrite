@@ -95,7 +95,7 @@ pub enum Cmd {
     BackspaceWord,
     Delete,
     DeleteWord,
-    ClickCell(usize, usize),
+    ClickCell(bool, usize, usize),
     SelectArea {
         cursor: Point<usize>,
         anchor: Point<usize>,
@@ -178,7 +178,7 @@ impl Cmd {
             BackspaceWord => "Backspace word",
             Delete => "Delete",
             DeleteWord => "Delete word",
-            ClickCell(_, _) => "Set cursor pos",
+            ClickCell(..) => "Set cursor pos",
             SelectArea { .. } => "Select area",
             PromptGoto => "Goto",
             Home { .. } => "Home",

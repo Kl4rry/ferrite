@@ -29,7 +29,7 @@ use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
-    keyboard::Key,
+    keyboard::{Key, ModifiersState, NamedKey},
     window::{CursorIcon, Window, WindowBuilder},
 };
 
@@ -291,53 +291,51 @@ impl GuiApp {
                     }
                 }
             }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                let modifiers = modifiers.state();
+                self.modifiers.set(
+                    KeyModifiers::CONTROL,
+                    modifiers.contains(ModifiersState::CONTROL),
+                );
+                self.modifiers
+                    .set(KeyModifiers::ALT, modifiers.contains(ModifiersState::ALT));
+                self.modifiers.set(
+                    KeyModifiers::SHIFT,
+                    modifiers.contains(ModifiersState::SHIFT),
+                );
+            }
             WindowEvent::KeyboardInput { event, .. } => {
                 tracing::trace!("{:?}", event);
                 let mut control_flow = self.control_flow;
-                if !event.state.is_pressed() {
-                    if let Key::Named(key) = event.logical_key {
-                        match key {
-                            winit::keyboard::NamedKey::Control => {
-                                self.modifiers.remove(KeyModifiers::CONTROL)
-                            }
-                            winit::keyboard::NamedKey::Alt => {
-                                self.modifiers.remove(KeyModifiers::ALT)
-                            }
-                            winit::keyboard::NamedKey::Shift => {
-                                self.modifiers.remove(KeyModifiers::SHIFT)
-                            }
-                            winit::keyboard::NamedKey::Super => {
-                                self.modifiers.remove(KeyModifiers::SUPER)
-                            }
-                            winit::keyboard::NamedKey::Hyper => {
-                                self.modifiers.remove(KeyModifiers::HYPER)
-                            }
-                            winit::keyboard::NamedKey::Meta => {
-                                self.modifiers.remove(KeyModifiers::META)
-                            }
-                            _ => (),
+
+                if let Key::Named(key) = event.logical_key {
+                    match key {
+                        NamedKey::Super => {
+                            self.modifiers
+                                .set(KeyModifiers::SUPER, event.state.is_pressed());
+                            return;
                         }
+                        NamedKey::Hyper => {
+                            self.modifiers
+                                .set(KeyModifiers::HYPER, event.state.is_pressed());
+                            return;
+                        }
+                        NamedKey::Meta => {
+                            self.modifiers
+                                .set(KeyModifiers::META, event.state.is_pressed());
+                            return;
+                        }
+                        _ => (),
                     }
+                }
+
+                if !event.state.is_pressed() {
                     return;
                 }
 
                 let cmd = 'block: {
                     match event.logical_key {
                         Key::Named(key) => {
-                            let modifier = match key {
-                                winit::keyboard::NamedKey::Control => KeyModifiers::CONTROL,
-                                winit::keyboard::NamedKey::Alt => KeyModifiers::ALT,
-                                winit::keyboard::NamedKey::Shift => KeyModifiers::SHIFT,
-                                winit::keyboard::NamedKey::Super => KeyModifiers::SUPER,
-                                winit::keyboard::NamedKey::Hyper => KeyModifiers::HYPER,
-                                winit::keyboard::NamedKey::Meta => KeyModifiers::META,
-                                _ => KeyModifiers::NONE,
-                            };
-                            if !modifier.is_empty() {
-                                self.modifiers |= modifier;
-                                return;
-                            }
-
                             if let Some(keycode) = convert_keycode(key) {
                                 let cmd = keymap::get_command_from_input(
                                     keycode,
@@ -492,7 +490,11 @@ impl GuiApp {
                                     .saturating_sub(left_offset);
                                 let line = (line as usize + buffer.line_pos(view_id))
                                     .saturating_sub(pane_rect.y);
-                                break 'block Some(Cmd::ClickCell(column, line));
+                                break 'block Some(Cmd::ClickCell(
+                                    self.modifiers.contains(KeyModifiers::ALT),
+                                    column,
+                                    line,
+                                ));
                             }
                         }
                     }
