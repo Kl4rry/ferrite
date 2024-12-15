@@ -689,7 +689,12 @@ impl Engine {
                     .split(PaneKind::Buffer(buffer_id, view_id), direction);
             }
             Cmd::RunShellCmd { args, pipe } => {
-                self.run_shell_command(args, pipe, false);
+                let cmd = args
+                    .into_iter()
+                    .map(|s| String::from(s.to_string_lossy()))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                self.run_shell_command(cmd, pipe, false);
             }
             Cmd::Trash => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
@@ -956,11 +961,7 @@ impl Engine {
             }
             Cmd::RunAction { name } => match self.workspace.config.actions.get(&name) {
                 Some(args) => {
-                    self.run_shell_command(
-                        args.to_vec().into_iter().map(|s| s.into()).collect(),
-                        true,
-                        false,
-                    );
+                    self.run_shell_command(args.join(" "), true, false);
                 }
                 None => {
                     self.palette.set_error(format!("Action '{name}' not found"));
@@ -1109,8 +1110,7 @@ impl Engine {
                 }
                 "shell" => {
                     self.palette.reset();
-                    let args: Vec<_> = content.split_whitespace().map(PathBuf::from).collect();
-                    self.run_shell_command(args, self.config.editor.pipe_shell_palette, false);
+                    self.run_shell_command(content, self.config.editor.pipe_shell_palette, false);
                 }
                 _ => (),
             },
@@ -1648,16 +1648,7 @@ impl Engine {
         }
     }
 
-    pub fn run_shell_command(&mut self, args: Vec<PathBuf>, pipe: bool, read_only: bool) {
-        let mut cmd = String::new();
-        for arg in args
-            .into_iter()
-            .map(|path| path.to_string_lossy().to_string())
-        {
-            cmd.push_str(&arg);
-            cmd.push(' ');
-        }
-
+    pub fn run_shell_command(&mut self, cmd: String, pipe: bool, read_only: bool) {
         let buffer_id = if pipe {
             let mut buffer = Buffer::new();
             let view_id = buffer.create_view();
