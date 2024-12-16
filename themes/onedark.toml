@@ -15,6 +15,7 @@
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "gray", fg = "white" }
 "editor.completer.selected" = { bg = "blue", fg = "black" }
+"editor.cursorline" = { bg = "cursorline" }
 
 [syntax]
 "tag" = { fg = "red" }
@@ -87,3 +88,5 @@ faint_gray = "#3B4048"
 light_gray = "#5C6370"
 line_nr = "#4B5263"
 faint_blue = "#324971"
+
+cursorline = "#2C313C"

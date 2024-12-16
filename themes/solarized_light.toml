@@ -14,6 +14,7 @@
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "base02", fg = "base1" }
 "editor.completer.selected" = { bg = "base00", fg = "base03" }
+"editor.cursorline" = { bg = "cursorline" }
 
 [syntax]
 "text" = { fg = "base1" }
@@ -83,3 +84,5 @@ base0175  = '#dddbcc'
 base02    = '#eee8d5'
 base025   = '#f5eedb'
 base03    = '#fdf6e3'
+
+cursorline = '#EEE8D5'

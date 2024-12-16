@@ -104,6 +104,7 @@ pub struct EditorTheme {
     pub fuzzy_match: style::Style,
     pub completer: style::Style,
     pub completer_selected: style::Style,
+    pub cursorline: style::Style,
     // syntax styles
     syntax: HashMap<String, style::Style>,
 }
@@ -129,6 +130,7 @@ impl EditorTheme {
             fuzzy_match: theme.get_style("editor.fuzzy.match")?,
             completer: theme.get_style("editor.completer")?,
             completer_selected: theme.get_style("editor.completer.selected")?,
+            cursorline: theme.get_style("editor.cursorline")?,
 
             syntax: {
                 let mut syntax = HashMap::new();
@@ -243,7 +245,8 @@ fn get_embedded_themes() -> Vec<(String, EditorTheme)> {
                     .unwrap()
                     .to_string_lossy()
                     .into_owned(),
-                EditorTheme::parse_theme(file.contents_utf8().unwrap()).unwrap(),
+                EditorTheme::parse_theme(file.contents_utf8().unwrap())
+                    .unwrap_or_else(|_| panic!("unable to parse: {:?}", file)),
             )
         })
         .collect()

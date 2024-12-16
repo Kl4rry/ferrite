@@ -128,7 +128,7 @@ impl StatefulWidget for EditorWidget<'_> {
             );
         }
 
-        let current_line_number = buffer.cursor_line_idx(view_id, 0) + 1;
+        let cursor_line_number = buffer.cursor_line_idx(view_id, 0) + 1;
 
         // We have to overwrite all rendered whitespace with the correct color
         let mut dim_cells = Vec::new();
@@ -144,14 +144,13 @@ impl StatefulWidget for EditorWidget<'_> {
                 .enumerate()
             {
                 if line_nr {
-                    let is_current_line = line_number == current_line_number;
-                    let line_number = if (config.line_number == LineNumber::Absolute)
-                        || is_current_line
-                    {
-                        line_number
-                    } else {
-                        (line_number as i64 - current_line_number as i64).unsigned_abs() as usize
-                    };
+                    let is_current_line = line_number == cursor_line_number;
+                    let line_number =
+                        if (config.line_number == LineNumber::Absolute) || is_current_line {
+                            line_number
+                        } else {
+                            (line_number as i64 - cursor_line_number as i64).unsigned_abs() as usize
+                        };
                     let line_number_str = line_number.to_string();
                     let line_number_str = format!(
                         " {}{}",
@@ -301,11 +300,18 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            let mut draw_cursor_line = true;
+
+            let cursor_view_pos =
+                buffer.cursor_view_pos(view_id, text_area.width.into(), text_area.height.into());
+
+            if cursor_view_pos.len() > 1 {
+                draw_cursor_line = false;
+            }
+
             let mut cursor_rects = Vec::new();
             if has_focus {
-                for (column, row) in
-                    buffer.cursor_view_pos(view_id, text_area.width.into(), text_area.height.into())
-                {
+                for (column, row) in cursor_view_pos {
                     cursor_rects.push(Rect {
                         x: text_area.x + column as u16,
                         y: text_area.y + row as u16,
@@ -477,6 +483,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
             if let Some(bg) = convert_style(&theme.selection).bg {
                 for Selection { start, end } in buffer.get_view_selection(view_id) {
+                    draw_cursor_line = false;
                     let line_pos = buffer.line_pos(view_id);
 
                     for y in 0..text_area.height {
@@ -503,6 +510,18 @@ impl StatefulWidget for EditorWidget<'_> {
                         }
                     }
                 }
+            }
+
+            if self.config.highlight_cursor_line && draw_cursor_line {
+                let visual_cursor_line = cursor_line_number - buffer.views[view_id].line_pos - 1;
+                let cursor_line_area = Rect::new(
+                    text_area.x,
+                    text_area.y + visual_cursor_line as u16,
+                    text_area.width,
+                    1,
+                );
+
+                buf.set_style(cursor_line_area, convert_style(&theme.cursorline));
             }
 
             if info_line {

@@ -2804,6 +2804,9 @@ impl Buffer {
                 if !view_cursor.intersects(cursor) {
                     continue;
                 }
+                if cursor.position == cursor.anchor {
+                    continue;
+                }
             }
 
             let pos = Point {

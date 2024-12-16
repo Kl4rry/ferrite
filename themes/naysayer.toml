@@ -14,6 +14,7 @@
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "text", fg = "bg" }
 "editor.completer.selected" = { bg = "bg", fg = "text" }
+"editor.cursorline" = { bg = "highlight-line" }
 
 [syntax]
 "attribute" = { fg = "text" }

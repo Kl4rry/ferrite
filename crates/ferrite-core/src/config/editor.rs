@@ -47,6 +47,8 @@ pub struct Editor {
     pub auto_trim_whitespace: bool,
     #[serde(default = "get_false")]
     pub auto_format: bool,
+    #[serde(default = "get_true")]
+    pub highlight_cursor_line: bool,
     #[serde(default)]
     pub line_number: LineNumber,
     #[serde(default)]

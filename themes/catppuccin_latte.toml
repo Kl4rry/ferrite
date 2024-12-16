@@ -14,7 +14,7 @@
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "surface1", fg = "text" }
 "editor.completer.selected" = { bg = "blue", fg = "surface0" }
-
+"editor.cursorline" = { bg = "cursorline" }
 
 
 [syntax]
@@ -109,3 +109,4 @@ mantle = "#e6e9ef"
 crust = "#dce0e8"
 
 search_match = "#b4def1"
+cursorline = "#e8ecf1"
