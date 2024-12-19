@@ -1,7 +1,6 @@
 use core::fmt;
 use std::{
     cmp, fs, io,
-    num::NonZeroUsize,
     ops::Range,
     path::{Path, PathBuf},
     sync::OnceLock,
@@ -238,7 +237,7 @@ impl Default for Buffer {
             file: None,
             name: String::from("[scratch]"),
             encoding: encoding_rs::UTF_8,
-            indent: Indentation::Tabs(NonZeroUsize::new(1).unwrap()),
+            indent: Indentation::default(),
             dirty: false,
             last_edit: Instant::now(),
             read_only: false,
