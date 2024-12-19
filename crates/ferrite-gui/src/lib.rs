@@ -336,7 +336,7 @@ impl GuiApp {
                 let cmd = 'block: {
                     match event.logical_key {
                         Key::Named(key) => {
-                            if let Some(keycode) = convert_keycode(key) {
+                            if let Some(keycode) = convert_keycode(key, self.modifiers) {
                                 let cmd = keymap::get_command_from_input(
                                     keycode,
                                     self.modifiers,

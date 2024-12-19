@@ -1,3 +1,4 @@
+use ferrite_core::keymap::keycode::KeyModifiers;
 use winit::keyboard::NamedKey;
 
 pub fn convert_style(
@@ -23,6 +24,7 @@ pub fn convert_style(
 
 pub fn convert_keycode(
     named_key: winit::keyboard::NamedKey,
+    modifiers: KeyModifiers,
 ) -> Option<ferrite_core::keymap::keycode::KeyCode> {
     let key = match named_key {
         NamedKey::Backspace => ferrite_core::keymap::keycode::KeyCode::Backspace,
@@ -35,7 +37,12 @@ pub fn convert_keycode(
         NamedKey::End => ferrite_core::keymap::keycode::KeyCode::End,
         NamedKey::PageUp => ferrite_core::keymap::keycode::KeyCode::PageUp,
         NamedKey::PageDown => ferrite_core::keymap::keycode::KeyCode::PageDown,
-        NamedKey::Tab => ferrite_core::keymap::keycode::KeyCode::Tab,
+        NamedKey::Tab if !modifiers.contains(KeyModifiers::SHIFT) => {
+            ferrite_core::keymap::keycode::KeyCode::Tab
+        }
+        NamedKey::Tab if modifiers.contains(KeyModifiers::SHIFT) => {
+            ferrite_core::keymap::keycode::KeyCode::BackTab
+        }
         NamedKey::Delete => ferrite_core::keymap::keycode::KeyCode::Delete,
         NamedKey::Insert => ferrite_core::keymap::keycode::KeyCode::Insert,
         NamedKey::Escape => ferrite_core::keymap::keycode::KeyCode::Esc,
