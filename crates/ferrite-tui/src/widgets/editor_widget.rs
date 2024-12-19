@@ -132,9 +132,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
         // We have to overwrite all rendered whitespace with the correct color
         let mut dim_cells = Vec::new();
-
         let mut grapheme_buffer = String::new();
-
         let view = buffer.get_buffer_view(view_id);
         {
             for (i, (line, line_number)) in view
@@ -365,23 +363,41 @@ impl StatefulWidget for EditorWidget<'_> {
                         let start_point = rope.byte_to_point((*start).min(rope.len_bytes()));
                         let end_point = rope.byte_to_point((*end).min(rope.len_bytes()));
 
-                        let start_x = start_point
-                            .column
-                            .saturating_sub(col_pos)
-                            .clamp(0, text_area.width.into());
+                        (start_point, end_point, style)
+                    })
+                    .collect();
+
+                for (start_point, end_point, style) in highlights {
+                    tracing::error!("ree: {}", end_point.line - start_point.line);
+                    let diff = end_point.line - start_point.line;
+                    for i in 0..(diff + 1) {
                         let start_y = start_point
                             .line
                             .saturating_sub(line_pos)
+                            .add(i)
                             .clamp(0, text_area.height.into());
-
-                        let end_x = end_point
-                            .column
-                            .saturating_sub(col_pos)
-                            .clamp(0, text_area.width.into());
                         let end_y = end_point
                             .line
                             .saturating_sub(line_pos)
+                            .add(i)
                             .clamp(0, text_area.height.into());
+
+                        let first = i == 0;
+                        let last = i == diff;
+
+                        let start_view_col = start_point.column.saturating_sub(col_pos);
+                        let start_x = if first {
+                            start_view_col.clamp(0, text_area.width.into())
+                        } else {
+                            0
+                        };
+
+                        let end_view_col = end_point.column.saturating_sub(col_pos);
+                        let end_x = if last {
+                            end_view_col.clamp(0, text_area.width.into())
+                        } else {
+                            text_area.width.into()
+                        };
 
                         // FIXME This should not be needed
                         let end_x = end_x.max(start_x);
@@ -392,13 +408,8 @@ impl StatefulWidget for EditorWidget<'_> {
                             width: (end_x as u16 - start_x as u16),
                             height: (end_y as u16 - start_y as u16) + 1,
                         };
-
-                        (highlight_area, style)
-                    })
-                    .collect();
-
-                for (area, style) in highlights {
-                    buf.set_style(area, *style);
+                        buf.set_style(highlight_area, *style);
+                    }
                 }
             }
 
