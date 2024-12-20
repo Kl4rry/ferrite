@@ -368,7 +368,6 @@ impl StatefulWidget for EditorWidget<'_> {
                     .collect();
 
                 for (start_point, end_point, style) in highlights {
-                    tracing::error!("ree: {}", end_point.line - start_point.line);
                     let diff = end_point.line - start_point.line;
                     for i in 0..(diff + 1) {
                         let start_y = start_point
