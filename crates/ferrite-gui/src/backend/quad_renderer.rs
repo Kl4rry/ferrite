@@ -5,6 +5,8 @@ use crevice::std140::AsStd140;
 use glyphon::Color;
 use wgpu::util::DeviceExt;
 
+use crate::srgb;
+
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
@@ -243,9 +245,9 @@ impl QuadRenderer {
         self.indices.push(self.vertices.len() as u32 + 2);
         self.indices.push(self.vertices.len() as u32 + 1);
         self.indices.push(self.vertices.len() as u32 + 3);
-        let r = (color.r() as f32 / 255.0).powf(2.0);
-        let g = (color.g() as f32 / 255.0).powf(2.0);
-        let b = (color.b() as f32 / 255.0).powf(2.0);
+        let r = srgb::srgb_to_linear(color.r() as f32 / 255.0);
+        let b = srgb::srgb_to_linear(color.b() as f32 / 255.0);
+        let g = srgb::srgb_to_linear(color.g() as f32 / 255.0);
         let a = color.a() as f32 / 255.0;
         self.vertices.push(Vertex {
             x: quad.x,

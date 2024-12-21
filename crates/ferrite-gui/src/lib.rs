@@ -36,6 +36,7 @@ use winit::{
 mod backend;
 mod event_loop_wrapper;
 mod glue;
+pub mod srgb;
 
 pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     {
@@ -591,9 +592,9 @@ impl GuiApp {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: color.r.powf(2.0) as f64,
-                            g: color.g.powf(2.0) as f64,
-                            b: color.b.powf(2.0) as f64,
+                            r: srgb::srgb_to_linear(color.r) as f64,
+                            g: srgb::srgb_to_linear(color.g) as f64,
+                            b: srgb::srgb_to_linear(color.b) as f64,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
