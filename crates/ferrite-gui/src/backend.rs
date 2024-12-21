@@ -210,6 +210,7 @@ impl WgpuBackend {
 
                 attrs = attrs.color(fg);
                 let symbol = cell.symbol();
+                let symbol_width = symbol.width();
                 line_text.push_str(symbol);
                 attr_list.add_span(idx..(idx + symbol.len()), attrs);
                 idx += symbol.len();
@@ -218,8 +219,8 @@ impl WgpuBackend {
                     Quad {
                         x: col_idx as f32 * self.cell_width,
                         y: line_idx as f32 * self.cell_height,
-                        width: self.cell_width,
-                        height: self.cell_height,
+                        width: self.cell_width * symbol_width as f32,
+                        height: self.cell_height * symbol_width as f32,
                     },
                     bg,
                 );
