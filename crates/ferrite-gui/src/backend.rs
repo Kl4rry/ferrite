@@ -20,7 +20,7 @@ use crate::glue::convert_style;
 
 mod quad_renderer;
 
-const LINE_SCALE: f32 = 1.3;
+const LINE_SCALE: f32 = 1.2;
 const FONT_SIZE: f32 = 15.0;
 
 fn calculate_cell_size(
