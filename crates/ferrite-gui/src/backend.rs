@@ -303,6 +303,7 @@ impl WgpuBackend {
         if font_family != self.font_family {
             self.font_system.db_mut().set_monospace_family(font_family);
             self.font_family = font_family.to_string();
+            self.font_system.shape_run_cache.trim(0);
         }
     }
 
