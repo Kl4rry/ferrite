@@ -29,6 +29,6 @@ right = ["branch", "position", "encoding", "language", "spinner"]
 padding = 1
 
 [gui]
-font_family = "Fira Code"
+font_family = "Noto Mono"
 font_weight = "normal"
 cursor_type = "line"

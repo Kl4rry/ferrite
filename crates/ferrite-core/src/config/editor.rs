@@ -8,7 +8,7 @@ pub fn default_theme() -> String {
 }
 
 pub fn default_font() -> String {
-    "Fira Code".into()
+    "Noto Mono".into()
 }
 
 pub fn default_rulers() -> Vec<u16> {
