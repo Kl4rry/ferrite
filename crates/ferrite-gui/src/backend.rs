@@ -20,6 +20,9 @@ use crate::glue::convert_style;
 
 mod quad_renderer;
 
+const LINE_SCALE: f32 = 1.3;
+const FONT_SIZE: f32 = 15.0;
+
 fn calculate_cell_size(
     font_system: &mut FontSystem,
     metrics: Metrics,
@@ -39,7 +42,6 @@ fn calculate_cell_size(
     );
     let layout = buffer.line_layout(font_system, 0).unwrap();
     let w = layout[0].w;
-    buffer.set_monospace_width(font_system, Some(w));
     (w, metrics.line_height)
 }
 
@@ -79,7 +81,7 @@ impl WgpuBackend {
         let mut font_system = FontSystem::new();
         font_system
             .db_mut()
-            .load_font_data(include_bytes!("../../../fonts/FiraCode-Retina.ttf").to_vec());
+            .load_font_data(include_bytes!("../../../fonts/FiraCode-Regular.ttf").to_vec());
         font_system.db_mut().set_monospace_family(&font_family);
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
@@ -96,7 +98,7 @@ impl WgpuBackend {
 
         let viewport = Viewport::new(device, &cache);
 
-        let metrics = Metrics::relative(15.0, 1.20);
+        let metrics = Metrics::relative(FONT_SIZE, LINE_SCALE);
         let mut buffer = Buffer::new(&mut font_system, metrics);
         // borrowed from cosmic term
         let (cell_width, cell_height) = calculate_cell_size(&mut font_system, metrics, font_weight);
@@ -304,16 +306,26 @@ impl WgpuBackend {
             self.font_system.db_mut().set_monospace_family(font_family);
             self.font_family = font_family.to_string();
             self.font_system.shape_run_cache.trim(0);
+            self.update_font_metadata();
         }
     }
 
     pub fn set_font_weight(&mut self, weight: FontWeight) {
-        self.font_weight = weight;
+        if self.font_weight != weight {
+            self.font_weight = weight;
+            self.update_font_metadata();
+        }
     }
 
     pub fn set_scale(&mut self, scale: f32) {
-        self.scale = scale;
-        let metrics = Metrics::relative(15.0 * self.scale, 1.20);
+        if self.scale != scale {
+            self.scale = scale;
+            self.update_font_metadata();
+        }
+    }
+
+    fn update_font_metadata(&mut self) {
+        let metrics = Metrics::relative(FONT_SIZE * self.scale, LINE_SCALE);
         self.buffer.set_metrics(&mut self.font_system, metrics);
         let (cell_width, cell_height) =
             calculate_cell_size(&mut self.font_system, metrics, self.font_weight);
