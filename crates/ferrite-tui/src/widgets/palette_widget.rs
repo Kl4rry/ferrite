@@ -83,10 +83,10 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                         break;
                     }
                     buf.set_stringn(
-                        area.x,
+                        area.x + 1,
                         area.y + i as u16,
                         line,
-                        area.width.into(),
+                        (area.width as usize).saturating_sub(1),
                         convert_style(&self.theme.text),
                     );
                 }
@@ -97,10 +97,10 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                         break;
                     }
                     buf.set_stringn(
-                        area.x,
+                        area.x + 1,
                         area.y + i as u16,
                         line,
-                        area.width.into(),
+                        (area.width as usize).saturating_sub(1),
                         convert_style(&self.theme.error_text),
                     );
                 }
@@ -119,10 +119,10 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                         break;
                     }
                     buf.set_stringn(
-                        area.x,
+                        area.x + 1,
                         area.y + i as u16,
                         line,
-                        area.width.into(),
+                        (area.width as usize).saturating_sub(1),
                         convert_style(&self.theme.text),
                     );
                 }
