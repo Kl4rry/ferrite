@@ -338,6 +338,10 @@ impl WgpuBackend {
     pub fn scale(&self) -> f32 {
         self.scale
     }
+
+    pub fn line_height(&self) -> f32 {
+        self.cell_height
+    }
 }
 
 impl Backend for WgpuBackend {

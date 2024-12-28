@@ -71,6 +71,7 @@ struct GuiApp {
     modifiers: KeyModifiers,
     mouse_position: PhysicalPosition<f64>,
     primary_mouse_button_pressed: bool,
+    vertical_scroll_delta: f64,
 }
 
 impl GuiApp {
@@ -183,6 +184,7 @@ impl GuiApp {
             modifiers: KeyModifiers::empty(),
             mouse_position: PhysicalPosition::default(),
             primary_mouse_button_pressed: false,
+            vertical_scroll_delta: 0.0,
         })
     }
 
@@ -283,15 +285,35 @@ impl GuiApp {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = scale_factor;
             }
-            WindowEvent::MouseWheel { delta, .. } => {
-                if let Some((buffer, view_id)) = self.tui_app.engine.get_current_buffer_mut() {
-                    if let MouseScrollDelta::LineDelta(_, y) = delta {
-                        buffer
-                            .handle_input(view_id, Cmd::VerticalScroll(-y as i64 * 3))
-                            .unwrap();
+            WindowEvent::MouseWheel { delta, .. } => match delta {
+                MouseScrollDelta::LineDelta(_, y) => {
+                    self.tui_app.engine.handle_single_input_command(
+                        Cmd::VerticalScroll(-y as i64 * 3),
+                        &mut EventLoopControlFlow::Poll,
+                    );
+                }
+                MouseScrollDelta::PixelDelta(physical_pos) => {
+                    self.vertical_scroll_delta += physical_pos.y;
+                    let line_height = self.tui_app.terminal.backend().line_height() as f64;
+                    loop {
+                        if self.vertical_scroll_delta >= line_height {
+                            self.vertical_scroll_delta -= line_height;
+                            self.tui_app.engine.handle_single_input_command(
+                                Cmd::VerticalScroll(-1),
+                                &mut EventLoopControlFlow::Poll,
+                            );
+                        } else if self.vertical_scroll_delta <= -line_height {
+                            self.vertical_scroll_delta += line_height;
+                            self.tui_app.engine.handle_single_input_command(
+                                Cmd::VerticalScroll(1),
+                                &mut EventLoopControlFlow::Poll,
+                            );
+                        } else {
+                            break;
+                        }
                     }
                 }
-            }
+            },
             WindowEvent::ModifiersChanged(modifiers) => {
                 let modifiers = modifiers.state();
                 self.modifiers.set(
