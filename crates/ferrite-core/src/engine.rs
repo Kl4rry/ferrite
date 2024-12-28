@@ -15,7 +15,6 @@ use ferrite_utility::{line_ending, point::Point, trim::trim_path};
 use linkify::{LinkFinder, LinkKind};
 use ropey::Rope;
 use slotmap::{Key as _, SlotMap};
-use timeout_readwrite::TimeoutReadExt;
 
 use crate::{
     buffer::{self, encoding::get_encoding, Buffer, ViewId},
@@ -33,7 +32,7 @@ use crate::{
     file_explorer::FileExplorer,
     git::branch::BranchWatcher,
     indent::Indentation,
-    job_manager::{JobHandle, JobManager, Progress},
+    job_manager::{JobHandle, JobManager, Progress, Progressor},
     jobs::{SaveBufferJob, ShellJobHandle},
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
@@ -1675,18 +1674,22 @@ impl Engine {
                     };
                 }
                 let mut child = command.spawn()?;
-                let mut stdout = child
-                    .stdout
-                    .take()
-                    .unwrap()
-                    .with_timeout(Duration::from_millis(20));
-                let mut rope = Rope::new();
-                let mut buffer = Vec::new();
-                let mut bytes = [0u8; 4096];
-                let mut dirty = false;
-                let status = loop {
-                    if let Ok(read_bytes) = stdout.read(&mut bytes) {
-                        if read_bytes > 0 {
+                let mut stdout = child.stdout.take().unwrap();
+                // This is a lazy life time extension.
+                // It is safe because we always join the thread later in the function
+                let progressor: &'static mut Progressor<_> =
+                    unsafe { std::mem::transmute::<_, _>(progressor) };
+                let reader_thread = std::thread::spawn(move || {
+                    let mut rope = Rope::new();
+                    let mut buffer = Vec::new();
+                    let mut bytes = [0u8; 4096];
+                    let mut dirty = false;
+                    loop {
+                        if let Ok(read_bytes) = stdout.read(&mut bytes) {
+                            if read_bytes == 0 {
+                                break;
+                            }
+
                             buffer.extend_from_slice(&bytes[..read_bytes]);
                             let mut slice = &buffer[..];
                             let mut total = 0;
@@ -1697,16 +1700,18 @@ impl Engine {
                                 rope.append(rope_line);
                                 slice = &slice[len..];
                                 total += len;
+                                dirty = true;
                             }
-                            dirty = true;
                             buffer.drain(..total);
-                            continue;
+                        }
+                        if let (Some(buffer_id), true) = (buffer_id, dirty) {
+                            progressor.make_progress((buffer_id, rope.clone()));
+                            dirty = false;
                         }
                     }
-                    if let (Some(buffer_id), true) = (buffer_id, dirty) {
-                        progressor.make_progress((buffer_id, rope.clone()));
-                        dirty = false;
-                    }
+                    rope
+                });
+                let status = loop {
                     match child.try_wait() {
                         Ok(None) => {
                             if killed.load(Ordering::Relaxed) {
@@ -1724,6 +1729,7 @@ impl Engine {
                                     }
                                 }
                             }
+                            std::thread::sleep(Duration::from_millis(20));
                             continue;
                         }
                         Ok(Some(s)) => {
@@ -1732,6 +1738,8 @@ impl Engine {
                         Err(err) => tracing::error!("error: {err}"),
                     }
                 };
+
+                let rope = reader_thread.join().unwrap();
 
                 if !status.success() && !pipe {
                     return Err(anyhow::Error::msg(rope.to_string()));
