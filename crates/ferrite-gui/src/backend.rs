@@ -226,7 +226,7 @@ impl WgpuBackend {
                 );
 
                 if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
-                    let cursor_width = 2.0;
+                    let cursor_width = 2.0 * self.scale;
                     self.top_quad_renderer.push_quad(
                         Quad {
                             x: col_idx as f32 * self.cell_width,
