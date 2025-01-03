@@ -135,6 +135,7 @@ impl StatefulWidget for EditorWidget<'_> {
         let mut grapheme_buffer = String::new();
         let view = buffer.get_buffer_view(view_id);
         {
+            profiling::scope!("render text");
             for (i, (line, line_number)) in view
                 .lines
                 .iter()
@@ -325,6 +326,7 @@ impl StatefulWidget for EditorWidget<'_> {
             let mut highlights = Vec::new();
             let mut syntax_rope = None;
             {
+                profiling::scope!("collect syntax events");
                 if let Some(syntax) = buffer.get_syntax() {
                     if let Some((rope, events)) = &*syntax.get_highlight_events() {
                         syntax_rope = Some(rope.clone());
@@ -356,16 +358,20 @@ impl StatefulWidget for EditorWidget<'_> {
 
             // Apply highlight
             if let Some(rope) = syntax_rope {
-                let highlights: Vec<_> = highlights
-                    .par_iter()
-                    .take(10000)
-                    .map(|(start, end, style)| {
-                        let start_point = rope.byte_to_point((*start).min(rope.len_bytes()));
-                        let end_point = rope.byte_to_point((*end).min(rope.len_bytes()));
+                profiling::scope!("apply highlights");
+                let highlights: Vec<_> = {
+                    profiling::scope!("take highlight events");
+                    highlights
+                        .par_iter()
+                        .take(10000)
+                        .map(|(start, end, style)| {
+                            let start_point = rope.byte_to_point((*start).min(rope.len_bytes()));
+                            let end_point = rope.byte_to_point((*end).min(rope.len_bytes()));
 
-                        (start_point, end_point, style)
-                    })
-                    .collect();
+                            (start_point, end_point, style)
+                        })
+                        .collect()
+                };
 
                 for (start_point, end_point, style) in highlights {
                     let diff = end_point.line - start_point.line;
@@ -492,6 +498,7 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             if let Some(bg) = convert_style(&theme.selection).bg {
+                profiling::scope!("draw selections");
                 for Selection { start, end } in buffer.get_view_selection(view_id) {
                     draw_cursor_line = false;
                     let line_pos = buffer.line_pos(view_id);

@@ -68,6 +68,7 @@ pub struct WgpuBackend {
     font_weight: FontWeight,
 }
 
+#[profiling::all_functions]
 impl WgpuBackend {
     pub fn new(
         device: &wgpu::Device,

@@ -108,6 +108,16 @@ fn main() -> Result<ExitCode> {
         }
     }
 
+    let _puffin_server = if args.profile {
+        let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
+        let puffin_server = puffin_http::Server::new(&server_addr).unwrap();
+        eprintln!("Run this to view profiling data:  puffin_viewer {server_addr}");
+        puffin::set_scopes_on(true);
+        Some(puffin_server)
+    } else {
+        None
+    };
+
     fs::create_dir_all(dirs.data_dir())?;
     let log_file = OpenOptions::new()
         .append(true)

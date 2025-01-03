@@ -82,6 +82,7 @@ pub struct Engine {
     pub scale: f32,
 }
 
+#[profiling::all_functions]
 impl Engine {
     pub fn new(
         args: &Args,

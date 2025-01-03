@@ -214,6 +214,7 @@ impl GuiApp {
                     event => self.input(event_loop, event),
                 },
                 Event::AboutToWait => {
+                    profiling::scope!("about to wait");
                     let backend = self.tui_app.terminal.backend_mut();
                     if backend.scale() != self.tui_app.engine.scale {
                         backend.set_scale(self.tui_app.engine.scale);

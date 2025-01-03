@@ -33,8 +33,11 @@ pub struct Args {
     #[arg(long)]
     pub overwrite: bool,
     /// Wait for editor to close
-    #[arg(long)]
+    #[arg(short, long)]
     pub wait: bool,
+    /// Profile
+    #[arg(long)]
+    pub profile: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

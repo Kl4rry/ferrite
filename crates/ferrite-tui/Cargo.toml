@@ -11,6 +11,7 @@ ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-utility = { workspace = true }
+profiling = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }
 tracing = { workspace = true }

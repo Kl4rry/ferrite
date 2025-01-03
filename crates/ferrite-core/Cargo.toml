@@ -32,6 +32,7 @@ linkify = { workspace = true }
 memchr = { workspace = true }
 notify-debouncer-full = { workspace = true }
 opener = { workspace = true }
+profiling = { workspace = true }
 rayon = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

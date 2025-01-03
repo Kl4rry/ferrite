@@ -38,6 +38,7 @@ pub struct TuiApp<B: Backend> {
     pub keyboard_enhancement: bool,
 }
 
+#[profiling::all_functions]
 impl<B> TuiApp<B>
 where
     B: Backend,
@@ -72,6 +73,7 @@ where
         self.engine.start_of_events = Instant::now();
         #[cfg(feature = "talloc")]
         ferrite_talloc::Talloc::reset_phase_allocations();
+        profiling::finish_frame!();
     }
 
     pub fn render(&mut self) {
@@ -110,6 +112,7 @@ where
                 {
                     match pane {
                         PaneKind::Buffer(buffer_id, view_id) => {
+                            profiling::scope!("render tui editor");
                             f.render_stateful_widget(
                                 EditorWidget::new(
                                     theme,
@@ -143,6 +146,7 @@ where
                             }
                         }
                         PaneKind::FileExplorer(file_explorer_id) => {
+                            profiling::scope!("render tui file explorer");
                             let has_focus = !self.engine.palette.has_focus()
                                 && self.engine.file_picker.is_none()
                                 && self.engine.buffer_picker.is_none()
@@ -158,6 +162,7 @@ where
                             );
                         }
                         PaneKind::Logger => {
+                            profiling::scope!("render tui logger");
                             let has_focus = !self.engine.palette.has_focus()
                                 && self.engine.file_picker.is_none()
                                 && self.engine.buffer_picker.is_none()
@@ -172,6 +177,7 @@ where
                 }
 
                 if let Some(file_picker) = &mut self.engine.file_picker {
+                    profiling::scope!("render tui file picker");
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
@@ -184,6 +190,7 @@ where
                 }
 
                 if let Some(buffer_picker) = &mut self.engine.buffer_picker {
+                    profiling::scope!("render tui buffer picker");
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,
@@ -200,6 +207,7 @@ where
                 }
 
                 if let Some(global_search_picker) = &mut self.engine.global_search_picker {
+                    profiling::scope!("render tui search picker");
                     let size = size.inner(Margin {
                         horizontal: 5,
                         vertical: 2,

@@ -258,6 +258,7 @@ impl fmt::Display for Buffer {
     }
 }
 
+#[profiling::all_functions]
 impl Buffer {
     pub fn new() -> Self {
         Self::default()
