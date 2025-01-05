@@ -19,7 +19,7 @@ use rayon::{
 };
 use ropey::RopeSlice;
 use tui::{
-    layout::Rect,
+    layout::{Position, Rect},
     widgets::{Clear, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
@@ -542,8 +542,9 @@ impl StatefulWidget for EditorWidget<'_> {
                     text_area.width,
                     1,
                 );
-
-                buf.set_style(cursor_line_area, convert_style(&theme.cursorline));
+                if text_area.contains(Position::new(cursor_line_area.x, cursor_line_area.y)) {
+                    buf.set_style(cursor_line_area, convert_style(&theme.cursorline));
+                }
             }
 
             if info_line {
