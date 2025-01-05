@@ -683,7 +683,15 @@ impl Engine {
                 }
             }
             Cmd::Split(direction) => {
-                let (buffer_id, view_id) = self.get_next_buffer();
+                let (buffer_id, view_id) = match self.workspace.panes.get_current_pane() {
+                    PaneKind::Buffer(buffer_id, _) => {
+                        let view_id = self.workspace.buffers[buffer_id].create_view();
+                        self.load_view_data(buffer_id, view_id);
+                        (buffer_id, view_id)
+                    }
+                    _ => self.get_next_buffer(),
+                };
+
                 self.workspace
                     .panes
                     .split(PaneKind::Buffer(buffer_id, view_id), direction);
