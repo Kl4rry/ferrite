@@ -35,6 +35,10 @@ pub fn lines_to_left_offset(lines: usize) -> (usize, usize) {
     (line_number_max_width, left_offset)
 }
 
+fn intersects(start1: usize, end1: usize, start2: usize, end2: usize) -> bool {
+    !(start1 > end2 || end1 < start2)
+}
+
 pub struct EditorWidget<'a> {
     theme: &'a EditorTheme,
     config: &'a Editor,
@@ -326,6 +330,7 @@ impl StatefulWidget for EditorWidget<'_> {
             let mut highlights = Vec::new();
             let mut syntax_rope = None;
             {
+                // TODO do this async on syntax thread
                 profiling::scope!("collect syntax events");
                 if let Some(syntax) = buffer.get_syntax() {
                     if let Some((rope, events)) = &*syntax.get_highlight_events() {
@@ -334,7 +339,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         for event in events {
                             match event {
                                 HighlightEvent::Source { start, end } => {
-                                    if range.contains(start) || range.contains(end) {
+                                    if intersects(*start, *end, range.start, range.end) {
                                         let mut style = convert_style(&theme.text);
                                         if let Some(highlight) = highlight_stack.last() {
                                             if let Some(name) = highlight
