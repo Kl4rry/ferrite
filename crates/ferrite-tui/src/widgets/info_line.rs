@@ -15,7 +15,7 @@ pub struct InfoLine<'a> {
     pub config: &'a InfoLineConfig,
     pub focus: bool,
     pub encoding: &'static Encoding,
-    pub name: String,
+    pub path: String,
     pub column: usize,
     pub line: usize,
     pub dirty: bool,
@@ -30,7 +30,16 @@ impl InfoLine<'_> {
     pub fn get_info_item(&self, item: &str) -> Option<String> {
         match item {
             "file" => {
-                let mut file = self.name.clone();
+                let prefix = std::env::current_dir()
+                    .map(|d| d.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let mut file = self.path.clone();
+                if file.starts_with(&prefix) {
+                    file.drain(..prefix.len());
+                    while file.starts_with(std::path::MAIN_SEPARATOR) {
+                        file.remove(0);
+                    }
+                }
                 if self.dirty {
                     file += " *";
                 }

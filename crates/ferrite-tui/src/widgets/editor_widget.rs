@@ -547,12 +547,18 @@ impl StatefulWidget for EditorWidget<'_> {
             }
 
             if info_line {
+                let path = if let Some(path) = buffer.file() {
+                    path.to_string_lossy().into()
+                } else {
+                    buffer.name().to_string()
+                };
+
                 let info_line = InfoLine {
                     theme,
                     config: &self.config.info_line,
                     focus: self.has_focus,
                     encoding: buffer.encoding,
-                    name: buffer.name().to_string(),
+                    path,
                     line: buffer.cursor_line_idx(view_id, 0) + 1,
                     column: buffer.cursor_grapheme_column(view_id, 0) + 1,
                     dirty: buffer.is_dirty(),
