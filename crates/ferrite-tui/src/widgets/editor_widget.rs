@@ -534,7 +534,7 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            if self.config.highlight_cursor_line && draw_cursor_line {
+            if self.config.highlight_cursor_line && draw_cursor_line && has_focus {
                 let visual_cursor_line = cursor_line_number - buffer.views[view_id].line_pos - 1;
                 let cursor_line_area = Rect::new(
                     text_area.x,
