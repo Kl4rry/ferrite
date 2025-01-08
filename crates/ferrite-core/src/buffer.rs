@@ -1917,7 +1917,16 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
         let multiple_cursors = self.views[view_id].cursors.len() > 1;
         let mut text = String::new();
-        for i in 0..self.views[view_id].cursors.len() {
+
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+
+        for (_, i) in cursors.iter().copied() {
             let start = self.views[view_id].cursors[i].start();
             let end = self.views[view_id].cursors[i].end();
             let copied = if start == end {
@@ -1993,12 +2002,12 @@ impl Buffer {
             .collect();
         cursors.sort();
 
-        for (cursor_loop_index, (_, _i)) in cursors.iter().copied().enumerate() {
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
 
             let text = rope.line_without_line_ending(cursor_loop_index);
             // TODO remove this `to_string`
-            self.insert_text_raw(view_id, cursor_loop_index, &text.to_string(), true, false);
+            self.insert_text_raw(view_id, i, &text.to_string(), true, false);
 
             let after_len_bytes = self.rope.len_bytes();
             let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
