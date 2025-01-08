@@ -48,17 +48,17 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("kill-job", None, true).build(|_| Cmd::KillJob),
         CmdBuilder::new("trim-trailing-whitespace", None, true).build(|_| Cmd::TrimTrailingWhitespace),
         CmdBuilder::new("run", Some(("action", CmdTemplateArg::Action)), false).add_alias("r").build(|args| Cmd::RunAction { name: args[0].take().unwrap().unwrap_string() }),
-        CmdBuilder::new("open-file-explorer", Some(("path", CmdTemplateArg::Path)), true).build(|args| Cmd::OpenFileExplorer(args[0].take().map(|arg| arg.unwrap_path()))),
-        CmdBuilder::new("number", Some(("start", CmdTemplateArg::Int)), true).build(|args| Cmd::Number(args[0].take().map(|arg| arg.unwrap_int()))),
+        CmdBuilder::new("open-file-explorer", Some(("path", CmdTemplateArg::Path)), true).build(|args| Cmd::OpenFileExplorer { path: args[0].take().map(|arg| arg.unwrap_path())}),
+        CmdBuilder::new("number", Some(("start", CmdTemplateArg::Int)), true).build(|args| Cmd::Number { start: args[0].take().map(|arg| arg.unwrap_int())}),
         CmdBuilder::new("revert-buffer", None, true).add_alias("rb").build(|_| Cmd::RevertBuffer),
-        CmdBuilder::new("open", Some(("path", CmdTemplateArg::Path)), false).add_alias("o").build(|args| Cmd::OpenFile(args[0].take().unwrap().unwrap_path())),
-        CmdBuilder::new("cd", Some(("path", CmdTemplateArg::Path)), false).build(|args| Cmd::Cd(args[0].take().unwrap().unwrap_path())),
-        CmdBuilder::new("save", Some(("path", CmdTemplateArg::Path)), true).add_alias("s").build(|args| Cmd::Save(args[0].take().map(|arg| arg.unwrap_path()))),
-        CmdBuilder::new("goto", Some(("line", CmdTemplateArg::Int)), false).add_alias("g").build(|args| Cmd::Goto(args[0].take().unwrap().unwrap_int())),
-        CmdBuilder::new("theme", Some(("theme", CmdTemplateArg::Theme)), true).build(|args| Cmd::Theme(args[0].take().map(|theme| theme.unwrap_string()))),
-        CmdBuilder::new("new", Some(("path", CmdTemplateArg::Path)), true).add_alias("n").build(|args| Cmd::New(args[0].take().map(|arg| arg.unwrap_path()))),
-        CmdBuilder::new("indent", Some(("indent", CmdTemplateArg::String)), true).build(|args| Cmd::Indent(args[0].take().map(|indent| indent.unwrap_string()))),
-        CmdBuilder::new("replace-all", Some(("replace-all", CmdTemplateArg::String)), false).build(|args| Cmd::ReplaceAll(args[0].take().unwrap().unwrap_string())),
+        CmdBuilder::new("open", Some(("path", CmdTemplateArg::Path)), false).add_alias("o").build(|args| Cmd::OpenFile { path: args[0].take().unwrap().unwrap_path()}),
+        CmdBuilder::new("cd", Some(("path", CmdTemplateArg::Path)), false).build(|args| Cmd::Cd { path: args[0].take().unwrap().unwrap_path()}),
+        CmdBuilder::new("save", Some(("path", CmdTemplateArg::Path)), true).add_alias("s").build(|args| Cmd::Save {path: args[0].take().map(|arg| arg.unwrap_path())}),
+        CmdBuilder::new("goto", Some(("line", CmdTemplateArg::Int)), false).add_alias("g").build(|args| Cmd::Goto { line: args[0].take().unwrap().unwrap_int()}),
+        CmdBuilder::new("theme", Some(("theme", CmdTemplateArg::Theme)), true).build(|args| Cmd::Theme { theme: args[0].take().map(|theme| theme.unwrap_string())}),
+        CmdBuilder::new("new", Some(("path", CmdTemplateArg::Path)), true).add_alias("n").build(|args| Cmd::New { path: args[0].take().map(|arg| arg.unwrap_path())}),
+        CmdBuilder::new("indent", Some(("indent", CmdTemplateArg::String)), true).build(|args| Cmd::Indent { indent: args[0].take().map(|indent| indent.unwrap_string())}),
+        CmdBuilder::new("replace-all", Some(("replace-all", CmdTemplateArg::String)), false).build(|args| Cmd::ReplaceAll{text: args[0].take().unwrap().unwrap_string()}),
         CmdBuilder::new("pipe", Some(("arg", CmdTemplateArg::Path)), false).build(|args| {
             let mut paths = Vec::new();
             for arg in args {
@@ -74,31 +74,31 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
             Cmd::RunShellCmd { args: paths, pipe: false }
         }),
         CmdBuilder::new("sort", Some(("order", CmdTemplateArg::Alternatives(["asc", "desc"].iter().map(|s| s.to_string()).collect()))), true).build(|args| {
-            Cmd::SortLines(args[0].take().map(|o|o.unwrap_string() == "asc").unwrap_or(true))
+            Cmd::SortLines { ascending: args[0].take().map(|o|o.unwrap_string() == "asc").unwrap_or(true)}
         }),
         CmdBuilder::new("split", Some(("direction", CmdTemplateArg::Alternatives(["up", "down", "left", "right"].iter().map(|s| s.to_string()).collect()))), false).build(|args| {
-            Cmd::Split(Direction::from_str(args[0].take().unwrap().unwrap_string().as_str()).unwrap())
+            Cmd::Split { direction: Direction::from_str(args[0].take().unwrap().unwrap_string().as_str()).unwrap()}
         }),
         CmdBuilder::new("case", Some(("case", CmdTemplateArg::Alternatives(["lower", "upper", "snake", "kebab", "camel", "pascal", "title", "train", "screaming-snake", "screaming-kebab"].iter().map(|s| s.to_string()).collect()))), false).build(|args| {
-            Cmd::Case(Case::from_str(args[0].take().unwrap().unwrap_string().as_str()).unwrap())
+            Cmd::Case { case: Case::from_str(args[0].take().unwrap().unwrap_string().as_str()).unwrap()}
         }),
         CmdBuilder::new("encoding", Some(("encoding", CmdTemplateArg::Alternatives(get_encoding_names().iter().map(|s| s.to_string()).collect()))), true)
             .set_custom_alternative_error(|encoding, _| format!("`{encoding}` is unknown an encoding, these encodings are supported: https://docs.rs/encoding_rs/latest/encoding_rs"))
             .build(|args| {
-                Cmd::Encoding(args[0].take().map(|encoding| encoding.unwrap_string()))
+                Cmd::Encoding { encoding: args[0].take().map(|encoding| encoding.unwrap_string())}
             }),
         CmdBuilder::new("language", Some(("language", CmdTemplateArg::Alternatives(get_available_languages().iter().map(|s| s.to_string()).collect()))), true)
             .add_alias("lang")
-            .build(|args| Cmd::Language(args[0].take().map(|language| language.unwrap_string()))),
+            .build(|args| Cmd::Language { language: args[0].take().map(|language| language.unwrap_string())}),
         CmdBuilder::new("line-ending", Some(("line-ending", CmdTemplateArg::Alternatives(vec!["lf".into(), "crlf".into()]))), true)
             .build(|args| {
-                Cmd::LineEnding(args[0].take().map(|line_ending| {
+                Cmd::LineEnding{ line_ending: args[0].take().map(|line_ending| {
                     match line_ending.unwrap_string().as_str() {
                         "lf" => LineEnding::LF,
                         "crlf" => LineEnding::Crlf,
                         _ => unreachable!(),
                     }
-                }))
+                })}
         }),
     ];
     cmds.sort_by(|cmd1, cmd2| cmd1.name.cmp(&cmd2.name));

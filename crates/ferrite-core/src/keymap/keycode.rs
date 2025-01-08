@@ -3,6 +3,7 @@ use core::fmt;
 use serde::{Deserialize, Serialize};
 
 bitflags::bitflags! {
+    // TODO make custom impl of Serialize and Deserialize to match to and from str
     #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
     pub struct KeyModifiers: u8 {
         const SHIFT = 0b0000_0001;
@@ -11,13 +12,52 @@ bitflags::bitflags! {
         const SUPER = 0b0000_1000;
         const HYPER = 0b0001_0000;
         const META = 0b0010_0000;
-        const NONE = 0b0000_0000;
+    }
+}
+
+impl KeyModifiers {
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        Some(match s {
+            "<Shift>" => Self::SHIFT,
+            "<Control>" => Self::CONTROL,
+            "<Alt>" => Self::ALT,
+            "<Super>" => Self::SUPER,
+            "<Hypr>" => Self::HYPER,
+            "<Meta>" => Self::META,
+            _ => return None,
+        })
+    }
+
+    pub fn try_to_string(&self) -> Option<String> {
+        if *self == Self::empty() {
+            return None;
+        }
+        let mut output = String::new();
+        if self.contains(Self::SHIFT) {
+            output.push_str("<Shift>-");
+        }
+        if self.contains(Self::CONTROL) {
+            output.push_str("<Control>-");
+        }
+        if self.contains(Self::ALT) {
+            output.push_str("<Alt>-");
+        }
+        if self.contains(Self::SUPER) {
+            output.push_str("<Super>-");
+        }
+        if self.contains(Self::HYPER) {
+            output.push_str("<Hyper>-");
+        }
+        if self.contains(Self::META) {
+            output.push_str("<Meta>-");
+        }
+        Some(output)
     }
 }
 
 impl fmt::Display for KeyModifiers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if *self == Self::NONE {
+        if *self == Self::empty() {
             return Ok(());
         }
 
@@ -49,11 +89,54 @@ impl fmt::Display for KeyModifiers {
     }
 }
 
-#[derive(
-    Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum MediaKeyCode {
+/// Represents a key.
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
+pub enum KeyCode {
+    Backspace,
+    Enter,
+    Left,
+    Right,
+    Up,
+    Down,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+    Tab,
+    BackTab,
+    Delete,
+    Insert,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    Char(char),
+    Null,
+    Esc,
+    CapsLock,
+    ScrollLock,
+    NumLock,
+    PrintScreen,
+    Menu,
+    KeypadBegin,
+
+    // media
     Play,
     Pause,
     PlayPause,
@@ -67,13 +150,8 @@ pub enum MediaKeyCode {
     LowerVolume,
     RaiseVolume,
     MuteVolume,
-}
 
-#[derive(
-    Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum ModifierKeyCode {
+    // modifiers
     LeftShift,
     LeftControl,
     LeftAlt,
@@ -90,47 +168,179 @@ pub enum ModifierKeyCode {
     IsoLevel5Shift,
 }
 
-/// Represents a key.
-#[derive(
-    Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, serde::Serialize, serde::Deserialize,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyCode {
-    Backspace,
-    Enter,
-    Left,
-    Right,
-    Up,
-    Down,
-    Home,
-    End,
-    PageUp,
-    PageDown,
-    Tab,
-    BackTab,
-    Delete,
-    Insert,
-    F(u8),
-    Char(char),
-    Null,
-    Esc,
-    CapsLock,
-    ScrollLock,
-    NumLock,
-    PrintScreen,
-    Pause,
-    Menu,
-    KeypadBegin,
-    Media(MediaKeyCode),
-    Modifier(ModifierKeyCode),
+impl KeyCode {
+    pub fn try_from_str(s: &str) -> anyhow::Result<Self> {
+        Ok(match s {
+            "Backspace" => KeyCode::Backspace,
+            "Enter" => KeyCode::Enter,
+            "Left" => KeyCode::Left,
+            "Right" => KeyCode::Right,
+            "Up" => KeyCode::Up,
+            "Down" => KeyCode::Down,
+            "Home" => KeyCode::Home,
+            "End" => KeyCode::End,
+            "PageUp" => KeyCode::PageUp,
+            "PageDown" => KeyCode::PageDown,
+            "Tab" => KeyCode::Tab,
+            "BackTab" => KeyCode::BackTab,
+            "Delete" => KeyCode::Delete,
+            "Insert" => KeyCode::Insert,
+            "F1" => KeyCode::F1,
+            "F2" => KeyCode::F2,
+            "F3" => KeyCode::F3,
+            "F4" => KeyCode::F4,
+            "F5" => KeyCode::F5,
+            "F6" => KeyCode::F6,
+            "F7" => KeyCode::F7,
+            "F8" => KeyCode::F8,
+            "F9" => KeyCode::F9,
+            "F10" => KeyCode::F10,
+            "F11" => KeyCode::F11,
+            "F12" => KeyCode::F12,
+            "F13" => KeyCode::F13,
+            "F14" => KeyCode::F14,
+            "F15" => KeyCode::F15,
+            "F16" => KeyCode::F16,
+            "F17" => KeyCode::F17,
+            "F18" => KeyCode::F18,
+            "F19" => KeyCode::F19,
+            "F20" => KeyCode::F20,
+            "Null" => KeyCode::Null,
+            "Esc" => KeyCode::Esc,
+            "CapsLock" => KeyCode::CapsLock,
+            "ScrollLock" => KeyCode::ScrollLock,
+            "NumLock" => KeyCode::NumLock,
+            "PrintScreen" => KeyCode::PrintScreen,
+            "Menu" => KeyCode::Menu,
+            "KeypadBegin" => KeyCode::KeypadBegin,
+
+            // media
+            "Play" => KeyCode::Play,
+            "Pause" => KeyCode::Pause,
+            "PlayPause" => KeyCode::PlayPause,
+            "Reverse" => KeyCode::Reverse,
+            "Stop" => KeyCode::Stop,
+            "FastForward" => KeyCode::FastForward,
+            "Rewind" => KeyCode::Rewind,
+            "TrackNext" => KeyCode::TrackNext,
+            "TrackPrevious" => KeyCode::TrackPrevious,
+            "Record" => KeyCode::Record,
+            "LowerVolume" => KeyCode::LowerVolume,
+            "RaiseVolume" => KeyCode::RaiseVolume,
+            "MuteVolume" => KeyCode::MuteVolume,
+
+            // modifiers
+            "LeftShift" => KeyCode::LeftShift,
+            "LeftControl" => KeyCode::LeftControl,
+            "LeftAlt" => KeyCode::LeftAlt,
+            "LeftSuper" => KeyCode::LeftSuper,
+            "LeftHyper" => KeyCode::LeftHyper,
+            "LeftMeta" => KeyCode::LeftMeta,
+            "RightShift" => KeyCode::RightShift,
+            "RightControl" => KeyCode::RightControl,
+            "RightAlt" => KeyCode::RightAlt,
+            "RightSuper" => KeyCode::RightSuper,
+            "RightHyper" => KeyCode::RightHyper,
+            "RightMeta" => KeyCode::RightMeta,
+            "IsoLevel3Shift" => KeyCode::IsoLevel3Shift,
+            "IsoLevel5Shift" => KeyCode::IsoLevel5Shift,
+
+            // special
+            "Space" => KeyCode::Char(' '),
+            s => {
+                let Some(ch) = s.chars().next() else {
+                    anyhow::bail!("keybinds must be atleast one char long");
+                };
+                if s.chars().count() != 1 {
+                    anyhow::bail!("unrecognized keybind: `{s}`");
+                }
+
+                KeyCode::Char(ch)
+            }
+        })
+    }
 }
 
-impl fmt::Display for KeyCode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+#[allow(clippy::to_string_trait_impl)]
+impl ToString for KeyCode {
+    fn to_string(&self) -> String {
         match self {
-            KeyCode::F(n) => write!(f, "F{n}"),
-            KeyCode::Char(ch) => ch.fmt(f),
-            keycode => write!(f, "{keycode:?}"),
+            KeyCode::Backspace => "Backspace",
+            KeyCode::Enter => "Enter",
+            KeyCode::Left => "Left",
+            KeyCode::Right => "Right",
+            KeyCode::Up => "Up",
+            KeyCode::Down => "Down",
+            KeyCode::Home => "Home",
+            KeyCode::End => "End",
+            KeyCode::PageUp => "PageUp",
+            KeyCode::PageDown => "PageDown",
+            KeyCode::Tab => "Tab",
+            KeyCode::BackTab => "BackTab",
+            KeyCode::Delete => "Delete",
+            KeyCode::Insert => "Insert",
+            KeyCode::F1 => "F1",
+            KeyCode::F2 => "F2",
+            KeyCode::F3 => "F3",
+            KeyCode::F4 => "F4",
+            KeyCode::F5 => "F5",
+            KeyCode::F6 => "F6",
+            KeyCode::F7 => "F7",
+            KeyCode::F8 => "F8",
+            KeyCode::F9 => "F9",
+            KeyCode::F10 => "F10",
+            KeyCode::F11 => "F11",
+            KeyCode::F12 => "F12",
+            KeyCode::F13 => "F13",
+            KeyCode::F14 => "F14",
+            KeyCode::F15 => "F15",
+            KeyCode::F16 => "F16",
+            KeyCode::F17 => "F17",
+            KeyCode::F18 => "F18",
+            KeyCode::F19 => "F19",
+            KeyCode::F20 => "F20",
+            KeyCode::Null => "Null",
+            KeyCode::Esc => "Esc",
+            KeyCode::CapsLock => "CapsLock",
+            KeyCode::ScrollLock => "ScrollLock",
+            KeyCode::NumLock => "NumLock",
+            KeyCode::PrintScreen => "PrintScreen",
+            KeyCode::Menu => "Menu",
+            KeyCode::KeypadBegin => "KeypadBegin",
+
+            // media
+            KeyCode::Play => "Play",
+            KeyCode::Pause => "Pause",
+            KeyCode::PlayPause => "PlayPause",
+            KeyCode::Reverse => "Reverse",
+            KeyCode::Stop => "Stop",
+            KeyCode::FastForward => "FastForward",
+            KeyCode::Rewind => "Rewind",
+            KeyCode::TrackNext => "TrackNext",
+            KeyCode::TrackPrevious => "TrackPrevious",
+            KeyCode::Record => "Record",
+            KeyCode::LowerVolume => "LowerVolume",
+            KeyCode::RaiseVolume => "RaiseVolume",
+            KeyCode::MuteVolume => "MuteVolume",
+
+            // modifiers
+            KeyCode::LeftShift => "LeftShift",
+            KeyCode::LeftControl => "LeftControl",
+            KeyCode::LeftAlt => "LeftAlt",
+            KeyCode::LeftSuper => "LeftSuper",
+            KeyCode::LeftHyper => "LeftHyper",
+            KeyCode::LeftMeta => "LeftMeta",
+            KeyCode::RightShift => "RightShift",
+            KeyCode::RightControl => "RightControl",
+            KeyCode::RightAlt => "RightAlt",
+            KeyCode::RightSuper => "RightSuper",
+            KeyCode::RightHyper => "RightHyper",
+            KeyCode::RightMeta => "RightMeta",
+            KeyCode::IsoLevel3Shift => "IsoLevel3Shift",
+            KeyCode::IsoLevel5Shift => "IsoLevel5Shift",
+            KeyCode::Char(' ') => "Space",
+            KeyCode::Char(ch) => return ch.to_string(),
         }
+        .to_string()
     }
 }

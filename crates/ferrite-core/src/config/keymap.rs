@@ -1,13 +1,12 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::collections::HashMap;
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     cmd::Cmd,
+    config::{editor::KeymapAndMetadata, Editor},
     keymap::{Exclusiveness, Key},
 };
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Keymapping {
     pub key: Key,
@@ -15,52 +14,69 @@ pub struct Keymapping {
     pub exclusiveness: Exclusiveness,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct Keymap {
     pub normal: Vec<Keymapping>,
-    #[serde(flatten)]
     pub input_modes: HashMap<String, Vec<Keymapping>>,
 }
 
 impl Keymap {
-    pub fn create_default_config(overwrite: bool) -> Result<()> {
-        let config = Self::get_default_location()?;
-
-        let mut config_folder = config.clone();
-        config_folder.pop();
-
-        if !config_folder.exists() {
-            fs::create_dir_all(config_folder)?;
+    pub fn from_editor(editor: &Editor) -> Self {
+        let mut default = Self::default();
+        for (
+            key,
+            KeymapAndMetadata {
+                mode,
+                cmd,
+                exclusiveness,
+            },
+        ) in &editor.keymap
+        {
+            let keymapping = Keymapping {
+                key: key.clone(),
+                cmd: cmd.clone(),
+                exclusiveness: *exclusiveness,
+            };
+            if mode == "normal" {
+                default.normal.insert(0, keymapping);
+            } else {
+                default
+                    .input_modes
+                    .entry(mode.clone())
+                    .or_default()
+                    .insert(0, keymapping);
+            }
         }
-
-        if !config.exists() || overwrite {
-            fs::write(
-                config,
-                serde_json::to_string_pretty(&Self::default()).unwrap(),
-            )?;
-        }
-
-        Ok(())
+        default
     }
 
-    pub fn load_from_default_location() -> Result<Self> {
-        let path = Self::get_default_location()?;
-
-        let mut config_folder = path.clone();
-        config_folder.pop();
-
-        if !config_folder.exists() {
-            fs::create_dir_all(config_folder)?;
+    pub fn to_map(&self) -> HashMap<Key, KeymapAndMetadata> {
+        let keymap = Keymap::default();
+        let mut output = HashMap::new();
+        for keymapping in keymap.normal {
+            output.insert(
+                keymapping.key,
+                KeymapAndMetadata {
+                    cmd: keymapping.cmd,
+                    exclusiveness: keymapping.exclusiveness,
+                    mode: String::from("normal"),
+                },
+            );
         }
 
-        Ok(serde_json::from_str(&fs::read_to_string(&path)?)?)
-    }
-
-    pub fn get_default_location() -> Result<PathBuf> {
-        let Some(directories) = directories::ProjectDirs::from("", "", "ferrite") else {
-            return Err(anyhow::Error::msg("Unable to find project directory"));
-        };
-        Ok(directories.config_dir().join("keymap.json"))
+        for (mode, keymap) in keymap.input_modes {
+            for keymapping in keymap {
+                output.insert(
+                    keymapping.key,
+                    KeymapAndMetadata {
+                        cmd: keymapping.cmd,
+                        exclusiveness: keymapping.exclusiveness,
+                        mode: mode.clone(),
+                    },
+                );
+            }
+        }
+        output
     }
 }
 

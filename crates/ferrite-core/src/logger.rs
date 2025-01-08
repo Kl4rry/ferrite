@@ -107,8 +107,8 @@ impl LoggerState {
 
     pub fn handle_input(&mut self, input: Cmd) {
         match input {
-            Cmd::VerticalScroll(scroll) => {
-                self.lines_scrolled_up = (self.lines_scrolled_up as i64 - scroll).max(0) as usize;
+            Cmd::VerticalScroll { distance } => {
+                self.lines_scrolled_up = (self.lines_scrolled_up as i64 - distance).max(0) as usize;
             }
             Cmd::End { .. } => self.lines_scrolled_up = 0,
             Cmd::Escape { .. } => self.lines_scrolled_up = 0,

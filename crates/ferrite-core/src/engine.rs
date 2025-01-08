@@ -126,22 +126,7 @@ impl Engine {
             }
         }
 
-        let keymap_path = Keymap::get_default_location().ok();
-        let keymap = match Keymap::load_from_default_location() {
-            Ok(languages) => languages,
-            Err(err) => {
-                palette.set_error(err);
-                Keymap::default()
-            }
-        };
-
-        let mut keymap_watcher = None;
-        if let Some(ref keymap_path) = keymap_path {
-            match FileWatcher::new(keymap_path, proxy.dup()) {
-                Ok(watcher) => keymap_watcher = Some(watcher),
-                Err(err) => tracing::error!("Error starting keymap config watcher: {err}"),
-            }
-        }
+        let keymap = Keymap::from_editor(&config);
 
         if config.local_clipboard {
             clipboard::set_local_clipboard(true);
@@ -244,8 +229,6 @@ impl Engine {
             languages_path,
             languages_watcher,
             keymap,
-            keymap_path,
-            keymap_watcher,
         };
 
         Ok(Self {
@@ -301,6 +284,7 @@ impl Engine {
                             self.config.editor.theme = "default".into();
                         }
                         self.palette.set_msg("Reloaded editor config");
+                        self.config.keymap = Keymap::from_editor(&self.config.editor);
                     }
                     Err(err) => self.palette.set_error(err),
                 }
@@ -313,18 +297,6 @@ impl Engine {
                     Ok(languages) => {
                         self.config.languages = languages;
                         self.palette.set_msg("Reloaded languages");
-                    }
-                    Err(err) => self.palette.set_error(err),
-                }
-            }
-        }
-
-        if let Some(config_watcher) = &mut self.config.keymap_watcher {
-            if let Some(result) = config_watcher.poll_update() {
-                match result {
-                    Ok(keymap) => {
-                        self.config.keymap = keymap;
-                        self.palette.set_msg("Reloaded keymap");
                     }
                     Err(err) => self.palette.set_error(err),
                 }
@@ -454,7 +426,7 @@ impl Engine {
     pub fn handle_input_command(&mut self, input: Cmd, control_flow: &mut EventLoopControlFlow) {
         if let Some(repeat) = &mut self.repeat {
             match input {
-                Cmd::Char(ch) if ch.is_ascii_digit() => {
+                Cmd::Char { ch } if ch.is_ascii_digit() => {
                     repeat.push(ch);
                 }
                 _ => {
@@ -609,21 +581,21 @@ impl Engine {
             }
             Cmd::OpenFilePicker => self.open_file_picker(),
             Cmd::OpenBufferPicker => self.open_buffer_picker(),
-            Cmd::OpenFileExplorer(path) => self.open_file_explorer(path),
+            Cmd::OpenFileExplorer { path } => self.open_file_explorer(path),
             Cmd::FilePickerReload => {
                 self.file_scanner = FileScanner::new(
                     env::current_dir().unwrap_or(PathBuf::from(".")),
                     &self.config.editor,
                 );
             }
-            Cmd::ReplaceAll(replacement) => {
+            Cmd::ReplaceAll { text } => {
                 if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                    buffer.replace_all(view_id, replacement);
+                    buffer.replace_all(view_id, text);
                 }
             }
-            Cmd::SortLines(asc) => {
+            Cmd::SortLines { ascending } => {
                 if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                    buffer.sort_lines(view_id, asc);
+                    buffer.sort_lines(view_id, ascending);
                 }
             }
             Cmd::Path => match self.try_get_current_buffer_path() {
@@ -643,7 +615,7 @@ impl Engine {
                 Ok(path) => self.palette.set_msg(path.to_string_lossy()),
                 Err(err) => self.palette.set_error(err),
             },
-            Cmd::Cd(path) => {
+            Cmd::Cd { path } => {
                 if let Err(err) = self.workspace.save_workspace() {
                     self.palette.set_error(err);
                 }
@@ -682,7 +654,7 @@ impl Engine {
                     Err(err) => self.palette.set_error(format!("{err}")),
                 }
             }
-            Cmd::Split(direction) => {
+            Cmd::Split { direction } => {
                 let (buffer_id, view_id) = match self.workspace.panes.get_current_pane() {
                     PaneKind::Buffer(buffer_id, _) => {
                         let view_id = self.workspace.buffers[buffer_id].create_view();
@@ -737,10 +709,10 @@ impl Engine {
                     self.format_buffer(buffer_id);
                 }
             }
-            Cmd::OpenFile(path) => {
+            Cmd::OpenFile { path } => {
                 self.open_file(path);
             }
-            Cmd::Save(path) => {
+            Cmd::Save { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
@@ -759,7 +731,7 @@ impl Engine {
                     self.save_buffer(buffer_id, None);
                 }
             }
-            Cmd::Language(language) => {
+            Cmd::Language { language } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
@@ -776,7 +748,7 @@ impl Engine {
                         .set_msg(self.workspace.buffers[buffer_id].language_name()),
                 }
             }
-            Cmd::Encoding(encoding) => {
+            Cmd::Encoding { encoding } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
@@ -792,7 +764,7 @@ impl Engine {
                     .set_msg(self.workspace.buffers[buffer_id].encoding.name()),
                 }
             }
-            Cmd::Indent(indent) => {
+            Cmd::Indent { indent } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
@@ -816,7 +788,7 @@ impl Engine {
                     },
                 }
             }
-            Cmd::LineEnding(line_ending) => {
+            Cmd::LineEnding { line_ending } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
@@ -834,7 +806,7 @@ impl Engine {
                     }
                 }
             }
-            Cmd::New(path) => {
+            Cmd::New { path } => {
                 if let Some(path) = path {
                     match Buffer::with_path(path) {
                         Ok(mut buffer) => {
@@ -878,14 +850,14 @@ impl Engine {
                     }
                 }
             }
-            Cmd::Goto(line) => {
+            Cmd::Goto { line } => {
                 let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
                 else {
                     return;
                 };
                 self.workspace.buffers[buffer_id].goto(view_id, line);
             }
-            Cmd::Case(case) => {
+            Cmd::Case { case } => {
                 let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
                 else {
                     return;
@@ -897,10 +869,10 @@ impl Engine {
                 self.logger_state.lines_scrolled_up = 0;
                 self.workspace.panes.replace_current(PaneKind::Logger);
             }
-            Cmd::Theme(name) => match name {
-                Some(name) => {
-                    if self.themes.contains_key(&name) {
-                        self.config.editor.theme = name;
+            Cmd::Theme { theme } => match theme {
+                Some(theme) => {
+                    if self.themes.contains_key(&theme) {
+                        self.config.editor.theme = theme;
                     } else {
                         self.palette.set_error("Theme not found");
                     }
@@ -1346,17 +1318,22 @@ impl Engine {
     }
 
     pub fn open_keymap(&mut self) {
-        match &self.config.keymap_path {
-            Some(path) => {
-                self.open_file(path.clone());
-            }
-            None => self.palette.set_error("Could not locate the keymap file"),
-        }
+        let keymap = self.config.keymap.to_map();
+        let mut buffer = Buffer::with_name("keymap.toml");
+        let data = toml::to_string_pretty(&keymap).unwrap();
+        buffer.set_text(&format!(
+            "# This are the current loaded keybinds. Editing this file does nothing.\n\n{}",
+            data
+        ));
+        buffer.read_only = false;
+        let view_id = buffer.create_view();
+        self.insert_buffer(buffer, view_id, true);
     }
 
     pub fn open_default_keymap(&mut self) {
-        let mut buffer = Buffer::with_name("default_keymap.json");
-        buffer.set_text(&serde_json::to_string_pretty(&Keymap::default()).unwrap());
+        let keymap = Keymap::default().to_map();
+        let mut buffer = Buffer::with_name("default_keymap.toml");
+        buffer.set_text(&toml::to_string_pretty(&keymap).unwrap());
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }

@@ -106,7 +106,7 @@ impl FileExplorer {
         self.buffer.set_text("");
         let view_id = self.buffer.get_first_view_or_create();
         self.buffer.start(view_id, false);
-        self.handle_input(Cmd::Insert("".into()));
+        self.handle_input(Cmd::Insert { text: "".into() });
 
         self.index = 0;
         if let Some(name) = self.history.get(&self.path) {
@@ -147,20 +147,23 @@ impl FileExplorer {
                     self.change_dir(parent.into());
                 }
             }
-            Cmd::Insert(string) => {
-                let rope = RopeSlice::from(string.as_str());
+            Cmd::Insert { text } => {
+                let rope = RopeSlice::from(text.as_str());
                 let line = rope.line_without_line_ending(0);
                 let view_id = self.buffer.get_first_view_or_create();
-                let _ = self
-                    .buffer
-                    .handle_input(view_id, Cmd::Insert(line.to_string()));
+                let _ = self.buffer.handle_input(
+                    view_id,
+                    Cmd::Insert {
+                        text: line.to_string(),
+                    },
+                );
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
                     new_input = true;
                 }
             }
-            Cmd::Char(ch) if LineEnding::from_char(ch).is_some() => {
+            Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                 enter = true;
             }
             cmd => {

@@ -7,7 +7,7 @@ use std::{
 use anyhow::Result;
 use ferrite_cli::Ui;
 use ferrite_core::{
-    config::{editor::Editor, keymap::Keymap, languages::Languages},
+    config::{editor::Editor, languages::Languages},
     logger::{LogMessage, LoggerSink},
 };
 use tracing::Level;
@@ -77,12 +77,6 @@ fn main() -> Result<ExitCode> {
         eprintln!(
             "Created default language config at: `{}`",
             Languages::get_default_location()?.to_string_lossy()
-        );
-
-        Keymap::create_default_config(args.overwrite)?;
-        eprintln!(
-            "Created default keymap at: `{}`",
-            Keymap::get_default_location()?.to_string_lossy()
         );
 
         ferrite_core::theme::init_themes()?;

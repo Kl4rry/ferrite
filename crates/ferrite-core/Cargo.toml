@@ -46,7 +46,7 @@ trash = { workspace = true }
 tree-sitter = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true, features = ["fs"] }
+rustix = { workspace = true, features = ["fs", "stdio"] }
 
 [dev-dependencies]
 tempdir = { workspace = true }

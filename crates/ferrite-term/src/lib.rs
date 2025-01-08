@@ -153,8 +153,8 @@ impl TermApp {
                     }
                     Event::Mouse(event) => match event.kind {
                         // TODO allow scoll when using cmd palette
-                        MouseEventKind::ScrollUp => Some(Cmd::VerticalScroll(-3)),
-                        MouseEventKind::ScrollDown => Some(Cmd::VerticalScroll(3)),
+                        MouseEventKind::ScrollUp => Some(Cmd::VerticalScroll { distance: -3 }),
+                        MouseEventKind::ScrollDown => Some(Cmd::VerticalScroll { distance: 3 }),
                         MouseEventKind::Down(MouseButton::Middle) => {
                             for (pane_kind, pane_rect) in self
                                 .tui_app
@@ -178,7 +178,7 @@ impl TermApp {
                                         .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos(view_id))
                                             .saturating_sub(pane_rect.y);
-                                        break 'block Some(Cmd::PastePrimary(column, line));
+                                        break 'block Some(Cmd::PastePrimary { column, line });
                                     }
                                 }
                             }
@@ -213,7 +213,11 @@ impl TermApp {
                                         .saturating_sub(left_offset);
                                         let line = (event.row as usize + buffer.line_pos(view_id))
                                             .saturating_sub(pane_rect.y);
-                                        break 'block Some(Cmd::ClickCell(false, column, line));
+                                        break 'block Some(Cmd::ClickCell {
+                                            spawn_cursor: false,
+                                            column,
+                                            line,
+                                        });
                                     }
                                 }
                             }
@@ -275,7 +279,7 @@ impl TermApp {
                         }
                         _ => None,
                     },
-                    Event::Paste(text) => Some(Cmd::Insert(text)),
+                    Event::Paste(text) => Some(Cmd::Insert { text }),
                     _ => None,
                 }
             };

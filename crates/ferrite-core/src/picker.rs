@@ -176,19 +176,23 @@ where
                     self.selected = self.selected.saturating_sub(1);
                 }
             }
-            Cmd::MoveDown { .. } | Cmd::Tab { .. } => self.selected += 1,
-            Cmd::Insert(string) => {
-                let rope = RopeSlice::from(string.as_str());
+            Cmd::MoveDown { .. } | Cmd::TabOrIndent { .. } => self.selected += 1,
+            Cmd::Insert { text } => {
+                let rope = RopeSlice::from(text.as_str());
                 let line = rope.line_without_line_ending(0);
-                self.search_field
-                    .handle_input(self.view_id, Cmd::Insert(line.to_string()))?;
+                self.search_field.handle_input(
+                    self.view_id,
+                    Cmd::Insert {
+                        text: line.to_string(),
+                    },
+                )?;
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
                     let _ = self.tx.send(self.search_field.to_string());
                 }
             }
-            Cmd::Char(ch) if LineEnding::from_char(ch).is_some() => {
+            Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                 enter = true;
             }
             input => {

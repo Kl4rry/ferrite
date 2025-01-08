@@ -1655,7 +1655,7 @@ impl Buffer {
     }
 
     // TODO make multicursor aware
-    pub fn tab(&mut self, view_id: ViewId, back: bool) {
+    pub fn tab_or_indent(&mut self, view_id: ViewId, back: bool) {
         self.views[view_id].cursors.clear();
         // TODO optimize for larger files
 
@@ -1827,6 +1827,9 @@ impl Buffer {
 
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
         self.history.finish();
     }
 

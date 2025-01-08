@@ -1,10 +1,19 @@
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+use crate::{
+    cmd::Cmd,
+    keymap::{Exclusiveness, Key},
+};
+
 pub fn default_theme() -> String {
     "default".into()
+}
+
+pub fn default_keymap_mode() -> String {
+    "normal".into()
 }
 
 pub fn default_font() -> String {
@@ -59,6 +68,18 @@ pub struct Editor {
     pub info_line: InfoLineConfig,
     #[serde(default)]
     pub gui: Gui,
+    #[serde(default)]
+    pub keymap: HashMap<Key, KeymapAndMetadata>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct KeymapAndMetadata {
+    #[serde(flatten)]
+    pub cmd: Cmd,
+    #[serde(default)]
+    pub exclusiveness: Exclusiveness,
+    #[serde(default = "default_keymap_mode")]
+    pub mode: String,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]

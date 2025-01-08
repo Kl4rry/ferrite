@@ -4,7 +4,7 @@ use editor::Editor;
 use keymap::Keymap;
 use languages::Languages;
 
-use crate::watcher::{FileWatcher, JsonConfig, TomlConfig};
+use crate::watcher::{FileWatcher, TomlConfig};
 
 pub mod editor;
 pub mod keymap;
@@ -18,6 +18,4 @@ pub struct Config {
     pub languages_path: Option<PathBuf>,
     pub languages_watcher: Option<FileWatcher<Languages, TomlConfig>>,
     pub keymap: Keymap,
-    pub keymap_path: Option<PathBuf>,
-    pub keymap_watcher: Option<FileWatcher<Keymap, JsonConfig>>,
 }

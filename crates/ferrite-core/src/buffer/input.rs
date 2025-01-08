@@ -19,9 +19,9 @@ impl Buffer {
             } => self.move_down(view_id, expand_selection, create_cursor, distance),
             MoveRightWord { expand_selection } => self.move_right_word(view_id, expand_selection),
             MoveLeftWord { expand_selection } => self.move_left_word(view_id, expand_selection),
-            MoveLine(dir) if !self.read_only => self.move_line(view_id, dir),
-            Insert(text) if !self.read_only => self.insert_text(view_id, &text, true),
-            Char(ch) if !self.read_only => self.insert_text(view_id, &String::from(ch), true),
+            MoveLine { direction } if !self.read_only => self.move_line(view_id, direction),
+            Insert { text } if !self.read_only => self.insert_text(view_id, &text, true),
+            Char { ch } if !self.read_only => self.insert_text(view_id, &String::from(ch), true),
             Backspace if !self.read_only => self.backspace(view_id),
             BackspaceWord if !self.read_only => self.backspace_word(view_id),
             Delete if !self.read_only => self.delete(view_id),
@@ -37,15 +37,17 @@ impl Buffer {
             Copy => self.copy(view_id),
             Cut if !self.read_only => self.cut(view_id),
             Paste if !self.read_only => self.paste(view_id),
-            PastePrimary(column, line) if !self.read_only => {
+            PastePrimary { column, line } if !self.read_only => {
                 self.paste_primary(view_id, column, line)
             }
-            Tab { back } if !self.read_only => self.tab(view_id, back),
-            VerticalScroll(distance) => self.vertical_scroll(view_id, distance),
+            TabOrIndent { back } if !self.read_only => self.tab_or_indent(view_id, back),
+            VerticalScroll { distance } => self.vertical_scroll(view_id, distance),
             Escape => self.escape(view_id),
-            ClickCell(spawn_cursor, col, line) => {
-                self.handle_click(view_id, spawn_cursor, col, line)
-            }
+            ClickCell {
+                spawn_cursor,
+                column,
+                line,
+            } => self.handle_click(view_id, spawn_cursor, column, line),
             SelectArea { cursor, anchor } => self.select_area(view_id, cursor, anchor, true),
             NextMatch => self.next_match(view_id),
             PrevMatch => self.prev_match(view_id),
@@ -53,7 +55,7 @@ impl Buffer {
             Undo if !self.read_only => self.undo(view_id),
             Redo if !self.read_only => self.redo(view_id),
             RevertBuffer if !self.read_only => self.revert_buffer(view_id),
-            Number(number) if !self.read_only => self.number(view_id, number),
+            Number { start } if !self.read_only => self.number(view_id, start),
             TrimTrailingWhitespace if !self.read_only => self.trim_trailing_whitespace(),
             Nop => self.update_interact(Some(view_id)),
             _ => return Ok(()),

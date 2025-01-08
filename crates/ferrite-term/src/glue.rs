@@ -16,7 +16,27 @@ pub fn convert_keycode(
         crossterm::event::KeyCode::BackTab => ferrite_core::keymap::keycode::KeyCode::BackTab,
         crossterm::event::KeyCode::Delete => ferrite_core::keymap::keycode::KeyCode::Delete,
         crossterm::event::KeyCode::Insert => ferrite_core::keymap::keycode::KeyCode::Insert,
-        crossterm::event::KeyCode::F(f) => ferrite_core::keymap::keycode::KeyCode::F(f),
+        crossterm::event::KeyCode::F(1) => ferrite_core::keymap::keycode::KeyCode::F1,
+        crossterm::event::KeyCode::F(2) => ferrite_core::keymap::keycode::KeyCode::F2,
+        crossterm::event::KeyCode::F(3) => ferrite_core::keymap::keycode::KeyCode::F3,
+        crossterm::event::KeyCode::F(4) => ferrite_core::keymap::keycode::KeyCode::F4,
+        crossterm::event::KeyCode::F(5) => ferrite_core::keymap::keycode::KeyCode::F5,
+        crossterm::event::KeyCode::F(6) => ferrite_core::keymap::keycode::KeyCode::F6,
+        crossterm::event::KeyCode::F(7) => ferrite_core::keymap::keycode::KeyCode::F7,
+        crossterm::event::KeyCode::F(8) => ferrite_core::keymap::keycode::KeyCode::F8,
+        crossterm::event::KeyCode::F(9) => ferrite_core::keymap::keycode::KeyCode::F9,
+        crossterm::event::KeyCode::F(10) => ferrite_core::keymap::keycode::KeyCode::F10,
+        crossterm::event::KeyCode::F(11) => ferrite_core::keymap::keycode::KeyCode::F11,
+        crossterm::event::KeyCode::F(12) => ferrite_core::keymap::keycode::KeyCode::F12,
+        crossterm::event::KeyCode::F(13) => ferrite_core::keymap::keycode::KeyCode::F13,
+        crossterm::event::KeyCode::F(14) => ferrite_core::keymap::keycode::KeyCode::F14,
+        crossterm::event::KeyCode::F(15) => ferrite_core::keymap::keycode::KeyCode::F15,
+        crossterm::event::KeyCode::F(16) => ferrite_core::keymap::keycode::KeyCode::F16,
+        crossterm::event::KeyCode::F(17) => ferrite_core::keymap::keycode::KeyCode::F17,
+        crossterm::event::KeyCode::F(18) => ferrite_core::keymap::keycode::KeyCode::F18,
+        crossterm::event::KeyCode::F(19) => ferrite_core::keymap::keycode::KeyCode::F19,
+        crossterm::event::KeyCode::F(20) => ferrite_core::keymap::keycode::KeyCode::F20,
+        crossterm::event::KeyCode::F(_) => panic!("Function key with higher number then 20"),
         crossterm::event::KeyCode::Char(ch) => ferrite_core::keymap::keycode::KeyCode::Char(ch),
         crossterm::event::KeyCode::Null => ferrite_core::keymap::keycode::KeyCode::Null,
         crossterm::event::KeyCode::Esc => ferrite_core::keymap::keycode::KeyCode::Esc,
@@ -31,100 +51,90 @@ pub fn convert_keycode(
         crossterm::event::KeyCode::KeypadBegin => {
             ferrite_core::keymap::keycode::KeyCode::KeypadBegin
         }
-        crossterm::event::KeyCode::Media(media) => {
-            ferrite_core::keymap::keycode::KeyCode::Media(convert_media(media))
-        }
-        crossterm::event::KeyCode::Modifier(modifier) => {
-            ferrite_core::keymap::keycode::KeyCode::Modifier(convert_modifier_keycode(modifier))
-        }
+        crossterm::event::KeyCode::Media(media) => convert_media(media),
+        crossterm::event::KeyCode::Modifier(modifier) => convert_modifier_keycode(modifier),
     }
 }
 
 pub fn convert_media(
     media: crossterm::event::MediaKeyCode,
-) -> ferrite_core::keymap::keycode::MediaKeyCode {
+) -> ferrite_core::keymap::keycode::KeyCode {
     match media {
-        crossterm::event::MediaKeyCode::Play => ferrite_core::keymap::keycode::MediaKeyCode::Play,
-        crossterm::event::MediaKeyCode::Pause => ferrite_core::keymap::keycode::MediaKeyCode::Pause,
+        crossterm::event::MediaKeyCode::Play => ferrite_core::keymap::keycode::KeyCode::Play,
+        crossterm::event::MediaKeyCode::Pause => ferrite_core::keymap::keycode::KeyCode::Pause,
         crossterm::event::MediaKeyCode::PlayPause => {
-            ferrite_core::keymap::keycode::MediaKeyCode::PlayPause
+            ferrite_core::keymap::keycode::KeyCode::PlayPause
         }
-        crossterm::event::MediaKeyCode::Reverse => {
-            ferrite_core::keymap::keycode::MediaKeyCode::Reverse
-        }
-        crossterm::event::MediaKeyCode::Stop => ferrite_core::keymap::keycode::MediaKeyCode::Stop,
+        crossterm::event::MediaKeyCode::Reverse => ferrite_core::keymap::keycode::KeyCode::Reverse,
+        crossterm::event::MediaKeyCode::Stop => ferrite_core::keymap::keycode::KeyCode::Stop,
         crossterm::event::MediaKeyCode::FastForward => {
-            ferrite_core::keymap::keycode::MediaKeyCode::FastForward
+            ferrite_core::keymap::keycode::KeyCode::FastForward
         }
-        crossterm::event::MediaKeyCode::Rewind => {
-            ferrite_core::keymap::keycode::MediaKeyCode::Rewind
-        }
+        crossterm::event::MediaKeyCode::Rewind => ferrite_core::keymap::keycode::KeyCode::Rewind,
         crossterm::event::MediaKeyCode::TrackNext => {
-            ferrite_core::keymap::keycode::MediaKeyCode::TrackNext
+            ferrite_core::keymap::keycode::KeyCode::TrackNext
         }
         crossterm::event::MediaKeyCode::TrackPrevious => {
-            ferrite_core::keymap::keycode::MediaKeyCode::TrackPrevious
+            ferrite_core::keymap::keycode::KeyCode::TrackPrevious
         }
-        crossterm::event::MediaKeyCode::Record => {
-            ferrite_core::keymap::keycode::MediaKeyCode::Record
-        }
+        crossterm::event::MediaKeyCode::Record => ferrite_core::keymap::keycode::KeyCode::Record,
         crossterm::event::MediaKeyCode::LowerVolume => {
-            ferrite_core::keymap::keycode::MediaKeyCode::LowerVolume
+            ferrite_core::keymap::keycode::KeyCode::LowerVolume
         }
         crossterm::event::MediaKeyCode::RaiseVolume => {
-            ferrite_core::keymap::keycode::MediaKeyCode::RaiseVolume
+            ferrite_core::keymap::keycode::KeyCode::RaiseVolume
         }
         crossterm::event::MediaKeyCode::MuteVolume => {
-            ferrite_core::keymap::keycode::MediaKeyCode::MuteVolume
+            ferrite_core::keymap::keycode::KeyCode::MuteVolume
         }
     }
 }
 
 pub fn convert_modifier_keycode(
     modifier: crossterm::event::ModifierKeyCode,
-) -> ferrite_core::keymap::keycode::ModifierKeyCode {
+) -> ferrite_core::keymap::keycode::KeyCode {
     match modifier {
         crossterm::event::ModifierKeyCode::LeftShift => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::LeftShift
+            ferrite_core::keymap::keycode::KeyCode::LeftShift
         }
         crossterm::event::ModifierKeyCode::LeftControl => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::LeftControl
+            ferrite_core::keymap::keycode::KeyCode::LeftControl
         }
         crossterm::event::ModifierKeyCode::LeftAlt => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::LeftAlt
+            ferrite_core::keymap::keycode::KeyCode::LeftAlt
         }
         crossterm::event::ModifierKeyCode::LeftSuper => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::LeftSuper
+            ferrite_core::keymap::keycode::KeyCode::LeftSuper
         }
         crossterm::event::ModifierKeyCode::LeftHyper => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::LeftHyper
+            ferrite_core::keymap::keycode::KeyCode::LeftHyper
         }
         crossterm::event::ModifierKeyCode::LeftMeta => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::LeftMeta
+            ferrite_core::keymap::keycode::KeyCode::LeftMeta
         }
         crossterm::event::ModifierKeyCode::RightShift => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::RightShift
+            ferrite_core::keymap::keycode::KeyCode::RightShift
         }
         crossterm::event::ModifierKeyCode::RightControl => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::RightControl
+            ferrite_core::keymap::keycode::KeyCode::RightControl
         }
         crossterm::event::ModifierKeyCode::RightAlt => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::RightAlt
+            ferrite_core::keymap::keycode::KeyCode::RightAlt
         }
         crossterm::event::ModifierKeyCode::RightSuper => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::RightSuper
+            ferrite_core::keymap::keycode::KeyCode::RightSuper
         }
         crossterm::event::ModifierKeyCode::RightHyper => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::RightHyper
+            ferrite_core::keymap::keycode::KeyCode::RightHyper
         }
         crossterm::event::ModifierKeyCode::RightMeta => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::RightMeta
+            ferrite_core::keymap::keycode::KeyCode::RightMeta
         }
         crossterm::event::ModifierKeyCode::IsoLevel3Shift => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::IsoLevel3Shift
+            ferrite_core::keymap::keycode::KeyCode::IsoLevel3Shift
         }
         crossterm::event::ModifierKeyCode::IsoLevel5Shift => {
-            ferrite_core::keymap::keycode::ModifierKeyCode::IsoLevel5Shift
+            ferrite_core::keymap::keycode::KeyCode::IsoLevel5Shift
         }
     }
 }

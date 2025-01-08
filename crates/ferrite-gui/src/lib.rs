@@ -289,7 +289,9 @@ impl GuiApp {
             WindowEvent::MouseWheel { delta, .. } => match delta {
                 MouseScrollDelta::LineDelta(_, y) => {
                     self.tui_app.engine.handle_single_input_command(
-                        Cmd::VerticalScroll(-y as i64 * 3),
+                        Cmd::VerticalScroll {
+                            distance: -y as i64 * 3,
+                        },
                         &mut EventLoopControlFlow::Poll,
                     );
                 }
@@ -300,13 +302,13 @@ impl GuiApp {
                         if self.vertical_scroll_delta >= line_height {
                             self.vertical_scroll_delta -= line_height;
                             self.tui_app.engine.handle_single_input_command(
-                                Cmd::VerticalScroll(-1),
+                                Cmd::VerticalScroll { distance: -1 },
                                 &mut EventLoopControlFlow::Poll,
                             );
                         } else if self.vertical_scroll_delta <= -line_height {
                             self.vertical_scroll_delta += line_height;
                             self.tui_app.engine.handle_single_input_command(
-                                Cmd::VerticalScroll(1),
+                                Cmd::VerticalScroll { distance: 1 },
                                 &mut EventLoopControlFlow::Poll,
                             );
                         } else {
@@ -373,7 +375,7 @@ impl GuiApp {
                             if s.chars().count() == 1 {
                                 let ch = s.chars().next().unwrap();
                                 let cmd = if LineEnding::from_char(ch).is_some() {
-                                    Some(Cmd::Char('\n'))
+                                    Some(Cmd::Char { ch: '\n' })
                                 } else {
                                     keymap::get_command_from_input(
                                         keymap::keycode::KeyCode::Char(s.chars().next().unwrap()),
@@ -383,7 +385,9 @@ impl GuiApp {
                                 };
                                 break 'block cmd;
                             } else {
-                                break 'block Some(Cmd::Insert(s.to_string()));
+                                break 'block Some(Cmd::Insert {
+                                    text: s.to_string(),
+                                });
                             };
                         }
                         _ => (),
@@ -402,9 +406,12 @@ impl GuiApp {
                 }
 
                 if let Some(text) = event.text {
-                    self.tui_app
-                        .engine
-                        .handle_input_command(Cmd::Insert(text.to_string()), &mut control_flow);
+                    self.tui_app.engine.handle_input_command(
+                        Cmd::Insert {
+                            text: text.to_string(),
+                        },
+                        &mut control_flow,
+                    );
                     if control_flow == EventLoopControlFlow::Exit {
                         event_loop.exit();
                     }
@@ -483,7 +490,7 @@ impl GuiApp {
                                     .saturating_sub(left_offset);
                                 let line = (line as usize + buffer.line_pos(view_id))
                                     .saturating_sub(pane_rect.y);
-                                break 'block Some(Cmd::PastePrimary(column, line));
+                                break 'block Some(Cmd::PastePrimary { column, line });
                             }
                         }
                     }
@@ -514,11 +521,11 @@ impl GuiApp {
                                     .saturating_sub(left_offset);
                                 let line = (line as usize + buffer.line_pos(view_id))
                                     .saturating_sub(pane_rect.y);
-                                break 'block Some(Cmd::ClickCell(
-                                    self.modifiers.contains(KeyModifiers::ALT),
+                                break 'block Some(Cmd::ClickCell {
+                                    spawn_cursor: self.modifiers.contains(KeyModifiers::ALT),
                                     column,
                                     line,
-                                ));
+                                });
                             }
                         }
                     }

@@ -52,7 +52,7 @@ impl Widget for ChoordWidget<'_> {
             })
             .take(height.into())
         {
-            let mapping = format!("{}{} ", key.keycode, key.modifiers);
+            let mapping = format!("{}{} ", key.keycode.to_string(), key.modifiers);
             let cmd = cmd.to_string();
             longest = longest.max(mapping.width() + cmd.width() + 1);
             left_col_width = left_col_width.max(mapping.width());

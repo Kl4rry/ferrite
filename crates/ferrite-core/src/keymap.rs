@@ -1,6 +1,11 @@
 pub mod keycode;
+use std::fmt;
+
 use keycode::{KeyCode, KeyModifiers};
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 use crate::{
     cmd::{Cmd, LineMoveDir},
@@ -8,7 +13,7 @@ use crate::{
     layout::panes::Direction,
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Key {
     pub keycode: KeyCode,
     pub modifiers: KeyModifiers,
@@ -20,10 +25,10 @@ impl Key {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Exclusiveness {
+    #[default]
     Exclusive,
-    #[allow(dead_code)]
     NonExclusive,
     Ignores(KeyModifiers),
 }
@@ -74,7 +79,7 @@ pub fn get_command_from_input(
             || modifiers == KeyModifiers::empty()
             || modifiers == KeyModifiers::SHIFT
         {
-            return Some(Cmd::Char(ch));
+            return Some(Cmd::Char { ch });
         }
     }
 
@@ -84,7 +89,7 @@ pub fn get_command_from_input(
 pub fn get_default_choords() -> Vec<(Key, Cmd, Exclusiveness)> {
     vec![
         (
-            Key::new(KeyCode::Esc, KeyModifiers::NONE),
+            Key::new(KeyCode::Esc, KeyModifiers::empty()),
             Cmd::Escape,
             Exclusiveness::Exclusive,
         ),
@@ -112,22 +117,30 @@ pub fn get_default_choords() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
-            Cmd::Split(Direction::Right),
+            Cmd::Split {
+                direction: Direction::Right,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Key::new(KeyCode::Char('l'), KeyModifiers::CONTROL),
-            Cmd::Split(Direction::Left),
+            Cmd::Split {
+                direction: Direction::Left,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Key::new(KeyCode::Char('u'), KeyModifiers::CONTROL),
-            Cmd::Split(Direction::Up),
+            Cmd::Split {
+                direction: Direction::Up,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Key::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
-            Cmd::Split(Direction::Down),
+            Cmd::Split {
+                direction: Direction::Down,
+            },
             Exclusiveness::Exclusive,
         ),
         (
@@ -156,7 +169,7 @@ pub fn get_default_choords() -> Vec<(Key, Cmd, Exclusiveness)> {
 pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
     vec![
         (
-            Key::new(KeyCode::Esc, KeyModifiers::NONE),
+            Key::new(KeyCode::Esc, KeyModifiers::empty()),
             Cmd::Escape,
             Exclusiveness::Exclusive,
         ),
@@ -180,7 +193,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Char('n'), KeyModifiers::CONTROL),
-            Cmd::New(None),
+            Cmd::New { path: None },
             Exclusiveness::Exclusive,
         ),
         (
@@ -190,7 +203,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            Cmd::Save(None),
+            Cmd::Save { path: None },
             Exclusiveness::Exclusive,
         ),
         (
@@ -297,27 +310,27 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Tab, KeyModifiers::NONE),
-            Cmd::Tab { back: false },
+            Key::new(KeyCode::Tab, KeyModifiers::empty()),
+            Cmd::TabOrIndent { back: false },
             Exclusiveness::Exclusive,
         ),
         (
             Key::new(KeyCode::BackTab, KeyModifiers::SHIFT),
-            Cmd::Tab { back: true },
+            Cmd::TabOrIndent { back: true },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Enter, KeyModifiers::NONE),
-            Cmd::Char('\n'),
+            Key::new(KeyCode::Enter, KeyModifiers::empty()),
+            Cmd::Char { ch: '\n' },
             Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
         ),
         (
-            Key::new(KeyCode::Backspace, KeyModifiers::NONE),
+            Key::new(KeyCode::Backspace, KeyModifiers::empty()),
             Cmd::Backspace,
             Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
         ),
         (
-            Key::new(KeyCode::Delete, KeyModifiers::NONE),
+            Key::new(KeyCode::Delete, KeyModifiers::empty()),
             Cmd::Delete,
             Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
         ),
@@ -332,14 +345,14 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
         ),
         (
-            Key::new(KeyCode::Home, KeyModifiers::NONE),
+            Key::new(KeyCode::Home, KeyModifiers::empty()),
             Cmd::Home {
                 expand_selection: false,
             },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::End, KeyModifiers::NONE),
+            Key::new(KeyCode::End, KeyModifiers::empty()),
             Cmd::End {
                 expand_selection: false,
             },
@@ -388,13 +401,13 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::PageUp, KeyModifiers::NONE),
-            Cmd::VerticalScroll(-50),
+            Key::new(KeyCode::PageUp, KeyModifiers::empty()),
+            Cmd::VerticalScroll { distance: -50 },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::PageDown, KeyModifiers::NONE),
-            Cmd::VerticalScroll(50),
+            Key::new(KeyCode::PageDown, KeyModifiers::empty()),
+            Cmd::VerticalScroll { distance: 50 },
             Exclusiveness::Exclusive,
         ),
         (
@@ -488,7 +501,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Up, KeyModifiers::NONE),
+            Key::new(KeyCode::Up, KeyModifiers::empty()),
             Cmd::MoveUp {
                 expand_selection: false,
                 create_cursor: false,
@@ -497,7 +510,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Down, KeyModifiers::NONE),
+            Key::new(KeyCode::Down, KeyModifiers::empty()),
             Cmd::MoveDown {
                 expand_selection: false,
                 create_cursor: false,
@@ -566,14 +579,14 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Right, KeyModifiers::NONE),
+            Key::new(KeyCode::Right, KeyModifiers::empty()),
             Cmd::MoveRight {
                 expand_selection: false,
             },
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::Left, KeyModifiers::NONE),
+            Key::new(KeyCode::Left, KeyModifiers::empty()),
             Cmd::MoveLeft {
                 expand_selection: false,
             },
@@ -623,12 +636,16 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::ALT),
-            Cmd::MoveLine(LineMoveDir::Up),
+            Cmd::MoveLine {
+                direction: LineMoveDir::Up,
+            },
             Exclusiveness::Exclusive,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::ALT),
-            Cmd::MoveLine(LineMoveDir::Down),
+            Cmd::MoveLine {
+                direction: LineMoveDir::Down,
+            },
             Exclusiveness::Exclusive,
         ),
         (
@@ -671,7 +688,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
         ),
         (
             Key::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
-            Cmd::OpenFileExplorer(None),
+            Cmd::OpenFileExplorer { path: None },
             Exclusiveness::Exclusive,
         ),
         (
@@ -685,7 +702,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
-            Key::new(KeyCode::F(5), KeyModifiers::empty()),
+            Key::new(KeyCode::F5, KeyModifiers::empty()),
             Cmd::RunAction {
                 name: "build".into(),
             },
@@ -707,4 +724,116 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
     ]
+}
+
+impl Serialize for Key {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut output = String::new();
+        if let Some(modifiers) = self.modifiers.try_to_string() {
+            output.push_str(&modifiers);
+        }
+        output.push_str(&self.keycode.to_string());
+        serializer.serialize_str(&output)
+    }
+}
+
+impl<'de> Deserialize<'de> for Key {
+    fn deserialize<D>(deserializer: D) -> Result<Key, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct KeyVisitor;
+
+        impl Visitor<'_> for KeyVisitor {
+            type Value = Key;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("key mapping")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let strs = value.split("-");
+                let mut keycode = None;
+                let mut modifiers = KeyModifiers::empty();
+                for s in strs {
+                    if let Some(modifier) = KeyModifiers::try_from_str(s) {
+                        modifiers |= modifier;
+                        continue;
+                    }
+                    let k = match KeyCode::try_from_str(s) {
+                        Ok(k) => k,
+                        Err(err) => return Err(de::Error::custom(err)),
+                    };
+                    if keycode.is_some() {
+                        return Err(de::Error::custom(
+                            "only one non modifier key per keybinding",
+                        ));
+                    }
+                    keycode = Some(k);
+                }
+
+                let keycode = match keycode {
+                    Some(keycode) => keycode,
+                    None => {
+                        return Err(de::Error::custom(
+                            "every keybinding must have a non modifier key",
+                        ))
+                    }
+                };
+
+                Ok(Key { keycode, modifiers })
+            }
+        }
+
+        deserializer.deserialize_string(KeyVisitor)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serde_char_key() {
+        let key = Key {
+            keycode: KeyCode::Char('A'),
+            modifiers: KeyModifiers::ALT | KeyModifiers::SHIFT,
+        };
+        let s = serde_json::to_string(&key).unwrap();
+        let parsed = serde_json::from_str(&s);
+        assert!(parsed.is_ok());
+        assert_eq!(key, parsed.unwrap());
+    }
+
+    #[test]
+    fn serde_esc_key() {
+        let key = Key {
+            keycode: KeyCode::Esc,
+            modifiers: KeyModifiers::META | KeyModifiers::CONTROL,
+        };
+        let s = serde_json::to_string(&key).unwrap();
+        eprintln!("s: {s}");
+        let parsed = serde_json::from_str(&s);
+        eprintln!("parsed: {parsed:?}");
+        assert!(parsed.is_ok());
+        assert_eq!(key, parsed.unwrap());
+    }
+
+    #[test]
+    fn serde_space_key() {
+        let key = Key {
+            keycode: KeyCode::Char('b'),
+            modifiers: KeyModifiers::empty(),
+        };
+        let s = serde_json::to_string(&key).unwrap();
+        let parsed = serde_json::from_str(&s);
+        assert!(parsed.is_ok());
+        assert_eq!(key, parsed.unwrap());
+    }
 }

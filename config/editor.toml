@@ -32,3 +32,6 @@ padding = 1
 font_family = "Noto Mono"
 font_weight = "normal"
 cursor_type = "line"
+
+[keymap]
+"F5" = { cmd = "run_action", name = "build" }
