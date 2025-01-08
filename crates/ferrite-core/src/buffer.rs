@@ -2502,11 +2502,6 @@ impl Buffer {
             cmp::Ordering::Equal
         });
 
-        let cursor_line = self.cursor_line_idx(view_id, 0);
-        let anchor_line = self.anchor_line_idx(view_id, 0);
-        let cursor_col = self.cursor_grapheme_column(view_id, 0);
-        let anchor_col = self.anchor_grapheme_column(view_id, 0);
-
         self.history.remove(&mut self.rope, start_byte..end_byte);
         let inserted_bytes = 0;
         for line in lines {
@@ -2514,16 +2509,9 @@ impl Buffer {
                 .insert(&mut self.rope, start_byte + inserted_bytes, line);
         }
 
-        self.set_cursor_pos(view_id, cursor_col, cursor_line, 0);
-        self.set_anchor_pos(view_id, anchor_col, anchor_line, 0);
-
         self.ensure_cursors_are_valid(view_id);
         self.mark_dirty();
         self.ensure_every_cursor_is_valid();
-
-        if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
-        }
 
         self.history.finish();
     }
