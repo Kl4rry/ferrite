@@ -1,6 +1,7 @@
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 use anyhow::Result;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -69,7 +70,7 @@ pub struct Editor {
     #[serde(default)]
     pub gui: Gui,
     #[serde(default)]
-    pub keymap: HashMap<Key, KeymapAndMetadata>,
+    pub keymap: IndexMap<Key, KeymapAndMetadata>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
