@@ -23,7 +23,6 @@
 - [x] Indetation deletion like vscode
 - [x] Variable length tabs
 - [x] Command palette completion
-- [ ] Git mv aware rename/move command
 - [x] Open directory and browse
 - [x] Auto indent
 - [x] Indentation guides
