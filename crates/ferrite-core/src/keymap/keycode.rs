@@ -1,10 +1,13 @@
 use core::fmt;
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 bitflags::bitflags! {
     // TODO make custom impl of Serialize and Deserialize to match to and from str
-    #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+    #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
     pub struct KeyModifiers: u8 {
         const SHIFT = 0b0000_0001;
         const CONTROL = 0b0000_0010;
@@ -34,22 +37,40 @@ impl KeyModifiers {
         }
         let mut output = String::new();
         if self.contains(Self::SHIFT) {
-            output.push_str("<Shift>-");
+            if !output.is_empty() {
+                output.push('-');
+            }
+            output.push_str("<Shift>");
         }
         if self.contains(Self::CONTROL) {
-            output.push_str("<Control>-");
+            if !output.is_empty() {
+                output.push('-');
+            }
+            output.push_str("<Control>");
         }
         if self.contains(Self::ALT) {
-            output.push_str("<Alt>-");
+            if !output.is_empty() {
+                output.push('-');
+            }
+            output.push_str("<Alt>");
         }
         if self.contains(Self::SUPER) {
-            output.push_str("<Super>-");
+            if !output.is_empty() {
+                output.push('-');
+            }
+            output.push_str("<Super>");
         }
         if self.contains(Self::HYPER) {
-            output.push_str("<Hyper>-");
+            if !output.is_empty() {
+                output.push('-');
+            }
+            output.push_str("<Hyper>");
         }
         if self.contains(Self::META) {
-            output.push_str("<Meta>-");
+            if !output.is_empty() {
+                output.push('-');
+            }
+            output.push_str("<Meta>");
         }
         Some(output)
     }
@@ -342,5 +363,86 @@ impl ToString for KeyCode {
             KeyCode::Char(ch) => return ch.to_string(),
         }
         .to_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for KeyModifiers {
+    fn deserialize<D>(deserializer: D) -> Result<KeyModifiers, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct KeyModifiersVisitor;
+
+        impl Visitor<'_> for KeyModifiersVisitor {
+            type Value = KeyModifiers;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("key mapping")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                if value.is_empty() {
+                    return Ok(KeyModifiers::empty());
+                }
+                let strs = value.split("-");
+                let mut modifiers = KeyModifiers::empty();
+                for s in strs {
+                    match KeyModifiers::try_from_str(s) {
+                        Some(modifier) => modifiers |= modifier,
+                        None => {
+                            return Err(de::Error::custom(format!("unrecognized modifier {}", s)))
+                        }
+                    }
+                }
+                Ok(modifiers)
+            }
+        }
+
+        deserializer.deserialize_string(KeyModifiersVisitor)
+    }
+}
+
+impl Serialize for KeyModifiers {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.try_to_string().unwrap_or_default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn serde_mult_modifiers() {
+        let modifiers = KeyModifiers::ALT | KeyModifiers::SHIFT | KeyModifiers::CONTROL;
+        let s = serde_json::to_string(&modifiers).unwrap();
+        let parsed = serde_json::from_str(&s);
+        assert!(parsed.is_ok());
+        assert_eq!(modifiers, parsed.unwrap());
+    }
+
+    #[test]
+    fn serde_single_modifiers() {
+        let modifiers = KeyModifiers::ALT;
+        let s = serde_json::to_string(&modifiers).unwrap();
+        let parsed = serde_json::from_str(&s);
+        assert!(parsed.is_ok());
+        assert_eq!(modifiers, parsed.unwrap());
+    }
+
+    #[test]
+    fn serde_no_modifiers() {
+        let modifiers = KeyModifiers::empty();
+        let s = serde_json::to_string(&modifiers).unwrap();
+        eprintln!("s: {s}");
+        let parsed = serde_json::from_str(&s);
+        assert!(parsed.is_ok());
+        assert_eq!(modifiers, parsed.unwrap());
     }
 }

@@ -735,6 +735,9 @@ impl Serialize for Key {
         if let Some(modifiers) = self.modifiers.try_to_string() {
             output.push_str(&modifiers);
         }
+        if self.modifiers != KeyModifiers::empty() {
+            output.push('-');
+        }
         output.push_str(&self.keycode.to_string());
         serializer.serialize_str(&output)
     }
@@ -818,9 +821,7 @@ mod tests {
             modifiers: KeyModifiers::META | KeyModifiers::CONTROL,
         };
         let s = serde_json::to_string(&key).unwrap();
-        eprintln!("s: {s}");
         let parsed = serde_json::from_str(&s);
-        eprintln!("parsed: {parsed:?}");
         assert!(parsed.is_ok());
         assert_eq!(key, parsed.unwrap());
     }
