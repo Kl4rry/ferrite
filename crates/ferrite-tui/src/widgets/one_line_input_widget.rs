@@ -6,7 +6,7 @@ use ferrite_core::{
 use tui::{
     layout::Rect,
     style::{self, Style},
-    widgets::{Clear, StatefulWidget, Widget},
+    widgets::StatefulWidget,
 };
 
 use crate::glue::convert_style;
