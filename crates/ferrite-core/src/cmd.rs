@@ -203,6 +203,7 @@ pub enum Cmd {
     RunAction {
         name: String,
     },
+    NewLineWithoutBreaking,
 }
 
 impl Cmd {
