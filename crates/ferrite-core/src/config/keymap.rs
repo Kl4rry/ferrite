@@ -95,7 +95,7 @@ impl Default for Keymap {
                 let mut hash_map = HashMap::new();
                 hash_map.insert(
                     "chords".into(),
-                    crate::keymap::get_default_choords()
+                    crate::keymap::get_default_chords()
                         .into_iter()
                         .map(|(key, cmd, exclusiveness)| Keymapping {
                             key,

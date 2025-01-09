@@ -1,6 +1,6 @@
 pub mod background_widget;
 pub mod centered_text_widget;
-pub mod choord_widget;
+pub mod chord_widget;
 pub mod completer_widget;
 pub mod editor_widget;
 pub mod file_explorer_widget;

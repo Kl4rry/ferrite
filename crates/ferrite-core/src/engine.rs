@@ -71,7 +71,7 @@ pub struct Engine {
     pub shell_jobs: Vec<(Option<BufferId>, ShellJobHandle)>,
     pub spinner: Spinner,
     pub logger_state: LoggerState,
-    pub choord: Option<String>,
+    pub chord: Option<String>,
     pub repeat: Option<String>,
     pub last_render_time: Duration,
     pub start_of_events: Instant,
@@ -246,7 +246,7 @@ impl Engine {
             save_jobs: Default::default(),
             shell_jobs: Default::default(),
             spinner: Default::default(),
-            choord: None,
+            chord: None,
             repeat: None,
             logger_state: LoggerState::new(recv),
             last_render_time: Duration::ZERO,
@@ -469,7 +469,7 @@ impl Engine {
         control_flow: &mut EventLoopControlFlow,
     ) {
         if !matches!(input, Cmd::InputMode { .. }) {
-            self.choord = None;
+            self.chord = None;
         }
         match input {
             Cmd::ForceRedraw => self.force_redraw = true,
@@ -505,9 +505,9 @@ impl Engine {
             }
             Cmd::InputMode { name } => {
                 if name == "normal" {
-                    self.choord = None;
+                    self.chord = None;
                 } else {
-                    self.choord = Some(name);
+                    self.chord = Some(name);
                 }
             }
             Cmd::GrowPane => {
@@ -569,12 +569,12 @@ impl Engine {
                 }
             }
             Cmd::Escape
-                if self.choord.is_some()
+                if self.chord.is_some()
                     || self.file_picker.is_some()
                     || self.buffer_picker.is_some()
                     || self.global_search_picker.is_some() =>
             {
-                self.choord = None;
+                self.chord = None;
                 self.file_picker = None;
                 self.buffer_picker = None;
                 self.global_search_picker = None;
@@ -1622,7 +1622,7 @@ impl Engine {
     }
 
     pub fn get_current_keymappings(&self) -> &[Keymapping] {
-        if let Some(name) = &self.choord {
+        if let Some(name) = &self.chord {
             self.config
                 .keymap
                 .input_modes

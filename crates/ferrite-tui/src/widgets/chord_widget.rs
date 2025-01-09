@@ -7,12 +7,12 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::glue::convert_style;
 
-pub struct ChoordWidget<'a> {
+pub struct ChordWidget<'a> {
     theme: &'a EditorTheme,
     key_mappings: &'a [Keymapping],
 }
 
-impl<'a> ChoordWidget<'a> {
+impl<'a> ChordWidget<'a> {
     pub fn new(theme: &'a EditorTheme, key_mappings: &'a [Keymapping]) -> Self {
         Self {
             theme,
@@ -21,7 +21,7 @@ impl<'a> ChoordWidget<'a> {
     }
 }
 
-impl Widget for ChoordWidget<'_> {
+impl Widget for ChordWidget<'_> {
     fn render(self, total_area: layout::Rect, buf: &mut tui::buffer::Buffer) {
         let height = total_area.height.min(
             self.key_mappings
@@ -72,7 +72,7 @@ impl Widget for ChoordWidget<'_> {
         Clear.render(area, buf);
 
         Block::default()
-            .title("Choords")
+            .title("Chords")
             .borders(Borders::ALL)
             .border_style(convert_style(&self.theme.border))
             .border_type(BorderType::Plain)

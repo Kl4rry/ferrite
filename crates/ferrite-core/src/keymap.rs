@@ -86,7 +86,7 @@ pub fn get_command_from_input(
     None
 }
 
-pub fn get_default_choords() -> Vec<(Key, Cmd, Exclusiveness)> {
+pub fn get_default_chords() -> Vec<(Key, Cmd, Exclusiveness)> {
     vec![
         (
             Key::new(KeyCode::Esc, KeyModifiers::empty()),

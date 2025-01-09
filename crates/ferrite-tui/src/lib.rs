@@ -16,7 +16,7 @@ use tui::{
     prelude::Backend,
 };
 use widgets::{
-    choord_widget::ChoordWidget, file_explorer_widget::FileExplorerWidget,
+    chord_widget::ChordWidget, file_explorer_widget::FileExplorerWidget,
     logger_widget::LoggerWidget,
 };
 
@@ -242,10 +242,10 @@ where
                     &mut self.engine.palette,
                 );
 
-                if self.engine.choord.is_some() {
-                    let choord_widget =
-                        ChoordWidget::new(theme, self.engine.get_current_keymappings());
-                    f.render_widget(choord_widget, size);
+                if self.engine.chord.is_some() {
+                    let chord_widget =
+                        ChordWidget::new(theme, self.engine.get_current_keymappings());
+                    f.render_widget(chord_widget, size);
                 }
             })
             .unwrap();
