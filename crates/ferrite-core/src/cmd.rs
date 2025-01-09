@@ -204,6 +204,7 @@ pub enum Cmd {
         name: String,
     },
     NewLineWithoutBreaking,
+    NewLineAboveWithoutBreaking,
 }
 
 impl Cmd {
@@ -334,6 +335,8 @@ impl Cmd {
             ResetZoom => "Reset zoom",
             KillJob => "Kill job",
             RunAction { .. } => "Run",
+            NewLineWithoutBreaking => "Insert new line without breaking",
+            NewLineAboveWithoutBreaking => "Insert new line above without breaking",
         }
     }
 
@@ -443,6 +446,8 @@ impl Cmd {
             ResetZoom => false,
             KillJob => false,
             RunAction { .. } => true,
+            NewLineWithoutBreaking => true,
+            NewLineAboveWithoutBreaking => true,
         }
     }
 }

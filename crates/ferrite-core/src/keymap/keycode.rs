@@ -440,7 +440,6 @@ mod tests {
     fn serde_no_modifiers() {
         let modifiers = KeyModifiers::empty();
         let s = serde_json::to_string(&modifiers).unwrap();
-        eprintln!("s: {s}");
         let parsed = serde_json::from_str(&s);
         assert!(parsed.is_ok());
         assert_eq!(modifiers, parsed.unwrap());

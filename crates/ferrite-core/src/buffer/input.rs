@@ -57,6 +57,10 @@ impl Buffer {
             RevertBuffer if !self.read_only => self.revert_buffer(view_id),
             Number { start } if !self.read_only => self.number(view_id, start),
             TrimTrailingWhitespace if !self.read_only => self.trim_trailing_whitespace(),
+            NewLineWithoutBreaking if !self.read_only => self.new_line_without_breaking(view_id),
+            NewLineAboveWithoutBreaking if !self.read_only => {
+                self.new_line_above_without_breaking(view_id)
+            }
             Nop => self.update_interact(Some(view_id)),
             _ => return Ok(()),
         }

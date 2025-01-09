@@ -1065,22 +1065,24 @@ impl Buffer {
         self.history.finish();
     }
 
-    pub fn home(&mut self, view_id: ViewId, expand_selection: bool) {
+    fn home_raw(&mut self, view_id: ViewId, expand_selection: bool, stop_at_whitespace: bool) {
         for i in 0..self.views[view_id].cursors.len() {
             let (col, line_idx) = self.cursor_byte_pos(view_id, i);
             let line = self.rope.line_without_line_ending(line_idx);
 
             let mut byte_col = 0;
-            for grapheme in line.grapehemes() {
-                if byte_col >= col {
-                    byte_col = 0;
-                    break;
-                }
+            if stop_at_whitespace {
+                for grapheme in line.grapehemes() {
+                    if byte_col >= col {
+                        byte_col = 0;
+                        break;
+                    }
 
-                if grapheme.chars().any(char::is_whitespace) {
-                    byte_col += grapheme.len_bytes();
-                } else {
-                    break;
+                    if grapheme.chars().any(char::is_whitespace) {
+                        byte_col += grapheme.len_bytes();
+                    } else {
+                        break;
+                    }
                 }
             }
 
@@ -1090,7 +1092,10 @@ impl Buffer {
                 self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
             }
         }
+    }
 
+    pub fn home(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.home_raw(view_id, expand_selection, true);
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
@@ -1100,7 +1105,7 @@ impl Buffer {
         }
     }
 
-    pub fn end(&mut self, view_id: ViewId, expand_selection: bool) {
+    fn end_raw(&mut self, view_id: ViewId, expand_selection: bool) {
         for i in 0..self.views[view_id].cursors.len() {
             let line_idx = self.cursor_line_idx(view_id, i);
             let byte = self.rope.line_to_byte(line_idx);
@@ -1110,6 +1115,10 @@ impl Buffer {
                 self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
             }
         }
+    }
+
+    pub fn end(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.end_raw(view_id, expand_selection);
 
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
@@ -2846,6 +2855,72 @@ impl Buffer {
             .collect();
         cursors.sort();
         cursors
+    }
+
+    pub fn new_line_without_breaking(&mut self, view_id: ViewId) {
+        self.history.begin(self.get_all_cursors(), self.dirty);
+
+        self.end_raw(view_id, false);
+        self.views[view_id].coalesce_cursors();
+        let cursors = self.get_cursors_sorted(view_id);
+
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+            self.insert_text_raw(view_id, i, "\n", true, false);
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
+
+        self.update_affinity(view_id);
+        self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
+
+        self.history.finish();
+    }
+
+    pub fn new_line_above_without_breaking(&mut self, view_id: ViewId) {
+        self.history.begin(self.get_all_cursors(), self.dirty);
+        self.home_raw(view_id, false, false);
+        self.views[view_id].coalesce_cursors();
+        let cursors = self.get_cursors_sorted(view_id);
+
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+            let indent = self.guess_indent(self.views[view_id].cursors[i].position);
+            self.insert_text_raw(view_id, i, "\n", false, false);
+            let cursor = &mut self.views[view_id].cursors[i];
+            cursor.position -= 1;
+            cursor.anchor -= 1;
+            self.insert_text_raw(view_id, i, &indent, false, false);
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_cursor(view_id);
+        }
+
+        self.update_affinity(view_id);
+        self.mark_dirty();
+        self.ensure_every_cursor_is_valid();
+
+        self.history.finish();
     }
 }
 
