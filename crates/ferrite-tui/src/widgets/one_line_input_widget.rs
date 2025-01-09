@@ -32,7 +32,6 @@ impl StatefulWidget for OneLineInputWidget<'_> {
 
     fn render(self, area: Rect, buf: &mut tui::buffer::Buffer, buffer: &mut Self::State) {
         assert_eq!(area.height, 1);
-        Clear.render(area, buf);
         let view_id = buffer.get_first_view_or_create();
         buffer.set_view_lines(view_id, 1);
         buffer.set_view_columns(view_id, area.width.into());
