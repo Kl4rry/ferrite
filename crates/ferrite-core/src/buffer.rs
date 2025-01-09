@@ -1276,13 +1276,7 @@ impl Buffer {
         self.history.begin(self.get_all_cursors(), self.dirty);
 
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
+        let cursors = self.get_cursors_sorted(view_id);
         let mut history_finish = false;
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
@@ -1313,13 +1307,7 @@ impl Buffer {
 
     pub fn backspace(&mut self, view_id: ViewId) {
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
+        let cursors = self.get_cursors_sorted(view_id);
 
         self.history.begin(self.get_all_cursors(), self.dirty);
 
@@ -1411,14 +1399,7 @@ impl Buffer {
     pub fn backspace_word(&mut self, view_id: ViewId) {
         // TODO make this handle cursor being in the same word
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
-
+        let cursors = self.get_cursors_sorted(view_id);
         self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
@@ -1460,13 +1441,7 @@ impl Buffer {
 
     pub fn delete(&mut self, view_id: ViewId) {
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
+        let cursors = self.get_cursors_sorted(view_id);
 
         self.history.begin(self.get_all_cursors(), self.dirty);
 
@@ -1515,14 +1490,7 @@ impl Buffer {
     pub fn delete_word(&mut self, view_id: ViewId) {
         // TODO make this handle cursor being in the same word
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
-
+        let cursors = self.get_cursors_sorted(view_id);
         self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
@@ -1838,14 +1806,7 @@ impl Buffer {
 
         let cursor_positions = self.get_cursor_positions();
 
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
-
+        let cursors = self.get_cursors_sorted(view_id);
         self.history.begin(self.get_all_cursors(), self.dirty);
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
@@ -1918,13 +1879,7 @@ impl Buffer {
         let multiple_cursors = self.views[view_id].cursors.len() > 1;
         let mut text = String::new();
 
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
+        let cursors = self.get_cursors_sorted(view_id);
 
         for (_, i) in cursors.iter().copied() {
             let start = self.views[view_id].cursors[i].start();
@@ -1946,29 +1901,47 @@ impl Buffer {
         clipboard::set_contents(text);
     }
 
-    // TODO make multicursor aware
     pub fn cut(&mut self, view_id: ViewId) {
-        self.views[view_id].cursors.clear();
+        self.copy(view_id);
         self.history.begin(self.get_all_cursors(), self.dirty);
-        let mut start = self.views[view_id].cursors.first().start();
-        let mut end = self.views[view_id].cursors.first().end();
-        if start == end {
-            start = self.rope.line_to_byte(self.rope.byte_to_line(start));
-            end = self.rope.end_of_line_byte(self.rope.byte_to_line(end));
-        }
-        let cut = self.rope.byte_slice(start..end).to_string();
-        clipboard::set_contents(cut);
-        self.history.remove(&mut self.rope, start..end);
 
-        self.views[view_id].cursors.first_mut().position = start;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.views[view_id].cursors.first().position;
+        for i in 0..self.views[view_id].cursors.len() {
+            if !self.views[view_id].cursors[i].has_selection() {
+                self.select_line_raw(view_id, i);
+            }
+        }
+
+        self.views[view_id].coalesce_cursors();
+
+        let cursors = self.get_cursors_sorted(view_id);
+
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+
+            let start_byte_idx = self.views[view_id].cursors[i].start();
+            let end_byte_idx = self.views[view_id].cursors[i].end();
+
+            self.history
+                .remove(&mut self.rope, start_byte_idx..end_byte_idx);
+
+            self.views[view_id].cursors[i].position = start_byte_idx;
+            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i].position;
+
+            if start_byte_idx != end_byte_idx {
+                self.mark_dirty();
+            }
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        self.ensure_every_cursor_is_valid();
         self.update_affinity(view_id);
-
-        if start != end {
-            self.mark_dirty();
-            self.ensure_every_cursor_is_valid();
-        }
 
         if self.views[view_id].clamp_cursor {
             self.center_on_cursor(view_id);
@@ -1994,14 +1967,7 @@ impl Buffer {
         self.history.begin(self.get_all_cursors(), self.dirty);
 
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
-
+        let cursors = self.get_cursors_sorted(view_id);
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
 
@@ -2684,13 +2650,7 @@ impl Buffer {
         self.history.begin(self.get_all_cursors(), self.dirty);
 
         self.views[view_id].coalesce_cursors();
-        let mut cursors: Vec<_> = self.views[view_id]
-            .cursors
-            .iter()
-            .enumerate()
-            .map(|(i, cursor)| (*cursor, i))
-            .collect();
-        cursors.sort();
+        let cursors = self.get_cursors_sorted(view_id);
         let start = number.unwrap_or(0);
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
@@ -2875,6 +2835,17 @@ impl Buffer {
         }
 
         map
+    }
+
+    fn get_cursors_sorted(&self, view_id: ViewId) -> Vec<(Cursor, usize)> {
+        let mut cursors: Vec<_> = self.views[view_id]
+            .cursors
+            .iter()
+            .enumerate()
+            .map(|(i, cursor)| (*cursor, i))
+            .collect();
+        cursors.sort();
+        cursors
     }
 }
 
