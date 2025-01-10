@@ -222,6 +222,14 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
             Exclusiveness::Exclusive,
         ),
         (
+            Key::new(
+                KeyCode::Char('a'),
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ),
+            Cmd::SelectAllMatching,
+            Exclusiveness::Exclusive,
+        ),
+        (
             Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             Cmd::Copy,
             Exclusiveness::Exclusive,

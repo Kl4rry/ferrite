@@ -61,6 +61,7 @@ impl Buffer {
             NewLineAboveWithoutBreaking if !self.read_only => {
                 self.new_line_above_without_breaking(view_id)
             }
+            SelectAllMatching if !self.read_only => self.select_all_matching(view_id),
             Nop => self.update_interact(Some(view_id)),
             _ => return Ok(()),
         }

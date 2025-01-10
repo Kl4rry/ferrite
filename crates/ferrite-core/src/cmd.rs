@@ -205,6 +205,7 @@ pub enum Cmd {
     },
     NewLineWithoutBreaking,
     NewLineAboveWithoutBreaking,
+    SelectAllMatching,
 }
 
 impl Cmd {
@@ -337,6 +338,7 @@ impl Cmd {
             RunAction { .. } => "Run",
             NewLineWithoutBreaking => "Insert new line without breaking",
             NewLineAboveWithoutBreaking => "Insert new line above without breaking",
+            SelectAllMatching => "Select all matching",
         }
     }
 
@@ -448,6 +450,7 @@ impl Cmd {
             RunAction { .. } => true,
             NewLineWithoutBreaking => true,
             NewLineAboveWithoutBreaking => true,
+            SelectAllMatching => false,
         }
     }
 }

@@ -902,6 +902,32 @@ impl Buffer {
         self.history.finish();
     }
 
+    pub fn select_all_matching(&mut self, view_id: ViewId) {
+        self.views[view_id].coalesce_cursors();
+        let cursors = self.get_cursors_sorted(view_id);
+        self.views[view_id]
+            .cursors
+            .swap(0, cursors.first().unwrap().1);
+
+        if !self.views[view_id].cursors.first().has_selection() {
+            self.select_word_raw(view_id, 0);
+        }
+
+        let term = self.get_selection(view_id, 0).to_string();
+
+        for m in search_rope(self.rope.byte_slice(..), term, false, false) {
+            self.views[view_id].cursors.push(Cursor {
+                anchor: m.start_byte,
+                position: m.end_byte,
+                affinity: 0,
+            });
+        }
+
+        self.views[view_id].coalesce_cursors();
+        self.update_affinity(view_id);
+        self.history.finish();
+    }
+
     fn next_word_end(&self, view_id: ViewId, cursor_index: usize, greedy: bool) -> usize {
         let view = &self.views[view_id];
         let mut current_idx = view.cursors[cursor_index].position;
