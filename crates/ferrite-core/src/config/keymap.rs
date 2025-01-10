@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cmd::Cmd,
     config::{editor::KeymapAndMetadata, Editor},
-    keymap::{Exclusiveness, Key},
+    keymap::Key,
 };
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Keymapping {
     pub key: Key,
     pub cmd: Cmd,
-    pub exclusiveness: Exclusiveness,
+    pub ignore_modifiers: bool,
 }
 
 #[derive(Debug)]
@@ -28,14 +28,14 @@ impl Keymap {
             KeymapAndMetadata {
                 mode,
                 cmd,
-                exclusiveness,
+                ignore_modifiers,
             },
         ) in &editor.keymap
         {
             let keymapping = Keymapping {
                 key: key.clone(),
                 cmd: cmd.clone(),
-                exclusiveness: *exclusiveness,
+                ignore_modifiers: *ignore_modifiers,
             };
             if mode == "normal" {
                 default.normal.insert(0, keymapping);
@@ -58,7 +58,7 @@ impl Keymap {
                 keymapping.key,
                 KeymapAndMetadata {
                     cmd: keymapping.cmd,
-                    exclusiveness: keymapping.exclusiveness,
+                    ignore_modifiers: keymapping.ignore_modifiers,
                     mode: String::from("normal"),
                 },
             );
@@ -70,7 +70,7 @@ impl Keymap {
                     keymapping.key,
                     KeymapAndMetadata {
                         cmd: keymapping.cmd,
-                        exclusiveness: keymapping.exclusiveness,
+                        ignore_modifiers: keymapping.ignore_modifiers,
                         mode: mode.clone(),
                     },
                 );
@@ -85,10 +85,10 @@ impl Default for Keymap {
         Self {
             normal: crate::keymap::get_default_mappings()
                 .into_iter()
-                .map(|(key, cmd, exclusiveness)| Keymapping {
+                .map(|(key, cmd, ignore_modifiers)| Keymapping {
                     key,
                     cmd,
-                    exclusiveness,
+                    ignore_modifiers,
                 })
                 .collect(),
             input_modes: {
@@ -97,10 +97,10 @@ impl Default for Keymap {
                     "chords".into(),
                     crate::keymap::get_default_chords()
                         .into_iter()
-                        .map(|(key, cmd, exclusiveness)| Keymapping {
+                        .map(|(key, cmd, ignore_modifiers)| Keymapping {
                             key,
                             cmd,
-                            exclusiveness,
+                            ignore_modifiers,
                         })
                         .collect(),
                 );

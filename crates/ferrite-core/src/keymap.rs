@@ -25,14 +25,6 @@ impl Key {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Exclusiveness {
-    #[default]
-    Exclusive,
-    NonExclusive,
-    Ignores(KeyModifiers),
-}
-
 pub fn get_command_from_input(
     keycode: KeyCode,
     modifiers: KeyModifiers,
@@ -45,32 +37,20 @@ pub fn get_command_from_input(
     for Keymapping {
         key,
         cmd,
-        exclusiveness,
+        ignore_modifiers,
     } in mappings
     {
-        match exclusiveness {
-            Exclusiveness::Exclusive => {
-                if *key
-                    == (Key {
-                        keycode: normalized_keycode,
-                        modifiers,
-                    })
-                {
-                    return Some(cmd.clone());
-                }
+        if *ignore_modifiers {
+            if key.keycode == normalized_keycode && modifiers.contains(key.modifiers) {
+                return Some(cmd.clone());
             }
-            Exclusiveness::NonExclusive => {
-                if key.keycode == normalized_keycode && modifiers.contains(key.modifiers) {
-                    return Some(cmd.clone());
-                }
-            }
-            Exclusiveness::Ignores(ignored) => {
-                let mut non_ignored = modifiers;
-                non_ignored.remove(*ignored);
-                if key.keycode == normalized_keycode && non_ignored == key.modifiers {
-                    return Some(cmd.clone());
-                }
-            }
+        } else if *key
+            == (Key {
+                keycode: normalized_keycode,
+                modifiers,
+            })
+        {
+            return Some(cmd.clone());
         }
     }
 
@@ -86,92 +66,92 @@ pub fn get_command_from_input(
     None
 }
 
-pub fn get_default_chords() -> Vec<(Key, Cmd, Exclusiveness)> {
+pub fn get_default_chords() -> Vec<(Key, Cmd, bool)> {
     vec![
         (
             Key::new(KeyCode::Esc, KeyModifiers::empty()),
             Cmd::Escape,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
             Cmd::InputMode {
                 name: "normal".into(),
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             Cmd::Format,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
             Cmd::OpenShellPalette,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
             Cmd::UrlOpen,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
             Cmd::Split {
                 direction: Direction::Right,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('l'), KeyModifiers::CONTROL),
             Cmd::Split {
                 direction: Direction::Left,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('u'), KeyModifiers::CONTROL),
             Cmd::Split {
                 direction: Direction::Up,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
             Cmd::Split {
                 direction: Direction::Down,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('j'), KeyModifiers::CONTROL),
             Cmd::RotateFile,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
             Cmd::ClosePane,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
             Cmd::GlobalSearch,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             Cmd::KillJob,
-            Exclusiveness::Exclusive,
+            false,
         ),
     ]
 }
 
-pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
+pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
     vec![
         (
             Key::new(KeyCode::Esc, KeyModifiers::empty()),
             Cmd::Escape,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(
@@ -179,47 +159,47 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 KeyModifiers::CONTROL | KeyModifiers::SHIFT,
             ),
             Cmd::ReopenBuffer,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
             Cmd::Repeat,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
             Cmd::Close,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('n'), KeyModifiers::CONTROL),
             Cmd::New { path: None },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
             Cmd::Quit,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
             Cmd::Save { path: None },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
             Cmd::SelectAll,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('l'), KeyModifiers::CONTROL),
             Cmd::SelectLine,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
             Cmd::SelectWord,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(
@@ -227,62 +207,62 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 KeyModifiers::CONTROL | KeyModifiers::SHIFT,
             ),
             Cmd::SelectAllMatching,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             Cmd::Copy,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('v'), KeyModifiers::CONTROL),
             Cmd::Paste,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('x'), KeyModifiers::CONTROL),
             Cmd::Cut,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('p'), KeyModifiers::CONTROL),
             Cmd::FocusPalette,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
             Cmd::PromptGoto,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
             Cmd::OpenFilePicker,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
             Cmd::OpenBufferPicker,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Tab, KeyModifiers::CONTROL),
             Cmd::OpenBufferPicker,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('z'), KeyModifiers::CONTROL),
             Cmd::Undo,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('y'), KeyModifiers::CONTROL),
             Cmd::Redo,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             Cmd::Search,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(
@@ -290,143 +270,156 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 KeyModifiers::CONTROL | KeyModifiers::SHIFT,
             ),
             Cmd::GlobalSearch,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('r'), KeyModifiers::ALT),
             Cmd::Replace,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('m'), KeyModifiers::ALT),
             Cmd::ReplaceCurrentMatch,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('i'), KeyModifiers::ALT),
             Cmd::CaseInsensitive,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('p'), KeyModifiers::ALT),
             Cmd::PrevMatch,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('n'), KeyModifiers::ALT),
             Cmd::NextMatch,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Tab, KeyModifiers::empty()),
             Cmd::TabOrIndent { back: false },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::BackTab, KeyModifiers::SHIFT),
             Cmd::TabOrIndent { back: true },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Enter, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
             Cmd::NewLineAboveWithoutBreaking,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Enter, KeyModifiers::CONTROL),
             Cmd::NewLineWithoutBreaking,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Enter, KeyModifiers::empty()),
             Cmd::Char { ch: '\n' },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
-            Key::new(KeyCode::Backspace, KeyModifiers::empty()),
-            Cmd::Backspace,
-            Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
-        ),
-        (
-            Key::new(KeyCode::Delete, KeyModifiers::empty()),
-            Cmd::Delete,
-            Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
-        ),
-        (
-            Key::new(KeyCode::Backspace, KeyModifiers::CONTROL),
-            Cmd::BackspaceWord,
-            Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
+            Key::new(KeyCode::Delete, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
+            Cmd::DeleteToEndOfLine,
+            true,
         ),
         (
             Key::new(KeyCode::Delete, KeyModifiers::CONTROL),
             Cmd::DeleteWord,
-            Exclusiveness::Ignores(KeyModifiers::SHIFT | KeyModifiers::SUPER | KeyModifiers::ALT),
+            true,
+        ),
+        (
+            Key::new(KeyCode::Delete, KeyModifiers::empty()),
+            Cmd::Delete,
+            true,
+        ),
+        (
+            Key::new(
+                KeyCode::Backspace,
+                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            ),
+            Cmd::BackspaceToStartOfLine,
+            true,
+        ),
+        (
+            Key::new(KeyCode::Backspace, KeyModifiers::CONTROL),
+            Cmd::BackspaceWord,
+            true,
+        ),
+        (
+            Key::new(KeyCode::Backspace, KeyModifiers::empty()),
+            Cmd::Backspace,
+            true,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::empty()),
             Cmd::Home {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::empty()),
             Cmd::End {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::SHIFT),
             Cmd::Home {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::SHIFT),
             Cmd::End {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::CONTROL),
             Cmd::Start {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::CONTROL),
             Cmd::Eof {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
             Cmd::Start {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
             Cmd::Eof {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::PageUp, KeyModifiers::empty()),
             Cmd::VerticalScroll { distance: -50 },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::PageDown, KeyModifiers::empty()),
             Cmd::VerticalScroll { distance: 50 },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::ALT | KeyModifiers::SHIFT),
@@ -435,7 +428,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: true,
                 distance: 1,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::ALT | KeyModifiers::SHIFT),
@@ -444,7 +437,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: true,
                 distance: 1,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL),
@@ -453,7 +446,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL),
@@ -462,7 +455,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -471,7 +464,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -480,7 +473,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL),
@@ -489,7 +482,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL),
@@ -498,7 +491,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -507,7 +500,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -516,7 +509,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 10,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::empty()),
@@ -525,7 +518,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 1,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::empty()),
@@ -534,7 +527,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 1,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::SHIFT),
@@ -543,7 +536,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 1,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::SHIFT),
@@ -552,137 +545,137 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 create_cursor: false,
                 distance: 1,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::empty()),
             Cmd::MoveRight {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::empty()),
             Cmd::MoveLeft {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::SHIFT),
             Cmd::MoveRight {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::SHIFT),
             Cmd::MoveLeft {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::CONTROL),
             Cmd::MoveRightWord {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::CONTROL),
             Cmd::MoveLeftWord {
                 expand_selection: false,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
             Cmd::MoveRightWord {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
             Cmd::MoveLeftWord {
                 expand_selection: true,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::ALT),
             Cmd::MoveLine {
                 direction: LineMoveDir::Up,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::ALT),
             Cmd::MoveLine {
                 direction: LineMoveDir::Down,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('+'), KeyModifiers::ALT),
             Cmd::GrowPane,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('-'), KeyModifiers::ALT),
             Cmd::ShrinkPane,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Up,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Down,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Right,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::CONTROL | KeyModifiers::ALT),
             Cmd::SwitchPane {
                 direction: Direction::Left,
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
             Cmd::OpenFileExplorer { path: None },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('+'), KeyModifiers::CONTROL),
             Cmd::ZoomIn,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('-'), KeyModifiers::CONTROL),
             Cmd::ZoomOut,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::F5, KeyModifiers::empty()),
             Cmd::RunAction {
                 name: "build".into(),
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(
@@ -690,14 +683,14 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, Exclusiveness)> {
                 KeyModifiers::CONTROL | KeyModifiers::SHIFT,
             ),
             Cmd::RemoveLine,
-            Exclusiveness::Exclusive,
+            false,
         ),
         (
             Key::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
             Cmd::InputMode {
                 name: "chords".into(),
             },
-            Exclusiveness::Exclusive,
+            false,
         ),
     ]
 }

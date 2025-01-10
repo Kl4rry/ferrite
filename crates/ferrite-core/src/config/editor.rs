@@ -4,10 +4,7 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    cmd::Cmd,
-    keymap::{Exclusiveness, Key},
-};
+use crate::{cmd::Cmd, keymap::Key};
 
 pub fn default_theme() -> String {
     "default".into()
@@ -78,7 +75,7 @@ pub struct KeymapAndMetadata {
     #[serde(flatten)]
     pub cmd: Cmd,
     #[serde(default)]
-    pub exclusiveness: Exclusiveness,
+    pub ignore_modifiers: bool,
     #[serde(default = "default_keymap_mode")]
     pub mode: String,
 }
