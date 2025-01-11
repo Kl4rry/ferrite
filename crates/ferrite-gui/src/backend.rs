@@ -18,7 +18,7 @@ use wgpu::RenderPass;
 
 use crate::glue::convert_style;
 
-mod quad_renderer;
+mod renderer;
 
 const LINE_SCALE: f32 = 1.3;
 const FONT_SIZE: f32 = 14.0;
@@ -263,6 +263,16 @@ impl WgpuBackend {
                 Shaping::Advanced,
             );
         }
+
+        self.top_quad_renderer.push_quad(
+            Quad {
+                x: 133.0,
+                y: 200.0,
+                width: 100.0,
+                height: 70.0,
+            },
+            Color::rgb(200, 100, 200),
+        );
 
         self.buffer.set_scroll(Scroll {
             line: 0,
