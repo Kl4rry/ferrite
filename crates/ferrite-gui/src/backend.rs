@@ -22,8 +22,8 @@ mod quad_renderer;
 
 const LINE_SCALE: f32 = 1.25;
 const FONT_SIZE: f32 = 14.0;
-const REPLACED_SYMBOLS: &[&str] = &["☺️"];
-const REPLACEMENT_SYMBOLS: &[&str] = &["☺️ "];
+const REPLACED_SYMBOLS: &[&str] = &["☺️", "☹️"];
+const REPLACEMENT_SYMBOLS: &[&str] = &["☺️ ", "☹️ "];
 
 fn calculate_cell_size(
     font_system: &mut FontSystem,
