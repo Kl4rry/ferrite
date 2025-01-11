@@ -129,7 +129,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
                 Box::new(move |result| {
                     let dir_entry = match result {
                         Ok(entry) => {
-                            if !entry.file_type().map_or(false, |ft| ft.is_file()) {
+                            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
                                 return WalkState::Continue;
                             }
                             entry

@@ -22,6 +22,8 @@ mod quad_renderer;
 
 const LINE_SCALE: f32 = 1.25;
 const FONT_SIZE: f32 = 14.0;
+const REPLACED_SYMBOLS: &[&str] = &["☺️"];
+const REPLACEMENT_SYMBOLS: &[&str] = &["☺️ "];
 
 fn calculate_cell_size(
     font_system: &mut FontSystem,
@@ -215,7 +217,13 @@ impl WgpuBackend {
                 }
 
                 attrs = attrs.color(fg);
-                let symbol = cell.symbol();
+                let symbol =
+                    if let Some(idx) = REPLACED_SYMBOLS.iter().position(|s| *s == cell.symbol()) {
+                        REPLACEMENT_SYMBOLS[idx]
+                    } else {
+                        cell.symbol()
+                    };
+
                 let symbol_width = symbol.width();
                 if symbol_width > 1 {
                     skip_next = true;
