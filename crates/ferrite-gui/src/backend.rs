@@ -190,10 +190,15 @@ impl WgpuBackend {
             ),
         );
         for (line_idx, line) in self.cells.iter_mut().enumerate() {
+            let mut skip_next = false;
             let mut attr_list = AttrsList::new(default_attrs);
             let mut line_text = String::new();
             let mut idx = 0;
             for (col_idx, cell) in line.iter().enumerate() {
+                if skip_next {
+                    skip_next = false;
+                    continue;
+                }
                 let mut attrs = default_attrs;
                 let mut fg = default_fg;
                 let mut bg = default_bg;
@@ -212,6 +217,9 @@ impl WgpuBackend {
                 attrs = attrs.color(fg);
                 let symbol = cell.symbol();
                 let symbol_width = symbol.width();
+                if symbol_width > 1 {
+                    skip_next = true;
+                }
                 line_text.push_str(symbol);
                 attr_list.add_span(idx..(idx + symbol.len()), attrs);
                 idx += symbol.len();
@@ -331,6 +339,8 @@ impl WgpuBackend {
         self.buffer.set_metrics(&mut self.font_system, metrics);
         let (cell_width, cell_height) =
             calculate_cell_size(&mut self.font_system, metrics, self.font_weight);
+        self.buffer
+            .set_monospace_width(&mut self.font_system, Some(cell_width));
         self.cell_width = cell_width;
         self.cell_height = cell_height;
         self.resize(self.width, self.height);
