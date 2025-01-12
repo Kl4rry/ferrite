@@ -1,4 +1,4 @@
-use std::mem;
+use std::{mem, ops::Range};
 
 use cgmath::{Matrix4, Ortho, SquareMatrix};
 use crevice::std140::AsStd140;
@@ -21,6 +21,7 @@ pub struct Quad {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+    pub color: Color,
 }
 
 #[repr(C)]
@@ -36,6 +37,64 @@ struct Vertex {
 
 unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
+
+#[derive(Default)]
+pub struct Geometry {
+    pub quads: Vec<Quad>,
+}
+
+impl Geometry {
+    pub fn tessellate(&self, renderer: &mut GeometryRenderer) {
+        for quad in &self.quads {
+            renderer.indices.push(renderer.vertices.len() as u32);
+            renderer.indices.push(renderer.vertices.len() as u32 + 1);
+            renderer.indices.push(renderer.vertices.len() as u32 + 2);
+            renderer.indices.push(renderer.vertices.len() as u32 + 2);
+            renderer.indices.push(renderer.vertices.len() as u32 + 1);
+            renderer.indices.push(renderer.vertices.len() as u32 + 3);
+            let r = srgb::srgb_to_linear(quad.color.r() as f32 / 255.0);
+            let b = srgb::srgb_to_linear(quad.color.b() as f32 / 255.0);
+            let g = srgb::srgb_to_linear(quad.color.g() as f32 / 255.0);
+            let a = quad.color.a() as f32 / 255.0;
+            renderer.vertices.push(Vertex {
+                x: quad.x,
+                y: quad.y,
+                r,
+                g,
+                b,
+                a,
+            });
+            renderer.vertices.push(Vertex {
+                x: quad.x + quad.width,
+                y: quad.y,
+                r,
+                g,
+                b,
+                a,
+            });
+            renderer.vertices.push(Vertex {
+                x: quad.x,
+                y: quad.y + quad.height,
+                r,
+                g,
+                b,
+                a,
+            });
+            renderer.vertices.push(Vertex {
+                x: quad.x + quad.width,
+                y: quad.y + quad.height,
+                r,
+                g,
+                b,
+                a,
+            });
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.quads.clear();
+    }
+}
 
 impl Vertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -104,7 +163,7 @@ impl Uniform {
     }
 }
 
-pub struct QuadRenderer {
+pub struct GeometryRenderer {
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     vertex_buffer_len: u64,
@@ -118,17 +177,17 @@ pub struct QuadRenderer {
     indices: Vec<u32>,
 }
 
-impl QuadRenderer {
+impl GeometryRenderer {
     pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Quad render pipeline layout"),
+                label: Some("Geometry render pipeline layout"),
                 bind_group_layouts: &[&Uniform::get_bind_group_layout(device)],
                 push_constant_ranges: &[],
             });
 
         let vertex = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Quad vertex"),
+            label: Some("Geometry vertex"),
             source: wgpu::ShaderSource::Glsl {
                 shader: include_str!("../../../../shaders/quad.vert").into(),
                 stage: wgpu::naga::ShaderStage::Vertex,
@@ -137,7 +196,7 @@ impl QuadRenderer {
         });
 
         let fragment = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Quad fragment"),
+            label: Some("Geometry fragment"),
             source: wgpu::ShaderSource::Glsl {
                 shader: include_str!("../../../../shaders/quad.frag").into(),
                 stage: wgpu::naga::ShaderStage::Fragment,
@@ -146,7 +205,7 @@ impl QuadRenderer {
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Quad Render Pipeline"),
+            label: Some("Geometry Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vertex,
@@ -185,7 +244,7 @@ impl QuadRenderer {
 
         let vertex_buffer_len = 128;
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Quad Vertex Buffer"),
+            label: Some("Geometry Vertex Buffer"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             size: vertex_buffer_len * mem::size_of::<Vertex>() as u64,
             mapped_at_creation: false,
@@ -193,7 +252,7 @@ impl QuadRenderer {
 
         let index_buffer_len = 128;
         let index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Quad Index Buffer"),
+            label: Some("Geometry Index Buffer"),
             usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
             size: index_buffer_len * mem::size_of::<u32>() as u64,
             mapped_at_creation: false,
@@ -238,53 +297,12 @@ impl QuadRenderer {
         self.indices.clear();
     }
 
-    pub fn push_quad(&mut self, quad: Quad, color: Color) {
-        self.indices.push(self.vertices.len() as u32);
-        self.indices.push(self.vertices.len() as u32 + 1);
-        self.indices.push(self.vertices.len() as u32 + 2);
-        self.indices.push(self.vertices.len() as u32 + 2);
-        self.indices.push(self.vertices.len() as u32 + 1);
-        self.indices.push(self.vertices.len() as u32 + 3);
-        let r = srgb::srgb_to_linear(color.r() as f32 / 255.0);
-        let b = srgb::srgb_to_linear(color.b() as f32 / 255.0);
-        let g = srgb::srgb_to_linear(color.g() as f32 / 255.0);
-        let a = color.a() as f32 / 255.0;
-        self.vertices.push(Vertex {
-            x: quad.x,
-            y: quad.y,
-            r,
-            g,
-            b,
-            a,
-        });
-        self.vertices.push(Vertex {
-            x: quad.x + quad.width,
-            y: quad.y,
-            r,
-            g,
-            b,
-            a,
-        });
-        self.vertices.push(Vertex {
-            x: quad.x,
-            y: quad.y + quad.height,
-            r,
-            g,
-            b,
-            a,
-        });
-        self.vertices.push(Vertex {
-            x: quad.x + quad.width,
-            y: quad.y + quad.height,
-            r,
-            g,
-            b,
-            a,
-        });
-    }
-
     pub fn resize(&mut self, width: f32, height: f32) {
         self.uniform = Uniform::from_size(width, height);
+    }
+
+    pub fn num_indices(&mut self) -> u32 {
+        self.indices.len() as u32
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
@@ -296,7 +314,7 @@ impl QuadRenderer {
                 self.vertex_buffer_len *= 2;
             }
             self.vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Quad Vertex Buffer"),
+                label: Some("Geometry Vertex Buffer"),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 size: self.vertex_buffer_len * mem::size_of::<Vertex>() as u64,
                 mapped_at_creation: false,
@@ -309,7 +327,7 @@ impl QuadRenderer {
                 self.index_buffer_len *= 2;
             }
             self.index_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Quad Index Buffer"),
+                label: Some("Geometry Index Buffer"),
                 usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
                 size: self.index_buffer_len * mem::size_of::<u32>() as u64,
                 mapped_at_creation: false,
@@ -320,13 +338,13 @@ impl QuadRenderer {
         self.num_indices = self.indices.len() as u32;
     }
 
-    pub fn render<'rpass>(&'rpass mut self, rpass: &mut wgpu::RenderPass<'rpass>) {
+    pub fn render<'rpass>(&'rpass self, rpass: &mut wgpu::RenderPass<'rpass>, range: Range<u32>) {
         if self.num_indices > 0 {
             rpass.set_pipeline(&self.pipeline);
             rpass.set_bind_group(0, &self.uniform_bind_group, &[]);
             rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             rpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            rpass.draw_indexed(0..self.num_indices, 0, 0..1);
+            rpass.draw_indexed(range, 0, 0..1);
         }
     }
 }

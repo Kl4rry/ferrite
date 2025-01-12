@@ -24,6 +24,7 @@ use ferrite_tui::{
 };
 use ferrite_utility::{line_ending::LineEnding, point::Point};
 use glue::convert_keycode;
+use renderer::{Layer, Renderer};
 use tui::layout::Position;
 use winit::{
     dpi::PhysicalPosition,
@@ -36,6 +37,7 @@ use winit::{
 mod backend;
 mod event_loop_wrapper;
 mod glue;
+pub mod renderer;
 pub mod srgb;
 
 pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
@@ -59,6 +61,7 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
 
 struct GuiApp {
     tui_app: TuiApp<WgpuBackend>,
+    renderer: Renderer,
     control_flow: EventLoopControlFlow,
     // rendering stuff
     surface: wgpu::Surface<'static>,
@@ -153,10 +156,10 @@ impl GuiApp {
         };
         surface.configure(&device, &config);
 
+        let mut renderer = Renderer::new(&device, &config, size.width as f32, size.height as f32);
+
         let backend = WgpuBackend::new(
-            &device,
-            &queue,
-            &config,
+            &mut renderer.font_system,
             size.width as f32,
             size.height as f32,
             default_font(),
@@ -173,6 +176,7 @@ impl GuiApp {
 
         Ok(Self {
             tui_app,
+            renderer,
             control_flow,
             window,
             surface,
@@ -217,7 +221,8 @@ impl GuiApp {
                     profiling::scope!("about to wait");
                     let backend = self.tui_app.terminal.backend_mut();
                     if backend.scale() != self.tui_app.engine.scale {
-                        backend.set_scale(self.tui_app.engine.scale);
+                        backend
+                            .set_scale(&mut self.renderer.font_system, self.tui_app.engine.scale);
                     }
                     self.tui_app.engine.do_polling(&mut self.control_flow);
                     match self.control_flow {
@@ -234,14 +239,14 @@ impl GuiApp {
                             );
                         }
                     }
-                    self.tui_app
-                        .terminal
-                        .backend_mut()
-                        .set_font_family(&self.tui_app.engine.config.editor.gui.font_family);
-                    self.tui_app
-                        .terminal
-                        .backend_mut()
-                        .set_font_weight(self.tui_app.engine.config.editor.gui.font_weight);
+                    self.tui_app.terminal.backend_mut().set_font_family(
+                        &mut self.renderer.font_system,
+                        &self.tui_app.engine.config.editor.gui.font_family,
+                    );
+                    self.tui_app.terminal.backend_mut().set_font_weight(
+                        &mut self.renderer.font_system,
+                        self.tui_app.engine.config.editor.gui.font_weight,
+                    );
                     self.tui_app.render();
                     if self.tui_app.terminal.backend().redraw {
                         self.window.request_redraw();
@@ -258,6 +263,8 @@ impl GuiApp {
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
+        self.renderer
+            .resize(self.size.width as f32, self.size.height as f32);
         self.tui_app
             .terminal
             .backend_mut()
@@ -612,6 +619,17 @@ impl GuiApp {
             });
 
         let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
+        let bundle = self.tui_app.terminal.backend_mut().prepare(
+            &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
+            &mut self.renderer.font_system,
+        );
+
+        let layers = vec![Layer {
+            bundles: vec![bundle],
+        }];
+
+        self.renderer
+            .prepare(&self.device, &self.queue, &self.config, layers);
 
         {
             let color = theme.background.bg.unwrap_or_default();
@@ -634,14 +652,7 @@ impl GuiApp {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-
-            self.tui_app.terminal.backend_mut().prepare(
-                &self.device,
-                &self.queue,
-                &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
-            );
-
-            self.tui_app.terminal.backend_mut().render(&mut rpass);
+            self.renderer.render(&mut rpass);
         }
 
         self.queue.submit(iter::once(encoder.finish()));

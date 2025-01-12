@@ -2,11 +2,9 @@ use std::mem;
 
 use ferrite_core::{config::editor::FontWeight, theme::EditorTheme};
 use glyphon::{
-    cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Cache, Color, Family, FontSystem,
-    Metrics, Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer,
-    Viewport, Weight,
+    cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Color, Family, FontSystem, Metrics,
+    Shaping, TextArea, TextBounds, Weight,
 };
-use quad_renderer::{Quad, QuadRenderer};
 use tui::{
     backend::WindowSize,
     buffer::Cell,
@@ -14,11 +12,14 @@ use tui::{
     prelude::Backend,
 };
 use unicode_width::UnicodeWidthStr;
-use wgpu::RenderPass;
 
-use crate::glue::convert_style;
-
-mod renderer;
+use crate::{
+    glue::convert_style,
+    renderer::{
+        geometry_renderer::{Geometry, Quad},
+        Bundle,
+    },
+};
 
 const LINE_SCALE: f32 = 1.3;
 const FONT_SIZE: f32 = 14.0;
@@ -48,13 +49,6 @@ fn calculate_cell_size(
 }
 
 pub struct WgpuBackend {
-    font_system: FontSystem,
-    swash_cache: SwashCache,
-    atlas: TextAtlas,
-    text_renderer: TextRenderer,
-    viewport: Viewport,
-    bottom_quad_renderer: QuadRenderer,
-    top_quad_renderer: QuadRenderer,
     width: f32,
     height: f32,
     pub cell_width: f32,
@@ -73,40 +67,19 @@ pub struct WgpuBackend {
 #[profiling::all_functions]
 impl WgpuBackend {
     pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        config: &wgpu::SurfaceConfiguration,
+        font_system: &mut FontSystem,
         width: f32,
         height: f32,
         font_family: String,
         font_weight: FontWeight,
     ) -> Self {
-        let mut font_system = FontSystem::new();
-        font_system
-            .db_mut()
-            .load_font_data(include_bytes!("../../../fonts/FiraCode-Regular.ttf").to_vec());
         font_system.db_mut().set_monospace_family(&font_family);
-        let swash_cache = SwashCache::new();
-        let cache = Cache::new(device);
-        let mut atlas = TextAtlas::new(device, queue, &cache, config.format);
-        let text_renderer = TextRenderer::new(
-            &mut atlas,
-            device,
-            wgpu::MultisampleState {
-                count: 1,
-                ..Default::default()
-            },
-            None,
-        );
-
-        let viewport = Viewport::new(device, &cache);
-
         let metrics = Metrics::relative(FONT_SIZE, LINE_SCALE);
-        let mut buffer = Buffer::new(&mut font_system, metrics);
+        let mut buffer = Buffer::new(font_system, metrics);
         // borrowed from cosmic term
-        let (cell_width, cell_height) = calculate_cell_size(&mut font_system, metrics, font_weight);
-        buffer.set_monospace_width(&mut font_system, Some(cell_width));
-        buffer.set_wrap(&mut font_system, glyphon::Wrap::None);
+        let (cell_width, cell_height) = calculate_cell_size(font_system, metrics, font_weight);
+        buffer.set_monospace_width(font_system, Some(cell_width));
+        buffer.set_wrap(font_system, glyphon::Wrap::None);
 
         let columns = (width / cell_width) as u16;
         let lines = (height / cell_height) as u16;
@@ -120,17 +93,7 @@ impl WgpuBackend {
             cells.push(line);
         }
 
-        let bottom_quad_renderer = QuadRenderer::new(device, config);
-        let top_quad_renderer = QuadRenderer::new(device, config);
-
         Self {
-            font_system,
-            swash_cache,
-            viewport,
-            atlas,
-            text_renderer,
-            bottom_quad_renderer,
-            top_quad_renderer,
             width,
             height,
             cell_width,
@@ -147,8 +110,6 @@ impl WgpuBackend {
     }
 
     pub fn resize(&mut self, width: f32, height: f32) {
-        self.bottom_quad_renderer.resize(width, height);
-        self.top_quad_renderer.resize(width, height);
         self.width = width;
         self.height = height;
         self.columns = (width / self.cell_width) as u16;
@@ -164,12 +125,11 @@ impl WgpuBackend {
         let _ = self.clear();
     }
 
-    pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, theme: &EditorTheme) {
-        self.bottom_quad_renderer.clear();
-        self.top_quad_renderer.clear();
-        let mut text_areas = Vec::new();
+    pub fn prepare(&mut self, theme: &EditorTheme, font_system: &mut FontSystem) -> Bundle {
+        let mut top_geometry = Geometry::default();
+        let mut bottom_geometry = Geometry::default();
         self.buffer
-            .set_size(&mut self.font_system, Some(self.width), Some(self.height));
+            .set_size(font_system, Some(self.width), Some(self.height));
 
         let default_fg = convert_style(&theme.text)
             .0
@@ -232,27 +192,23 @@ impl WgpuBackend {
                 attr_list.add_span(idx..(idx + symbol.len()), attrs);
                 idx += symbol.len();
                 // TODO greedy mesh here
-                self.bottom_quad_renderer.push_quad(
-                    Quad {
-                        x: col_idx as f32 * self.cell_width,
-                        y: line_idx as f32 * self.cell_height,
-                        width: self.cell_width * symbol_width as f32,
-                        height: self.cell_height * symbol_width as f32,
-                    },
-                    bg,
-                );
+                bottom_geometry.quads.push(Quad {
+                    x: col_idx as f32 * self.cell_width,
+                    y: line_idx as f32 * self.cell_height,
+                    width: self.cell_width * symbol_width as f32,
+                    height: self.cell_height * symbol_width as f32,
+                    color: bg,
+                });
 
                 if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
                     let cursor_width = 2.0 * self.scale;
-                    self.top_quad_renderer.push_quad(
-                        Quad {
-                            x: col_idx as f32 * self.cell_width,
-                            y: line_idx as f32 * self.cell_height,
-                            width: cursor_width,
-                            height: self.cell_height,
-                        },
-                        Color::rgb(82, 139, 255),
-                    );
+                    top_geometry.quads.push(Quad {
+                        x: col_idx as f32 * self.cell_width,
+                        y: line_idx as f32 * self.cell_height,
+                        width: cursor_width,
+                        height: self.cell_height,
+                        color: Color::rgb(82, 139, 255),
+                    });
                 }
             }
 
@@ -264,33 +220,15 @@ impl WgpuBackend {
             );
         }
 
-        self.top_quad_renderer.push_quad(
-            Quad {
-                x: 133.0,
-                y: 200.0,
-                width: 100.0,
-                height: 70.0,
-            },
-            Color::rgb(200, 100, 200),
-        );
-
         self.buffer.set_scroll(Scroll {
             line: 0,
             vertical: 0.0,
             horizontal: 0.0,
         });
-        self.buffer.shape_until_scroll(&mut self.font_system, true);
-        self.font_system.shape_run_cache.trim(1024);
+        self.buffer.shape_until_scroll(font_system, true);
+        font_system.shape_run_cache.trim(1024);
 
-        self.viewport.update(
-            queue,
-            Resolution {
-                width: self.width as u32,
-                height: self.height as u32,
-            },
-        );
-
-        text_areas.push(TextArea {
+        let text_area = TextArea {
             buffer: &self.buffer,
             left: 0.0,
             top: 0.0,
@@ -303,65 +241,51 @@ impl WgpuBackend {
             },
             default_color: default_fg,
             custom_glyphs: &[],
-        });
+        };
 
-        self.text_renderer
-            .prepare(
-                device,
-                queue,
-                &mut self.font_system,
-                &mut self.atlas,
-                &self.viewport,
-                text_areas,
-                &mut self.swash_cache,
-            )
-            .unwrap();
-
-        self.bottom_quad_renderer.prepare(device, queue);
-        self.top_quad_renderer.prepare(device, queue);
-    }
-
-    pub fn render<'rpass>(&'rpass mut self, rpass: &mut RenderPass<'rpass>) {
-        self.bottom_quad_renderer.render(rpass);
-        self.text_renderer
-            .render(&self.atlas, &self.viewport, rpass)
-            .unwrap();
-        self.top_quad_renderer.render(rpass);
-    }
-
-    pub fn set_font_family(&mut self, font_family: &str) {
-        if font_family != self.font_family {
-            self.font_system.db_mut().set_monospace_family(font_family);
-            self.font_family = font_family.to_string();
-            self.font_system.shape_run_cache.trim(0);
-            self.update_font_metadata();
+        Bundle {
+            text_area,
+            top_geometry,
+            bottom_geometry,
         }
     }
 
-    pub fn set_font_weight(&mut self, weight: FontWeight) {
+    pub fn set_font_family(&mut self, font_system: &mut FontSystem, font_family: &str) {
+        if font_family != self.font_family {
+            self.font_family = font_family.to_string();
+            font_system.db_mut().set_monospace_family(font_family);
+            font_system.shape_run_cache.trim(0);
+            self.update_font_metadata(font_system);
+        }
+    }
+
+    pub fn set_font_weight(&mut self, font_system: &mut FontSystem, weight: FontWeight) {
         if self.font_weight != weight {
             self.font_weight = weight;
-            self.update_font_metadata();
+            self.update_font_metadata(font_system);
         }
     }
 
-    pub fn set_scale(&mut self, scale: f32) {
+    pub fn set_scale(&mut self, font_system: &mut FontSystem, scale: f32) {
         if self.scale != scale {
             self.scale = scale;
-            self.update_font_metadata();
+            self.update_font_metadata(font_system);
         }
     }
 
-    fn update_font_metadata(&mut self) {
+    fn update_font_metadata(&mut self, font_system: &mut FontSystem) {
         let metrics = Metrics::relative(FONT_SIZE * self.scale, LINE_SCALE);
-        self.buffer.set_metrics(&mut self.font_system, metrics);
-        let (cell_width, cell_height) =
-            calculate_cell_size(&mut self.font_system, metrics, self.font_weight);
+        self.buffer.set_metrics(font_system, metrics);
+        let (cell_width, cell_height) = calculate_cell_size(font_system, metrics, self.font_weight);
         self.buffer
-            .set_monospace_width(&mut self.font_system, Some(cell_width));
+            .set_monospace_width(font_system, Some(cell_width));
         self.cell_width = cell_width;
         self.cell_height = cell_height;
         self.resize(self.width, self.height);
+        eprintln!(
+            "metrics: {:?} cell_width: {cell_width} cell_height: {cell_height}",
+            metrics
+        );
     }
 
     pub fn scale(&self) -> f32 {

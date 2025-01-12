@@ -474,6 +474,24 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
+            draw_cursor_line &= !buffer.views[view_id]
+                .cursors
+                .iter()
+                .any(|c| c.has_selection());
+
+            if self.config.highlight_cursor_line && draw_cursor_line && has_focus {
+                let visual_cursor_line = cursor_line_number - buffer.views[view_id].line_pos - 1;
+                let cursor_line_area = Rect::new(
+                    text_area.x,
+                    text_area.y + visual_cursor_line as u16,
+                    text_area.width,
+                    1,
+                );
+                if text_area.contains(Position::new(cursor_line_area.x, cursor_line_area.y)) {
+                    buf.set_style(cursor_line_area, convert_style(&theme.cursorline));
+                }
+            }
+
             let matches = buffer
                 .get_searcher(view_id)
                 .map(|searcher| searcher.get_matches());
@@ -505,7 +523,6 @@ impl StatefulWidget for EditorWidget<'_> {
             if let Some(bg) = convert_style(&theme.selection).bg {
                 profiling::scope!("draw selections");
                 for Selection { start, end } in buffer.get_view_selection(view_id) {
-                    draw_cursor_line = false;
                     let line_pos = buffer.line_pos(view_id);
 
                     for y in 0..text_area.height {
@@ -531,19 +548,6 @@ impl StatefulWidget for EditorWidget<'_> {
                             }
                         }
                     }
-                }
-            }
-
-            if self.config.highlight_cursor_line && draw_cursor_line && has_focus {
-                let visual_cursor_line = cursor_line_number - buffer.views[view_id].line_pos - 1;
-                let cursor_line_area = Rect::new(
-                    text_area.x,
-                    text_area.y + visual_cursor_line as u16,
-                    text_area.width,
-                    1,
-                );
-                if text_area.contains(Position::new(cursor_line_area.x, cursor_line_area.y)) {
-                    buf.set_style(cursor_line_area, convert_style(&theme.cursorline));
                 }
             }
 
