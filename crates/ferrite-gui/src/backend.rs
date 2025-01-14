@@ -163,17 +163,19 @@ impl WgpuBackend {
                 }
                 let mut attrs = default_attrs;
                 let mut fg = default_fg;
-                let mut bg = default_bg;
+                let mut bg = None;
                 if let tui::style::Color::Rgb(r, g, b) = cell.fg {
                     fg = glyphon::Color::rgb(r, g, b);
                 }
 
                 if let tui::style::Color::Rgb(r, g, b) = cell.bg {
-                    bg = glyphon::Color::rgb(r, g, b);
+                    bg = Some(glyphon::Color::rgb(r, g, b));
                 }
 
                 if cell.modifier.contains(tui::style::Modifier::REVERSED) {
-                    mem::swap(&mut fg, &mut bg);
+                    let mut tmp = bg.unwrap_or(default_bg);
+                    mem::swap(&mut fg, &mut tmp);
+                    bg = Some(tmp);
                 }
 
                 attrs = attrs.color(fg);
@@ -197,7 +199,7 @@ impl WgpuBackend {
                     y: line_idx as f32 * self.cell_height,
                     width: self.cell_width * symbol_width as f32,
                     height: self.cell_height * symbol_width as f32,
-                    color: bg,
+                    color: bg.unwrap_or(Color::rgba(0, 0, 0, 0)),
                 });
 
                 if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
@@ -282,10 +284,6 @@ impl WgpuBackend {
         self.cell_width = cell_width;
         self.cell_height = cell_height;
         self.resize(self.width, self.height);
-        eprintln!(
-            "metrics: {:?} cell_width: {cell_width} cell_height: {cell_height}",
-            metrics
-        );
     }
 
     pub fn scale(&self) -> f32 {

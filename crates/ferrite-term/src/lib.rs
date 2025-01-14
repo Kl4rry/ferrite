@@ -25,7 +25,7 @@ use ferrite_tui::{
 };
 use ferrite_utility::point::Point;
 use glue::{convert_keycode, convert_modifier};
-use tui::layout::Position;
+use tui::{layout::Position, Terminal};
 
 mod event_loop;
 mod glue;
@@ -33,7 +33,15 @@ mod glue;
 pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
     let event_loop = TuiEventLoop::new();
     let backend = tui::backend::CrosstermBackend::new(std::io::stdout());
-    let mut tui_app = TuiApp::new(args, event_loop.create_proxy(), backend, recv)?;
+    let terminal = Terminal::new(backend)?;
+    let size = terminal.size()?;
+    let mut tui_app = TuiApp::new(
+        args,
+        event_loop.create_proxy(),
+        recv,
+        size.width,
+        size.height,
+    )?;
     if !io::stdin().is_terminal() {
         let mut stdin = io::stdin().lock();
         let mut bytes = Vec::new();
@@ -50,6 +58,7 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
 
     let term_app = TermApp {
         tui_app,
+        terminal,
         keyboard_enhancement: false,
     };
     term_app.run(event_loop);
@@ -57,7 +66,8 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
 }
 
 pub struct TermApp {
-    tui_app: TuiApp<tui::backend::CrosstermBackend<Stdout>>,
+    tui_app: TuiApp,
+    terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
     keyboard_enhancement: bool,
 }
 
@@ -123,7 +133,16 @@ impl TermApp {
             event_loop::TuiEvent::Render => {
                 self.tui_app.engine.do_polling(control_flow);
                 self.tui_app.engine.config.editor.gui.cursor_type = CursorType::Block;
-                self.tui_app.render();
+                if self.tui_app.engine.force_redraw {
+                    self.tui_app.engine.force_redraw = false;
+                    let _ = self.terminal.clear();
+                }
+                self.terminal
+                    .draw(|f| {
+                        let area = f.area();
+                        self.tui_app.render(f.buffer_mut(), area);
+                    })
+                    .unwrap();
                 self.tui_app.engine.last_render_time =
                     Instant::now().duration_since(self.tui_app.engine.start_of_events);
             }
@@ -301,12 +320,12 @@ impl Drop for TermApp {
         }
         let _ = terminal::disable_raw_mode();
         let _ = execute!(
-            self.tui_app.terminal.backend_mut(),
+            self.terminal.backend_mut(),
             event::DisableMouseCapture,
             event::DisableBracketedPaste,
             terminal::LeaveAlternateScreen,
         );
-        let _ = self.tui_app.terminal.show_cursor();
+        let _ = self.terminal.show_cursor();
         clipboard::uninit();
     }
 }

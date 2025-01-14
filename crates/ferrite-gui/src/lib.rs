@@ -25,7 +25,7 @@ use ferrite_tui::{
 use ferrite_utility::{line_ending::LineEnding, point::Point};
 use glue::convert_keycode;
 use renderer::{Layer, Renderer};
-use tui::layout::Position;
+use tui::{layout::Position, Terminal};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
@@ -60,7 +60,8 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
 }
 
 struct GuiApp {
-    tui_app: TuiApp<WgpuBackend>,
+    tui_app: TuiApp,
+    terminals: [Terminal<WgpuBackend>; 2],
     renderer: Renderer,
     control_flow: EventLoopControlFlow,
     // rendering stuff
@@ -158,15 +159,32 @@ impl GuiApp {
 
         let mut renderer = Renderer::new(&device, &config, size.width as f32, size.height as f32);
 
-        let backend = WgpuBackend::new(
+        let base_terminal = Terminal::new(WgpuBackend::new(
             &mut renderer.font_system,
             size.width as f32,
             size.height as f32,
             default_font(),
             FontWeight::Normal,
-        );
+        ))?;
 
-        let tui_app = TuiApp::new(args, event_loop_wrapper, backend, rx)?;
+        let overlay_terminal = Terminal::new(WgpuBackend::new(
+            &mut renderer.font_system,
+            size.width as f32,
+            size.height as f32,
+            default_font(),
+            FontWeight::Normal,
+        ))?;
+
+        let term_size = base_terminal.size()?;
+        let tui_app = TuiApp::new(
+            args,
+            event_loop_wrapper,
+            rx,
+            term_size.width,
+            term_size.height,
+        )?;
+
+        let terminals = [base_terminal, overlay_terminal];
 
         let scale_factor = 1.0;
 
@@ -176,6 +194,7 @@ impl GuiApp {
 
         Ok(Self {
             tui_app,
+            terminals,
             renderer,
             control_flow,
             window,
@@ -219,11 +238,17 @@ impl GuiApp {
                 },
                 Event::AboutToWait => {
                     profiling::scope!("about to wait");
-                    let backend = self.tui_app.terminal.backend_mut();
-                    if backend.scale() != self.tui_app.engine.scale {
-                        backend
-                            .set_scale(&mut self.renderer.font_system, self.tui_app.engine.scale);
+
+                    for terminal in &mut self.terminals {
+                        let backend = terminal.backend_mut();
+                        if backend.scale() != self.tui_app.engine.scale {
+                            backend.set_scale(
+                                &mut self.renderer.font_system,
+                                self.tui_app.engine.scale,
+                            );
+                        }
                     }
+
                     self.tui_app.engine.do_polling(&mut self.control_flow);
                     match self.control_flow {
                         EventLoopControlFlow::Poll => {
@@ -239,18 +264,23 @@ impl GuiApp {
                             );
                         }
                     }
-                    self.tui_app.terminal.backend_mut().set_font_family(
-                        &mut self.renderer.font_system,
-                        &self.tui_app.engine.config.editor.gui.font_family,
-                    );
-                    self.tui_app.terminal.backend_mut().set_font_weight(
-                        &mut self.renderer.font_system,
-                        self.tui_app.engine.config.editor.gui.font_weight,
-                    );
-                    self.tui_app.render();
-                    if self.tui_app.terminal.backend().redraw {
+                    for terminal in &mut self.terminals {
+                        terminal.backend_mut().set_font_family(
+                            &mut self.renderer.font_system,
+                            &self.tui_app.engine.config.editor.gui.font_family,
+                        );
+                        terminal.backend_mut().set_font_weight(
+                            &mut self.renderer.font_system,
+                            self.tui_app.engine.config.editor.gui.font_weight,
+                        );
+                    }
+
+                    self.render_tui();
+                    if self.terminals.iter().any(|t| t.backend().redraw) {
                         self.window.request_redraw();
-                        self.tui_app.terminal.backend_mut().redraw = false;
+                        for terminal in &mut self.terminals {
+                            terminal.backend_mut().redraw = false;
+                        }
                     }
                 }
                 _event => (),
@@ -265,20 +295,21 @@ impl GuiApp {
         self.surface.configure(&self.device, &self.config);
         self.renderer
             .resize(self.size.width as f32, self.size.height as f32);
-        self.tui_app
-            .terminal
-            .backend_mut()
-            .resize(self.size.width as f32, self.size.height as f32);
-        let backend = self.tui_app.terminal.backend();
-        let columns = backend.columns;
-        let lines = backend.lines;
-        let _ = self.tui_app.terminal.resize(tui::layout::Rect {
-            x: 0,
-            y: 0,
-            width: columns,
-            height: lines,
-        });
-        self.tui_app.render();
+        for terminal in &mut self.terminals {
+            terminal
+                .backend_mut()
+                .resize(self.size.width as f32, self.size.height as f32);
+            let backend = terminal.backend();
+            let columns = backend.columns;
+            let lines = backend.lines;
+            let _ = terminal.resize(tui::layout::Rect {
+                x: 0,
+                y: 0,
+                width: columns,
+                height: lines,
+            });
+        }
+        self.render_tui();
     }
 
     pub fn input(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>, event: WindowEvent) {
@@ -304,7 +335,7 @@ impl GuiApp {
                 }
                 MouseScrollDelta::PixelDelta(physical_pos) => {
                     self.vertical_scroll_delta += physical_pos.y;
-                    let line_height = self.tui_app.terminal.backend().line_height() as f64;
+                    let line_height = self.terminals[0].backend().line_height() as f64;
                     loop {
                         if self.vertical_scroll_delta >= line_height {
                             self.vertical_scroll_delta -= line_height;
@@ -425,7 +456,7 @@ impl GuiApp {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                let backend = self.tui_app.terminal.backend();
+                let backend = self.terminals[0].backend();
                 self.mouse_position = position;
 
                 let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
@@ -436,7 +467,7 @@ impl GuiApp {
                 self.handle_hover(column, line);
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                let backend = self.tui_app.terminal.backend();
+                let backend = self.terminals[0].backend();
 
                 let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
                 let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
@@ -607,6 +638,15 @@ impl GuiApp {
         }
     }
 
+    pub fn render_tui(&mut self) {
+        self.terminals[0]
+            .draw(|f| {
+                let area = f.area();
+                self.tui_app.render(f.buffer_mut(), area);
+            })
+            .unwrap();
+    }
+
     pub fn render(&mut self) -> std::result::Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -619,14 +659,17 @@ impl GuiApp {
             });
 
         let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
-        let bundle = self.tui_app.terminal.backend_mut().prepare(
-            &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
-            &mut self.renderer.font_system,
-        );
-
-        let layers = vec![Layer {
-            bundles: vec![bundle],
-        }];
+        let bundles: Vec<_> = self
+            .terminals
+            .iter_mut()
+            .map(|t| {
+                t.backend_mut().prepare(
+                    &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
+                    &mut self.renderer.font_system,
+                )
+            })
+            .collect();
+        let layers = vec![Layer { bundles }];
 
         self.renderer
             .prepare(&self.device, &self.queue, &self.config, layers);

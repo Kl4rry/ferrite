@@ -100,24 +100,29 @@ impl Renderer {
         }
 
         for (renderer, layer) in self.layer_renderers.iter_mut().zip(layers) {
-            let mut text_areas = Vec::new();
-            for bundle in layer.bundles.into_iter() {
-                text_areas.push(bundle.text_area);
-                {
-                    let start = self.geometry_renderer.num_indices();
+            {
+                let start = self.geometry_renderer.num_indices();
+                for bundle in &layer.bundles {
                     bundle
                         .bottom_geometry
                         .tessellate(&mut self.geometry_renderer);
-                    let end = self.geometry_renderer.num_indices();
-                    renderer.bottom_geometry_index_range = start..end;
                 }
-                {
-                    let start = self.geometry_renderer.num_indices();
-                    bundle.top_geometry.tessellate(&mut self.geometry_renderer);
-                    let end = self.geometry_renderer.num_indices();
-                    renderer.top_geometry_index_range = start..end;
-                }
+                let end = self.geometry_renderer.num_indices();
+                renderer.bottom_geometry_index_range = start..end;
             }
+            {
+                let start = self.geometry_renderer.num_indices();
+                for bundle in &layer.bundles {
+                    bundle.top_geometry.tessellate(&mut self.geometry_renderer);
+                }
+                let end = self.geometry_renderer.num_indices();
+                renderer.top_geometry_index_range = start..end;
+            }
+            let text_areas: Vec<_> = layer
+                .bundles
+                .into_iter()
+                .map(|bundle| bundle.text_area)
+                .collect();
             renderer
                 .text_renderer
                 .prepare(

@@ -3,25 +3,24 @@ use std::{sync::mpsc, time::Instant};
 use anyhow::Result;
 use ferrite_cli::Args;
 use ferrite_core::{
+    buffer::ViewId,
     engine::Engine,
     event_loop_proxy::EventLoopProxy,
+    file_explorer::FileExplorerId,
     layout::panes::PaneKind,
     logger::{self, LogMessage},
     picker::{buffer_picker::BufferItem, global_search_picker::GlobalSearchMatch},
+    workspace::BufferId,
 };
 use ferrite_utility::point::Point;
 use glue::{convert_style, ferrite_to_tui_rect, tui_to_ferrite_rect};
 use tui::{
-    layout::{Margin, Rect, Size},
-    prelude::Backend,
+    layout::{Margin, Rect},
+    widgets::{StatefulWidget, Widget},
 };
 use widgets::{
-    chord_widget::ChordWidget, file_explorer_widget::FileExplorerWidget,
-    logger_widget::LoggerWidget,
-};
-
-use self::widgets::{
-    background_widget::BackgroundWidget, editor_widget::EditorWidget,
+    background_widget::BackgroundWidget, chord_widget::ChordWidget, editor_widget::EditorWidget,
+    file_explorer_widget::FileExplorerWidget, logger_widget::LoggerWidget,
     palette_widget::CmdPaletteWidget, picker_widget::PickerWidget, splash::SplashWidget,
 };
 
@@ -30,8 +29,7 @@ pub mod glue;
 pub mod rect_ext;
 pub mod widgets;
 
-pub struct TuiApp<B: Backend> {
-    pub terminal: tui::Terminal<B>,
+pub struct TuiApp {
     pub buffer_area: Rect,
     pub drag_start: Option<Point<usize>>,
     pub engine: Engine,
@@ -39,24 +37,19 @@ pub struct TuiApp<B: Backend> {
 }
 
 #[profiling::all_functions]
-impl<B> TuiApp<B>
-where
-    B: Backend,
-{
+impl TuiApp {
     pub fn new<P: EventLoopProxy + 'static>(
         args: &Args,
         proxy: P,
-        backend: B,
         recv: mpsc::Receiver<LogMessage>,
+        width: u16,
+        height: u16,
     ) -> Result<Self> {
         let engine = Engine::new(args, Box::new(proxy), recv)?;
 
         logger::set_proxy(engine.proxy.dup());
 
-        let Size { width, height } = backend.size()?;
-
         Ok(Self {
-            terminal: tui::Terminal::new(backend)?,
             buffer_area: Rect {
                 x: 0,
                 y: 0,
@@ -76,178 +69,191 @@ where
         profiling::finish_frame!();
     }
 
-    pub fn render(&mut self) {
-        if self.engine.force_redraw {
-            self.engine.force_redraw = false;
-            let _ = self.terminal.clear();
+    pub fn draw_pane_borders(&mut self, buf: &mut tui::buffer::Buffer, size: Rect) {
+        let theme = &self.engine.themes[&self.engine.config.editor.theme];
+        for x in size.x..(size.x + size.width) {
+            for y in size.y..(size.y + size.height) {
+                let cell = buf.cell_mut((x, y)).unwrap();
+                cell.set_symbol("│");
+                cell.set_style(convert_style(&theme.pane_border));
+            }
         }
-        self.terminal
-            .draw(|f| {
-                let theme = &self.engine.themes[&self.engine.config.editor.theme];
-                f.render_widget(BackgroundWidget::new(theme), f.area());
-                let size = f.area();
-                let editor_size = Rect::new(
-                    size.x,
-                    size.y,
-                    size.width,
-                    size.height
-                        .saturating_sub(self.engine.palette.height() as u16),
-                );
+    }
 
-                for x in editor_size.x..(editor_size.x + editor_size.width) {
-                    for y in editor_size.y..(editor_size.y + editor_size.height) {
-                        let cell = f.buffer_mut().cell_mut((x, y)).unwrap();
-                        cell.set_symbol("│");
-                        cell.set_style(convert_style(&theme.pane_border));
-                    }
+    pub fn draw_buffer(
+        &mut self,
+        buf: &mut tui::buffer::Buffer,
+        area: Rect,
+        buffer_id: BufferId,
+        view_id: ViewId,
+    ) {
+        profiling::scope!("render tui editor");
+        let current_pane = self.engine.workspace.panes.get_current_pane();
+        let theme = &self.engine.themes[&self.engine.config.editor.theme];
+        EditorWidget::new(
+            theme,
+            &self.engine.config.editor,
+            view_id,
+            !self.engine.palette.has_focus()
+                && self.engine.file_picker.is_none()
+                && self.engine.buffer_picker.is_none()
+                && current_pane == PaneKind::Buffer(buffer_id, view_id),
+            self.engine.branch_watcher.current_branch(),
+            self.engine.spinner.current(),
+        )
+        .render(area, buf, &mut self.engine.workspace.buffers[buffer_id]);
+
+        if self.engine.config.editor.show_splash && self.engine.workspace.panes.num_panes() == 1 {
+            let buffer = &mut self.engine.workspace.buffers[buffer_id];
+            if buffer.len_bytes() == 0
+                && !buffer.is_dirty()
+                && buffer.file().is_none()
+                && self.engine.workspace.buffers.len() == 1
+            {
+                SplashWidget::new(theme).render(area, buf);
+            }
+        }
+    }
+
+    pub fn draw_file_explorer(
+        &mut self,
+        buf: &mut tui::buffer::Buffer,
+        area: Rect,
+        file_explorer_id: FileExplorerId,
+    ) {
+        profiling::scope!("render tui file explorer");
+        let current_pane = self.engine.workspace.panes.get_current_pane();
+        let has_focus = !self.engine.palette.has_focus()
+            && self.engine.file_picker.is_none()
+            && self.engine.buffer_picker.is_none()
+            && current_pane == PaneKind::FileExplorer(file_explorer_id);
+        FileExplorerWidget::new(
+            &self.engine.themes[&self.engine.config.editor.theme],
+            &self.engine.config.editor,
+            has_focus,
+        )
+        .render(
+            area,
+            buf,
+            &mut self.engine.workspace.file_explorers[file_explorer_id],
+        );
+    }
+
+    pub fn draw_logger(&mut self, buf: &mut tui::buffer::Buffer, area: Rect) {
+        profiling::scope!("render tui logger");
+        let current_pane = self.engine.workspace.panes.get_current_pane();
+        let has_focus = !self.engine.palette.has_focus()
+            && self.engine.file_picker.is_none()
+            && self.engine.buffer_picker.is_none()
+            && current_pane == PaneKind::Logger;
+        LoggerWidget::new(
+            &self.engine.themes[&self.engine.config.editor.theme],
+            self.engine.last_render_time,
+            has_focus,
+        )
+        .render(area, buf, &mut self.engine.logger_state);
+    }
+
+    pub fn draw_overlays(&mut self, buf: &mut tui::buffer::Buffer, size: Rect) {
+        if let Some(file_picker) = &mut self.engine.file_picker {
+            profiling::scope!("render tui file picker");
+            let size = size.inner(Margin {
+                horizontal: 5,
+                vertical: 2,
+            });
+            PickerWidget::new(
+                &self.engine.themes[&self.engine.config.editor.theme],
+                &self.engine.config.editor,
+                "Open file",
+            )
+            .render(size, buf, file_picker);
+        }
+
+        if let Some(buffer_picker) = &mut self.engine.buffer_picker {
+            profiling::scope!("render tui buffer picker");
+            let size = size.inner(Margin {
+                horizontal: 5,
+                vertical: 2,
+            });
+            PickerWidget::<BufferItem>::new(
+                &self.engine.themes[&self.engine.config.editor.theme],
+                &self.engine.config.editor,
+                "Open buffer",
+            )
+            .render(size, buf, buffer_picker);
+        }
+
+        if let Some(global_search_picker) = &mut self.engine.global_search_picker {
+            profiling::scope!("render tui search picker");
+            let size = size.inner(Margin {
+                horizontal: 5,
+                vertical: 2,
+            });
+            PickerWidget::<GlobalSearchMatch>::new(
+                &self.engine.themes[&self.engine.config.editor.theme],
+                &self.engine.config.editor,
+                "Matches",
+            )
+            .set_text_align(widgets::picker_widget::TextAlign::Left)
+            .render(size, buf, global_search_picker);
+        }
+
+        let palette_size = Rect::new(
+            size.left(),
+            size.bottom()
+                .saturating_sub(self.engine.palette.height() as u16),
+            size.width,
+            (self.engine.palette.height() as u16).min(size.height),
+        );
+        CmdPaletteWidget::new(
+            &self.engine.themes[&self.engine.config.editor.theme],
+            &self.engine.config.editor,
+            self.engine.palette.has_focus(),
+            size,
+        )
+        .render(palette_size, buf, &mut self.engine.palette);
+
+        if self.engine.chord.is_some() {
+            ChordWidget::new(
+                &self.engine.themes[&self.engine.config.editor.theme],
+                self.engine.get_current_keymappings(),
+            )
+            .render(size, buf);
+        }
+    }
+
+    pub fn render(&mut self, buf: &mut tui::buffer::Buffer, size: Rect) {
+        BackgroundWidget::new(&self.engine.themes[&self.engine.config.editor.theme])
+            .render(size, buf);
+        let editor_size = Rect::new(
+            size.x,
+            size.y,
+            size.width,
+            size.height
+                .saturating_sub(self.engine.palette.height() as u16),
+        );
+        self.draw_pane_borders(buf, editor_size);
+
+        self.buffer_area = editor_size;
+        for (pane, pane_rect) in self
+            .engine
+            .workspace
+            .panes
+            .get_pane_bounds(tui_to_ferrite_rect(editor_size))
+        {
+            match pane {
+                PaneKind::Buffer(buffer_id, view_id) => {
+                    self.draw_buffer(buf, ferrite_to_tui_rect(pane_rect), buffer_id, view_id);
                 }
-
-                self.buffer_area = editor_size;
-                let current_pane = self.engine.workspace.panes.get_current_pane();
-                for (pane, pane_rect) in self
-                    .engine
-                    .workspace
-                    .panes
-                    .get_pane_bounds(tui_to_ferrite_rect(editor_size))
-                {
-                    match pane {
-                        PaneKind::Buffer(buffer_id, view_id) => {
-                            profiling::scope!("render tui editor");
-                            f.render_stateful_widget(
-                                EditorWidget::new(
-                                    theme,
-                                    &self.engine.config.editor,
-                                    view_id,
-                                    !self.engine.palette.has_focus()
-                                        && self.engine.file_picker.is_none()
-                                        && self.engine.buffer_picker.is_none()
-                                        && current_pane == pane,
-                                    self.engine.branch_watcher.current_branch(),
-                                    self.engine.spinner.current(),
-                                ),
-                                ferrite_to_tui_rect(pane_rect),
-                                &mut self.engine.workspace.buffers[buffer_id],
-                            );
-
-                            if self.engine.config.editor.show_splash
-                                && self.engine.workspace.panes.num_panes() == 1
-                            {
-                                let buffer = &mut self.engine.workspace.buffers[buffer_id];
-                                if buffer.len_bytes() == 0
-                                    && !buffer.is_dirty()
-                                    && buffer.file().is_none()
-                                    && self.engine.workspace.buffers.len() == 1
-                                {
-                                    f.render_widget(
-                                        SplashWidget::new(theme),
-                                        ferrite_to_tui_rect(pane_rect),
-                                    );
-                                }
-                            }
-                        }
-                        PaneKind::FileExplorer(file_explorer_id) => {
-                            profiling::scope!("render tui file explorer");
-                            let has_focus = !self.engine.palette.has_focus()
-                                && self.engine.file_picker.is_none()
-                                && self.engine.buffer_picker.is_none()
-                                && current_pane == pane;
-                            f.render_stateful_widget(
-                                FileExplorerWidget::new(
-                                    theme,
-                                    &self.engine.config.editor,
-                                    has_focus,
-                                ),
-                                ferrite_to_tui_rect(pane_rect),
-                                &mut self.engine.workspace.file_explorers[file_explorer_id],
-                            );
-                        }
-                        PaneKind::Logger => {
-                            profiling::scope!("render tui logger");
-                            let has_focus = !self.engine.palette.has_focus()
-                                && self.engine.file_picker.is_none()
-                                && self.engine.buffer_picker.is_none()
-                                && current_pane == pane;
-                            f.render_stateful_widget(
-                                LoggerWidget::new(theme, self.engine.last_render_time, has_focus),
-                                ferrite_to_tui_rect(pane_rect),
-                                &mut self.engine.logger_state,
-                            );
-                        }
-                    }
+                PaneKind::FileExplorer(file_explorer_id) => {
+                    self.draw_file_explorer(buf, ferrite_to_tui_rect(pane_rect), file_explorer_id);
                 }
-
-                if let Some(file_picker) = &mut self.engine.file_picker {
-                    profiling::scope!("render tui file picker");
-                    let size = size.inner(Margin {
-                        horizontal: 5,
-                        vertical: 2,
-                    });
-                    f.render_stateful_widget(
-                        PickerWidget::new(theme, &self.engine.config.editor, "Open file"),
-                        size,
-                        file_picker,
-                    );
+                PaneKind::Logger => {
+                    self.draw_logger(buf, ferrite_to_tui_rect(pane_rect));
                 }
+            }
+        }
 
-                if let Some(buffer_picker) = &mut self.engine.buffer_picker {
-                    profiling::scope!("render tui buffer picker");
-                    let size = size.inner(Margin {
-                        horizontal: 5,
-                        vertical: 2,
-                    });
-                    f.render_stateful_widget(
-                        PickerWidget::<BufferItem>::new(
-                            theme,
-                            &self.engine.config.editor,
-                            "Open buffer",
-                        ),
-                        size,
-                        buffer_picker,
-                    );
-                }
-
-                if let Some(global_search_picker) = &mut self.engine.global_search_picker {
-                    profiling::scope!("render tui search picker");
-                    let size = size.inner(Margin {
-                        horizontal: 5,
-                        vertical: 2,
-                    });
-                    f.render_stateful_widget(
-                        PickerWidget::<GlobalSearchMatch>::new(
-                            theme,
-                            &self.engine.config.editor,
-                            "Matches",
-                        )
-                        .set_text_align(widgets::picker_widget::TextAlign::Left),
-                        size,
-                        global_search_picker,
-                    );
-                }
-
-                let palette_size = Rect::new(
-                    size.left(),
-                    size.bottom()
-                        .saturating_sub(self.engine.palette.height() as u16),
-                    size.width,
-                    (self.engine.palette.height() as u16).min(size.height),
-                );
-                f.render_stateful_widget(
-                    CmdPaletteWidget::new(
-                        theme,
-                        &self.engine.config.editor,
-                        self.engine.palette.has_focus(),
-                        size,
-                    ),
-                    palette_size,
-                    &mut self.engine.palette,
-                );
-
-                if self.engine.chord.is_some() {
-                    let chord_widget =
-                        ChordWidget::new(theme, self.engine.get_current_keymappings());
-                    f.render_widget(chord_widget, size);
-                }
-            })
-            .unwrap();
+        self.draw_overlays(buf, size);
     }
 }
