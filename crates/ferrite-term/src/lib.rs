@@ -172,8 +172,8 @@ impl TermApp {
                     }
                     Event::Mouse(event) => match event.kind {
                         // TODO allow scoll when using cmd palette
-                        MouseEventKind::ScrollUp => Some(Cmd::VerticalScroll { distance: -3 }),
-                        MouseEventKind::ScrollDown => Some(Cmd::VerticalScroll { distance: 3 }),
+                        MouseEventKind::ScrollUp => Some(Cmd::VerticalScroll { distance: -3.0 }),
+                        MouseEventKind::ScrollDown => Some(Cmd::VerticalScroll { distance: 3.0 }),
                         MouseEventKind::Down(MouseButton::Middle) => {
                             for (pane_kind, pane_rect) in self
                                 .tui_app

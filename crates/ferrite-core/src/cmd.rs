@@ -12,7 +12,7 @@ pub enum LineMoveDir {
     Down,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "cmd", rename_all = "snake_case")]
 pub enum Cmd {
     Nop,
@@ -168,7 +168,7 @@ pub enum Cmd {
     Undo,
     Redo,
     VerticalScroll {
-        distance: i64,
+        distance: f64,
     },
     ReplaceCurrentMatch,
     GlobalSearch,

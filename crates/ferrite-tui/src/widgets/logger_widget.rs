@@ -38,7 +38,10 @@ impl StatefulWidget for LoggerWidget<'_> {
 
         buf.set_style(area, convert_style(&self.theme.background));
         for y in 0..area.height.saturating_sub(1) {
-            match state.messages.get(y as usize + state.lines_scrolled_up) {
+            match state
+                .messages
+                .get(y as usize + state.lines_scrolled_up.floor() as usize)
+            {
                 Some(msg) => {
                     let string = format!("{:>5} {} {}", msg.level, msg.target, msg.fields.message);
                     buf.set_stringn(

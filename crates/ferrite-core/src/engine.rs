@@ -866,7 +866,7 @@ impl Engine {
             }
             Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
             Cmd::Logger => {
-                self.logger_state.lines_scrolled_up = 0;
+                self.logger_state.lines_scrolled_up = 0.0;
                 self.workspace.panes.replace_current(PaneKind::Logger);
             }
             Cmd::Theme { theme } => match theme {

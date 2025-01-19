@@ -78,7 +78,7 @@ pub struct Fields {
 
 #[derive(Debug)]
 pub struct LoggerState {
-    pub lines_scrolled_up: usize,
+    pub lines_scrolled_up: f64,
     pub messages: VecDeque<LogMessage>,
     recv: mpsc::Receiver<LogMessage>,
 }
@@ -86,7 +86,7 @@ pub struct LoggerState {
 impl LoggerState {
     pub fn new(recv: mpsc::Receiver<LogMessage>) -> Self {
         Self {
-            lines_scrolled_up: 0,
+            lines_scrolled_up: 0.0,
             messages: VecDeque::new(),
             recv,
         }
@@ -95,8 +95,8 @@ impl LoggerState {
     pub fn update(&mut self) {
         while let Ok(msg) = self.recv.try_recv() {
             self.messages.push_front(msg);
-            if self.lines_scrolled_up != 0 {
-                self.lines_scrolled_up += 1;
+            if self.lines_scrolled_up != 0.0 {
+                self.lines_scrolled_up += 1.0;
             }
         }
 
@@ -108,10 +108,10 @@ impl LoggerState {
     pub fn handle_input(&mut self, input: Cmd) {
         match input {
             Cmd::VerticalScroll { distance } => {
-                self.lines_scrolled_up = (self.lines_scrolled_up as i64 - distance).max(0) as usize;
+                self.lines_scrolled_up = (self.lines_scrolled_up - distance).max(0.0);
             }
-            Cmd::End { .. } => self.lines_scrolled_up = 0,
-            Cmd::Escape { .. } => self.lines_scrolled_up = 0,
+            Cmd::End { .. } => self.lines_scrolled_up = 0.0,
+            Cmd::Escape { .. } => self.lines_scrolled_up = 0.0,
             _ => (),
         }
     }

@@ -107,8 +107,8 @@ pub struct Selection {
 
 pub struct View {
     pub cursors: Vec1<Cursor>,
-    pub line_pos: usize,
-    pub col_pos: usize,
+    pub line_pos: f64,
+    pub col_pos: f64,
     last_click: Instant,
     last_click_pos: Point<usize>,
     clicks_in_a_row: u8,
@@ -123,8 +123,8 @@ impl Default for View {
     fn default() -> Self {
         Self {
             cursors: Vec1::default(),
-            line_pos: 0,
-            col_pos: 0,
+            line_pos: 0.0,
+            col_pos: 0.0,
             last_click: Instant::now(),
             last_click_pos: Point::new(0, 0),
             clicks_in_a_row: 0,
@@ -175,6 +175,14 @@ impl View {
 
         new_cursors.sort();
         self.cursors = Vec1::from_vec(new_cursors.into_iter().map(|(_, c)| c).collect()).unwrap();
+    }
+
+    pub fn line_pos_floored(&self) -> usize {
+        self.line_pos.floor() as usize
+    }
+
+    pub fn col_pos_floored(&self) -> usize {
+        self.col_pos.floor() as usize
     }
 }
 
@@ -411,9 +419,9 @@ impl Buffer {
         let mut map = SecondaryMap::new();
         for view_id in self.views.keys() {
             let view = &self.views[view_id];
-            if view.view_lines + view.line_pos >= self.rope.len_lines() {
-                let space_left =
-                    (view.view_lines + view.line_pos).saturating_sub(self.rope.len_lines());
+            if view.view_lines + view.line_pos_floored() >= self.rope.len_lines() {
+                let space_left = (view.view_lines + view.line_pos_floored())
+                    .saturating_sub(self.rope.len_lines());
                 let scroll = added_lines.saturating_sub(space_left);
                 map.insert(view_id, scroll);
             }
@@ -425,7 +433,7 @@ impl Buffer {
         }
         for view_id in self.views.keys().collect::<Vec<_>>().into_iter() {
             if let Some(scroll) = map.get(view_id) {
-                self.vertical_scroll(view_id, *scroll as i64);
+                self.vertical_scroll(view_id, *scroll as f64);
             }
             // Disable cursor clamping here so pipe from shell command works
             let before = self.views[view_id].clamp_cursor;
@@ -493,17 +501,20 @@ impl Buffer {
 
     pub fn get_buffer_view(&self, view_id: ViewId) -> BufferView {
         let view = &self.views[view_id];
-        let end_line = cmp::min(self.rope.len_lines(), view.view_lines + view.line_pos);
+        let end_line = cmp::min(
+            self.rope.len_lines(),
+            view.view_lines + view.line_pos_floored(),
+        );
 
         let mut lines = Vec::new();
-        for line_idx in view.line_pos..end_line {
+        for line_idx in view.line_pos_floored()..end_line {
             let Some(line) = self.rope.get_line(line_idx) else {
                 break;
             };
             let mut idx = 0;
             let mut width = 0;
             for grapheme in line.grapehemes() {
-                if width >= view.col_pos {
+                if width >= view.col_pos_floored() {
                     break;
                 }
                 width += grapheme.width(width);
@@ -512,7 +523,7 @@ impl Buffer {
             let line = line.byte_slice(idx..);
             lines.push(ViewLine {
                 text: line,
-                col_start_offset: width.saturating_sub(view.col_pos),
+                col_start_offset: width.saturating_sub(view.col_pos_floored()),
                 text_start_col: self.rope.get_text_start_col(line_idx),
                 text_end_col: self.rope.get_text_end_col(line_idx),
             });
@@ -555,11 +566,11 @@ impl Buffer {
     }
 
     pub fn line_pos(&self, view_id: ViewId) -> usize {
-        self.views[view_id].line_pos
+        self.views[view_id].line_pos_floored()
     }
 
     pub fn col_pos(&self, view_id: ViewId) -> usize {
-        self.views[view_id].col_pos
+        self.views[view_id].col_pos_floored()
     }
 
     pub fn len_lines(&self) -> usize {
@@ -573,10 +584,10 @@ impl Buffer {
         max_lines: usize,
     ) -> Vec<(usize, usize)> {
         let view = &self.views[view_id];
-        let start_line = view.line_pos;
-        let end_line = std::cmp::min(self.rope.len_lines(), max_lines + view.line_pos);
-        let start_col = view.col_pos;
-        let end_col = view.col_pos + max_cols;
+        let start_line = view.line_pos_floored();
+        let end_line = std::cmp::min(self.rope.len_lines(), max_lines + view.line_pos_floored());
+        let start_col = view.col_pos_floored();
+        let end_col = view.col_pos_floored() + max_cols;
 
         let mut output = Vec::new();
         for i in 0..view.cursors.len() {
@@ -642,15 +653,15 @@ impl Buffer {
         }
     }
 
-    pub fn vertical_scroll(&mut self, view_id: ViewId, distance: i64) {
-        let len_lines = self.len_lines();
-        self.views[view_id].line_pos = (self.views[view_id].line_pos as i128 + distance as i128)
-            .clamp(0, len_lines as i128 - 1) as usize;
+    pub fn vertical_scroll(&mut self, view_id: ViewId, distance: f64) {
+        let len_lines = self.len_lines() as f64;
+        self.views[view_id].line_pos =
+            (self.views[view_id].line_pos + distance).clamp(0.0, len_lines - 1.0);
     }
 
-    pub fn horizontal_scroll(&mut self, view_id: ViewId, distance: i64) {
-        self.views[view_id].col_pos = (self.views[view_id].col_pos as i128 + distance as i128)
-            .clamp(0, usize::MAX as i128 - 1) as usize;
+    pub fn horizontal_scroll(&mut self, view_id: ViewId, distance: f64) {
+        self.views[view_id].col_pos =
+            (self.views[view_id].col_pos + distance).clamp(0.0, usize::MAX as f64 - 1.0);
     }
 
     pub fn move_right_char(&mut self, view_id: ViewId, expand_selection: bool) {
@@ -2334,23 +2345,23 @@ impl Buffer {
             let cursor_line = self
                 .rope
                 .byte_to_line(self.views[view_id].cursors[cursor_index].position);
-            let start_line = self.views[view_id].line_pos;
-            let end_line = self.views[view_id].line_pos + self.views[view_id].view_lines;
+            let start_line = self.views[view_id].line_pos_floored();
+            let end_line = start_line + self.views[view_id].view_lines;
             if cursor_line < start_line || cursor_line >= end_line {
                 self.views[view_id].line_pos =
-                    cursor_line.saturating_sub(self.views[view_id].view_lines / 2);
+                    cursor_line.saturating_sub(self.views[view_id].view_lines / 2) as f64;
             }
         }
 
         {
             let cursor_col = self.cursor_grapheme_column(view_id, cursor_index);
-            let start_col = self.views[view_id].col_pos;
-            let end_col = self.views[view_id].col_pos + self.views[view_id].view_columns;
+            let start_col = self.views[view_id].col_pos_floored();
+            let end_col = start_col + self.views[view_id].view_columns;
 
             if cursor_col <= start_col {
-                self.horizontal_scroll(view_id, -((start_col - cursor_col) as i64));
+                self.horizontal_scroll(view_id, -((start_col - cursor_col) as f64));
             } else if cursor_col >= end_col {
-                self.horizontal_scroll(view_id, (cursor_col - end_col + 1) as i64);
+                self.horizontal_scroll(view_id, (cursor_col - end_col + 1) as f64);
             }
         }
     }
@@ -2399,10 +2410,14 @@ impl Buffer {
     }
 
     pub fn view_range(&self, view_id: ViewId) -> Range<usize> {
-        let start = self.rope.line_to_byte(self.views[view_id].line_pos);
+        let start = self
+            .rope
+            .line_to_byte(self.views[view_id].line_pos_floored());
         let end = self
             .rope
-            .try_line_to_byte(self.views[view_id].line_pos + self.views[view_id].view_lines)
+            .try_line_to_byte(
+                self.views[view_id].line_pos_floored() + self.views[view_id].view_lines,
+            )
             .unwrap_or_else(|_| self.rope.len_bytes());
         start..end
     }
@@ -2734,8 +2749,8 @@ impl Buffer {
     pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
         self.views[view_id].cursors = buffer_data.cursors.clone();
         self.ensure_cursors_are_valid(view_id);
-        self.views[view_id].line_pos = buffer_data.line_pos;
-        self.views[view_id].col_pos = buffer_data.col_pos;
+        self.views[view_id].line_pos = buffer_data.line_pos as f64;
+        self.views[view_id].col_pos = buffer_data.col_pos as f64;
     }
 
     pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
@@ -2769,7 +2784,7 @@ impl Buffer {
         for view_id in view_ids {
             self.ensure_cursors_are_valid(view_id);
             let view = &mut self.views[view_id];
-            view.line_pos = self.rope.len_lines().min(view.line_pos);
+            view.line_pos = self.rope.len_lines().min(view.line_pos_floored()) as f64;
         }
     }
 
@@ -2873,11 +2888,13 @@ impl Buffer {
     pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
         let view = &self.views[view_id];
         let mut output = Vec::new();
-        let view_start_byte = self
-            .rope
-            .line_to_byte(self.views[view_id].line_pos.min(self.rope.len_lines()));
+        let view_start_byte = self.rope.line_to_byte(
+            self.views[view_id]
+                .line_pos_floored()
+                .min(self.rope.len_lines()),
+        );
         let view_end_byte = self.rope.line_to_byte(
-            (self.views[view_id].line_pos + self.views[view_id].view_lines)
+            (self.views[view_id].line_pos_floored() + self.views[view_id].view_lines)
                 .min(self.rope.len_lines()),
         );
         let view_cursor = Cursor {

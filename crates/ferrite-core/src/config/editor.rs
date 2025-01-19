@@ -70,7 +70,7 @@ pub struct Editor {
     pub keymap: IndexMap<Key, KeymapAndMetadata>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct KeymapAndMetadata {
     #[serde(flatten)]
     pub cmd: Cmd,

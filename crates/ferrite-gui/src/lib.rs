@@ -75,7 +75,6 @@ struct GuiApp {
     modifiers: KeyModifiers,
     mouse_position: PhysicalPosition<f64>,
     primary_mouse_button_pressed: bool,
-    vertical_scroll_delta: f64,
 }
 
 impl GuiApp {
@@ -207,7 +206,6 @@ impl GuiApp {
             modifiers: KeyModifiers::empty(),
             mouse_position: PhysicalPosition::default(),
             primary_mouse_button_pressed: false,
-            vertical_scroll_delta: 0.0,
         })
     }
 
@@ -328,31 +326,18 @@ impl GuiApp {
                 MouseScrollDelta::LineDelta(_, y) => {
                     self.tui_app.engine.handle_single_input_command(
                         Cmd::VerticalScroll {
-                            distance: -y as i64 * 3,
+                            distance: -y as f64 * 3.0,
                         },
                         &mut EventLoopControlFlow::Poll,
                     );
                 }
                 MouseScrollDelta::PixelDelta(physical_pos) => {
-                    self.vertical_scroll_delta += physical_pos.y;
                     let line_height = self.terminals[0].backend().line_height() as f64;
-                    loop {
-                        if self.vertical_scroll_delta >= line_height {
-                            self.vertical_scroll_delta -= line_height;
-                            self.tui_app.engine.handle_single_input_command(
-                                Cmd::VerticalScroll { distance: -1 },
-                                &mut EventLoopControlFlow::Poll,
-                            );
-                        } else if self.vertical_scroll_delta <= -line_height {
-                            self.vertical_scroll_delta += line_height;
-                            self.tui_app.engine.handle_single_input_command(
-                                Cmd::VerticalScroll { distance: 1 },
-                                &mut EventLoopControlFlow::Poll,
-                            );
-                        } else {
-                            break;
-                        }
-                    }
+                    let distance = physical_pos.y / line_height;
+                    self.tui_app.engine.handle_single_input_command(
+                        Cmd::VerticalScroll { distance },
+                        &mut EventLoopControlFlow::Poll,
+                    );
                 }
             },
             WindowEvent::ModifiersChanged(modifiers) => {

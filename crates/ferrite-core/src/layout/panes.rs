@@ -543,8 +543,8 @@ pub mod layout {
                         Some(Self::Leaf(PaneKind::Buffer {
                             path,
                             cursor: *view.cursors.first(),
-                            line_pos: view.line_pos,
-                            col_pos: view.col_pos,
+                            line_pos: view.line_pos_floored(),
+                            col_pos: view.col_pos_floored(),
                         }))
                     }
                     super::PaneKind::FileExplorer(file_explorer_id) => {
@@ -600,8 +600,8 @@ pub mod layout {
                         let view_id = buffer.create_view();
                         let view = &mut buffer.views[view_id];
                         view.cursors = Vec1::new(*cursor);
-                        view.line_pos = *line_pos;
-                        view.col_pos = *col_pos;
+                        view.line_pos = *line_pos as f64;
+                        view.col_pos = *col_pos as f64;
                         buffer.ensure_cursors_are_valid(view_id);
 
                         Some(super::Pane::Leaf(super::PaneKind::Buffer(
@@ -678,8 +678,8 @@ pub mod layout {
                             let view_id = buffer.create_view();
                             let view = &mut buffer.views[view_id];
                             view.cursors = Vec1::new(*cursor);
-                            view.line_pos = *line_pos;
-                            view.col_pos = *col_pos;
+                            view.line_pos = *line_pos as f64;
+                            view.col_pos = *col_pos as f64;
                             super::PaneKind::Buffer(buffer_id, view_id)
                         }
                         None => pane.get_first_leaf(),
@@ -717,8 +717,8 @@ pub mod layout {
                                 Some(PaneKind::Buffer {
                                     path: path.into(),
                                     cursor: *view.cursors.first(),
-                                    line_pos: view.line_pos,
-                                    col_pos: view.col_pos,
+                                    line_pos: view.line_pos_floored(),
+                                    col_pos: view.col_pos_floored(),
                                 })
                             } else {
                                 None
