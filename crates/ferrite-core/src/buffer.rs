@@ -659,6 +659,11 @@ impl Buffer {
             (self.views[view_id].line_pos + distance).clamp(0.0, len_lines - 1.0);
     }
 
+    pub fn vertical_scroll_to(&mut self, view_id: ViewId, position: f64) {
+        let len_lines = self.len_lines() as f64;
+        self.views[view_id].line_pos = position.clamp(0.0, len_lines - 1.0);
+    }
+
     pub fn horizontal_scroll(&mut self, view_id: ViewId, distance: f64) {
         self.views[view_id].col_pos =
             (self.views[view_id].col_pos + distance).clamp(0.0, usize::MAX as f64 - 1.0);

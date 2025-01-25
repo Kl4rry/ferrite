@@ -42,6 +42,7 @@ impl Buffer {
             }
             TabOrIndent { back } if !self.read_only => self.tab_or_indent(view_id, back),
             VerticalScroll { distance } => self.vertical_scroll(view_id, distance),
+            VerticalScrollTo { position } => self.vertical_scroll_to(view_id, position),
             Escape => self.escape(view_id),
             ClickCell {
                 spawn_cursor,

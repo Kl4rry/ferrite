@@ -19,9 +19,7 @@ use ferrite_core::{
     event_loop_proxy::EventLoopControlFlow, keymap, layout::panes::PaneKind, logger::LogMessage,
 };
 use ferrite_tui::{
-    glue::{ferrite_to_tui_rect, tui_to_ferrite_rect},
-    widgets::editor_widget::lines_to_left_offset,
-    TuiApp,
+    glue::ferrite_to_tui_rect, widgets::editor_widget::lines_to_left_offset, TuiApp,
 };
 use ferrite_utility::point::Point;
 use glue::{convert_keycode, convert_modifier};
@@ -58,6 +56,7 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
 
     let term_app = TermApp {
         tui_app,
+        drag_start: None,
         terminal,
         keyboard_enhancement: false,
     };
@@ -68,6 +67,7 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
 pub struct TermApp {
     tui_app: TuiApp,
     terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
+    drag_start: Option<Point<usize>>,
     keyboard_enhancement: bool,
 }
 
@@ -182,7 +182,7 @@ impl TermApp {
                                 .engine
                                 .workspace
                                 .panes
-                                .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                                .get_pane_bounds(self.tui_app.engine.buffer_area)
                             {
                                 if ferrite_to_tui_rect(pane_rect)
                                     .contains(Position::new(event.column, event.row))
@@ -212,7 +212,7 @@ impl TermApp {
                                 .engine
                                 .workspace
                                 .panes
-                                .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                                .get_pane_bounds(self.tui_app.engine.buffer_area)
                             {
                                 if ferrite_to_tui_rect(pane_rect)
                                     .contains(Position::new(event.column, event.row))
@@ -221,7 +221,7 @@ impl TermApp {
                                     if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
                                         let buffer =
                                             &self.tui_app.engine.workspace.buffers[buffer_id];
-                                        self.tui_app.drag_start = Some(Point::new(
+                                        self.drag_start = Some(Point::new(
                                             event.column as usize + buffer.col_pos(view_id),
                                             event.row as usize + buffer.line_pos(view_id),
                                         ));
@@ -246,7 +246,7 @@ impl TermApp {
                             None
                         }
                         MouseEventKind::Up(MouseButton::Left) => {
-                            self.tui_app.drag_start = None;
+                            self.drag_start = None;
                             None
                         }
                         MouseEventKind::Drag(MouseButton::Left) => {
@@ -255,7 +255,7 @@ impl TermApp {
                                 .engine
                                 .workspace
                                 .panes
-                                .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                                .get_pane_bounds(self.tui_app.engine.buffer_area)
                             {
                                 if ferrite_to_tui_rect(pane_rect)
                                     .contains(Position::new(event.column, event.row))
@@ -263,9 +263,7 @@ impl TermApp {
                                     self.tui_app.engine.workspace.panes.make_current(pane_kind);
                                     if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
                                         // TODO maybe scroll more of the buffer into view when going outside its bounds
-                                        if let Some(Point { line, column }) =
-                                            self.tui_app.drag_start
-                                        {
+                                        if let Some(Point { line, column }) = self.drag_start {
                                             let buffer = &mut self.tui_app.engine.workspace.buffers
                                                 [buffer_id];
                                             let (_, left_offset) =
@@ -305,7 +303,6 @@ impl TermApp {
                 }
             };
 
-            self.tui_app.engine.buffer_area = tui_to_ferrite_rect(self.tui_app.buffer_area);
             if let Some(input) = input {
                 self.tui_app
                     .engine

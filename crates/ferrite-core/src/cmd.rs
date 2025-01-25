@@ -170,6 +170,9 @@ pub enum Cmd {
     VerticalScroll {
         distance: f64,
     },
+    VerticalScrollTo {
+        position: f64,
+    },
     ReplaceCurrentMatch,
     GlobalSearch,
     CaseInsensitive,
@@ -256,6 +259,7 @@ impl Cmd {
             Redo => "Redo",
             RevertBuffer => "Revert buffer",
             VerticalScroll { .. } => "Vertical scroll",
+            VerticalScrollTo { .. } => "Vertical scroll to",
             Search => "Search file",
             Replace => "Replace",
             ReplaceCurrentMatch => "Replace current match",
@@ -386,6 +390,7 @@ impl Cmd {
             Redo => true,
             RevertBuffer => false,
             VerticalScroll { .. } => true,
+            VerticalScrollTo { .. } => false,
             Search => false,
             Replace => false,
             ReplaceCurrentMatch => true,

@@ -12,7 +12,6 @@ use ferrite_core::{
     picker::{buffer_picker::BufferItem, global_search_picker::GlobalSearchMatch},
     workspace::BufferId,
 };
-use ferrite_utility::point::Point;
 use glue::{convert_style, ferrite_to_tui_rect, tui_to_ferrite_rect};
 use tui::{
     layout::{Margin, Rect},
@@ -30,8 +29,6 @@ pub mod rect_ext;
 pub mod widgets;
 
 pub struct TuiApp {
-    pub buffer_area: Rect,
-    pub drag_start: Option<Point<usize>>,
     pub engine: Engine,
     pub keyboard_enhancement: bool,
 }
@@ -45,18 +42,19 @@ impl TuiApp {
         width: u16,
         height: u16,
     ) -> Result<Self> {
-        let engine = Engine::new(args, Box::new(proxy), recv)?;
+        let mut engine = Engine::new(args, Box::new(proxy), recv)?;
+
+        let editor_size = tui::layout::Rect::new(
+            0,
+            0,
+            width,
+            height.saturating_sub(engine.palette.height() as u16),
+        );
+        engine.buffer_area = tui_to_ferrite_rect(editor_size);
 
         logger::set_proxy(engine.proxy.dup());
 
         Ok(Self {
-            buffer_area: Rect {
-                x: 0,
-                y: 0,
-                width,
-                height: height.saturating_sub(2),
-            },
-            drag_start: None,
             engine,
             keyboard_enhancement: false,
         })
@@ -229,7 +227,7 @@ impl TuiApp {
         );
         self.draw_pane_borders(buf, editor_size);
 
-        self.buffer_area = editor_size;
+        self.engine.buffer_area = tui_to_ferrite_rect(editor_size);
         for (pane, pane_rect) in self
             .engine
             .workspace

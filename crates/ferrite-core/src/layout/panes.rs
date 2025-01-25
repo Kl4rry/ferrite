@@ -6,31 +6,8 @@ use slotmap::Key;
 
 use crate::{buffer::ViewId, file_explorer::FileExplorerId, workspace::BufferId};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Rect {
-    pub x: usize,
-    pub y: usize,
-    pub width: usize,
-    pub height: usize,
-}
-
-impl Rect {
-    pub fn new(x: usize, y: usize, width: usize, height: usize) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-        }
-    }
-
-    pub fn intersects(&self, other: &Self) -> bool {
-        self.x < self.x + self.width
-            && self.x + self.width > other.x
-            && self.y < self.y + self.height
-            && self.y + self.height > other.y
-    }
-}
+// TODO: Remove this
+pub type Rect = ferrite_utility::geom::Rect<usize>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneKind {

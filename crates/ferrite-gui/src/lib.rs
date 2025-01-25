@@ -10,20 +10,26 @@ use backend::{calculate_cell_size, get_metrics, WgpuBackend};
 use event_loop_wrapper::EventLoopProxyWrapper;
 use ferrite_cli::Args;
 use ferrite_core::{
+    buffer::ViewId,
     clipboard,
     cmd::Cmd,
     config::editor::{default_font, FontWeight},
     event_loop_proxy::{EventLoopControlFlow, UserEvent},
     keymap::{self, keycode::KeyModifiers},
-    layout::panes::{PaneKind, Rect},
+    layout::panes::PaneKind,
     logger::LogMessage,
+    workspace::BufferId,
 };
 use ferrite_tui::{
     glue::{ferrite_to_tui_rect, tui_to_ferrite_rect},
     widgets::editor_widget::lines_to_left_offset,
     TuiApp,
 };
-use ferrite_utility::{line_ending::LineEnding, point::Point};
+use ferrite_utility::{
+    geom::{Rect, Vec2},
+    line_ending::LineEnding,
+    point::Point,
+};
 use glue::convert_keycode;
 use renderer::{Layer, Renderer};
 use tui::{layout::Position, Terminal};
@@ -65,9 +71,15 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     Ok(())
 }
 
+pub struct Drag {
+    drag_start: Vec2<f64>,
+    pane_kind: PaneKind,
+    scrollbar: bool,
+}
+
 pub struct TerminalPane {
     terminal: Terminal<WgpuBackend>,
-    pane_rect: Rect,
+    pane_rect: Rect<usize>,
     touched: bool,
 }
 
@@ -75,8 +87,8 @@ struct GuiApp {
     tui_app: TuiApp,
     terminals: [Terminal<WgpuBackend>; 1],
     terminal_panes: HashMap<PaneKind, TerminalPane>,
-    renderer: Renderer,
     control_flow: EventLoopControlFlow,
+    renderer: Renderer,
     // rendering stuff
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
@@ -85,8 +97,10 @@ struct GuiApp {
     size: winit::dpi::PhysicalSize<u32>,
     scale_factor: f64,
     window: Arc<Window>,
+    // inpout
     modifiers: KeyModifiers,
     mouse_position: PhysicalPosition<f64>,
+    drag: Option<Drag>,
     primary_mouse_button_pressed: bool,
 }
 
@@ -212,6 +226,7 @@ impl GuiApp {
             scale_factor,
             modifiers: KeyModifiers::empty(),
             mouse_position: PhysicalPosition::default(),
+            drag: None,
             primary_mouse_button_pressed: false,
         })
     }
@@ -465,80 +480,99 @@ impl GuiApp {
                 }
             }
             WindowEvent::CursorMoved { position, .. } => {
-                let backend = self.terminals[0].backend();
                 self.mouse_position = position;
-
-                let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
-                let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
                 if self.primary_mouse_button_pressed {
-                    self.handle_drag(column, line);
+                    self.handle_drag(self.mouse_position.x, self.mouse_position.y);
                 }
-                self.handle_hover(column, line);
+                self.handle_hover(self.mouse_position.x, self.mouse_position.y);
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                let backend = self.terminals[0].backend();
-
-                let column = (self.mouse_position.x / backend.cell_width as f64).round() as u16;
-                let line = (self.mouse_position.y / backend.cell_height as f64) as u16;
-                self.handle_click(column, line, state, button);
+                self.handle_click(self.mouse_position.x, self.mouse_position.y, state, button);
             }
             _ => (),
         }
     }
 
-    pub fn handle_hover(&mut self, column: u16, line: u16) {
+    pub fn pixel_to_cell(&self, x: f64, y: f64) -> Point<u16> {
+        let (cell_width, cell_height) = self.get_cell_size();
+        let column = (x / cell_width as f64).round() as u16;
+        let line = (y / cell_height as f64) as u16;
+        Point::new(column, line)
+    }
+
+    pub fn get_cell_size(&self) -> (f32, f32) {
+        let backend = self.terminals[0].backend();
+        (backend.cell_width, backend.cell_height)
+    }
+
+    pub fn handle_hover(&mut self, x: f64, y: f64) {
+        let (cell_width, cell_height) = self.get_cell_size();
+        let Point { column, line } = self.pixel_to_cell(x, y);
         let mut cursor = CursorIcon::Default;
         for (pane_kind, pane_rect) in self
             .tui_app
             .engine
             .workspace
             .panes
-            .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+            .get_pane_bounds(self.tui_app.engine.buffer_area)
         {
-            if let PaneKind::Buffer(buffer_id, _) = pane_kind {
-                let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
-                let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
-                let mut rect = ferrite_to_tui_rect(pane_rect);
-                rect.x += left_offset as u16;
-                rect.width = rect.width.saturating_sub(left_offset as u16);
-                rect.height = rect.height.saturating_sub(1);
-                if rect.contains(Position::new(column, line)) {
-                    cursor = CursorIcon::Text
+            if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
+                let rect = self.get_scrollbar_bounds(
+                    &pane_rect,
+                    buffer_id,
+                    view_id,
+                    cell_width,
+                    cell_height,
+                );
+                if rect.contains(Vec2::new(x as f32, y as f32)) {
+                    cursor = CursorIcon::Pointer;
+                } else {
+                    let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
+                    let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                    let mut rect = ferrite_to_tui_rect(pane_rect);
+                    rect.x += left_offset as u16;
+                    rect.width = rect.width.saturating_sub(left_offset as u16);
+                    rect.height = rect.height.saturating_sub(1);
+                    if rect.contains(Position::new(column, line)) {
+                        cursor = CursorIcon::Text;
+                    }
                 }
             }
         }
         self.window.set_cursor_icon(cursor);
     }
 
-    pub fn handle_click(
-        &mut self,
-        column: u16,
-        line: u16,
-        state: ElementState,
-        button: MouseButton,
-    ) {
+    pub fn handle_click(&mut self, x: f64, y: f64, state: ElementState, button: MouseButton) {
+        let (cell_width, cell_height) = calculate_cell_size(
+            &mut self.renderer.font_system,
+            get_metrics(self.tui_app.engine.scale),
+            self.tui_app.engine.config.editor.gui.font_weight,
+        );
+        let Point { column, line } = self.pixel_to_cell(x, y);
         let input = 'block: {
             match (state, button) {
                 (ElementState::Pressed, MouseButton::Middle) => {
-                    for (pane_kind, pane_rect) in self
+                    if let Some((pane_kind, pane_rect)) = self
                         .tui_app
                         .engine
                         .workspace
                         .panes
-                        .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                        .get_pane_bounds(self.tui_app.engine.buffer_area)
+                        .iter()
+                        .find(|(_, pane_rect)| {
+                            pane_rect.contains(Vec2::new(column as usize, line as usize))
+                        })
                     {
-                        if ferrite_to_tui_rect(pane_rect).contains(Position::new(column, line)) {
-                            self.tui_app.engine.workspace.panes.make_current(pane_kind);
-                            if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
-                                let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
-                                let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
-                                let column = ((column as usize) + buffer.col_pos(view_id))
-                                    .saturating_sub(pane_rect.x)
-                                    .saturating_sub(left_offset);
-                                let line = (line as usize + buffer.line_pos(view_id))
-                                    .saturating_sub(pane_rect.y);
-                                break 'block Some(Cmd::PastePrimary { column, line });
-                            }
+                        self.tui_app.engine.workspace.panes.make_current(*pane_kind);
+                        if let PaneKind::Buffer(buffer_id, view_id) = *pane_kind {
+                            let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
+                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                            let column = ((column as usize) + buffer.col_pos(view_id))
+                                .saturating_sub(pane_rect.x)
+                                .saturating_sub(left_offset);
+                            let line = (line as usize + buffer.line_pos(view_id))
+                                .saturating_sub(pane_rect.y);
+                            break 'block Some(Cmd::PastePrimary { column, line });
                         }
                     }
 
@@ -546,48 +580,72 @@ impl GuiApp {
                 }
                 (ElementState::Pressed, MouseButton::Left) => {
                     self.primary_mouse_button_pressed = true;
-                    for (pane_kind, pane_rect) in self
+                    let Point { column, line } = self.pixel_to_cell(x, y);
+                    if let Some((pane_kind, pane_rect)) = self
                         .tui_app
                         .engine
                         .workspace
                         .panes
-                        .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+                        .get_pane_bounds(self.tui_app.engine.buffer_area)
+                        .iter()
+                        .find(|(_, pane_rect)| {
+                            pane_rect.contains(Vec2::new(column as usize, line as usize))
+                        })
                     {
-                        if ferrite_to_tui_rect(pane_rect).contains(Position::new(column, line)) {
-                            self.tui_app.engine.workspace.panes.make_current(pane_kind);
-                            if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
-                                let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
-                                self.tui_app.drag_start = Some(Point::new(
-                                    column as usize + buffer.col_pos(view_id),
-                                    line as usize + buffer.line_pos(view_id),
-                                ));
+                        self.tui_app.engine.workspace.panes.make_current(*pane_kind);
+                        if let PaneKind::Buffer(buffer_id, view_id) = *pane_kind {
+                            let scrollbar_rect = self.get_scrollbar_bounds(
+                                pane_rect,
+                                buffer_id,
+                                view_id,
+                                cell_width,
+                                cell_height,
+                            );
+                            let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
 
-                                let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
-                                let column = ((column as usize) + buffer.col_pos(view_id))
-                                    .saturating_sub(pane_rect.x)
-                                    .saturating_sub(left_offset);
-                                let line = (line as usize + buffer.line_pos(view_id))
-                                    .saturating_sub(pane_rect.y);
-                                break 'block Some(Cmd::ClickCell {
-                                    spawn_cursor: self.modifiers.contains(KeyModifiers::ALT),
-                                    column,
-                                    line,
+                            if scrollbar_rect.contains(Vec2::new(x as f32, y as f32)) {
+                                // TODO make this the whole height of the editor and move the scroll bar
+                                self.drag = Some(Drag {
+                                    drag_start: Vec2::new(x, y),
+                                    pane_kind: PaneKind::Buffer(buffer_id, view_id),
+                                    scrollbar: true,
                                 });
+                                break 'block None;
                             }
+
+                            self.drag = Some(Drag {
+                                drag_start: Vec2::new(
+                                    column as f64 + buffer.col_pos(view_id) as f64,
+                                    line as f64 + buffer.line_pos(view_id) as f64,
+                                ),
+                                pane_kind: PaneKind::Buffer(buffer_id, view_id),
+                                scrollbar: false,
+                            });
+
+                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                            let column = ((column as usize) + buffer.col_pos(view_id))
+                                .saturating_sub(pane_rect.x)
+                                .saturating_sub(left_offset);
+                            let line = (line as usize + buffer.line_pos(view_id))
+                                .saturating_sub(pane_rect.y);
+                            break 'block Some(Cmd::ClickCell {
+                                spawn_cursor: self.modifiers.contains(KeyModifiers::ALT),
+                                column,
+                                line,
+                            });
                         }
                     }
 
                     None
                 }
                 (ElementState::Released, MouseButton::Left) => {
-                    self.tui_app.drag_start = None;
+                    self.drag = None;
                     self.primary_mouse_button_pressed = false;
                     None
                 }
                 _ => None,
             }
         };
-        self.tui_app.engine.buffer_area = tui_to_ferrite_rect(self.tui_app.buffer_area);
         if let Some(input) = input {
             self.tui_app
                 .engine
@@ -596,49 +654,86 @@ impl GuiApp {
         }
     }
 
-    pub fn handle_drag(&mut self, drag_column: u16, drag_line: u16) {
-        let input = 'block: {
-            for (pane_kind, pane_rect) in self
-                .tui_app
-                .engine
-                .workspace
-                .panes
-                .get_pane_bounds(tui_to_ferrite_rect(self.tui_app.buffer_area))
+    pub fn handle_drag(&mut self, x: f64, y: f64) {
+        let Point {
+            column: drag_column,
+            line: drag_line,
+        } = self.pixel_to_cell(x, y);
+        let mut input = None;
+        if let Some((_, pane_rect)) = self
+            .tui_app
+            .engine
+            .workspace
+            .panes
+            .get_pane_bounds(self.tui_app.engine.buffer_area)
+            .iter()
+            .find(|(_, pane_rect)| {
+                pane_rect.contains(Vec2::new(drag_column.into(), drag_line.into()))
+            })
+        {
+            let (_, cell_height) = self.get_cell_size();
+            // TODO maybe scroll more of the buffer into view when going outside its bounds
+            if let Some(Drag {
+                drag_start,
+                pane_kind: PaneKind::Buffer(buffer_id, view_id),
+                scrollbar,
+            }) = &mut self.drag
             {
-                if ferrite_to_tui_rect(pane_rect).contains(Position::new(drag_column, drag_line)) {
-                    self.tui_app.engine.workspace.panes.make_current(pane_kind);
-                    if let PaneKind::Buffer(buffer_id, view_id) = pane_kind {
-                        // TODO maybe scroll more of the buffer into view when going outside its bounds
-                        if let Some(Point { line, column }) = self.tui_app.drag_start {
-                            let buffer = &mut self.tui_app.engine.workspace.buffers[buffer_id];
-                            let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+                if !(self
+                    .tui_app
+                    .engine
+                    .workspace
+                    .buffers
+                    .get(*buffer_id)
+                    .is_some()
+                    && self.tui_app.engine.workspace.buffers[*buffer_id]
+                        .views
+                        .get(*view_id)
+                        .is_some())
+                {
+                    self.drag = None;
+                    return;
+                }
+                let buffer = &mut self.tui_app.engine.workspace.buffers[*buffer_id];
 
-                            let anchor = {
-                                let column = column
-                                    .saturating_sub(left_offset)
-                                    .saturating_sub(pane_rect.x);
-                                let line = line.saturating_sub(pane_rect.y);
-                                Point::new(column, line)
-                            };
+                if *scrollbar {
+                    let moved_distance = (drag_start.y - y) as f32;
+                    let len_lines = (buffer.len_lines() + pane_rect.height.saturating_sub(1)) - 1;
+                    let text_height = pane_rect.height.saturating_sub(1);
+                    let scrollbar_ratio = text_height as f32 / len_lines as f32;
+                    let line_distance = (moved_distance / cell_height) / scrollbar_ratio;
 
-                            let cursor = {
-                                let column = ((drag_column as usize) + buffer.col_pos(view_id))
-                                    .saturating_sub(left_offset)
-                                    .saturating_sub(pane_rect.x);
-                                let line = (drag_line as usize + buffer.line_pos(view_id))
-                                    .saturating_sub(pane_rect.y);
-                                Point::new(column, line)
-                            };
+                    drag_start.y = y;
+                    input = Some(Cmd::VerticalScroll {
+                        distance: -line_distance as f64,
+                    });
+                } else {
+                    let column = drag_start.x as usize;
+                    let line = drag_start.y as usize;
+                    let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
 
-                            break 'block Some(Cmd::SelectArea { cursor, anchor });
-                        }
-                    }
+                    let anchor = {
+                        let column = column
+                            .saturating_sub(left_offset)
+                            .saturating_sub(pane_rect.x);
+                        let line = line.saturating_sub(pane_rect.y);
+                        Point::new(column, line)
+                    };
+
+                    let cursor = {
+                        let column = ((drag_column as usize) + buffer.col_pos(*view_id))
+                            .saturating_sub(left_offset)
+                            .saturating_sub(pane_rect.x);
+                        let line = (drag_line as usize + buffer.line_pos(*view_id))
+                            .saturating_sub(pane_rect.y);
+                        Point::new(column, line)
+                    };
+
+                    input = Some(Cmd::SelectArea { cursor, anchor });
                 }
             }
-            None
-        };
+        }
 
-        self.tui_app.engine.buffer_area = tui_to_ferrite_rect(self.tui_app.buffer_area);
         if let Some(input) = input {
             self.tui_app
                 .engine
@@ -660,7 +755,7 @@ impl GuiApp {
             size.height
                 .saturating_sub(self.tui_app.engine.palette.height() as u16),
         );
-        self.tui_app.buffer_area = editor_size;
+        self.tui_app.engine.buffer_area = tui_to_ferrite_rect(editor_size);
 
         let panes = self
             .tui_app
@@ -777,18 +872,45 @@ impl GuiApp {
             .0
             .unwrap_or(glyphon::Color::rgb(0, 0, 0));
 
-        for (_, pane_rect) in &panes {
-            let x = pane_rect.x as f32 * cell_width;
-            let y = pane_rect.y as f32 * cell_height;
-            let width = 2.0 * self.tui_app.engine.scale;
-            let height = pane_rect.height as f32 * cell_height;
-            geometry.quads.push(Quad {
-                x,
-                y,
-                width,
-                height,
-                color,
-            });
+        for (pane, pane_rect) in &panes {
+            if pane_rect.x != 0 {
+                let x = pane_rect.x as f32 * cell_width;
+                let y = pane_rect.y as f32 * cell_height;
+                let width = 2.0 * self.tui_app.engine.scale;
+                let height = pane_rect.height as f32 * cell_height;
+                geometry.quads.push(Quad {
+                    x,
+                    y,
+                    width,
+                    height,
+                    color,
+                });
+            }
+
+            // Draw scrollbars
+            if let PaneKind::Buffer(buffer_id, view_id) = pane {
+                let rect = self.get_scrollbar_bounds(
+                    pane_rect,
+                    *buffer_id,
+                    *view_id,
+                    cell_width,
+                    cell_height,
+                );
+                geometry.quads.push(Quad {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                    color,
+                });
+                geometry.quads.push(Quad {
+                    x: (pane_rect.x + pane_rect.width) as f32 * cell_width - cell_width,
+                    y: pane_rect.y as f32 * cell_height,
+                    width: 1.0,
+                    height: pane_rect.height as f32 * cell_height - cell_height,
+                    color,
+                });
+            }
         }
         geometry
     }
@@ -874,6 +996,30 @@ impl GuiApp {
             Instant::now().duration_since(self.tui_app.engine.start_of_events);
 
         Ok(())
+    }
+
+    fn get_scrollbar_bounds(
+        &self,
+        rect: &Rect<usize>,
+        buffer_id: BufferId,
+        view_id: ViewId,
+        cell_width: f32,
+        cell_height: f32,
+    ) -> Rect<f32> {
+        let buffer = &self.tui_app.engine.workspace.buffers[buffer_id];
+        let len_lines = (buffer.len_lines() + rect.height.saturating_sub(1)) - 1;
+        let line_pos = buffer.views[view_id].line_pos;
+        let text_height = rect.height.saturating_sub(1);
+
+        let scrollbar_ratio = text_height as f32 / len_lines as f32;
+        let scrollbar_pos_ratio = line_pos as f32 / len_lines as f32;
+
+        let scrollbar_height = scrollbar_ratio * cell_height * text_height as f32;
+        let scrollbar_pos = scrollbar_pos_ratio * cell_height * text_height as f32;
+
+        let x = rect.x as f32 * cell_width + rect.width.saturating_sub(1) as f32 * cell_width;
+        let y = rect.y as f32 * cell_height + scrollbar_pos;
+        Rect::new(x, y, cell_width, scrollbar_height)
     }
 }
 
