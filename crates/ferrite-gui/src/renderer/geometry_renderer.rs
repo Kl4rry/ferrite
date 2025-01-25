@@ -38,7 +38,7 @@ struct Vertex {
 unsafe impl bytemuck::Pod for Vertex {}
 unsafe impl bytemuck::Zeroable for Vertex {}
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Geometry {
     pub quads: Vec<Quad>,
 }

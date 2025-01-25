@@ -12,9 +12,9 @@ pub struct Layer<'a> {
 }
 
 pub struct Bundle<'a> {
-    pub top_geometry: Geometry,
-    pub bottom_geometry: Geometry,
-    pub text_area: TextArea<'a>,
+    pub top_geometry: &'a Geometry,
+    pub bottom_geometry: &'a Geometry,
+    pub text_area: Option<TextArea<'a>>,
 }
 
 pub struct LayerRenderer {
@@ -98,6 +98,7 @@ impl Renderer {
                 bottom_geometry_index_range: 0..0,
             });
         }
+        self.layer_renderers.truncate(layers.len());
 
         for (renderer, layer) in self.layer_renderers.iter_mut().zip(layers) {
             {
@@ -121,7 +122,7 @@ impl Renderer {
             let text_areas: Vec<_> = layer
                 .bundles
                 .into_iter()
-                .map(|bundle| bundle.text_area)
+                .filter_map(|bundle| bundle.text_area)
                 .collect();
             renderer
                 .text_renderer
@@ -135,6 +136,7 @@ impl Renderer {
                     &mut self.swash_cache,
                 )
                 .unwrap();
+            self.font_system.shape_run_cache.trim(1024);
         }
         self.geometry_renderer.prepare(device, queue);
     }

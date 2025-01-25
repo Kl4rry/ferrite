@@ -122,6 +122,8 @@ impl TermApp {
     ) {
         match event {
             event_loop::TuiEvent::StartOfEvents => {
+                // Padding should always be one in terminal ui
+                self.tui_app.engine.workspace.panes.padding = 1;
                 self.tui_app.start_of_events();
             }
             event_loop::TuiEvent::Crossterm(event) => {

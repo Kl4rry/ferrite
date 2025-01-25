@@ -26,7 +26,7 @@ const FONT_SIZE: f32 = 14.0;
 const REPLACED_SYMBOLS: &[&str] = &["☺️", "☹️"];
 const REPLACEMENT_SYMBOLS: &[&str] = &["☺️ ", "☹️ "];
 
-fn calculate_cell_size(
+pub fn calculate_cell_size(
     font_system: &mut FontSystem,
     metrics: Metrics,
     font_weight: FontWeight,
@@ -48,15 +48,24 @@ fn calculate_cell_size(
     (w, metrics.line_height)
 }
 
+pub fn get_metrics(scale: f32) -> Metrics {
+    Metrics::relative(FONT_SIZE * scale, LINE_SCALE)
+}
+
 pub struct WgpuBackend {
     width: f32,
     height: f32,
+    pub x: f32,
+    pub y: f32,
     pub cell_width: f32,
     pub cell_height: f32,
     pub columns: u16,
     pub lines: u16,
     pub redraw: bool,
+    reshape: bool,
     buffer: Buffer,
+    top_geometry: Geometry,
+    bottom_geometry: Geometry,
     cells: Vec<Vec<Cell>>,
     scale: f32,
     // font config
@@ -74,7 +83,7 @@ impl WgpuBackend {
         font_weight: FontWeight,
     ) -> Self {
         font_system.db_mut().set_monospace_family(&font_family);
-        let metrics = Metrics::relative(FONT_SIZE, LINE_SCALE);
+        let metrics = get_metrics(1.0);
         let mut buffer = Buffer::new(font_system, metrics);
         // borrowed from cosmic term
         let (cell_width, cell_height) = calculate_cell_size(font_system, metrics, font_weight);
@@ -96,13 +105,18 @@ impl WgpuBackend {
         Self {
             width,
             height,
+            x: 0.0,
+            y: 0.0,
             cell_width,
             cell_height,
             columns,
             lines,
             buffer,
+            top_geometry: Default::default(),
+            bottom_geometry: Default::default(),
             cells,
             redraw: true,
+            reshape: true,
             scale: 1.0,
             font_family,
             font_weight,
@@ -123,11 +137,10 @@ impl WgpuBackend {
             self.cells.push(line);
         }
         let _ = self.clear();
+        self.reshape = true;
     }
 
     pub fn prepare(&mut self, theme: &EditorTheme, font_system: &mut FontSystem) -> Bundle {
-        let mut top_geometry = Geometry::default();
-        let mut bottom_geometry = Geometry::default();
         self.buffer
             .set_size(font_system, Some(self.width), Some(self.height));
 
@@ -151,75 +164,83 @@ impl WgpuBackend {
                 Shaping::Basic,
             ),
         );
-        for (line_idx, line) in self.cells.iter_mut().enumerate() {
-            let mut skip_next = false;
-            let mut attr_list = AttrsList::new(default_attrs);
-            let mut line_text = String::new();
-            let mut idx = 0;
-            for (col_idx, cell) in line.iter().enumerate() {
-                if skip_next {
-                    skip_next = false;
-                    continue;
-                }
-                let mut attrs = default_attrs;
-                let mut fg = default_fg;
-                let mut bg = None;
-                if let tui::style::Color::Rgb(r, g, b) = cell.fg {
-                    fg = glyphon::Color::rgb(r, g, b);
-                }
 
-                if let tui::style::Color::Rgb(r, g, b) = cell.bg {
-                    bg = Some(glyphon::Color::rgb(r, g, b));
-                }
+        if self.reshape {
+            self.top_geometry.clear();
+            self.bottom_geometry.clear();
+            profiling::scope!("update buffer");
+            for (line_idx, line) in self.cells.iter_mut().enumerate() {
+                let mut skip_next = false;
+                let mut attr_list = AttrsList::new(default_attrs);
+                let mut line_text = String::new();
+                let mut idx = 0;
+                for (col_idx, cell) in line.iter().enumerate() {
+                    if skip_next {
+                        skip_next = false;
+                        continue;
+                    }
+                    let mut attrs = default_attrs;
+                    let mut fg = default_fg;
+                    let mut bg = None;
+                    if let tui::style::Color::Rgb(r, g, b) = cell.fg {
+                        fg = glyphon::Color::rgb(r, g, b);
+                    }
 
-                if cell.modifier.contains(tui::style::Modifier::REVERSED) {
-                    let mut tmp = bg.unwrap_or(default_bg);
-                    mem::swap(&mut fg, &mut tmp);
-                    bg = Some(tmp);
-                }
+                    if let tui::style::Color::Rgb(r, g, b) = cell.bg {
+                        bg = Some(glyphon::Color::rgb(r, g, b));
+                    }
 
-                attrs = attrs.color(fg);
-                let symbol =
-                    if let Some(idx) = REPLACED_SYMBOLS.iter().position(|s| *s == cell.symbol()) {
+                    if cell.modifier.contains(tui::style::Modifier::REVERSED) {
+                        let mut tmp = bg.unwrap_or(default_bg);
+                        mem::swap(&mut fg, &mut tmp);
+                        bg = Some(tmp);
+                    }
+
+                    attrs = attrs.color(fg);
+                    let symbol = if let Some(idx) =
+                        REPLACED_SYMBOLS.iter().position(|s| *s == cell.symbol())
+                    {
                         REPLACEMENT_SYMBOLS[idx]
                     } else {
                         cell.symbol()
                     };
 
-                let symbol_width = symbol.width();
-                if symbol_width > 1 {
-                    skip_next = true;
-                }
-                line_text.push_str(symbol);
-                attr_list.add_span(idx..(idx + symbol.len()), attrs);
-                idx += symbol.len();
-                // TODO greedy mesh here
-                bottom_geometry.quads.push(Quad {
-                    x: col_idx as f32 * self.cell_width,
-                    y: line_idx as f32 * self.cell_height,
-                    width: self.cell_width * symbol_width as f32,
-                    height: self.cell_height * symbol_width as f32,
-                    color: bg.unwrap_or(Color::rgba(0, 0, 0, 0)),
-                });
+                    let symbol_width = symbol.width();
+                    if symbol_width > 1 {
+                        skip_next = true;
+                    }
+                    line_text.push_str(symbol);
+                    attr_list.add_span(idx..(idx + symbol.len()), attrs);
+                    idx += symbol.len();
 
-                if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
-                    let cursor_width = 2.0 * self.scale;
-                    top_geometry.quads.push(Quad {
-                        x: col_idx as f32 * self.cell_width,
-                        y: line_idx as f32 * self.cell_height,
-                        width: cursor_width,
-                        height: self.cell_height,
-                        color: Color::rgb(82, 139, 255),
+                    // TODO greedy mesh here
+                    self.bottom_geometry.quads.push(Quad {
+                        x: col_idx as f32 * self.cell_width + self.x,
+                        y: line_idx as f32 * self.cell_height + self.y,
+                        width: self.cell_width * symbol_width as f32,
+                        height: self.cell_height * symbol_width as f32,
+                        color: bg.unwrap_or(Color::rgba(0, 0, 0, 0)),
                     });
-                }
-            }
 
-            self.buffer.lines[line_idx] = BufferLine::new(
-                &line_text,
-                glyphon::cosmic_text::LineEnding::Lf,
-                attr_list,
-                Shaping::Advanced,
-            );
+                    if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
+                        let cursor_width = 2.0 * self.scale;
+                        self.top_geometry.quads.push(Quad {
+                            x: col_idx as f32 * self.cell_width + self.x,
+                            y: line_idx as f32 * self.cell_height + self.y,
+                            width: cursor_width,
+                            height: self.cell_height,
+                            color: Color::rgb(82, 139, 255),
+                        });
+                    }
+                }
+
+                self.buffer.lines[line_idx] = BufferLine::new(
+                    &line_text,
+                    glyphon::cosmic_text::LineEnding::Lf,
+                    attr_list,
+                    Shaping::Advanced,
+                );
+            }
         }
 
         self.buffer.set_scroll(Scroll {
@@ -227,28 +248,31 @@ impl WgpuBackend {
             vertical: 0.0,
             horizontal: 0.0,
         });
-        self.buffer.shape_until_scroll(font_system, true);
-        font_system.shape_run_cache.trim(1024);
+        {
+            profiling::scope!("shape text");
+            self.buffer.shape_until_scroll(font_system, true);
+        }
+        self.reshape = false;
 
         let text_area = TextArea {
             buffer: &self.buffer,
-            left: 0.0,
-            top: 0.0,
+            left: self.x,
+            top: self.y,
             scale: 1.0,
             bounds: TextBounds {
-                left: 0,
-                top: 0,
-                right: self.width as i32,
-                bottom: self.height as i32,
+                left: self.x as i32,
+                top: self.y as i32,
+                right: self.width as i32 + self.x as i32,
+                bottom: self.height as i32 + self.y as i32,
             },
             default_color: default_fg,
             custom_glyphs: &[],
         };
 
         Bundle {
-            text_area,
-            top_geometry,
-            bottom_geometry,
+            text_area: Some(text_area),
+            top_geometry: &self.top_geometry,
+            bottom_geometry: &self.bottom_geometry,
         }
     }
 
@@ -276,7 +300,7 @@ impl WgpuBackend {
     }
 
     fn update_font_metadata(&mut self, font_system: &mut FontSystem) {
-        let metrics = Metrics::relative(FONT_SIZE * self.scale, LINE_SCALE);
+        let metrics = get_metrics(self.scale);
         self.buffer.set_metrics(font_system, metrics);
         let (cell_width, cell_height) = calculate_cell_size(font_system, metrics, self.font_weight);
         self.buffer
@@ -311,6 +335,7 @@ impl Backend for WgpuBackend {
                 }
             }
             self.redraw = true;
+            self.reshape = true;
         }
         Ok(())
     }

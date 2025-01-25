@@ -6,7 +6,7 @@ use slotmap::Key;
 
 use crate::{buffer::ViewId, file_explorer::FileExplorerId, workspace::BufferId};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
     pub x: usize,
     pub y: usize,
@@ -32,7 +32,7 @@ impl Rect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneKind {
     Buffer(BufferId, ViewId),
     FileExplorer(FileExplorerId),
@@ -201,7 +201,7 @@ impl Pane {
         }
     }
 
-    pub fn get_pane_bounds(&self, bounds: &mut Vec<(PaneKind, Rect)>, rect: Rect) {
+    pub fn get_pane_bounds(&self, bounds: &mut Vec<(PaneKind, Rect)>, rect: Rect, padding: usize) {
         match self {
             Pane::Leaf(pane_kind) => bounds.push((*pane_kind, rect)),
             Pane::Internal {
@@ -213,20 +213,30 @@ impl Pane {
                 Split::Horizontal => {
                     let first = (rect.height as f32 * ratio) as usize;
                     let second = rect.height - first;
-                    left.get_pane_bounds(bounds, Rect::new(rect.x, rect.y, rect.width, first));
+                    left.get_pane_bounds(
+                        bounds,
+                        Rect::new(rect.x, rect.y, rect.width, first),
+                        padding,
+                    );
                     right.get_pane_bounds(
                         bounds,
                         Rect::new(rect.x, rect.y + first, rect.width, second),
+                        padding,
                     );
                 }
                 Split::Vertical => {
-                    let width = rect.width.saturating_sub(1);
+                    let width = rect.width.saturating_sub(padding);
                     let first = (width as f32 * ratio) as usize;
                     let second = width - first;
-                    left.get_pane_bounds(bounds, Rect::new(rect.x, rect.y, first, rect.height));
+                    left.get_pane_bounds(
+                        bounds,
+                        Rect::new(rect.x, rect.y, first, rect.height),
+                        padding,
+                    );
                     right.get_pane_bounds(
                         bounds,
-                        Rect::new(rect.x + first + 1, rect.y, second, rect.height),
+                        Rect::new(rect.x + first + padding, rect.y, second, rect.height),
+                        padding,
                     );
                 }
             },
@@ -347,6 +357,7 @@ impl Pane {
 pub struct Panes {
     node: Pane,
     current_pane: PaneKind,
+    pub padding: usize,
 }
 
 impl Panes {
@@ -354,6 +365,7 @@ impl Panes {
         Self {
             node: Pane::Leaf(PaneKind::Buffer(buffer_id, view_id)),
             current_pane: PaneKind::Buffer(buffer_id, view_id),
+            padding: 0,
         }
     }
 
@@ -397,7 +409,7 @@ impl Panes {
 
     pub fn get_pane_bounds(&self, rect: Rect) -> Vec<(PaneKind, Rect)> {
         let mut bounds = Vec::new();
-        self.node.get_pane_bounds(&mut bounds, rect);
+        self.node.get_pane_bounds(&mut bounds, rect, self.padding);
         bounds
     }
 
@@ -698,6 +710,7 @@ pub mod layout {
             Some(super::Panes {
                 node: pane,
                 current_pane,
+                padding: 0,
             })
         }
 

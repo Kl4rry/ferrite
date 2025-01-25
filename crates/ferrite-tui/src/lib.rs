@@ -155,12 +155,13 @@ impl TuiApp {
     }
 
     pub fn draw_overlays(&mut self, buf: &mut tui::buffer::Buffer, size: Rect) {
+        let picker_margin = Margin {
+            horizontal: 5,
+            vertical: 2,
+        };
         if let Some(file_picker) = &mut self.engine.file_picker {
             profiling::scope!("render tui file picker");
-            let size = size.inner(Margin {
-                horizontal: 5,
-                vertical: 2,
-            });
+            let size = size.inner(picker_margin);
             PickerWidget::new(
                 &self.engine.themes[&self.engine.config.editor.theme],
                 &self.engine.config.editor,
@@ -171,10 +172,7 @@ impl TuiApp {
 
         if let Some(buffer_picker) = &mut self.engine.buffer_picker {
             profiling::scope!("render tui buffer picker");
-            let size = size.inner(Margin {
-                horizontal: 5,
-                vertical: 2,
-            });
+            let size = size.inner(picker_margin);
             PickerWidget::<BufferItem>::new(
                 &self.engine.themes[&self.engine.config.editor.theme],
                 &self.engine.config.editor,
@@ -185,10 +183,7 @@ impl TuiApp {
 
         if let Some(global_search_picker) = &mut self.engine.global_search_picker {
             profiling::scope!("render tui search picker");
-            let size = size.inner(Margin {
-                horizontal: 5,
-                vertical: 2,
-            });
+            let size = size.inner(picker_margin);
             PickerWidget::<GlobalSearchMatch>::new(
                 &self.engine.themes[&self.engine.config.editor.theme],
                 &self.engine.config.editor,

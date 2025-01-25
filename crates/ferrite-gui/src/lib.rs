@@ -1,11 +1,12 @@
 use std::{
+    collections::HashMap,
     env, iter,
     sync::{mpsc, Arc},
     time::Instant,
 };
 
 use anyhow::Result;
-use backend::WgpuBackend;
+use backend::{calculate_cell_size, get_metrics, WgpuBackend};
 use event_loop_wrapper::EventLoopProxyWrapper;
 use ferrite_cli::Args;
 use ferrite_core::{
@@ -14,7 +15,7 @@ use ferrite_core::{
     config::editor::{default_font, FontWeight},
     event_loop_proxy::{EventLoopControlFlow, UserEvent},
     keymap::{self, keycode::KeyModifiers},
-    layout::panes::PaneKind,
+    layout::panes::{PaneKind, Rect},
     logger::LogMessage,
 };
 use ferrite_tui::{
@@ -32,6 +33,11 @@ use winit::{
     event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
     keyboard::{Key, ModifiersState, NamedKey},
     window::{CursorIcon, Window, WindowBuilder},
+};
+
+use crate::renderer::{
+    geometry_renderer::{Geometry, Quad},
+    Bundle,
 };
 
 mod backend;
@@ -59,9 +65,16 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     Ok(())
 }
 
+pub struct TerminalPane {
+    terminal: Terminal<WgpuBackend>,
+    pane_rect: Rect,
+    touched: bool,
+}
+
 struct GuiApp {
     tui_app: TuiApp,
-    terminals: [Terminal<WgpuBackend>; 2],
+    terminals: [Terminal<WgpuBackend>; 1],
+    terminal_panes: HashMap<PaneKind, TerminalPane>,
     renderer: Renderer,
     control_flow: EventLoopControlFlow,
     // rendering stuff
@@ -158,7 +171,7 @@ impl GuiApp {
 
         let mut renderer = Renderer::new(&device, &config, size.width as f32, size.height as f32);
 
-        let base_terminal = Terminal::new(WgpuBackend::new(
+        let terminal = Terminal::new(WgpuBackend::new(
             &mut renderer.font_system,
             size.width as f32,
             size.height as f32,
@@ -166,15 +179,7 @@ impl GuiApp {
             FontWeight::Normal,
         ))?;
 
-        let overlay_terminal = Terminal::new(WgpuBackend::new(
-            &mut renderer.font_system,
-            size.width as f32,
-            size.height as f32,
-            default_font(),
-            FontWeight::Normal,
-        ))?;
-
-        let term_size = base_terminal.size()?;
+        let term_size = terminal.size()?;
         let tui_app = TuiApp::new(
             args,
             event_loop_wrapper,
@@ -183,7 +188,8 @@ impl GuiApp {
             term_size.height,
         )?;
 
-        let terminals = [base_terminal, overlay_terminal];
+        let terminals = [terminal];
+        let terminal_panes = HashMap::new();
 
         let scale_factor = 1.0;
 
@@ -194,6 +200,7 @@ impl GuiApp {
         Ok(Self {
             tui_app,
             terminals,
+            terminal_panes,
             renderer,
             control_flow,
             window,
@@ -214,6 +221,8 @@ impl GuiApp {
         event_loop
             .run(move |event, event_loop| match event {
                 Event::NewEvents(_) => {
+                    // Padding should always be 0 in gui
+                    self.tui_app.engine.workspace.panes.padding = 0;
                     self.tui_app.start_of_events();
                 }
                 Event::UserEvent(event) => {
@@ -236,16 +245,6 @@ impl GuiApp {
                 },
                 Event::AboutToWait => {
                     profiling::scope!("about to wait");
-
-                    for terminal in &mut self.terminals {
-                        let backend = terminal.backend_mut();
-                        if backend.scale() != self.tui_app.engine.scale {
-                            backend.set_scale(
-                                &mut self.renderer.font_system,
-                                self.tui_app.engine.scale,
-                            );
-                        }
-                    }
 
                     self.tui_app.engine.do_polling(&mut self.control_flow);
                     match self.control_flow {
@@ -271,13 +270,38 @@ impl GuiApp {
                             &mut self.renderer.font_system,
                             self.tui_app.engine.config.editor.gui.font_weight,
                         );
+                        terminal
+                            .backend_mut()
+                            .set_scale(&mut self.renderer.font_system, self.tui_app.engine.scale);
+                    }
+
+                    for pane in self.terminal_panes.values_mut() {
+                        pane.terminal.backend_mut().set_font_family(
+                            &mut self.renderer.font_system,
+                            &self.tui_app.engine.config.editor.gui.font_family,
+                        );
+                        pane.terminal.backend_mut().set_font_weight(
+                            &mut self.renderer.font_system,
+                            self.tui_app.engine.config.editor.gui.font_weight,
+                        );
+                        pane.terminal
+                            .backend_mut()
+                            .set_scale(&mut self.renderer.font_system, self.tui_app.engine.scale);
                     }
 
                     self.render_tui();
-                    if self.terminals.iter().any(|t| t.backend().redraw) {
+                    if self.terminals.iter().any(|t| t.backend().redraw)
+                        || self
+                            .terminal_panes
+                            .values()
+                            .any(|t| t.terminal.backend().redraw)
+                    {
                         self.window.request_redraw();
                         for terminal in &mut self.terminals {
                             terminal.backend_mut().redraw = false;
+                        }
+                        for pane in self.terminal_panes.values_mut() {
+                            pane.terminal.backend_mut().redraw = false;
                         }
                     }
                 }
@@ -624,12 +648,149 @@ impl GuiApp {
     }
 
     pub fn render_tui(&mut self) {
+        for terminal in self.terminal_panes.values_mut() {
+            terminal.touched = false;
+        }
+
+        let size = self.terminals[0].get_frame().area();
+        let editor_size = tui::layout::Rect::new(
+            size.x,
+            size.y,
+            size.width,
+            size.height
+                .saturating_sub(self.tui_app.engine.palette.height() as u16),
+        );
+        self.tui_app.buffer_area = editor_size;
+
+        let panes = self
+            .tui_app
+            .engine
+            .workspace
+            .panes
+            .get_pane_bounds(tui_to_ferrite_rect(editor_size));
+
+        let (cell_width, cell_height) = calculate_cell_size(
+            &mut self.renderer.font_system,
+            get_metrics(self.tui_app.engine.scale),
+            self.tui_app.engine.config.editor.gui.font_weight,
+        );
+
+        for (pane, pane_rect) in &panes {
+            let mut new = false;
+            let terminal_pane = self.terminal_panes.entry(*pane).or_insert_with(|| {
+                new = true;
+                TerminalPane {
+                    terminal: Terminal::new(WgpuBackend::new(
+                        &mut self.renderer.font_system,
+                        pane_rect.width as f32 * cell_width,
+                        pane_rect.height as f32 * cell_height,
+                        self.tui_app.engine.config.editor.gui.font_family.clone(),
+                        self.tui_app.engine.config.editor.gui.font_weight,
+                    ))
+                    .unwrap(),
+                    pane_rect: *pane_rect,
+                    touched: false,
+                }
+            });
+            let terminal = &mut terminal_pane.terminal;
+            let backend = terminal.backend_mut();
+
+            if &terminal_pane.pane_rect != pane_rect || new {
+                terminal_pane.pane_rect = *pane_rect;
+                backend.x = pane_rect.x as f32 * cell_width;
+                backend.y = pane_rect.y as f32 * cell_height;
+                backend.resize(
+                    pane_rect.width as f32 * cell_width,
+                    pane_rect.height as f32 * cell_height,
+                );
+                let columns = backend.columns;
+                let lines = backend.lines;
+                terminal
+                    .resize(tui::layout::Rect::new(0, 0, columns, lines))
+                    .unwrap();
+            }
+            terminal_pane.touched = true;
+        }
+
+        self.terminal_panes.retain(|_, v| v.touched);
+
+        for (pane, _) in &panes {
+            let terminal = &mut self.terminal_panes.get_mut(pane).unwrap().terminal;
+            terminal
+                .draw(|f| {
+                    let area = f.area();
+                    match pane {
+                        PaneKind::Buffer(buffer_id, view_id) => {
+                            self.tui_app
+                                .draw_buffer(f.buffer_mut(), area, *buffer_id, *view_id);
+                        }
+                        PaneKind::FileExplorer(file_explorer_id) => {
+                            self.tui_app.draw_file_explorer(
+                                f.buffer_mut(),
+                                area,
+                                *file_explorer_id,
+                            );
+                        }
+                        PaneKind::Logger => {
+                            self.tui_app.draw_logger(f.buffer_mut(), area);
+                        }
+                    }
+                })
+                .unwrap();
+        }
+
         self.terminals[0]
             .draw(|f| {
                 let area = f.area();
-                self.tui_app.render(f.buffer_mut(), area);
+                f.render_widget(tui::widgets::Clear, area);
+                self.tui_app.draw_overlays(f.buffer_mut(), area);
             })
             .unwrap();
+    }
+
+    pub fn draw_buffer_overlay(&mut self) -> Geometry {
+        let mut geometry = Geometry::default();
+
+        let (cell_width, cell_height) = calculate_cell_size(
+            &mut self.renderer.font_system,
+            get_metrics(self.tui_app.engine.scale),
+            self.tui_app.engine.config.editor.gui.font_weight,
+        );
+
+        let size = self.terminals[0].get_frame().area();
+        let editor_size = tui::layout::Rect::new(
+            size.x,
+            size.y,
+            size.width,
+            size.height
+                .saturating_sub(self.tui_app.engine.palette.height() as u16),
+        );
+        let panes = self
+            .tui_app
+            .engine
+            .workspace
+            .panes
+            .get_pane_bounds(tui_to_ferrite_rect(editor_size));
+
+        let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
+        let color = crate::glue::convert_style(&theme.pane_border)
+            .0
+            .unwrap_or(glyphon::Color::rgb(0, 0, 0));
+
+        for (_, pane_rect) in &panes {
+            let x = pane_rect.x as f32 * cell_width;
+            let y = pane_rect.y as f32 * cell_height;
+            let width = 2.0 * self.tui_app.engine.scale;
+            let height = pane_rect.height as f32 * cell_height;
+            geometry.quads.push(Quad {
+                x,
+                y,
+                width,
+                height,
+                color,
+            });
+        }
+        geometry
     }
 
     pub fn render(&mut self) -> std::result::Result<(), wgpu::SurfaceError> {
@@ -643,7 +804,30 @@ impl GuiApp {
                 label: Some("Render Encoder"),
             });
 
+        let overlay_geometry = self.draw_buffer_overlay();
+
         let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
+
+        let mut layers = Vec::new();
+        for terminal_pane in self.terminal_panes.values_mut() {
+            let bundle = terminal_pane.terminal.backend_mut().prepare(
+                &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme],
+                &mut self.renderer.font_system,
+            );
+            layers.push(Layer {
+                bundles: vec![bundle],
+            });
+        }
+
+        let tmp = Geometry::default();
+        layers.push(Layer {
+            bundles: vec![Bundle {
+                text_area: None,
+                bottom_geometry: &tmp,
+                top_geometry: &overlay_geometry,
+            }],
+        });
+
         let bundles: Vec<_> = self
             .terminals
             .iter_mut()
@@ -654,7 +838,7 @@ impl GuiApp {
                 )
             })
             .collect();
-        let layers = vec![Layer { bundles }];
+        layers.push(Layer { bundles });
 
         self.renderer
             .prepare(&self.device, &self.queue, &self.config, layers);
