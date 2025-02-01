@@ -2485,15 +2485,6 @@ impl Buffer {
         }
     }
 
-    pub fn move_to_trash(&self) -> Result<bool, trash::Error> {
-        if let Some(path) = &self.file {
-            trash::delete(path)?;
-            return Ok(true);
-        }
-
-        Ok(false)
-    }
-
     pub fn get_selection(&self, view_id: ViewId, cursor_index: usize) -> String {
         let start = self.views[view_id].cursors[cursor_index].start();
         let end = self.views[view_id].cursors[cursor_index].end();

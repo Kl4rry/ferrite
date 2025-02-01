@@ -92,7 +92,6 @@ pub enum Cmd {
     FormatSelection,
     GitReload,
     RevertBuffer,
-    Trash,
     Repeat,
     MoveRight {
         expand_selection: bool,
@@ -328,7 +327,6 @@ impl Cmd {
             ForceClose => "Force close buffer",
             FormatSelection => "Format selection",
             GitReload => "Git reload",
-            Trash => "Move to trash",
             ForceRedraw => "Force redraw",
             SwitchPane { direction } => match direction {
                 Direction::Up => "Up pane",
@@ -448,7 +446,6 @@ impl Cmd {
             ForceClose => false,
             FormatSelection => false,
             GitReload => false,
-            Trash => false,
             ForceRedraw => false,
             SwitchPane { .. } => false,
             Number { .. } => false,

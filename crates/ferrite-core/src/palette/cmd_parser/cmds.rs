@@ -41,7 +41,6 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("cut", None, true).build(|_| Cmd::Cut),
         CmdBuilder::new("format", None, true).build(|_| Cmd::Format),
         CmdBuilder::new("format-selection", None, true).build(|_| Cmd::FormatSelection),
-        CmdBuilder::new("trash", None, true).build(|_| Cmd::Trash),
         CmdBuilder::new("url-open", None, true).build(|_| Cmd::UrlOpen),
         CmdBuilder::new("save-all", None, true).build(|_| Cmd::SaveAll),
         CmdBuilder::new("zoom-reset", None, true).build(|_| Cmd::ResetZoom),

@@ -60,7 +60,6 @@ toml = { version = "0.7.1", default-features = false }
 tracing = "0.1.40"
 tracing-log = "0.2.0"
 tracing-subscriber = "0.3.18"
-trash = "4.0.0"
 tree-sitter = "0.20.10"
 tui = { package = "ratatui", version = "0.29.0", default-features = false }
 unicode-general-category = "0.6.0"

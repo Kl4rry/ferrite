@@ -676,33 +676,6 @@ impl Engine {
                     .join(" ");
                 self.run_shell_command(cmd, pipe, false);
             }
-            Cmd::Trash => {
-                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
-                    return;
-                };
-
-                match self.workspace.buffers[buffer_id].move_to_trash() {
-                    Ok(true) => {
-                        let path = self.workspace.buffers[buffer_id].file().unwrap();
-                        match trash::delete(path) {
-                            Ok(_) => {
-                                self.palette.set_msg(format!(
-                                    "`{}` moved to trash",
-                                    path.to_string_lossy()
-                                ));
-                            }
-                            Err(err) => self.palette.set_error(err),
-                        }
-                    }
-                    Ok(false) => {
-                        self.palette
-                            .set_error("No path set for file, cannot move to trash");
-                    }
-                    Err(e) => {
-                        self.palette.set_error(e);
-                    }
-                }
-            }
             Cmd::FormatSelection => self.format_selection_current_buffer(),
             Cmd::Format => {
                 if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() {
