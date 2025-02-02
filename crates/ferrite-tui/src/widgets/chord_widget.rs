@@ -82,9 +82,11 @@ impl Widget for ChordWidget<'_> {
         let inner_area = area.inner(layout::Margin::new(1, 1));
         for (i, (mapping, cmd)) in lines.into_iter().enumerate() {
             let mut line = format!(" {mapping}");
-            line.push_str(&" ".repeat(left_col_width - mapping.width() + 1));
+            line.push_str(&" ".repeat(left_col_width.saturating_sub(mapping.width()) + 1));
             line.push_str(&cmd);
-            line.push_str(&" ".repeat(inner_area.width as usize - line.width() as usize));
+            line.push_str(
+                &" ".repeat((inner_area.width as usize).saturating_sub(line.width() as usize)),
+            );
 
             buf.set_stringn(
                 inner_area.left(),
