@@ -868,22 +868,25 @@ impl GuiApp {
             .get_pane_bounds(tui_to_ferrite_rect(editor_size));
 
         let theme = &self.tui_app.engine.themes[&self.tui_app.engine.config.editor.theme];
-        let color = crate::glue::convert_style(&theme.pane_border)
+        let border_color = crate::glue::convert_style(&theme.pane_border)
             .0
             .unwrap_or(glyphon::Color::rgb(0, 0, 0));
+        let (scroll_fg, scroll_bg) = crate::glue::convert_style(&theme.scrollbar);
+        let scroll_fg = scroll_fg.unwrap_or(glyphon::Color::rgb(0, 0, 0));
+        let scroll_bg = scroll_bg.unwrap_or(glyphon::Color::rgb(0, 0, 0));
 
         for (pane, pane_rect) in &panes {
             if pane_rect.x != 0 {
                 let x = pane_rect.x as f32 * cell_width;
                 let y = pane_rect.y as f32 * cell_height;
-                let width = 2.0 * self.tui_app.engine.scale;
+                let width = 1.0 * self.tui_app.engine.scale;
                 let height = pane_rect.height as f32 * cell_height;
                 geometry.quads.push(Quad {
                     x,
                     y,
                     width,
                     height,
-                    color,
+                    color: border_color,
                 });
             }
 
@@ -897,18 +900,18 @@ impl GuiApp {
                     cell_height,
                 );
                 geometry.quads.push(Quad {
+                    x: (pane_rect.x + pane_rect.width) as f32 * cell_width - cell_width,
+                    y: pane_rect.y as f32 * cell_height,
+                    width: cell_width,
+                    height: pane_rect.height as f32 * cell_height - cell_height,
+                    color: scroll_bg,
+                });
+                geometry.quads.push(Quad {
                     x: rect.x,
                     y: rect.y,
                     width: rect.width,
                     height: rect.height,
-                    color,
-                });
-                geometry.quads.push(Quad {
-                    x: (pane_rect.x + pane_rect.width) as f32 * cell_width - cell_width,
-                    y: pane_rect.y as f32 * cell_height,
-                    width: 1.0,
-                    height: pane_rect.height as f32 * cell_height - cell_height,
-                    color,
+                    color: scroll_fg,
                 });
             }
         }

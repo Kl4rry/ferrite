@@ -15,6 +15,7 @@
 "editor.completer" = { bg = "text", fg = "bg" }
 "editor.completer.selected" = { bg = "bg", fg = "text" }
 "editor.cursorline" = { bg = "highlight-line" }
+"editor.scrollbar" = { bg = "bg", fg = "scrollbar" }
 
 [syntax]
 "attribute" = { fg = "text" }
@@ -72,3 +73,5 @@ blue = "#66d9ef"
 green = "#a6e22e"
 cyan = "#a1efe4"
 violet = "#a381ff"
+
+scrollbar = "#344747"

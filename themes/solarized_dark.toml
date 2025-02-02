@@ -15,6 +15,7 @@
 "editor.completer" = { bg = "base02", fg = "base1" }
 "editor.completer.selected" = { bg = "base00", fg = "base03" }
 "editor.cursorline" = { bg = "cursorline" }
+"editor.scrollbar" = { bg = "base03", fg = "scrollbar" }
 
 [syntax]
 "text" = { fg = "base1" }
@@ -84,3 +85,4 @@ cyan    = "#2aa198"
 green   = "#859900"
 
 cursorline = "#073642"
+scrollbar = "#304a50"

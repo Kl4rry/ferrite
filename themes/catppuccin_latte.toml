@@ -15,7 +15,7 @@
 "editor.completer" = { bg = "surface1", fg = "text" }
 "editor.completer.selected" = { bg = "blue", fg = "surface0" }
 "editor.cursorline" = { bg = "cursorline" }
-
+"editor.scrollbar" = { bg = "mantle", fg = "scrollbar" }
 
 [syntax]
 "type" = { fg = "yellow" }
@@ -110,3 +110,4 @@ crust = "#dce0e8"
 
 search_match = "#b4def1"
 cursorline = "#e8ecf1"
+scrollbar = "#c9ccd6"

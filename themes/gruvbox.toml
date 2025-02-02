@@ -16,6 +16,7 @@
 "editor.completer" = { bg = "bg3", fg = "fg1" }
 "editor.completer.selected" = { bg = "blue1", fg = "bg0" }
 "editor.cursorline" = { bg = "bg1" }
+"editor.scrollbar" = { bg = "bg0", fg = "scrollbar" }
 
 [syntax]
 "tag" = { fg = "red1" }
@@ -108,3 +109,4 @@ orange1 = "#fe8019"
 ruler = "#48443f"
 
 search_match = "#503825"
+scrollbar = "#403c39"
