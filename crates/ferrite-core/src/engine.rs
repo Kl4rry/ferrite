@@ -519,12 +519,6 @@ impl Engine {
             Cmd::Quit => {
                 self.quit(control_flow);
             }
-            Cmd::Escape if self.repeat.is_some() => {
-                self.repeat = None;
-            }
-            Cmd::Escape if self.palette.has_focus() => {
-                self.palette.reset();
-            }
             Cmd::FocusPalette if !self.palette.has_focus() => {
                 self.file_picker = None;
                 self.buffer_picker = None;
@@ -568,16 +562,23 @@ impl Engine {
                     self.palette.update_prompt(self.get_search_prompt(true));
                 }
             }
-            Cmd::Escape
-                if self.chord.is_some()
+            Cmd::Escape => {
+                if self.repeat.is_some() {
+                    self.repeat = None;
+                } else if self.palette.has_focus() {
+                    self.palette.reset();
+                } else if self.chord.is_some()
                     || self.file_picker.is_some()
                     || self.buffer_picker.is_some()
-                    || self.global_search_picker.is_some() =>
-            {
-                self.chord = None;
-                self.file_picker = None;
-                self.buffer_picker = None;
-                self.global_search_picker = None;
+                    || self.global_search_picker.is_some()
+                {
+                    self.chord = None;
+                    self.file_picker = None;
+                    self.buffer_picker = None;
+                    self.global_search_picker = None;
+                } else if let PaneKind::FileExplorer(..) = self.workspace.panes.get_current_pane() {
+                    self.force_close_current_buffer();
+                }
             }
             Cmd::OpenFilePicker => self.open_file_picker(),
             Cmd::OpenBufferPicker => self.open_buffer_picker(),
