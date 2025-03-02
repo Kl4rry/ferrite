@@ -29,7 +29,7 @@ right = ["branch", "position", "encoding", "language", "spinner"]
 padding = 1
 
 [gui]
-font_family = "Noto Mono"
+font_family = "Fire Code"
 font_weight = "normal"
 cursor_type = "line"
 

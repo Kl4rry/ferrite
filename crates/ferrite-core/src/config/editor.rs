@@ -15,7 +15,7 @@ pub fn default_keymap_mode() -> String {
 }
 
 pub fn default_font() -> String {
-    "Noto Mono".into()
+    "Fira Code".into()
 }
 
 pub fn default_rulers() -> Vec<u16> {
