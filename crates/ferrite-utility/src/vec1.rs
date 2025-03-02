@@ -41,6 +41,10 @@ impl<T> Vec1<T> {
         self.inner.push(value);
     }
 
+    pub fn insert(&mut self, idx: usize, value: T) {
+        self.inner.insert(idx, value);
+    }
+
     pub fn pop(&mut self) -> Option<T> {
         if self.inner.len() == 1 {
             return None;

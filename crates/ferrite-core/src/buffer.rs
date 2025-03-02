@@ -117,6 +117,7 @@ pub struct View {
     pub replacement: Option<String>,
     view_lines: usize,
     view_columns: usize,
+    last_word_selected: Option<usize>,
 }
 
 impl Default for View {
@@ -133,6 +134,7 @@ impl Default for View {
             replacement: None,
             view_lines: 100,   // semi resonable default
             view_columns: 100, // semi resonable default
+            last_word_selected: None,
         }
     }
 }
@@ -151,6 +153,7 @@ impl Clone for View {
             replacement: None, // TODO: fix
             view_lines: self.view_lines,
             view_columns: self.view_columns,
+            last_word_selected: self.last_word_selected,
         }
     }
 }
@@ -894,23 +897,75 @@ impl Buffer {
                 }
             }
 
+            let mut new_cursor = None;
+            let mut clear_last_selection = false;
+
             let search_start = last_cursor.position.max(last_cursor.anchor);
-
-            let m = search_rope(
-                self.rope.byte_slice(search_start..),
-                self.get_selection(view_id, 0).to_string(),
-                false,
-                true,
-            )
-            .pop();
-
-            // TODO make looping around to beginning of buffer work
-            if let Some(m) = m {
-                self.views[view_id].cursors.push(Cursor {
+            if let Some(m) = {
+                search_rope(
+                    self.rope.byte_slice(search_start..),
+                    self.get_selection(view_id, 0).to_string(),
+                    false,
+                    true,
+                )
+                .pop()
+            } {
+                new_cursor = Some(Cursor {
                     anchor: m.start_byte + search_start,
                     position: m.end_byte + search_start,
                     affinity: 0,
                 });
+                clear_last_selection = true;
+            } else if let Some(cursor) = self.views[view_id]
+                .last_word_selected
+                .and_then(|cursor_idx| self.views[view_id].cursors.get(cursor_idx))
+            {
+                let search_start = cursor.end();
+                let m = search_rope(
+                    self.rope.byte_slice(search_start..),
+                    self.get_selection(view_id, 0).to_string(),
+                    false,
+                    true,
+                )
+                .pop();
+                if let Some(m) = m {
+                    new_cursor = Some(Cursor {
+                        anchor: m.start_byte + search_start,
+                        position: m.end_byte + search_start,
+                        affinity: 0,
+                    });
+                }
+            } else {
+                let m = search_rope(
+                    self.rope.byte_slice(..),
+                    self.get_selection(view_id, 0).to_string(),
+                    false,
+                    true,
+                )
+                .pop();
+                if let Some(m) = m {
+                    new_cursor = Some(Cursor {
+                        anchor: m.start_byte,
+                        position: m.end_byte,
+                        affinity: 0,
+                    });
+                }
+            }
+
+            if let Some(cursor) = new_cursor {
+                if !self.views[view_id]
+                    .cursors
+                    .iter()
+                    .any(|c| c.start() == cursor.start() && c.end() == cursor.end())
+                {
+                    self.views[view_id].cursors.push(cursor);
+                    if clear_last_selection {
+                        self.views[view_id].last_word_selected = None;
+                    } else {
+                        self.views[view_id].last_word_selected =
+                            Some(self.views[view_id].cursors.len() - 1);
+                    }
+                }
             }
         } else {
             for i in 0..self.views[view_id].cursors.len() {
