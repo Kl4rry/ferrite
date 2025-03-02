@@ -222,7 +222,7 @@ impl StatefulWidget for EditorWidget<'_> {
                             grapheme_buffer.push(' ');
                         }
                         grapheme_buffer
-                            .extend(std::iter::repeat(" ").take(tab_width.saturating_sub(1)));
+                            .extend(std::iter::repeat_n(" ", tab_width.saturating_sub(1)));
                         current_width += render_text(
                             &grapheme_buffer,
                             convert_style(&theme.dim_text),

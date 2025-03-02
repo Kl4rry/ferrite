@@ -111,7 +111,7 @@ impl LoggerState {
                 self.lines_scrolled_up = (self.lines_scrolled_up - distance).max(0.0);
             }
             Cmd::End { .. } => self.lines_scrolled_up = 0.0,
-            Cmd::Escape { .. } => self.lines_scrolled_up = 0.0,
+            Cmd::Escape => self.lines_scrolled_up = 0.0,
             _ => (),
         }
     }

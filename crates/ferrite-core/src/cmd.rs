@@ -217,7 +217,7 @@ impl Cmd {
         use Cmd::*;
         match self {
             Nop => "Nop",
-            Repeat { .. } => "Repeat",
+            Repeat => "Repeat",
             MoveRight { .. } => "Move right",
             MoveLeft { .. } => "Move left",
             MoveUp { .. } => "Move up",
@@ -301,7 +301,7 @@ impl Cmd {
             Encoding { .. } => "Encoding",
             LineEnding { .. } => "Line ending",
             RunShellCmd { .. } => "Run shell command",
-            OpenShellPalette { .. } => "Open shell command palette",
+            OpenShellPalette => "Open shell command palette",
             Case { .. } => "Case",
             ReplaceAll { .. } => "Replace all",
             About => "About",
@@ -409,7 +409,7 @@ impl Cmd {
             InputMode { .. } => false,
             Format => false,
             RunShellCmd { .. } => false,
-            OpenShellPalette { .. } => false,
+            OpenShellPalette => false,
             Split { .. } => false,
             ReopenBuffer => false,
             RotateFile => false,

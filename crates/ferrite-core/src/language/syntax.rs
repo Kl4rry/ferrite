@@ -453,7 +453,7 @@ impl<'a> HighlightIterLayer<'a> {
                         &mut |byte, _| {
                             if byte <= source.len_bytes() {
                                 let (chunk, start_byte, _, _) = source.chunk_at_byte(byte);
-                                chunk[byte - start_byte..].as_bytes()
+                                &chunk.as_bytes()[byte - start_byte..]
                             } else {
                                 // out of range
                                 &[]

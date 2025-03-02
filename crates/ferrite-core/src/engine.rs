@@ -578,6 +578,8 @@ impl Engine {
                     self.global_search_picker = None;
                 } else if let PaneKind::FileExplorer(..) = self.workspace.panes.get_current_pane() {
                     self.force_close_current_buffer();
+                } else if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                    let _ = buffer.handle_input(view_id, Cmd::Escape);
                 }
             }
             Cmd::OpenFilePicker => self.open_file_picker(),
