@@ -55,26 +55,33 @@ impl StatefulWidget for FileExplorerWidget<'_> {
                     continue;
                 };
                 let mut file_name = file_name.to_string_lossy();
-                if entry.file_type.is_dir() {
+                let is_dir = entry.file_type.is_dir();
+                if is_dir {
                     let mut file = file_name.into_owned();
                     file.push('/');
                     file_name = file.into();
                 }
 
-                let style = if i as usize + start == state.index() {
-                    convert_style(&self.theme.selection)
+                let style = if is_dir {
+                    convert_style(&self.theme.file_explorer_directory)
                 } else {
                     convert_style(&self.theme.text)
                 };
 
                 buf.set_stringn(area.x, area.y + i, &file_name, area.width as usize, style);
+                if i as usize + start == state.index() {
+                    buf.set_style(
+                        Rect::new(area.x, area.y + i, area.width, 1),
+                        convert_style(&self.theme.selection),
+                    );
+                }
             }
         }
 
         if area.height > 1 {
             let info_line_y = area.y + area.height - 1;
 
-            // Its a bit bruh to do this every single fram
+            // Its a bit bruh to do this every single frame
             let directory = if let Some(directories) = directories::UserDirs::new() {
                 let home = directories.home_dir();
                 let trimmed = trim_path(&home.to_string_lossy(), state.directory());

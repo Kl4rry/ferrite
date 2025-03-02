@@ -17,6 +17,7 @@
 "editor.completer.selected" = { bg = "blue1", fg = "bg0" }
 "editor.cursorline" = { bg = "bg1" }
 "editor.scrollbar" = { bg = "bg0", fg = "scrollbar" }
+"editor.file_explorer.directory" = { fg = "blue0" }
 
 [syntax]
 "tag" = { fg = "red1" }

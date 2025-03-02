@@ -106,6 +106,7 @@ pub struct EditorTheme {
     pub completer_selected: style::Style,
     pub cursorline: style::Style,
     pub scrollbar: style::Style,
+    pub file_explorer_directory: style::Style,
     // syntax styles
     syntax: HashMap<String, style::Style>,
 }
@@ -133,6 +134,7 @@ impl EditorTheme {
             completer_selected: theme.get_style("editor.completer.selected")?,
             cursorline: theme.get_style("editor.cursorline")?,
             scrollbar: theme.get_style("editor.scrollbar")?,
+            file_explorer_directory: theme.get_style("editor.file_explorer.directory")?,
 
             syntax: {
                 let mut syntax = HashMap::new();

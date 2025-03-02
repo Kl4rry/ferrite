@@ -16,6 +16,7 @@
 "editor.completer.selected" = { bg = "bg", fg = "text" }
 "editor.cursorline" = { bg = "highlight-line" }
 "editor.scrollbar" = { bg = "bg", fg = "scrollbar" }
+"editor.file_explorer.directory" = { fg = "blue" }
 
 [syntax]
 "attribute" = { fg = "text" }
