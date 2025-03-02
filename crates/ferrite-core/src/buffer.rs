@@ -2101,8 +2101,17 @@ impl Buffer {
             .filter(|line| line.line_without_line_ending(0).len_bytes() > 0)
             .count();
 
-        if self.views[view_id].cursors.len() != lines {
-            self.insert_text(view_id, &text, true);
+        let len_cursors = self.views[view_id].cursors.len();
+        if len_cursors == 1 || len_cursors != lines {
+            if lines == 1 && rope.get_line_ending().is_some() {
+                self.insert_text(
+                    view_id,
+                    &format!("\n{}", rope.line_without_line_ending(0)),
+                    true,
+                );
+            } else {
+                self.insert_text(view_id, &text, true);
+            }
             self.history.finish();
             return;
         }
