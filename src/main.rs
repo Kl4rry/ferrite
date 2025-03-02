@@ -1,7 +1,7 @@
 use std::{
     fs::{self, OpenOptions},
     process::ExitCode,
-    sync::{mpsc, Mutex},
+    sync::{Mutex, mpsc},
 };
 
 use anyhow::Result;
@@ -11,7 +11,7 @@ use ferrite_core::{
     logger::{LogMessage, LoggerSink},
 };
 use tracing::Level;
-use tracing_subscriber::{filter, fmt, layer::Layer, prelude::*, Registry};
+use tracing_subscriber::{Registry, filter, fmt, layer::Layer, prelude::*};
 
 #[cfg(feature = "talloc")]
 #[global_allocator]
@@ -33,7 +33,9 @@ fn maybe_disown(args: &ferrite_cli::Args) {
         assert!(child.is_ok());
         process::exit(0);
     } else {
-        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+        eprintln!(
+            "error in disowning process, cannot obtain the path for the current executable, continuing without disowning..."
+        );
     }
 }
 

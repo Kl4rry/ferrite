@@ -11,13 +11,15 @@ impl PickerOptionProvider for FileFindProvider {
         // TODO fix
         let mut subscriber = self.0.clone();
         let (tx, rx) = cb::bounded(1);
-        thread::spawn(move || loop {
-            let Ok(value) = subscriber.recive() else {
-                break;
-            };
+        thread::spawn(move || {
+            loop {
+                let Ok(value) = subscriber.recive() else {
+                    break;
+                };
 
-            if tx.send(value).is_err() {
-                break;
+                if tx.send(value).is_err() {
+                    break;
+                }
             }
         });
 

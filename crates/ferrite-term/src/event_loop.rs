@@ -61,10 +61,12 @@ impl TuiEventLoop {
             waker_tx: waker_tx.clone(),
         };
 
-        thread::spawn(move || loop {
-            if let Ok(event) = crossterm::event::read() {
-                let _ = crossterm_tx.send(event);
-                let _ = waker_tx.send(());
+        thread::spawn(move || {
+            loop {
+                if let Ok(event) = crossterm::event::read() {
+                    let _ = crossterm_tx.send(event);
+                    let _ = waker_tx.send(());
+                }
             }
         });
 

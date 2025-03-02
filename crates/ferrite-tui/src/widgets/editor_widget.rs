@@ -1,7 +1,7 @@
 use std::ops::Add;
 
 use ferrite_core::{
-    buffer::{search::SearchMatch, Buffer, Selection, ViewId},
+    buffer::{Buffer, Selection, ViewId, search::SearchMatch},
     config::{
         self,
         editor::{CursorType, Editor, LineNumber},
@@ -10,7 +10,7 @@ use ferrite_core::{
     theme::EditorTheme,
 };
 use ferrite_utility::{
-    graphemes::{tab_width_at, RopeGraphemeExt, TAB_WIDTH},
+    graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at},
     point::Point,
 };
 use rayon::{

@@ -3,8 +3,8 @@ use std::fmt;
 
 use keycode::{KeyCode, KeyModifiers};
 use serde::{
-    de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
+    de::{self, Visitor},
 };
 
 use crate::{
@@ -755,7 +755,7 @@ impl<'de> Deserialize<'de> for Key {
                     None => {
                         return Err(de::Error::custom(
                             "every keybinding must have a non modifier key",
-                        ))
+                        ));
                     }
                 };
 

@@ -1,4 +1,4 @@
-use super::{error::BufferError, Buffer, ViewId};
+use super::{Buffer, ViewId, error::BufferError};
 use crate::cmd::Cmd;
 
 impl Buffer {

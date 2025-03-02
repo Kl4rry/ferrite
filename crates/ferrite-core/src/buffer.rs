@@ -10,7 +10,7 @@ use std::{
 use encoding_rs::Encoding;
 use ferrite_utility::{
     graphemes::RopeGraphemeExt,
-    line_ending::{rope_end_without_line_ending, LineEnding, DEFAULT_LINE_ENDING},
+    line_ending::{DEFAULT_LINE_ENDING, LineEnding, rope_end_without_line_ending},
     point::Point,
     vec1::Vec1,
 };

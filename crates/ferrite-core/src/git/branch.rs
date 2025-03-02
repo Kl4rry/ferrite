@@ -6,9 +6,8 @@ use std::{
 };
 
 use notify_debouncer_full::{
-    new_debouncer,
+    DebounceEventResult, Debouncer, RecommendedCache, new_debouncer,
     notify::{self, RecommendedWatcher, RecursiveMode},
-    DebounceEventResult, Debouncer, RecommendedCache,
 };
 
 use crate::event_loop_proxy::EventLoopProxy;

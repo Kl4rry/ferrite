@@ -4,7 +4,7 @@ use std::{
     time::Instant,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use crossterm::{
     event::{
         self, Event, KeyEventKind, KeyboardEnhancementFlags, MouseButton, MouseEventKind,
@@ -19,11 +19,11 @@ use ferrite_core::{
     event_loop_proxy::EventLoopControlFlow, keymap, layout::panes::PaneKind, logger::LogMessage,
 };
 use ferrite_tui::{
-    glue::ferrite_to_tui_rect, widgets::editor_widget::lines_to_left_offset, TuiApp,
+    TuiApp, glue::ferrite_to_tui_rect, widgets::editor_widget::lines_to_left_offset,
 };
 use ferrite_utility::point::Point;
 use glue::{convert_keycode, convert_modifier};
-use tui::{layout::Position, Terminal};
+use tui::{Terminal, layout::Position};
 
 mod event_loop;
 mod glue;

@@ -10,7 +10,7 @@ use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 use ropey::RopeSlice;
 
 use self::fuzzy_match::FuzzyMatch;
-use super::buffer::{error::BufferError, Buffer};
+use super::buffer::{Buffer, error::BufferError};
 use crate::{buffer::ViewId, cmd::Cmd, event_loop_proxy::EventLoopProxy};
 
 pub mod buffer_picker;

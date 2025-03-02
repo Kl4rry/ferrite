@@ -15,7 +15,7 @@ use crate::{
     event_loop_proxy::EventLoopProxy,
     file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,
-    layout::panes::{layout::Layout, PaneKind, Panes},
+    layout::panes::{PaneKind, Panes, layout::Layout},
     watcher::{FileWatcher, TomlConfig},
 };
 

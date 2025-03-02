@@ -2,9 +2,8 @@ use std::{collections::HashMap, path::PathBuf, sync::mpsc, time::Duration};
 
 use anyhow::Result;
 use notify_debouncer_full::{
-    new_debouncer,
+    DebounceEventResult, Debouncer, RecommendedCache, new_debouncer,
     notify::{RecommendedWatcher, RecursiveMode},
-    DebounceEventResult, Debouncer, RecommendedCache,
 };
 use slotmap::SlotMap;
 

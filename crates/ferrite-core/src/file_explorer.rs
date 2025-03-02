@@ -12,7 +12,7 @@ use ropey::{Rope, RopeSlice};
 use crate::{
     buffer::Buffer,
     cmd::Cmd,
-    picker::{fuzzy_match, Matchable},
+    picker::{Matchable, fuzzy_match},
 };
 
 slotmap::new_key_type! {

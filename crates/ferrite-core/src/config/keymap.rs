@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cmd::Cmd,
-    config::{editor::KeymapAndMetadata, Editor},
+    config::{Editor, editor::KeymapAndMetadata},
     keymap::Key,
 };
 #[derive(Debug, Serialize, Deserialize)]

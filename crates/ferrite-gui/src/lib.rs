@@ -1,19 +1,19 @@
 use std::{
     collections::HashMap,
     env, iter,
-    sync::{mpsc, Arc},
+    sync::{Arc, mpsc},
     time::Instant,
 };
 
 use anyhow::Result;
-use backend::{calculate_cell_size, get_metrics, WgpuBackend};
+use backend::{WgpuBackend, calculate_cell_size, get_metrics};
 use event_loop_wrapper::EventLoopProxyWrapper;
 use ferrite_cli::Args;
 use ferrite_core::{
     buffer::ViewId,
     clipboard,
     cmd::Cmd,
-    config::editor::{default_font, FontWeight},
+    config::editor::{FontWeight, default_font},
     event_loop_proxy::{EventLoopControlFlow, UserEvent},
     keymap::{self, keycode::KeyModifiers},
     layout::panes::PaneKind,
@@ -21,9 +21,9 @@ use ferrite_core::{
     workspace::BufferId,
 };
 use ferrite_tui::{
+    TuiApp,
     glue::{ferrite_to_tui_rect, tui_to_ferrite_rect},
     widgets::editor_widget::lines_to_left_offset,
-    TuiApp,
 };
 use ferrite_utility::{
     geom::{Rect, Vec2},
@@ -32,7 +32,7 @@ use ferrite_utility::{
 };
 use glue::convert_keycode;
 use renderer::{Layer, Renderer};
-use tui::{layout::Position, Terminal};
+use tui::{Terminal, layout::Position};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
@@ -42,8 +42,8 @@ use winit::{
 };
 
 use crate::renderer::{
-    geometry_renderer::{Geometry, Quad},
     Bundle,
+    geometry_renderer::{Geometry, Quad},
 };
 
 mod backend;

@@ -2,8 +2,8 @@ use std::mem;
 
 use ferrite_core::{config::editor::FontWeight, theme::EditorTheme};
 use glyphon::{
-    cosmic_text::Scroll, Attrs, AttrsList, Buffer, BufferLine, Color, Family, FontSystem, Metrics,
-    Shaping, TextArea, TextBounds, Weight,
+    Attrs, AttrsList, Buffer, BufferLine, Color, Family, FontSystem, Metrics, Shaping, TextArea,
+    TextBounds, Weight, cosmic_text::Scroll,
 };
 use tui::{
     backend::WindowSize,
@@ -16,8 +16,8 @@ use unicode_width::UnicodeWidthStr;
 use crate::{
     glue::convert_style,
     renderer::{
-        geometry_renderer::{Geometry, Quad},
         Bundle,
+        geometry_renderer::{Geometry, Quad},
     },
 };
 

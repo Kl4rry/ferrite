@@ -64,7 +64,7 @@ pub fn char_is_whitespace(ch: char) -> bool {
 
 #[inline]
 pub fn char_is_punctuation(ch: char) -> bool {
-    use unicode_general_category::{get_general_category, GeneralCategory};
+    use unicode_general_category::{GeneralCategory, get_general_category};
 
     matches!(
         get_general_category(ch),

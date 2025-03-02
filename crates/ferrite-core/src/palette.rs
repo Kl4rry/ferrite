@@ -8,7 +8,7 @@ use history::History;
 use ropey::RopeSlice;
 
 use self::completer::{Completer, CompleterContext};
-use super::buffer::{error::BufferError, Buffer};
+use super::buffer::{Buffer, error::BufferError};
 use crate::{
     buffer::ViewId,
     cmd::Cmd,

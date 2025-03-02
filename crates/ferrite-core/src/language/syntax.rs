@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use cb::Sender;
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{
@@ -14,7 +14,7 @@ use tree_sitter::{
     Range, TextProvider, Tree,
 };
 
-use super::{get_tree_sitter_language, TreeSitterConfig};
+use super::{TreeSitterConfig, get_tree_sitter_language};
 use crate::event_loop_proxy::EventLoopProxy;
 
 type HighlightResult = Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>;

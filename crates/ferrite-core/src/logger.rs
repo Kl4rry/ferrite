@@ -1,7 +1,7 @@
 use std::{
     collections::VecDeque,
     io::Write,
-    sync::{mpsc, Mutex},
+    sync::{Mutex, mpsc},
 };
 
 use serde::Deserialize;

@@ -1,6 +1,6 @@
 [package]
 authors = ["Axel Kappel"]
-edition = "2021"
+edition = "2024"
 name = "ferrite"
 version = "0.1.0"
 

@@ -1,8 +1,8 @@
 use core::fmt;
 
 use serde::{
-    de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
+    de::{self, Visitor},
 };
 
 bitflags::bitflags! {
@@ -393,7 +393,7 @@ impl<'de> Deserialize<'de> for KeyModifiers {
                     match KeyModifiers::try_from_str(s) {
                         Some(modifier) => modifiers |= modifier,
                         None => {
-                            return Err(de::Error::custom(format!("unrecognized modifier {}", s)))
+                            return Err(de::Error::custom(format!("unrecognized modifier {}", s)));
                         }
                     }
                 }

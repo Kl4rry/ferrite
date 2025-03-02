@@ -5,7 +5,7 @@ use std::{
     num::NonZeroUsize,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::{atomic::Ordering, mpsc, Arc},
+    sync::{Arc, atomic::Ordering, mpsc},
     time::{Duration, Instant},
 };
 
@@ -17,16 +17,16 @@ use ropey::Rope;
 use slotmap::{Key as _, SlotMap};
 
 use crate::{
-    buffer::{self, encoding::get_encoding, Buffer, ViewId},
+    buffer::{self, Buffer, ViewId, encoding::get_encoding},
     buffer_watcher::BufferWatcher,
     byte_size::format_byte_size,
     clipboard,
     cmd::Cmd,
     config::{
+        Config,
         editor::Editor,
         keymap::{Keymap, Keymapping},
         languages::Languages,
-        Config,
     },
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
     file_explorer::FileExplorer,
@@ -37,17 +37,17 @@ use crate::{
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
     palette::{
+        CommandPalette, PalettePromptEvent,
         cmd_parser::{self, generic_cmd::CmdTemplateArg},
         completer::CompleterContext,
-        CommandPalette, PalettePromptEvent,
     },
     picker::{
+        Picker,
         buffer_picker::{BufferFindProvider, BufferItem},
         file_picker::FileFindProvider,
-        file_previewer::{is_text_file, FilePreviewer},
+        file_previewer::{FilePreviewer, is_text_file},
         file_scanner::FileScanner,
         global_search_picker::{GlobalSearchMatch, GlobalSearchPreviewer, GlobalSearchProvider},
-        Picker,
     },
     spinner::Spinner,
     theme::EditorTheme,

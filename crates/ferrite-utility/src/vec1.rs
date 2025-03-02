@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use serde::{ser::SerializeSeq as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser::SerializeSeq as _};
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Vec1<T> {

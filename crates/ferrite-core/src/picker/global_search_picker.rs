@@ -10,11 +10,11 @@ use std::{
 use ferrite_utility::{graphemes::RopeGraphemeExt, point::Point};
 use grep_matcher::Matcher as _;
 use grep_regex::RegexMatcherBuilder;
-use grep_searcher::{sinks::UTF8, Searcher};
+use grep_searcher::{Searcher, sinks::UTF8};
 use ignore::{WalkBuilder, WalkState};
-use ropey::{iter::Chunks, Rope};
+use ropey::{Rope, iter::Chunks};
 
-use super::{file_previewer::is_text_file, Matchable, PickerOptionProvider};
+use super::{Matchable, PickerOptionProvider, file_previewer::is_text_file};
 use crate::{
     buffer::Buffer,
     config::editor::PickerConfig,
