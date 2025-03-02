@@ -1247,7 +1247,7 @@ impl Buffer {
                 self.views[view_id].cursors[cursor_index].anchor =
                     self.views[view_id].cursors[cursor_index].position;
             }
-            (text.len(), false)
+            (text.len(), true)
         } else if auto_indent {
             let indent = self.guess_indent(self.views[view_id].cursors[cursor_index].position);
             let min_indent_width = Rope::from_str(&indent).width(0);
@@ -1304,7 +1304,7 @@ impl Buffer {
                 self.history
                     .insert(&mut self.rope, self.cursors[cursor_index].position + text.len(), pair);
             }*/
-            (input.len(), true)
+            (input.len(), false)
         } else {
             self.history.insert(
                 &mut self.rope,
