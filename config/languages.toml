@@ -4,6 +4,10 @@ name = "rust"
 format = "rustfmt --edition 2024"
 
 [[language]]
+name = "json"
+format = "jq"
+
+[[language]]
 name = "cpp"
 format = "clang-format"
 format_selection = "clang-format --offset=%start% --length=%len%"
