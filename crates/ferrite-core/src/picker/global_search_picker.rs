@@ -217,7 +217,7 @@ impl Previewer<GlobalSearchMatch> for GlobalSearchPreviewer {
             let view_id = guard.get_first_view().unwrap();
             guard.select_area(view_id, start, end, false);
             guard.views[view_id].clamp_cursor = true;
-            guard.center_on_cursor(view_id);
+            guard.center_on_main_cursor(view_id);
         }
         Preview::SharedBuffer(m.buffer.clone())
     }

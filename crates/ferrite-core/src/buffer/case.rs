@@ -97,7 +97,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.mark_dirty();

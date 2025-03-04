@@ -145,7 +145,7 @@ impl Buffer {
         self.restore_cursor_positions(cursor_positions);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.mark_dirty();

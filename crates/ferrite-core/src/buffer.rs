@@ -695,7 +695,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -722,7 +722,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -785,7 +785,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -848,7 +848,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -952,28 +952,33 @@ impl Buffer {
                 }
             }
 
-            if let Some(cursor) = new_cursor {
-                if !self.views[view_id]
+            if let Some(cursor) = new_cursor.and_then(|cursor| {
+                if self.views[view_id]
                     .cursors
                     .iter()
                     .any(|c| c.start() == cursor.start() && c.end() == cursor.end())
                 {
-                    self.views[view_id].cursors.push(cursor);
-                    if clear_last_selection {
-                        self.views[view_id].last_word_selected = None;
-                    } else {
-                        self.views[view_id].last_word_selected =
-                            Some(self.views[view_id].cursors.len() - 1);
-                    }
+                    None
+                } else {
+                    Some(cursor)
                 }
+            }) {
+                self.views[view_id].cursors.push(cursor);
+                self.center_on_cursor(view_id, self.views[view_id].cursors.len() - 1);
+                if clear_last_selection {
+                    self.views[view_id].last_word_selected = None;
+                } else {
+                    self.views[view_id].last_word_selected =
+                        Some(self.views[view_id].cursors.len() - 1);
+                }
+            } else {
+                self.center_on_cursor(view_id, 0);
             }
         } else {
             for i in 0..self.views[view_id].cursors.len() {
                 self.select_word_raw(view_id, i);
             }
         }
-
-        self.center_on_cursor(view_id);
 
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
@@ -1133,7 +1138,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1154,7 +1159,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1205,7 +1210,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1227,7 +1232,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1243,7 +1248,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1259,7 +1264,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1404,7 +1409,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.update_affinity(view_id);
@@ -1503,7 +1508,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1545,7 +1550,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -1590,7 +1595,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -1639,7 +1644,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1681,7 +1686,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -1723,7 +1728,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -1815,7 +1820,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -1918,7 +1923,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -1968,7 +1973,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -1994,7 +1999,7 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -2034,7 +2039,7 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.mark_dirty();
         self.history.finish();
@@ -2052,7 +2057,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
         self.queue_syntax_update();
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -2068,7 +2073,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
         self.queue_syntax_update();
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -2142,7 +2147,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
         self.history.finish();
     }
@@ -2192,7 +2197,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.update_affinity(view_id);
@@ -2278,7 +2283,7 @@ impl Buffer {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
             if self.views[view_id].clamp_cursor {
-                self.center_on_cursor(view_id);
+                self.center_on_main_cursor(view_id);
             }
         }
     }
@@ -2354,7 +2359,7 @@ impl Buffer {
             self.views[view_id].cursors[cursor_index].position;
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
     }
 
@@ -2408,12 +2413,19 @@ impl Buffer {
         }
     }
 
-    pub fn center_on_cursor(&mut self, view_id: ViewId) {
-        let cursor_index = self.views[view_id].cursors.len().saturating_sub(1);
+    pub fn center_on_main_cursor(&mut self, view_id: ViewId) {
+        if self.views[view_id].cursors.len() > 1 {
+            return;
+        }
+
+        self.center_on_cursor(view_id, 0);
+    }
+
+    pub fn center_on_cursor(&mut self, view_id: ViewId, cursor_idx: usize) {
         {
             let cursor_line = self
                 .rope
-                .byte_to_line(self.views[view_id].cursors[cursor_index].position);
+                .byte_to_line(self.views[view_id].cursors[cursor_idx].position);
             let start_line = self.views[view_id].line_pos_floored();
             let end_line = start_line + self.views[view_id].view_lines;
             if cursor_line < start_line || cursor_line >= end_line {
@@ -2423,7 +2435,7 @@ impl Buffer {
         }
 
         {
-            let cursor_col = self.cursor_grapheme_column(view_id, cursor_index);
+            let cursor_col = self.cursor_grapheme_column(view_id, cursor_idx);
             let start_col = self.views[view_id].col_pos_floored();
             let end_col = start_col + self.views[view_id].view_columns;
 
@@ -2721,7 +2733,7 @@ impl Buffer {
             self.ensure_every_cursor_is_valid();
 
             if self.views[view_id].clamp_cursor {
-                self.center_on_cursor(view_id);
+                self.center_on_main_cursor(view_id);
             }
 
             self.history.finish();
@@ -2888,7 +2900,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.update_affinity(view_id);
@@ -2934,7 +2946,7 @@ impl Buffer {
 
         for view_id in self.views.keys().collect::<Vec<_>>() {
             if self.views[view_id].clamp_cursor {
-                self.center_on_cursor(view_id);
+                self.center_on_main_cursor(view_id);
             }
         }
 
@@ -3073,7 +3085,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.update_affinity(view_id);
@@ -3108,7 +3120,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_cursor(view_id);
+            self.center_on_main_cursor(view_id);
         }
 
         self.update_affinity(view_id);
