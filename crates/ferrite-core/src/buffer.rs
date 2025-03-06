@@ -2276,6 +2276,9 @@ impl Buffer {
 
         if self.views[view_id].cursors.len() > 1 {
             self.views[view_id].cursors.clear();
+            if self.views[view_id].clamp_cursor {
+                self.center_on_main_cursor(view_id);
+            }
             return;
         }
 
