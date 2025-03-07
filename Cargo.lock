@@ -931,6 +931,7 @@ dependencies = [
  "pollster",
  "profiling",
  "ratatui",
+ "ropey",
  "tracing",
  "unicode-width 0.1.14",
  "wgpu",

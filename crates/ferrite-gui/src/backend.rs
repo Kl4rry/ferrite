@@ -1,4 +1,4 @@
-use std::mem;
+use std::{borrow::Cow, mem};
 
 use ferrite_core::{config::editor::FontWeight, theme::EditorTheme};
 use glyphon::{
@@ -23,13 +23,13 @@ use crate::{
 
 const LINE_SCALE: f32 = 1.3;
 const FONT_SIZE: f32 = 14.0;
-const REPLACED_SYMBOLS: &[&str] = &["☺️", "☹️"];
-const REPLACEMENT_SYMBOLS: &[&str] = &["☺️ ", "☹️ "];
 
-pub fn calculate_cell_size(
+pub fn calculate_char_size(
     font_system: &mut FontSystem,
     metrics: Metrics,
     font_weight: FontWeight,
+    shaping: Shaping,
+    text: &str,
 ) -> (f32, f32) {
     let mut buffer = Buffer::new(font_system, metrics);
     buffer.set_wrap(font_system, glyphon::Wrap::None);
@@ -37,15 +37,23 @@ pub fn calculate_cell_size(
     // Use size of space to determine cell size
     buffer.set_text(
         font_system,
-        " ",
+        text,
         Attrs::new()
             .weight(Weight(font_weight as u16))
             .family(Family::Monospace),
-        Shaping::Basic,
+        shaping,
     );
     let layout = buffer.line_layout(font_system, 0).unwrap();
     let w = layout[0].w;
     (w, metrics.line_height)
+}
+
+pub fn calculate_cell_size(
+    font_system: &mut FontSystem,
+    metrics: Metrics,
+    font_weight: FontWeight,
+) -> (f32, f32) {
+    calculate_char_size(font_system, metrics, font_weight, Shaping::Basic, " ")
 }
 
 pub fn get_metrics(scale: f32) -> Metrics {
@@ -197,21 +205,32 @@ impl WgpuBackend {
                     }
 
                     attrs = attrs.color(fg);
-                    let symbol = if let Some(idx) =
-                        REPLACED_SYMBOLS.iter().position(|s| *s == cell.symbol())
-                    {
-                        REPLACEMENT_SYMBOLS[idx]
-                    } else {
-                        cell.symbol()
-                    };
+                    let symbol = cell.symbol();
 
                     let symbol_width = symbol.width();
+                    let mut cow_symbol: Cow<str> = symbol.into();
                     if symbol_width > 1 {
+                        let (ch_w, _) = calculate_char_size(
+                            font_system,
+                            get_metrics(self.scale),
+                            self.font_weight,
+                            Shaping::Advanced,
+                            symbol,
+                        );
+                        let width = (ch_w / self.cell_width).round() as usize;
+                        if width < symbol_width {
+                            let mut owned_symbol = symbol.to_string();
+                            for _ in 0..(symbol_width - width) {
+                                owned_symbol.push(' ');
+                            }
+                            cow_symbol = owned_symbol.into();
+                        }
                         skip_next = true;
                     }
-                    line_text.push_str(symbol);
-                    attr_list.add_span(idx..(idx + symbol.len()), attrs);
-                    idx += symbol.len();
+
+                    line_text.push_str(&cow_symbol);
+                    attr_list.add_span(idx..(idx + cow_symbol.len()), attrs);
+                    idx += cow_symbol.len();
 
                     // TODO greedy mesh here
                     self.bottom_geometry.quads.push(Quad {

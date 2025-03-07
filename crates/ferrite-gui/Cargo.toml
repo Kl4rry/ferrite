@@ -16,6 +16,7 @@ ferrite-utility = { workspace = true }
 glyphon = "0.7.0"
 pollster = "0.3.0"
 profiling = { workspace = true }
+ropey = { workspace = true }
 tracing = { workspace = true }
 tui = { workspace = true, default-features = false }
 unicode-width = { workspace = true }
