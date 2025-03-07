@@ -303,6 +303,18 @@ impl Engine {
             }
         }
 
+        if let Some(config_watcher) = &mut self.workspace.config_watcher {
+            if let Some(result) = config_watcher.poll_update() {
+                match result {
+                    Ok(config) => {
+                        self.workspace.config = config;
+                        self.palette.set_msg("Reloaded workspace config");
+                    }
+                    Err(err) => self.palette.set_error(err),
+                }
+            }
+        }
+
         let mut new_buffers = Vec::new();
         for (_, buffer) in &mut self.workspace.buffers {
             if let Some(path) = buffer.file() {
