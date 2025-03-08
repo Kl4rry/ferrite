@@ -883,6 +883,7 @@ impl Engine {
             Cmd::DefaultLanguages => self.open_default_languages(),
             Cmd::OpenKeymap => self.open_keymap(),
             Cmd::DefaultKeymap => self.open_default_keymap(),
+            Cmd::OpenWorkspaceConfig => self.open_workspace_config(),
             Cmd::ForceClose => self.force_close_current_buffer(),
             Cmd::Close => self.close_current_buffer(),
             Cmd::ClosePane => self.close_pane(),
@@ -1324,6 +1325,10 @@ impl Engine {
         buffer.set_text(&toml::to_string_pretty(&keymap).unwrap());
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
+    }
+
+    pub fn open_workspace_config(&mut self) {
+        self.open_file(crate::workspace::get_config_path("."));
     }
 
     pub fn open_file_explorer(&mut self, path: Option<PathBuf>) {
