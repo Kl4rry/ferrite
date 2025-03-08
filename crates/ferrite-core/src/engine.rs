@@ -1765,8 +1765,9 @@ impl Engine {
     pub fn search(&mut self) {
         if let Some((buffer, view_id)) = self.get_current_buffer() {
             let selection = buffer.get_selection(view_id, 0);
-            self.file_picker = None;
-            self.buffer_picker = None;
+            let current_query = buffer
+                .get_searcher(view_id)
+                .map(|searcher| searcher.get_last_query());
             self.palette.focus(
                 self.get_search_prompt(false),
                 "search",
@@ -1777,12 +1778,13 @@ impl Engine {
                     None,
                 ),
             );
-            if !selection.is_empty()
-                && self.palette.mode() == Some("search")
-                && self.palette.get_line().is_some()
-            {
+            if let Some(current_query) = current_query {
+                self.palette.set_line(current_query);
+            } else if !selection.is_empty() {
                 self.palette.set_line(selection);
             }
+            self.file_picker = None;
+            self.buffer_picker = None;
         }
     }
 

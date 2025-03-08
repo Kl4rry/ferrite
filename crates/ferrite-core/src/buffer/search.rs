@@ -24,6 +24,7 @@ enum QueryUpdate {
 pub struct BufferSearcher {
     matches: Arc<Mutex<(Vec<SearchMatch>, Option<usize>)>>,
     last_rope: Rope,
+    last_query: String,
     match_index: usize,
     tx: mpsc::Sender<QueryUpdate>,
 }
@@ -40,6 +41,7 @@ impl BufferSearcher {
         let (tx, rx) = mpsc::channel();
         let _ = tx.send(QueryUpdate::Rope(rope.clone(), Some(case_insensitive)));
         let thread_rope = rope.clone();
+        let last_query = query.clone();
 
         let thread_matches = matches.clone();
         thread::spawn(move || {
@@ -100,6 +102,7 @@ impl BufferSearcher {
         Self {
             matches,
             tx,
+            last_query,
             last_rope: rope,
             match_index: usize::MAX - 1,
         }
@@ -140,6 +143,7 @@ impl BufferSearcher {
     }
 
     pub fn update_query(&mut self, query: String, case_insensitive: bool, cursor_pos: usize) {
+        self.last_query = query.clone();
         let _ = self
             .tx
             .send(QueryUpdate::Query(query, case_insensitive, cursor_pos));
@@ -153,6 +157,10 @@ impl BufferSearcher {
 
     pub fn get_matches(&self) -> Arc<Mutex<(Vec<SearchMatch>, Option<usize>)>> {
         self.matches.clone()
+    }
+
+    pub fn get_last_query(&self) -> String {
+        self.last_query.clone()
     }
 }
 
