@@ -1,4 +1,4 @@
-use std::{borrow::Cow, path::PathBuf};
+use std::{borrow::Cow, cmp::Ordering, path::PathBuf};
 
 use ferrite_utility::line_ending::LineEnding;
 use sublime_fuzzy::{FuzzySearch, Scoring};
@@ -174,7 +174,15 @@ impl Completer {
                     })
                     .collect::<Vec<_>>();
                 alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
-                    std::cmp::Ordering::Equal => b.1.cmp(a.1),
+                    std::cmp::Ordering::Equal => {
+                        if a.1.starts_with(&text) {
+                            Ordering::Less
+                        } else if b.1.starts_with(&text) {
+                            Ordering::Greater
+                        } else {
+                            b.1.cmp(a.1)
+                        }
+                    }
                     cmp => cmp,
                 });
 
@@ -221,7 +229,15 @@ impl Completer {
                                 })
                                 .collect::<Vec<_>>();
                             alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => b.1.cmp(a.1),
+                                std::cmp::Ordering::Equal => {
+                                    if a.1.starts_with(text) {
+                                        Ordering::Less
+                                    } else if b.1.starts_with(text) {
+                                        Ordering::Greater
+                                    } else {
+                                        b.1.cmp(a.1)
+                                    }
+                                }
                                 cmp => cmp,
                             });
 
@@ -245,7 +261,15 @@ impl Completer {
                                 })
                                 .collect::<Vec<_>>();
                             themes.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => b.1.cmp(a.1),
+                                std::cmp::Ordering::Equal => {
+                                    if a.1.starts_with(text) {
+                                        Ordering::Less
+                                    } else if b.1.starts_with(text) {
+                                        Ordering::Greater
+                                    } else {
+                                        b.1.cmp(a.1)
+                                    }
+                                }
                                 cmp => cmp,
                             });
 
@@ -269,7 +293,15 @@ impl Completer {
                                 })
                                 .collect::<Vec<_>>();
                             actions.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => b.1.cmp(a.1),
+                                std::cmp::Ordering::Equal => {
+                                    if a.1.starts_with(text) {
+                                        Ordering::Less
+                                    } else if b.1.starts_with(text) {
+                                        Ordering::Greater
+                                    } else {
+                                        b.1.cmp(a.1)
+                                    }
+                                }
                                 cmp => cmp,
                             });
 
