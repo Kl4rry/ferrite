@@ -308,7 +308,7 @@ impl CommandPalette {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),
                     });
-                } else if buffer.is_dirty() && mode == "command" || mode == "shell" {
+                } else if buffer.is_dirty() && (mode == "command" || mode == "shell") {
                     completer.update_text(buffer);
                 }
             }

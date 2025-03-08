@@ -130,6 +130,9 @@ impl Completer {
                     .iter()
                     .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
             );
+            if self.options.is_empty() {
+                self.index = None;
+            }
             return;
         }
 

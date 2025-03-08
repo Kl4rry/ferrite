@@ -23,17 +23,18 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
     let path = path.to_string();
 
     #[cfg(windows)]
-    let mut path = path.to_string();
-
-    #[cfg(windows)]
-    unsafe {
+    let path = {
+        let mut path = path.to_string();
         // safe because one ascii char is replacing another ascii char
-        for b in path.as_bytes_mut() {
-            if *b == b'/' {
-                *b = b'\\';
+        unsafe {
+            for b in path.as_bytes_mut() {
+                if *b == b'/' {
+                    *b = b'\\';
+                }
             }
         }
-    }
+        path
+    };
 
     let sep = path::MAIN_SEPARATOR;
     let (dir_name, file_name) = match path.rfind(sep) {
