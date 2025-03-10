@@ -96,28 +96,14 @@ pub fn get_default_chords() -> Vec<(Key, Cmd, bool)> {
             false,
         ),
         (
-            Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+            Key::new(KeyCode::Char('v'), KeyModifiers::CONTROL),
             Cmd::Split {
                 direction: Direction::Right,
             },
             false,
         ),
         (
-            Key::new(KeyCode::Char('l'), KeyModifiers::CONTROL),
-            Cmd::Split {
-                direction: Direction::Left,
-            },
-            false,
-        ),
-        (
-            Key::new(KeyCode::Char('u'), KeyModifiers::CONTROL),
-            Cmd::Split {
-                direction: Direction::Up,
-            },
-            false,
-        ),
-        (
-            Key::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+            Key::new(KeyCode::Char('h'), KeyModifiers::CONTROL),
             Cmd::Split {
                 direction: Direction::Down,
             },
