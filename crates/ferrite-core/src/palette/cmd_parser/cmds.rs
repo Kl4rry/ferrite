@@ -40,7 +40,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("paste", None, true).build(|_| Cmd::Paste),
         CmdBuilder::new("copy", None, true).build(|_| Cmd::Copy),
         CmdBuilder::new("cut", None, true).build(|_| Cmd::Cut),
-        CmdBuilder::new("format", None, true).build(|_| Cmd::Format),
+        CmdBuilder::new("format", None, true).add_alias("fmt").build(|_| Cmd::Format),
         CmdBuilder::new("format-selection", None, true).build(|_| Cmd::FormatSelection),
         CmdBuilder::new("url-open", None, true).build(|_| Cmd::UrlOpen),
         CmdBuilder::new("save-all", None, true).build(|_| Cmd::SaveAll),
