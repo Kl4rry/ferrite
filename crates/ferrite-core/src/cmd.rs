@@ -211,6 +211,8 @@ pub enum Cmd {
     NewLineWithoutBreaking,
     NewLineAboveWithoutBreaking,
     SelectAllMatching,
+    PageUp,
+    PageDown,
 }
 
 impl Cmd {
@@ -347,6 +349,8 @@ impl Cmd {
             NewLineWithoutBreaking => "Insert new line without breaking",
             NewLineAboveWithoutBreaking => "Insert new line above without breaking",
             SelectAllMatching => "Select all matching",
+            PageUp => "Page up",
+            PageDown => "Page down",
         }
     }
 
@@ -462,6 +466,8 @@ impl Cmd {
             NewLineWithoutBreaking => true,
             NewLineAboveWithoutBreaking => true,
             SelectAllMatching => false,
+            PageUp => true,
+            PageDown => true,
         }
     }
 }

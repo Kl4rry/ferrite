@@ -672,6 +672,20 @@ impl Buffer {
             (self.views[view_id].col_pos + distance).clamp(0.0, usize::MAX as f64 - 1.0);
     }
 
+    pub fn page_up(&mut self, view_id: ViewId) {
+        let distance = -(self.views[view_id].view_lines as f64);
+        let len_lines = self.len_lines() as f64;
+        self.views[view_id].line_pos =
+            (self.views[view_id].line_pos + distance).clamp(0.0, len_lines - 1.0);
+    }
+
+    pub fn page_down(&mut self, view_id: ViewId) {
+        let distance = self.views[view_id].view_lines as f64;
+        let len_lines = self.len_lines() as f64;
+        self.views[view_id].line_pos =
+            (self.views[view_id].line_pos + distance).clamp(0.0, len_lines - 1.0);
+    }
+
     pub fn move_right_char(&mut self, view_id: ViewId, expand_selection: bool) {
         for i in 0..self.views[view_id].cursors.len() {
             if !self.views[view_id].cursors[i].has_selection() || expand_selection {

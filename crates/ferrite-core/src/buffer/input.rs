@@ -65,6 +65,8 @@ impl Buffer {
             SelectAllMatching if !self.read_only => self.select_all_matching(view_id),
             DeleteToEndOfLine if !self.read_only => self.delete_to_end_of_line(view_id),
             BackspaceToStartOfLine if !self.read_only => self.backspace_to_start_of_line(view_id),
+            PageUp => self.page_up(view_id),
+            PageDown => self.page_down(view_id),
             Nop => self.update_interact(Some(view_id)),
             _ => return Ok(()),
         }

@@ -399,12 +399,12 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
         ),
         (
             Key::new(KeyCode::PageUp, KeyModifiers::empty()),
-            Cmd::VerticalScroll { distance: -50.0 },
+            Cmd::PageUp,
             false,
         ),
         (
             Key::new(KeyCode::PageDown, KeyModifiers::empty()),
-            Cmd::VerticalScroll { distance: 50.0 },
+            Cmd::PageDown,
             false,
         ),
         (
