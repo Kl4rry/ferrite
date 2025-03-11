@@ -36,7 +36,7 @@ pub enum SelectedPrompt {
 
 pub enum PaletteState {
     Input {
-        buffer: Buffer,
+        buffer: Box<Buffer>,
         view_id: ViewId,
         prompt: String,
         mode: String,
@@ -120,7 +120,7 @@ impl CommandPalette {
             mode,
             focused: true,
             completer: Completer::new(&buffer, ctx),
-            buffer,
+            buffer: Box::new(buffer),
             view_id,
             history_index: 0,
             old_line: String::new(),

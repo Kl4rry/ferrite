@@ -241,12 +241,14 @@ impl Clone for Buffer {
     }
 }
 
+const SCRATCH_NAME: &str = "[scratch]";
+
 impl Default for Buffer {
     fn default() -> Self {
         Self {
             rope: Rope::new(),
             file: None,
-            name: String::from("[scratch]"),
+            name: String::from(SCRATCH_NAME),
             encoding: encoding_rs::UTF_8,
             indent: Indentation::default(),
             dirty: false,
@@ -543,19 +545,18 @@ impl Buffer {
         self.file.as_deref()
     }
 
-    pub fn set_file(&mut self, path: impl Into<PathBuf>) -> Result<(), std::io::Error> {
+    pub fn set_file(&mut self, path: Option<impl Into<PathBuf>>) -> Result<(), std::io::Error> {
+        let Some(path) = path else {
+            self.file = None;
+            self.name = SCRATCH_NAME.to_string();
+            return Ok(());
+        };
         let path = path.into();
         if path.to_string_lossy().ends_with(std::path::MAIN_SEPARATOR) {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "File must have filename",
-            ));
+            return Err(io::Error::other("File must have filename"));
         }
         let Some(name) = path.file_name() else {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "File must have filename",
-            ));
+            return Err(io::Error::other("File must have filename"));
         };
         self.name = name.to_string_lossy().into();
         let path = if path.is_absolute() {

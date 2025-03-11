@@ -934,6 +934,16 @@ impl Engine {
                     self.palette.set_error(format!("Action '{name}' not found"));
                 }
             },
+            Cmd::Duplicate => {
+                if let Some((buffer, _)) = self.get_current_buffer() {
+                    let mut new_buffer = buffer.clone();
+                    new_buffer.views.clear();
+                    let _ = new_buffer.set_file(None::<&str>); // NOTE cannot fail
+                    let view_id = new_buffer.create_view();
+                    let (buffer_id, _) = self.insert_buffer(new_buffer, view_id, true);
+                    self.load_view_data(buffer_id, view_id);
+                }
+            }
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);
@@ -1561,7 +1571,7 @@ impl Engine {
         let buffer = &mut self.workspace.buffers[buffer_id];
 
         if let Some(path) = path {
-            if let Err(err) = buffer.set_file(path) {
+            if let Err(err) = buffer.set_file(Some(path)) {
                 self.palette.set_msg(err);
                 return;
             }

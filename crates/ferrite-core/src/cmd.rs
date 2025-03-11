@@ -213,6 +213,7 @@ pub enum Cmd {
     SelectAllMatching,
     PageUp,
     PageDown,
+    Duplicate,
 }
 
 impl Cmd {
@@ -351,6 +352,7 @@ impl Cmd {
             SelectAllMatching => "Select all matching",
             PageUp => "Page up",
             PageDown => "Page down",
+            Duplicate => "Duplicate file",
         }
     }
 
@@ -468,6 +470,7 @@ impl Cmd {
             SelectAllMatching => false,
             PageUp => true,
             PageDown => true,
+            Duplicate => false,
         }
     }
 }
