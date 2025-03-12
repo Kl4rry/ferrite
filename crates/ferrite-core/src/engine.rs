@@ -944,6 +944,26 @@ impl Engine {
                     self.load_view_data(buffer_id, view_id);
                 }
             }
+            Cmd::OpenRename => match self.workspace.panes.get_current_pane() {
+                PaneKind::Buffer(buffer_id, _) => {
+                    let Some(path) = self.workspace.buffers[buffer_id].file() else {
+                        self.palette.set_error("Cannot rename buffer without path");
+                        return;
+                    };
+                    self.palette.focus(
+                        "rename: ",
+                        "rename",
+                        CompleterContext::new(
+                            self.themes.keys().cloned().collect(),
+                            self.workspace.config.actions.keys().cloned().collect(),
+                            false,
+                            None,
+                        ),
+                    );
+                    self.palette.set_line(path.to_string_lossy());
+                }
+                _ => self.palette.set_error("Only buffers are renameable"),
+            },
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);
@@ -1089,6 +1109,10 @@ impl Engine {
                     self.palette.reset();
                     self.run_shell_command(content, self.config.editor.pipe_shell_palette, false);
                 }
+                "rename" => match self.rename_current(content) {
+                    Ok(_) => self.palette.reset(),
+                    Err(err) => self.palette.set_error(err),
+                },
                 _ => (),
             },
             UserEvent::PromptEvent(event) => match event {
@@ -1844,6 +1868,18 @@ impl Engine {
 
     fn try_get_current_buffer_path(&self) -> Option<PathBuf> {
         self.get_current_buffer()?.0.file().map(|p| p.to_owned())
+    }
+
+    pub fn rename_current(&mut self, path: impl AsRef<Path>) -> Result<()> {
+        if let Some((buffer, _)) = self.get_current_buffer_mut() {
+            if let Some(buffer_path) = buffer.file() {
+                std::fs::rename(buffer_path, &path)?;
+            }
+            buffer.set_file(Some(path.as_ref()))?;
+            Ok(())
+        } else {
+            anyhow::bail!("Current pane is not a buffer");
+        }
     }
 }
 
