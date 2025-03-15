@@ -386,6 +386,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
 pub enum Pattern {
     Suffix(&'static str),
     Name(&'static str),
+    Contains(&'static str),
 }
 
 impl Pattern {
@@ -393,6 +394,7 @@ impl Pattern {
         match self {
             Pattern::Suffix(suffix) => file.ends_with(suffix),
             Pattern::Name(name) => name.to_lowercase() == file.to_lowercase(),
+            Pattern::Contains(name) => file.to_lowercase().contains(&name.to_lowercase()),
         }
     }
 }
@@ -431,8 +433,8 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         (Suffix(".toml"), "toml"),
         (Name("Cargo.lock"), "toml"),
         // dockerfile
-        (Name("Dockerfile"), "dockerfile"),
-        (Name("Containerfile"), "dockerfile"),
+        (Contains("Dockerfile"), "dockerfile"),
+        (Contains("Containerfile"), "dockerfile"),
         // glsl
         (Suffix(".glsl"), "glsl"),
         (Suffix(".vert"), "glsl"),
