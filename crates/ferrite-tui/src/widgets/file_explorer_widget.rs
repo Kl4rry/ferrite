@@ -113,13 +113,23 @@ impl StatefulWidget for FileExplorerWidget<'_> {
         }
 
         {
+            let prompt = "search: ";
             let input_line_y = area.y + area.height - 2;
-            let input_line_area = Rect::new(area.x, input_line_y, area.width, 1);
-            OneLineInputWidget::new(self.theme, self.config, self.has_focus).render(
-                input_line_area,
-                buf,
-                &mut state.buffer,
+            buf.set_stringn(
+                area.x,
+                input_line_y,
+                prompt,
+                area.width as usize,
+                convert_style(&self.theme.text),
             );
+            let input_line_area = Rect::new(
+                area.x + prompt.len() as u16,
+                input_line_y,
+                area.width - prompt.len() as u16,
+                1,
+            );
+            OneLineInputWidget::new(self.theme, self.config, self.has_focus && state.searching)
+                .render(input_line_area, buf, &mut state.buffer);
         }
     }
 }

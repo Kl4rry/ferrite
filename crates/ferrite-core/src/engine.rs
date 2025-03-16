@@ -34,10 +34,11 @@ use crate::{
     indent::Indentation,
     job_manager::{JobHandle, JobManager, Progress, Progressor},
     jobs::{SaveBufferJob, ShellJobHandle},
+    keymap::InputContext,
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
     palette::{
-        CommandPalette, PalettePromptEvent,
+        CommandPalette, PaletteMode, PalettePromptEvent,
         cmd_parser::{self, generic_cmd::CmdTemplateArg},
         completer::CompleterContext,
     },
@@ -504,7 +505,7 @@ impl Engine {
                 self.global_search_picker = None;
                 self.palette.focus(
                     "$ ",
-                    "shell",
+                    PaletteMode::Shell,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
                         self.workspace.config.actions.keys().cloned().collect(),
@@ -535,7 +536,7 @@ impl Engine {
                 self.global_search_picker = None;
                 self.palette.focus(
                     "> ",
-                    "command",
+                    PaletteMode::Command,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
                         self.workspace.config.actions.keys().cloned().collect(),
@@ -550,7 +551,7 @@ impl Engine {
                 self.global_search_picker = None;
                 self.palette.focus(
                     "goto: ",
-                    "goto",
+                    PaletteMode::Goto,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
                         self.workspace.config.actions.keys().cloned().collect(),
@@ -565,10 +566,10 @@ impl Engine {
             Cmd::CaseInsensitive => {
                 self.config.editor.case_insensitive_search =
                     !self.config.editor.case_insensitive_search;
-                if let Some("search") = self.palette.mode() {
+                if let Some(PaletteMode::Search) = self.palette.mode() {
                     self.palette.update_prompt(self.get_search_prompt(false));
                 }
-                if let Some("global-search") = self.palette.mode() {
+                if let Some(PaletteMode::GlobalSearch) = self.palette.mode() {
                     self.palette.update_prompt(self.get_search_prompt(true));
                 }
             }
@@ -586,8 +587,15 @@ impl Engine {
                     self.file_picker = None;
                     self.buffer_picker = None;
                     self.global_search_picker = None;
-                } else if let PaneKind::FileExplorer(..) = self.workspace.panes.get_current_pane() {
-                    self.force_close_current_buffer();
+                } else if let PaneKind::FileExplorer(file_explorer_id) =
+                    self.workspace.panes.get_current_pane()
+                {
+                    if self.workspace.file_explorers[file_explorer_id].searching {
+                        let _ = self.workspace.file_explorers[file_explorer_id]
+                            .handle_input(Cmd::Escape);
+                    } else {
+                        self.force_close_current_buffer();
+                    }
                 } else if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
                     let _ = buffer.handle_input(view_id, Cmd::Escape);
                 }
@@ -944,26 +952,38 @@ impl Engine {
                     self.load_view_data(buffer_id, view_id);
                 }
             }
-            Cmd::OpenRename => match self.workspace.panes.get_current_pane() {
-                PaneKind::Buffer(buffer_id, _) => {
-                    let Some(path) = self.workspace.buffers[buffer_id].file() else {
-                        self.palette.set_error("Cannot rename buffer without path");
+            Cmd::OpenRename => {
+                let path = match self.workspace.panes.get_current_pane() {
+                    PaneKind::Buffer(buffer_id, _) => {
+                        let Some(path) = self.workspace.buffers[buffer_id].file() else {
+                            self.palette.set_error("Cannot rename buffer without path");
+                            return;
+                        };
+                        path.to_path_buf()
+                    }
+                    PaneKind::FileExplorer(file_explorer_id) => {
+                        match self.workspace.file_explorers[file_explorer_id].current() {
+                            Some(entry) => entry.path.to_path_buf(),
+                            None => return,
+                        }
+                    }
+                    _ => {
+                        self.palette.set_error("Only buffers are renameable");
                         return;
-                    };
-                    self.palette.focus(
-                        "rename: ",
-                        "rename",
-                        CompleterContext::new(
-                            self.themes.keys().cloned().collect(),
-                            self.workspace.config.actions.keys().cloned().collect(),
-                            false,
-                            None,
-                        ),
-                    );
-                    self.palette.set_line(path.to_string_lossy());
-                }
-                _ => self.palette.set_error("Only buffers are renameable"),
-            },
+                    }
+                };
+                self.palette.focus(
+                    "rename: ",
+                    PaletteMode::Rename { path: path.clone() },
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        self.workspace.config.actions.keys().cloned().collect(),
+                        false,
+                        None,
+                    ),
+                );
+                self.palette.set_line(path.to_string_lossy());
+            }
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);
@@ -1032,11 +1052,12 @@ impl Engine {
                             }
                         }
                         PaneKind::FileExplorer(file_explorer_id) => {
-                            if let Some(choice) =
-                                self.workspace.file_explorers[file_explorer_id].handle_input(input)
-                            {
-                                self.open_file(choice);
+                            let cmd =
+                                self.workspace.file_explorers[file_explorer_id].handle_input(input);
+                            if cmd == Cmd::Nop {
+                                return;
                             }
+                            self.handle_single_input_command(cmd, control_flow);
                         }
                         PaneKind::Logger => self.logger_state.handle_input(input),
                     }
@@ -1048,15 +1069,15 @@ impl Engine {
     pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
         match event {
             UserEvent::Wake => (),
-            UserEvent::PaletteEvent { mode, content } => match mode.as_str() {
-                "command" => match cmd_parser::parse_cmd(&content) {
+            UserEvent::PaletteEvent { mode, content } => match mode {
+                PaletteMode::Command => match cmd_parser::parse_cmd(&content) {
                     Ok(cmd) => {
                         self.palette.reset();
                         self.handle_single_input_command(cmd, control_flow);
                     }
                     Err(err) => self.palette.set_error(err),
                 },
-                "goto" => {
+                PaletteMode::Goto => {
                     self.palette.reset();
                     if let Ok(line) = content.trim().parse::<i64>() {
                         let PaneKind::Buffer(buffer_id, view_id) =
@@ -1067,7 +1088,7 @@ impl Engine {
                         self.workspace.buffers[buffer_id].goto(view_id, line);
                     }
                 }
-                "search" => {
+                PaletteMode::Search => {
                     let PaneKind::Buffer(buffer_id, view_id) =
                         self.workspace.panes.get_current_pane()
                     else {
@@ -1081,7 +1102,7 @@ impl Engine {
                     );
                     self.palette.unfocus();
                 }
-                "replace" => {
+                PaletteMode::Replace => {
                     self.palette.unfocus();
                     let PaneKind::Buffer(buffer_id, view_id) =
                         self.workspace.panes.get_current_pane()
@@ -1091,7 +1112,7 @@ impl Engine {
                     let buffer = &mut self.workspace.buffers[buffer_id];
                     buffer.views[view_id].replacement = Some(content);
                 }
-                "global-search" => {
+                PaletteMode::GlobalSearch => {
                     self.palette.unfocus();
                     let global_search_provider = GlobalSearchProvider::new(
                         content,
@@ -1105,15 +1126,14 @@ impl Engine {
                         None,
                     ));
                 }
-                "shell" => {
+                PaletteMode::Shell => {
                     self.palette.reset();
                     self.run_shell_command(content, self.config.editor.pipe_shell_palette, false);
                 }
-                "rename" => match self.rename_current(content) {
+                PaletteMode::Rename { path } => match self.rename_file(path, content) {
                     Ok(_) => self.palette.reset(),
                     Err(err) => self.palette.set_error(err),
                 },
-                _ => (),
             },
             UserEvent::PromptEvent(event) => match event {
                 PalettePromptEvent::Nop => (),
@@ -1797,28 +1817,35 @@ impl Engine {
     }
 
     pub fn search(&mut self) {
-        if let Some((buffer, view_id)) = self.get_current_buffer() {
-            let selection = buffer.get_selection(view_id, 0);
-            let current_query = buffer
-                .get_searcher(view_id)
-                .map(|searcher| searcher.get_last_query());
-            self.palette.focus(
-                self.get_search_prompt(false),
-                "search",
-                CompleterContext::new(
-                    self.themes.keys().cloned().collect(),
-                    self.workspace.config.actions.keys().cloned().collect(),
-                    false,
-                    None,
-                ),
-            );
-            if let Some(current_query) = current_query {
-                self.palette.set_line(current_query);
-            } else if !selection.is_empty() {
-                self.palette.set_line(selection);
+        match self.workspace.panes.get_current_pane() {
+            PaneKind::Buffer(buffer_id, view_id) => {
+                let buffer = &mut self.workspace.buffers[buffer_id];
+                let selection = buffer.get_selection(view_id, 0);
+                let current_query = buffer
+                    .get_searcher(view_id)
+                    .map(|searcher| searcher.get_last_query());
+                self.palette.focus(
+                    self.get_search_prompt(false),
+                    PaletteMode::Search,
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        self.workspace.config.actions.keys().cloned().collect(),
+                        false,
+                        None,
+                    ),
+                );
+                if let Some(current_query) = current_query {
+                    self.palette.set_line(current_query);
+                } else if !selection.is_empty() {
+                    self.palette.set_line(selection);
+                }
+                self.file_picker = None;
+                self.buffer_picker = None;
             }
-            self.file_picker = None;
-            self.buffer_picker = None;
+            PaneKind::FileExplorer(file_explorer_id) => {
+                let _ = self.workspace.file_explorers[file_explorer_id].handle_input(Cmd::Search);
+            }
+            PaneKind::Logger => (),
         }
     }
 
@@ -1831,7 +1858,7 @@ impl Engine {
         self.buffer_picker = None;
         self.palette.focus(
             self.get_search_prompt(true),
-            "global-search",
+            PaletteMode::GlobalSearch,
             CompleterContext::new(
                 self.themes.keys().cloned().collect(),
                 self.workspace.config.actions.keys().cloned().collect(),
@@ -1840,7 +1867,7 @@ impl Engine {
             ),
         );
         if !selection.is_empty()
-            && self.palette.mode() == Some("global-search")
+            && self.palette.mode() == Some(&PaletteMode::GlobalSearch)
             && self.palette.get_line().is_some()
         {
             self.palette.set_line(selection);
@@ -1855,7 +1882,7 @@ impl Engine {
         if buffer.get_searcher(view_id).is_some() {
             self.palette.focus(
                 "replace: ",
-                "replace",
+                PaletteMode::Replace,
                 CompleterContext::new(
                     self.themes.keys().cloned().collect(),
                     self.workspace.config.actions.keys().cloned().collect(),
@@ -1870,15 +1897,32 @@ impl Engine {
         self.get_current_buffer()?.0.file().map(|p| p.to_owned())
     }
 
-    pub fn rename_current(&mut self, path: impl AsRef<Path>) -> Result<()> {
-        if let Some((buffer, _)) = self.get_current_buffer_mut() {
-            if let Some(buffer_path) = buffer.file() {
-                std::fs::rename(buffer_path, &path)?;
+    pub fn rename_file(&mut self, current: impl AsRef<Path>, new: impl AsRef<Path>) -> Result<()> {
+        let current = current.as_ref();
+        let new = new.as_ref();
+        for buffer in self.workspace.buffers.values_mut() {
+            if buffer.file() == Some(current) {
+                buffer.set_file(Some(new))?;
             }
-            buffer.set_file(Some(path.as_ref()))?;
-            Ok(())
-        } else {
-            anyhow::bail!("Current pane is not a buffer");
+        }
+        std::fs::rename(current, new)?;
+        for file_explorer in self.workspace.file_explorers.values_mut() {
+            file_explorer.reload();
+        }
+        Ok(())
+    }
+
+    pub fn get_input_ctx(&self) -> InputContext {
+        match self.workspace.panes.get_current_pane() {
+            PaneKind::Buffer(..) => InputContext::Edit,
+            PaneKind::Logger => InputContext::Edit,
+            PaneKind::FileExplorer(file_explorer_id) => {
+                if self.workspace.file_explorers[file_explorer_id].searching {
+                    InputContext::Edit
+                } else {
+                    InputContext::FileExplorer
+                }
+            }
         }
     }
 }

@@ -4,7 +4,10 @@ use anyhow::Result;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{cmd::Cmd, keymap::Key};
+use crate::{
+    cmd::Cmd,
+    keymap::{InputContext, Key},
+};
 
 pub fn default_theme() -> String {
     "default".into()
@@ -78,6 +81,8 @@ pub struct KeymapAndMetadata {
     pub ignore_modifiers: bool,
     #[serde(default = "default_keymap_mode")]
     pub mode: String,
+    #[serde(default)]
+    pub ctx: InputContext,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]

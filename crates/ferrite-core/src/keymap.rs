@@ -13,6 +13,15 @@ use crate::{
     layout::panes::Direction,
 };
 
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputContext {
+    #[default]
+    All,
+    Edit,
+    FileExplorer,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Key {
     pub keycode: KeyCode,
@@ -29,6 +38,7 @@ pub fn get_command_from_input(
     keycode: KeyCode,
     modifiers: KeyModifiers,
     mappings: &[Keymapping],
+    input_ctx: InputContext,
 ) -> Option<Cmd> {
     let normalized_keycode = match keycode {
         KeyCode::Char(ch) => KeyCode::Char(ch.to_ascii_lowercase()),
@@ -38,10 +48,12 @@ pub fn get_command_from_input(
         key,
         cmd,
         ignore_modifiers,
+        ctx,
     } in mappings
     {
+        let ctx_match = *ctx == input_ctx || *ctx == InputContext::All;
         if *ignore_modifiers {
-            if key.keycode == normalized_keycode && modifiers.contains(key.modifiers) {
+            if key.keycode == normalized_keycode && modifiers.contains(key.modifiers) && ctx_match {
                 return Some(cmd.clone());
             }
         } else if *key
@@ -49,6 +61,7 @@ pub fn get_command_from_input(
                 keycode: normalized_keycode,
                 modifiers,
             })
+            && ctx_match
         {
             return Some(cmd.clone());
         }
@@ -66,12 +79,13 @@ pub fn get_command_from_input(
     None
 }
 
-pub fn get_default_chords() -> Vec<(Key, Cmd, bool)> {
+pub fn get_default_chords() -> Vec<(Key, Cmd, bool, InputContext)> {
     vec![
         (
             Key::new(KeyCode::Esc, KeyModifiers::empty()),
             Cmd::Escape,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
@@ -79,21 +93,25 @@ pub fn get_default_chords() -> Vec<(Key, Cmd, bool)> {
                 name: "normal".into(),
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             Cmd::Format,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
             Cmd::OpenShellPalette,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
             Cmd::UrlOpen,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('v'), KeyModifiers::CONTROL),
@@ -101,6 +119,7 @@ pub fn get_default_chords() -> Vec<(Key, Cmd, bool)> {
                 direction: Direction::Right,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('h'), KeyModifiers::CONTROL),
@@ -108,36 +127,42 @@ pub fn get_default_chords() -> Vec<(Key, Cmd, bool)> {
                 direction: Direction::Down,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('j'), KeyModifiers::CONTROL),
             Cmd::RotateFile,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
             Cmd::ClosePane,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
             Cmd::GlobalSearch,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             Cmd::KillJob,
             false,
+            InputContext::Edit,
         ),
     ]
 }
 
-pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
+pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
     vec![
         (
             Key::new(KeyCode::Esc, KeyModifiers::empty()),
             Cmd::Escape,
             false,
+            InputContext::All,
         ),
         (
             Key::new(
@@ -146,46 +171,61 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
             ),
             Cmd::ReopenBuffer,
             false,
+            InputContext::All,
+        ),
+        (
+            Key::new(KeyCode::Char('r'), KeyModifiers::empty()),
+            Cmd::OpenRename,
+            false,
+            InputContext::FileExplorer,
         ),
         (
             Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
             Cmd::Repeat,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
             Cmd::Close,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('n'), KeyModifiers::CONTROL),
             Cmd::New { path: None },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('q'), KeyModifiers::CONTROL),
             Cmd::Quit,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
             Cmd::Save { path: None },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
             Cmd::SelectAll,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('l'), KeyModifiers::CONTROL),
             Cmd::SelectLine,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
             Cmd::SelectWord,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(
@@ -194,61 +234,73 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
             ),
             Cmd::SelectAllMatching,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
             Cmd::Copy,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('v'), KeyModifiers::CONTROL),
             Cmd::Paste,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('x'), KeyModifiers::CONTROL),
             Cmd::Cut,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('p'), KeyModifiers::CONTROL),
             Cmd::FocusPalette,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('g'), KeyModifiers::CONTROL),
             Cmd::PromptGoto,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('o'), KeyModifiers::CONTROL),
             Cmd::OpenFilePicker,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('b'), KeyModifiers::CONTROL),
             Cmd::OpenBufferPicker,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Tab, KeyModifiers::CONTROL),
             Cmd::OpenBufferPicker,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('z'), KeyModifiers::CONTROL),
             Cmd::Undo,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('y'), KeyModifiers::CONTROL),
             Cmd::Redo,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             Cmd::Search,
             false,
+            InputContext::All,
         ),
         (
             Key::new(
@@ -257,71 +309,85 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
             ),
             Cmd::GlobalSearch,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('r'), KeyModifiers::ALT),
             Cmd::Replace,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('m'), KeyModifiers::ALT),
             Cmd::ReplaceCurrentMatch,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('i'), KeyModifiers::ALT),
             Cmd::CaseInsensitive,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('p'), KeyModifiers::ALT),
             Cmd::PrevMatch,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('n'), KeyModifiers::ALT),
             Cmd::NextMatch,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Tab, KeyModifiers::empty()),
             Cmd::TabOrIndent { back: false },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::BackTab, KeyModifiers::SHIFT),
             Cmd::TabOrIndent { back: true },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Enter, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
             Cmd::NewLineAboveWithoutBreaking,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Enter, KeyModifiers::CONTROL),
             Cmd::NewLineWithoutBreaking,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Enter, KeyModifiers::empty()),
             Cmd::Char { ch: '\n' },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Delete, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
             Cmd::DeleteToEndOfLine,
             true,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Delete, KeyModifiers::CONTROL),
             Cmd::DeleteWord,
             true,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Delete, KeyModifiers::empty()),
             Cmd::Delete,
             true,
+            InputContext::All,
         ),
         (
             Key::new(
@@ -330,16 +396,19 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
             ),
             Cmd::BackspaceToStartOfLine,
             true,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Backspace, KeyModifiers::CONTROL),
             Cmd::BackspaceWord,
             true,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Backspace, KeyModifiers::empty()),
             Cmd::Backspace,
             true,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::empty()),
@@ -347,6 +416,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::empty()),
@@ -354,6 +424,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::SHIFT),
@@ -361,6 +432,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::SHIFT),
@@ -368,6 +440,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::CONTROL),
@@ -375,6 +448,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::CONTROL),
@@ -382,6 +456,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Home, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
@@ -389,6 +464,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::End, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
@@ -396,16 +472,19 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::PageUp, KeyModifiers::empty()),
             Cmd::PageUp,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::PageDown, KeyModifiers::empty()),
             Cmd::PageDown,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::ALT | KeyModifiers::SHIFT),
@@ -415,6 +494,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 1,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::ALT | KeyModifiers::SHIFT),
@@ -424,6 +504,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 1,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL),
@@ -433,6 +514,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL),
@@ -442,6 +524,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -451,6 +534,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -460,6 +544,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL),
@@ -469,6 +554,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL),
@@ -478,6 +564,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -487,6 +574,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
@@ -496,6 +584,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 10,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::empty()),
@@ -505,6 +594,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 1,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::empty()),
@@ -514,6 +604,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 1,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::SHIFT),
@@ -523,6 +614,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 1,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::SHIFT),
@@ -532,6 +624,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 distance: 1,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::empty()),
@@ -539,6 +632,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::empty()),
@@ -546,6 +640,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::SHIFT),
@@ -553,6 +648,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::SHIFT),
@@ -560,6 +656,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::CONTROL),
@@ -567,6 +664,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::CONTROL),
@@ -574,6 +672,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: false,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
@@ -581,6 +680,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::SHIFT | KeyModifiers::CONTROL),
@@ -588,6 +688,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 expand_selection: true,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::ALT),
@@ -595,6 +696,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 direction: LineMoveDir::Up,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::ALT),
@@ -602,16 +704,19 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 direction: LineMoveDir::Down,
             },
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('+'), KeyModifiers::ALT),
             Cmd::GrowPane,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('-'), KeyModifiers::ALT),
             Cmd::ShrinkPane,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Up, KeyModifiers::CONTROL | KeyModifiers::ALT),
@@ -619,6 +724,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 direction: Direction::Up,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Down, KeyModifiers::CONTROL | KeyModifiers::ALT),
@@ -626,6 +732,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 direction: Direction::Down,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::ALT),
@@ -633,6 +740,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 direction: Direction::Right,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Left, KeyModifiers::CONTROL | KeyModifiers::ALT),
@@ -640,21 +748,25 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 direction: Direction::Left,
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
             Cmd::OpenFileExplorer { path: None },
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('+'), KeyModifiers::CONTROL),
             Cmd::ZoomIn,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('-'), KeyModifiers::CONTROL),
             Cmd::ZoomOut,
             false,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::F5, KeyModifiers::empty()),
@@ -662,6 +774,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 name: "build".into(),
             },
             false,
+            InputContext::All,
         ),
         (
             Key::new(
@@ -670,6 +783,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
             ),
             Cmd::RemoveLine,
             false,
+            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('k'), KeyModifiers::CONTROL),
@@ -677,6 +791,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool)> {
                 name: "chords".into(),
             },
             false,
+            InputContext::All,
         ),
     ]
 }

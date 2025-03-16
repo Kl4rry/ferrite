@@ -26,6 +26,7 @@ use ferrite_tui::{
     widgets::editor_widget::lines_to_left_offset,
 };
 use ferrite_utility::{
+    chars::char_is_line_ending,
     geom::{Rect, Vec2},
     line_ending::LineEnding,
     point::Point,
@@ -429,6 +430,7 @@ impl GuiApp {
                                     keycode,
                                     self.modifiers,
                                     self.tui_app.engine.get_current_keymappings(),
+                                    self.tui_app.engine.get_input_ctx(),
                                 );
                                 break 'block cmd;
                             }
@@ -443,6 +445,7 @@ impl GuiApp {
                                         keymap::keycode::KeyCode::Char(s.chars().next().unwrap()),
                                         self.modifiers,
                                         self.tui_app.engine.get_current_keymappings(),
+                                        self.tui_app.engine.get_input_ctx(),
                                     )
                                 };
                                 break 'block cmd;
@@ -468,12 +471,15 @@ impl GuiApp {
                 }
 
                 if let Some(text) = event.text {
-                    self.tui_app.engine.handle_input_command(
-                        Cmd::Insert {
-                            text: text.to_string(),
-                        },
-                        &mut control_flow,
-                    );
+                    let text: String = text
+                        .chars()
+                        .filter(|ch| !ch.is_ascii_control() || char_is_line_ending(*ch))
+                        .collect();
+                    if !text.is_empty() {
+                        self.tui_app
+                            .engine
+                            .handle_input_command(Cmd::Insert { text }, &mut control_flow);
+                    }
                     if control_flow == EventLoopControlFlow::Exit {
                         event_loop.exit();
                     }

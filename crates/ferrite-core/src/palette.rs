@@ -1,6 +1,8 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display},
+    hash::{Hash, Hasher},
+    path::PathBuf,
 };
 
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
@@ -18,6 +20,36 @@ use crate::{
 pub mod cmd_parser;
 pub mod completer;
 mod history;
+
+#[derive(Debug, Clone)]
+#[repr(u8)]
+pub enum PaletteMode {
+    Command,
+    Goto,
+    Search,
+    Replace,
+    GlobalSearch,
+    Shell,
+    Rename { path: PathBuf },
+}
+
+impl Hash for PaletteMode {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        let discriminant = std::mem::discriminant(self);
+        discriminant.hash(state);
+    }
+}
+
+impl PartialEq for PaletteMode {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
+impl Eq for PaletteMode {}
 
 #[derive(Debug, Clone)]
 pub enum PalettePromptEvent {
@@ -39,7 +71,7 @@ pub enum PaletteState {
         buffer: Box<Buffer>,
         view_id: ViewId,
         prompt: String,
-        mode: String,
+        mode: PaletteMode,
         focused: bool,
         completer: Completer,
         history_index: usize,
@@ -61,7 +93,7 @@ pub enum PaletteState {
 pub struct CommandPalette {
     proxy: Box<dyn EventLoopProxy>,
     state: PaletteState,
-    histories: HashMap<String, History>,
+    histories: HashMap<PaletteMode, History>,
 }
 
 impl CommandPalette {
@@ -93,23 +125,17 @@ impl CommandPalette {
         self.state = PaletteState::Nothing;
     }
 
-    pub fn focus(
-        &mut self,
-        prompt: impl Into<String>,
-        mode: impl Into<String>,
-        ctx: CompleterContext,
-    ) {
+    pub fn focus(&mut self, prompt: impl Into<String>, mode: PaletteMode, ctx: CompleterContext) {
         let mut buffer = Buffer::new();
         let view_id = buffer.create_view();
         buffer.set_view_lines(view_id, 1);
-        let mode = mode.into();
         if let PaletteState::Input {
             mode: input_mode,
             focused,
             ..
         } = &mut self.state
         {
-            if input_mode == &mode {
+            if *input_mode == mode {
                 *focused = true;
                 return;
             }
@@ -190,7 +216,7 @@ impl CommandPalette {
         &mut self.state
     }
 
-    pub fn mode(&self) -> Option<&str> {
+    pub fn mode(&self) -> Option<&PaletteMode> {
         if let PaletteState::Input { mode, .. } = &self.state {
             Some(mode)
         } else {
@@ -248,7 +274,9 @@ impl CommandPalette {
                     Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                         enter = true;
                     }
-                    Cmd::TabOrIndent { back } if mode == "command" || mode == "shell" => {
+                    Cmd::TabOrIndent { back }
+                        if *mode == PaletteMode::Command || *mode == PaletteMode::Shell =>
+                    {
                         if back {
                             completer.backward(buffer)
                         } else {
@@ -308,7 +336,9 @@ impl CommandPalette {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),
                     });
-                } else if buffer.is_dirty() && (mode == "command" || mode == "shell") {
+                } else if buffer.is_dirty()
+                    && (*mode == PaletteMode::Command || *mode == PaletteMode::Shell)
+                {
                     completer.update_text(buffer);
                 }
             }

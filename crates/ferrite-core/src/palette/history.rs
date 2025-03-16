@@ -1,21 +1,8 @@
 use std::collections::VecDeque;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct History {
     entires: VecDeque<String>,
-}
-
-impl Default for History {
-    fn default() -> Self {
-        Self {
-            entires: [
-                String::from("ls"),
-                String::from("echo ls"),
-                String::from("pwd"),
-            ]
-            .into(),
-        }
-    }
 }
 
 impl History {

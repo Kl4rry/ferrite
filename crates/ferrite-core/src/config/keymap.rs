@@ -5,13 +5,15 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cmd::Cmd,
     config::{Editor, editor::KeymapAndMetadata},
-    keymap::Key,
+    keymap::{InputContext, Key},
 };
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Keymapping {
     pub key: Key,
     pub cmd: Cmd,
     pub ignore_modifiers: bool,
+    pub ctx: InputContext,
 }
 
 #[derive(Debug)]
@@ -29,6 +31,7 @@ impl Keymap {
                 mode,
                 cmd,
                 ignore_modifiers,
+                ctx,
             },
         ) in &editor.keymap
         {
@@ -36,6 +39,7 @@ impl Keymap {
                 key: key.clone(),
                 cmd: cmd.clone(),
                 ignore_modifiers: *ignore_modifiers,
+                ctx: *ctx,
             };
             if mode == "normal" {
                 default.normal.insert(0, keymapping);
@@ -60,6 +64,7 @@ impl Keymap {
                     cmd: keymapping.cmd,
                     ignore_modifiers: keymapping.ignore_modifiers,
                     mode: String::from("normal"),
+                    ctx: keymapping.ctx,
                 },
             );
         }
@@ -72,6 +77,7 @@ impl Keymap {
                         cmd: keymapping.cmd,
                         ignore_modifiers: keymapping.ignore_modifiers,
                         mode: mode.clone(),
+                        ctx: keymapping.ctx,
                     },
                 );
             }
@@ -85,10 +91,11 @@ impl Default for Keymap {
         Self {
             normal: crate::keymap::get_default_mappings()
                 .into_iter()
-                .map(|(key, cmd, ignore_modifiers)| Keymapping {
+                .map(|(key, cmd, ignore_modifiers, ctx)| Keymapping {
                     key,
                     cmd,
                     ignore_modifiers,
+                    ctx,
                 })
                 .collect(),
             input_modes: {
@@ -97,10 +104,11 @@ impl Default for Keymap {
                     "chords".into(),
                     crate::keymap::get_default_chords()
                         .into_iter()
-                        .map(|(key, cmd, ignore_modifiers)| Keymapping {
+                        .map(|(key, cmd, ignore_modifiers, ctx)| Keymapping {
                             key,
                             cmd,
                             ignore_modifiers,
+                            ctx,
                         })
                         .collect(),
                 );

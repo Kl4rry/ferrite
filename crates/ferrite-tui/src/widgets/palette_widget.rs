@@ -1,6 +1,6 @@
 use ferrite_core::{
     config::editor::Editor,
-    palette::{CommandPalette, PaletteState},
+    palette::{CommandPalette, PaletteMode, PaletteState},
     theme::EditorTheme,
 };
 use tui::{layout::Rect, widgets::StatefulWidget};
@@ -67,7 +67,7 @@ impl StatefulWidget for CmdPaletteWidget<'_> {
                 OneLineInputWidget::new(self.theme, self.config, self.focused)
                     .render(input_area, buf, buffer);
 
-                if self.focused && (mode == "command" || mode == "shell") {
+                if self.focused && (*mode == PaletteMode::Command || *mode == PaletteMode::Shell) {
                     let completer_area = {
                         let mut completer_area = self.total_area;
                         completer_area.height = completer_area.height.saturating_sub(1);

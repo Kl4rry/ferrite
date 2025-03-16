@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use crate::palette::PalettePromptEvent;
+use crate::palette::{PaletteMode, PalettePromptEvent};
 
 #[derive(Debug)]
 pub enum UserEvent {
-    PaletteEvent { mode: String, content: String },
+    PaletteEvent { mode: PaletteMode, content: String },
     PromptEvent(PalettePromptEvent),
     Wake,
 }

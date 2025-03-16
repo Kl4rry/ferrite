@@ -41,6 +41,7 @@ pub struct FileExplorer {
     matching_entries: Vec<DirEntry>,
     index: usize,
     error: Option<std::io::Error>,
+    pub searching: bool,
     pub buffer: Buffer,
     pub history: HashMap<PathBuf, OsString>,
 }
@@ -53,6 +54,7 @@ impl FileExplorer {
             matching_entries: Vec::new(),
             index: 0,
             error: None,
+            searching: false,
             buffer: Buffer::new(),
             history: HashMap::new(),
         };
@@ -106,7 +108,6 @@ impl FileExplorer {
         self.buffer.set_text("");
         let view_id = self.buffer.get_first_view_or_create();
         self.buffer.start(view_id, false);
-        self.handle_input(Cmd::Insert { text: "".into() });
 
         self.index = 0;
         if let Some(name) = self.history.get(&self.path) {
@@ -116,12 +117,24 @@ impl FileExplorer {
                 }
             }
         }
+
+        self.matching_entries.clear();
+        self.matching_entries
+            .extend(self.entries.iter().map(|(_, entry)| entry).cloned());
+        self.searching = false;
     }
 
-    pub fn handle_input(&mut self, input: Cmd) -> Option<PathBuf> {
+    pub fn reload(&mut self) {
+        self.change_dir(self.path.clone());
+    }
+
+    #[must_use]
+    pub fn handle_input(&mut self, input: Cmd) -> Cmd {
         let mut enter = false;
         let mut new_input = false;
         match input {
+            Cmd::Escape if self.searching => self.searching = false,
+            Cmd::Search => self.searching = true,
             Cmd::MoveUp { .. } if !self.matching_entries.is_empty() => {
                 if self.index == 0 {
                     self.index = self.matching_entries.len() - 1;
@@ -139,7 +152,7 @@ impl FileExplorer {
                     self.index = 0;
                 }
             }
-            Cmd::Backspace | Cmd::BackspaceWord if self.buffer.rope().len_bytes() == 0 => {
+            Cmd::Backspace | Cmd::BackspaceWord if !self.searching => {
                 if let Some(parent) = self.path.parent() {
                     if let Some(file_name) = self.path.file_name() {
                         self.history.insert(parent.into(), file_name.to_owned());
@@ -150,26 +163,30 @@ impl FileExplorer {
             Cmd::Insert { text } => {
                 let rope = RopeSlice::from(text.as_str());
                 let line = rope.line_without_line_ending(0);
-                let view_id = self.buffer.get_first_view_or_create();
-                let _ = self.buffer.handle_input(
-                    view_id,
-                    Cmd::Insert {
-                        text: line.to_string(),
-                    },
-                );
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
                     new_input = true;
+                }
+                if self.searching {
+                    let view_id = self.buffer.get_first_view_or_create();
+                    let _ = self.buffer.handle_input(
+                        view_id,
+                        Cmd::Insert {
+                            text: line.to_string(),
+                        },
+                    );
                 }
             }
             Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                 enter = true;
             }
             cmd => {
-                let view_id = self.buffer.get_first_view_or_create();
-                let _ = self.buffer.handle_input(view_id, cmd);
-                new_input = true;
+                if self.searching {
+                    let view_id = self.buffer.get_first_view_or_create();
+                    let _ = self.buffer.handle_input(view_id, cmd);
+                    new_input = true;
+                }
             }
         }
 
@@ -194,18 +211,30 @@ impl FileExplorer {
         if enter && !self.matching_entries.is_empty() {
             let entry = &self.matching_entries[self.index];
             let path = if entry.file_type.is_symlink() {
-                fs::read_link(&entry.path).ok()?
+                match fs::read_link(&entry.path) {
+                    Ok(path) => path,
+                    Err(err) => {
+                        tracing::error!("{err}");
+                        return Cmd::Nop;
+                    }
+                }
             } else {
                 entry.path.clone()
             };
             if path.is_file() {
-                return Some(entry.path.clone());
+                return Cmd::OpenFile {
+                    path: entry.path.clone(),
+                };
             } else if path.is_dir() {
                 self.change_dir(entry.path.clone());
             }
         }
 
-        None
+        Cmd::Nop
+    }
+
+    pub fn current(&self) -> Option<&DirEntry> {
+        self.matching_entries.get(self.index)
     }
 
     pub fn entries(&self) -> &[DirEntry] {

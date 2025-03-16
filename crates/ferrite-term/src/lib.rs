@@ -167,6 +167,7 @@ impl TermApp {
                                 convert_keycode(event.code),
                                 convert_modifier(event.modifiers),
                                 self.tui_app.engine.get_current_keymappings(),
+                                self.tui_app.engine.get_input_ctx(),
                             )
                         } else {
                             None
