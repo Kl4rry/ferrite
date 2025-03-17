@@ -4,7 +4,7 @@
 [
   (bare_key)
   (quoted_key)
-] @variable.other.member
+] @key
 
 ; Literals
 ;---------

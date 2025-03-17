@@ -1,0 +1,135 @@
+
+"editor.line_nr" = { fg = "fg3" }
+"editor.current_line_nr" = { fg = "yellow" }
+"editor.text" = { fg = "fg1" }
+"editor.dim_text" = { fg = "bg2" }
+"editor.info_line" = { fg = "fg2", bg = "bg0" }
+"editor.info_line.unfocused" = { fg = "fg3", bg = "bg0" }
+"editor.background" = { bg = "bg1", fg = "fg1" }
+"editor.selection" = { bg = "bg4"}
+"editor.border" = { fg = "bg4" }
+"editor.pane_border" = { fg = "bg0" }
+"editor.ruler" = { fg = "bg3" }
+"editor.error_text" = { fg = "red" }
+"editor.search.match" = { bg = "search_match" }
+"editor.fuzzy.match" = { fg = "red" }
+"editor.completer" = { bg = "sel0", fg = "fg1" }
+"editor.completer.selected" = { bg = "fg3" }
+"editor.cursorline" = { bg = "bg3" }
+"editor.scrollbar" = { fg = "fg3", bg = "bg2" }
+"editor.file_explorer.directory" = { fg = "blue" }
+
+[syntax]
+"markup.raw" = { fg = "magenta" } # Code block in Markdown.
+"markup.raw.inline" = { fg = "orange" } # `Inline code block` in Markdown.
+"markup.heading" = { fg = "yellow" }
+"markup.list" = { fg = "magenta" }
+"markup.bold" = { fg = "orange" }
+"markup.italic" = { fg = "pink" }
+"markup.link" = { fg = "yellow-bright" }
+"markup.quote" = { fg = "blue" }
+
+# SYNTAX HIGHLIGHTING
+# These keys match tree-sitter scopes.
+
+"special" = { fg = "fg2" } # Special symbols e.g `?` in Rust, `...` in Hare.
+"attribute" = { fg = "yellow" } # Class attributes, html tag attributes.
+
+"type" = { fg = "yellow" } # Variable type, like integer or string, including program defined classes, structs etc..
+"type.builtin" = { fg = "cyan-bright" } # Primitive types of the language (string, int, float).
+"type.enum.variant" = { fg = "orange-bright" }
+
+"constructor" = { fg = "magenta" } # Constructor method for a class or struct.
+
+"constant" = { fg = "orange-bright" } # Constant value
+"constant.builtin" = { fg = "orange-bright" } # Special constants like `true`, `false`, `none`, etc.
+"constant.builtin.boolean" = { fg = "orange" } # True or False.
+"constant.character" = { fg = "green" } # Constant of character type.
+"constant.character.escape" = { fg = "yellow-bright" } # escape codes like \n.
+"constant.numeric"  = { fg = "orange" } # constant integer or float value.
+
+"string" = { fg = "green" } # String literal.
+"string.regexp" = { fg = "yellow-bright" } # Regular expression literal.
+"string.special" = { fg = "yellow-bright" } # Strings containing a path, URL, etc.
+"string.special.url" = { fg = "cyan" } # String containing a web URL.
+
+"comment" = { fg = "comment" } # This is a comment.
+"comment.block.documentation" = { fg = "comment" } # Doc comments, e.g '///' in rust.
+"info" = { fg = "yellow" }
+"hint" = { fg = "yellow" }
+
+
+"variable" = { fg = "white" }  # Variable names.
+"variable.builtin" = { fg = "red" } # Language reserved variables: `this`, `self`, `super`, etc.
+"variable.parameter" = { fg = "cyan-bright" } # Function parameters.
+"variable.other.member" = { fg = "fg2" } # Fields of composite data types (e.g. structs, unions).
+
+"label" = { fg = "magenta-bright" } # lifetimes - Loop labels, among other things.
+
+"punctuation" = { fg = "fg2" } # Any punctuation symbol.
+# "punctuation.delimiter" = { fg = "fg2" } # Commas, colons or other delimiter depending on the language.
+# "punctuation.bracket" = { fg = "fg2" } # Parentheses, angle brackets, etc.
+# "punctuation.special" = { fg = "fg2" } # String interpolation brackets
+
+
+"key" = { fg = "blue-bright" }
+"keyword" = { fg = "magenta" } # Language reserved keywords.
+"keyword.control" = { fg = "pink" } # Control keywords.
+"keyword.control.conditional" = { fg = "magenta-bright" } # `if`, `else`, `elif`.
+"keyword.control.repeat" = { fg = "magenta-bright" } # `for`, `while`, `loop`.
+"keyword.control.import" = { fg = "pink-bright" } # `import`, `export` `use`.
+"keyword.control.return" = { fg = "magenta" } # `return` in most languages.
+"keyword.control.exception" = { fg = "magenta" } # `try`, `catch`, `raise`/`throw` and related.
+"keyword.operator" = { fg = "fg2" } # 'or', 'and', 'in'.
+"keyword.directive" = { fg = "pink-bright" } # Preprocessor directives (#if in C...).
+"keyword.function" = { fg = "red" } # The keyword to define a function: 'def', 'fun', 'fn'.
+"keyword.storage" = { fg = "magenta" } # Keywords describing how things are stored
+"keyword.storage.type" = { fg = "magenta" } #  The type of something, class, function, var, let, etc.
+"keyword.storage.modifier" = { fg = "yellow" } # Storage modifiers like static, mut, const, ref, etc.
+
+"operator" = {  fg = "fg2" } # Logical, mathematical, and other operators.
+
+"function" = { fg = "blue-bright" }
+"function.builtin" = { fg = "red" }
+"function.macro" = { fg = "red" }
+# "function.special" = { fg = "blue-bright" } # Preprocessor function in C.
+# "function.method" = { fg = "blue-bright" } # Class / Struct methods.
+
+"tag" = { fg = "blue-bright" } # As in <body> for html, css tags.
+
+"namespace" = { fg = "cyan-bright" } # Namespace or module identifier.
+
+[palette]
+black          = "#282828"
+red            = "#ee5396"
+red-dim        = "#ca4780"
+green          = "#25be6a"
+green-dim      = "#1fa25a"
+yellow         = "#08bdba"
+yellow-bright  = "#2dc7c4"
+blue           = "#78a9ff"
+blue-bright    = "#8cb6ff"
+blue-dim       = "#6690d9"
+magenta        = "#be95ff"
+magenta-bright = "#c8a5ff"
+cyan           = "#33b1ff"
+cyan-bright    = "#52bdff"
+cyan-dim       = "#2b96d9"
+orange         = "#3ddbd9"
+orange-bright  = "#5ae0df"
+pink           = "#ff7eb6"
+pink-bright    = "#ff91c1"
+# spec
+bg0            = "#0c0c0c"
+bg1            = "#161616"
+bg2            = "#252525"
+bg3            = "#353535"
+bg4            = "#535353"
+fg0            = "#f9fbff"
+fg1            = "#f2f4f8"
+fg2            = "#b6b8bb"
+fg3            = "#7b7c7e"
+sel0           = "#2a2a2a"
+sel1           = "#525253"
+search_match   = "#28232E"
+comment        = "#738091"
