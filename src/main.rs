@@ -137,9 +137,6 @@ fn main() -> Result<ExitCode> {
         "info" => Level::INFO,
         "debug" => Level::DEBUG,
         "trace" => Level::TRACE,
-        #[cfg(debug_assertions)]
-        _ => Level::TRACE,
-        #[cfg(not(debug_assertions))]
         _ => Level::INFO,
     };
 

@@ -36,14 +36,14 @@ unsafe impl GlobalAlloc for Talloc {
         NUMBER_OF_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
         TOTAL_MEMORY_ALLOCATED.fetch_add(layout.size(), Ordering::Relaxed);
         PHASE_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        System::alloc(&System, layout)
+        unsafe { System::alloc(&System, layout) }
     }
 
     #[inline(always)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
         NUMBER_OF_ALLOCATIONS.fetch_sub(1, Ordering::Relaxed);
         TOTAL_MEMORY_ALLOCATED.fetch_sub(layout.size(), Ordering::Relaxed);
-        System::dealloc(&System, ptr, layout)
+        unsafe { System::dealloc(&System, ptr, layout) }
     }
 
     #[inline(always)]
@@ -51,7 +51,7 @@ unsafe impl GlobalAlloc for Talloc {
         NUMBER_OF_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
         TOTAL_MEMORY_ALLOCATED.fetch_add(layout.size(), Ordering::Relaxed);
         PHASE_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        System::alloc_zeroed(&System, layout)
+        unsafe { System::alloc_zeroed(&System, layout) }
     }
 
     #[inline(always)]
@@ -62,6 +62,6 @@ unsafe impl GlobalAlloc for Talloc {
             TOTAL_MEMORY_ALLOCATED.fetch_sub(layout.size() - new_size, Ordering::Relaxed);
         }
         PHASE_ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-        System::realloc(&System, ptr, layout, new_size)
+        unsafe { System::realloc(&System, ptr, layout, new_size) }
     }
 }

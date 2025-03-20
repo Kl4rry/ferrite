@@ -95,6 +95,16 @@ opt-level = 3
 [profile.test]
 opt-level = 3
 
+[profile.dev-fast]
+inherits = "release"
+opt-level = 1
+debug = true
+strip = "none"
+debug-assertions = true
+overflow-checks = true
+incremental = true
+codegen-units = 256
+
 [workspace]
 resolver = "2"
 members = ["crates/*"]
