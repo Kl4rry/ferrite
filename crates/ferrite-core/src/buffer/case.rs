@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Buffer, ViewId};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Case {
     Lower,
     Upper,
@@ -61,37 +61,45 @@ impl Case {
 }
 
 impl Buffer {
-    // TODO make multicursor aware
     pub fn transform_case(&mut self, view_id: ViewId, case: Case) {
-        self.views[view_id].cursors.clear();
-        if !self.views[view_id].cursors.first().has_selection() {
-            return;
-        }
+        self.views[view_id].coalesce_cursors();
+        let cursors = self.get_cursors_sorted(view_id);
 
         self.history.begin(self.get_all_cursors(), self.dirty);
-        let start_byte_idx = self.views[view_id]
-            .cursors
-            .first()
-            .position
-            .min(self.views[view_id].cursors.first().anchor);
-        let end_byte_idx = self.views[view_id]
-            .cursors
-            .first()
-            .position
-            .max(self.views[view_id].cursors.first().anchor);
-        let string = self.rope.slice(start_byte_idx..end_byte_idx).to_string();
-        let output = case.transform(&string);
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
 
-        self.history
-            .replace(&mut self.rope, start_byte_idx..end_byte_idx, &output);
+            if !self.views[view_id].cursors[i].has_selection() {
+                continue;
+            }
 
-        if self.views[view_id].cursors.first().position < self.views[view_id].cursors.first().anchor
-        {
-            self.views[view_id].cursors.first_mut().position = start_byte_idx;
-            self.views[view_id].cursors.first_mut().anchor = start_byte_idx + output.len();
-        } else {
-            self.views[view_id].cursors.first_mut().anchor = start_byte_idx;
-            self.views[view_id].cursors.first_mut().position = start_byte_idx + output.len();
+            let start_byte_idx = self.views[view_id].cursors[i]
+                .position
+                .min(self.views[view_id].cursors[i].anchor);
+            let end_byte_idx = self.views[view_id].cursors[i]
+                .position
+                .max(self.views[view_id].cursors[i].anchor);
+            let string = self.rope.slice(start_byte_idx..end_byte_idx).to_string();
+            let output = case.transform(&string);
+
+            self.history
+                .replace(&mut self.rope, start_byte_idx..end_byte_idx, &output);
+
+            if self.views[view_id].cursors[i].position < self.views[view_id].cursors[i].anchor {
+                self.views[view_id].cursors[i].position = start_byte_idx;
+                self.views[view_id].cursors[i].anchor = start_byte_idx + output.len();
+            } else {
+                self.views[view_id].cursors[i].anchor = start_byte_idx;
+                self.views[view_id].cursors[i].position = start_byte_idx + output.len();
+            }
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
         }
 
         self.update_affinity(view_id);
