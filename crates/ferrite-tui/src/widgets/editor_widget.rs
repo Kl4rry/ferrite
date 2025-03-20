@@ -19,7 +19,7 @@ use rayon::{
 };
 use ropey::RopeSlice;
 use tui::{
-    layout::{Position, Rect},
+    layout::Rect,
     widgets::{Clear, StatefulWidget, Widget},
 };
 use unicode_width::UnicodeWidthStr;
@@ -476,16 +476,18 @@ impl StatefulWidget for EditorWidget<'_> {
                 .any(|c| c.has_selection());
 
             if self.config.highlight_cursor_line && draw_cursor_line && has_focus {
-                let visual_cursor_line = cursor_line_number
-                    .saturating_sub(buffer.views[view_id].line_pos_floored())
-                    .saturating_sub(1);
-                let cursor_line_area = Rect::new(
-                    text_area.x,
-                    text_area.y + visual_cursor_line as u16,
-                    text_area.width,
-                    1,
-                );
-                if text_area.contains(Position::new(cursor_line_area.x, cursor_line_area.y)) {
+                let line_idx = buffer.cursor_line_idx(view_id, 0);
+                let start_line = buffer.views[view_id].line_pos_floored();
+                let end_line =
+                    buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
+
+                if line_idx > start_line && line_idx < end_line {
+                    let cursor_line_area = Rect::new(
+                        text_area.x,
+                        text_area.y + (line_idx - start_line) as u16,
+                        text_area.width,
+                        1,
+                    );
                     buf.set_style(cursor_line_area, convert_style(&theme.cursorline));
                 }
             }
