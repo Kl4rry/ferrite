@@ -112,7 +112,7 @@ fn scan_files(
             return;
         }
 
-        let entries: Vec<_> = iterator.by_ref().take(1000).collect();
+        let entries: Vec<_> = iterator.by_ref().take(200).collect();
 
         if entries.is_empty() {
             break;
