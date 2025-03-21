@@ -59,6 +59,8 @@ pub struct Editor {
     pub auto_format: bool,
     #[serde(default = "get_true")]
     pub highlight_cursor_line: bool,
+    #[serde(default = "get_true")]
+    pub icons: bool,
     #[serde(default)]
     pub line_number: LineNumber,
     #[serde(default)]

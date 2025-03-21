@@ -12,6 +12,7 @@ pipe_shell_palette = true
 auto_trim_whitespace = true
 auto_format = false
 highlight_cursor_line = true
+icons = true
 
 [picker]
 show_hidden = false
