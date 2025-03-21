@@ -45,7 +45,7 @@ impl Renderer {
         let mut font_system = FontSystem::new();
         font_system
             .db_mut()
-            .load_font_data(include_bytes!("../../../fonts/FiraCode-Regular.ttf").to_vec());
+            .load_font_data(include_bytes!("../../../fonts/FiraCodeNerdFontMono-Regular.ttf").to_vec());
         let swash_cache = SwashCache::new();
         let cache = Cache::new(device);
 

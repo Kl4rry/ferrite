@@ -18,7 +18,7 @@ pub fn default_keymap_mode() -> String {
 }
 
 pub fn default_font() -> String {
-    "Fira Code".into()
+    "FiraCode Nerd Font Mono".into()
 }
 
 pub fn default_rulers() -> Vec<u16> {
