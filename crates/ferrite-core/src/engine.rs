@@ -1539,6 +1539,7 @@ impl Engine {
                 }
             }
             self.open_file(path);
+            break;
         }
     }
 
