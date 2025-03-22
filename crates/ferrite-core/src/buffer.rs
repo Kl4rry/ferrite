@@ -1,6 +1,8 @@
 use core::fmt;
 use std::{
-    cmp, fs, io,
+    cmp,
+    collections::HashSet,
+    fs, io,
     ops::Range,
     path::{Path, PathBuf},
     sync::OnceLock,
@@ -2933,7 +2935,17 @@ impl Buffer {
 
         let len_before = self.rope.len_bytes();
 
+        let mut cursor_lines = HashSet::new();
+        for view in self.views.values() {
+            for cursor in &view.cursors[..] {
+                cursor_lines.insert(self.rope.byte_to_line(cursor.position));
+            }
+        }
+
         for i in 0..self.rope.len_lines() {
+            if cursor_lines.contains(&i) {
+                continue;
+            }
             let line = self.rope.line_without_line_ending(i);
             let line_len_bytes = line.len_bytes();
             let line_start_byte_idx = self.rope.line_to_byte(i);
