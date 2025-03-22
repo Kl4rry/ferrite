@@ -73,13 +73,12 @@ impl Buffer {
                 continue;
             }
 
-            let start_byte_idx = self.views[view_id].cursors[i]
-                .position
-                .min(self.views[view_id].cursors[i].anchor);
-            let end_byte_idx = self.views[view_id].cursors[i]
-                .position
-                .max(self.views[view_id].cursors[i].anchor);
-            let string = self.rope.slice(start_byte_idx..end_byte_idx).to_string();
+            let start_byte_idx = self.views[view_id].cursors[i].start();
+            let end_byte_idx = self.views[view_id].cursors[i].end();
+            let string = self
+                .rope
+                .byte_slice(start_byte_idx..end_byte_idx)
+                .to_string();
             let output = case.transform(&string);
 
             self.history
