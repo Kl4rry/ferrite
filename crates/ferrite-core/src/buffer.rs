@@ -2102,11 +2102,18 @@ impl Buffer {
         for (_, i) in cursors.iter().copied() {
             let start = self.views[view_id].cursors[i].start();
             let end = self.views[view_id].cursors[i].end();
-            let copied = if start == end {
-                self.rope.line(self.cursor_line_idx(view_id, i))
+            let (line, copied) = if start == end {
+                (
+                    true,
+                    self.rope
+                        .line_without_line_ending(self.cursor_line_idx(view_id, i)),
+                )
             } else {
-                self.rope.byte_slice(start..end)
+                (false, self.rope.byte_slice(start..end))
             };
+            if line && !multiple_cursors {
+                text.push('\n')
+            }
             for chunk in copied.chunks() {
                 text.push_str(chunk);
             }
@@ -2176,7 +2183,7 @@ impl Buffer {
             .filter(|line| line.line_without_line_ending(0).len_bytes() > 0)
             .count();
 
-        if self.views[view_id].cursors.len() != lines {
+        if self.views[view_id].cursors.len() != lines || self.views[view_id].cursors.len() < 2 {
             self.insert_text(view_id, &text, true);
             self.history.finish();
             return;
