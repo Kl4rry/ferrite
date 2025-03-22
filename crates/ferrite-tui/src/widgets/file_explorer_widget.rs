@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::HashMap, fs::FileType, str::FromStr, sync::L
 
 use ferrite_core::{
     config::editor::Editor,
-    file_explorer::FileExplorer,
+    file_explorer::{DirEntry, FileExplorer},
     theme::{EditorTheme, style::Color},
 };
 use ferrite_utility::trim::trim_path;
@@ -13,7 +13,7 @@ use tui::{
 use unicode_width::UnicodeWidthStr;
 
 use super::one_line_input_widget::OneLineInputWidget;
-use crate::glue::convert_style;
+use crate::glue::{convert_color, convert_style};
 
 pub struct FileExplorerWidget<'a> {
     theme: &'a EditorTheme,
@@ -61,11 +61,6 @@ impl StatefulWidget for FileExplorerWidget<'_> {
                 let Some(file_name) = entry.path.file_name() else {
                     continue;
                 };
-                let ext = entry
-                    .path
-                    .extension()
-                    .map(|s| s.to_string_lossy())
-                    .unwrap_or(Cow::Borrowed(""));
                 let mut file_name = file_name.to_string_lossy();
                 let is_dir = entry.file_type.is_dir();
                 if is_dir {
@@ -74,26 +69,30 @@ impl StatefulWidget for FileExplorerWidget<'_> {
                     file_name = file.into();
                 }
 
-                let style = if is_dir {
-                    convert_style(&self.theme.file_explorer_directory)
-                } else {
-                    convert_style(&self.theme.text)
-                };
+                let text_style = convert_style(&self.theme.text);
+                let dir_style = convert_style(&self.theme.file_explorer_directory);
 
-                let (icon, _color) = get_icon(&file_name, &ext, entry.file_type);
+                let (icon, color) = get_icon(entry, entry.file_type);
                 let icon_width: u16 = if self.config.icons {
                     (icon.width() + 2) as u16
                 } else {
                     0
                 };
 
+                let icon_style = match color {
+                    Some(color) => text_style.fg(convert_color(&color)),
+                    None if is_dir => dir_style,
+                    None => text_style,
+                };
                 buf.set_stringn(
                     area.x + 1,
                     area.y + i,
-                    &icon,
+                    icon,
                     area.width.saturating_sub(1) as usize,
-                    convert_style(&self.theme.text),
+                    icon_style,
                 );
+
+                let style = if is_dir { dir_style } else { text_style };
                 buf.set_stringn(
                     area.x + icon_width,
                     area.y + i,
@@ -166,7 +165,16 @@ impl StatefulWidget for FileExplorerWidget<'_> {
     }
 }
 
-fn get_icon(name: &str, ext: &str, file_type: FileType) -> (&'static str, Option<Color>) {
+fn get_icon(entry: &DirEntry, file_type: FileType) -> (&'static str, Option<Color>) {
+    let ext = entry
+        .path
+        .extension()
+        .map(|s| s.to_string_lossy())
+        .unwrap_or(Cow::Borrowed(""));
+    let ext: &str = &ext;
+    let name = entry.path.file_name().unwrap().to_string_lossy();
+    let name: &str = &name;
+
     if file_type.is_dir() {
         return (
             DIRS.iter()
@@ -175,32 +183,34 @@ fn get_icon(name: &str, ext: &str, file_type: FileType) -> (&'static str, Option
                 .unwrap_or(&DEFAULT_DIR),
             None,
         );
-    } else if file_type.is_file() {
-        if file_type.is_symlink() {
-            return (LINK, None);
+    } else if file_type.is_symlink() {
+        return (LINK, None);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::FileTypeExt;
+        if file_type.is_block_device() {
+            return (BLOCK, None);
         }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::FileTypeExt;
-            if file_type.is_block_device() {
-                return (BLOCK, None);
-            }
-            if file_type.is_char_device() {
-                return (CHAR, None);
-            }
-            if file_type.is_fifo() {
-                return (FIFO, None);
-            }
-            if file_type.is_socket() {
-                return (SOCKET, None);
-            }
-            if let Some((icon, color)) = FILES.get(name) {
-                return (icon, Some(*color));
-            }
-            if let Some((icon, color)) = EXTS.get(ext) {
-                return (icon, Some(*color));
-            }
+        if file_type.is_char_device() {
+            return (CHAR, None);
         }
+        if file_type.is_fifo() {
+            return (FIFO, None);
+        }
+        if file_type.is_socket() {
+            return (SOCKET, None);
+        }
+        if let Some((icon, color)) = FILES.get(name) {
+            return (icon, Some(*color));
+        }
+        if let Some((icon, color)) = EXTS.get(ext) {
+            return (icon, Some(*color));
+        }
+    }
+    #[cfg(unix)]
+    if std::os::unix::fs::PermissionsExt::mode(&entry.metadata.permissions()) & 0o111 != 0 {
+        return (DEFAULT_EXE, None);
     }
     (DEFAULT_FILE, None)
 }
@@ -235,14 +245,14 @@ const DIRS: &[(&str, &str)] = &[
 
 static FILES: LazyLock<HashMap<&str, (&str, Color)>> = LazyLock::new(|| {
     FILES_RAW
-        .into_iter()
+        .iter()
         .map(|(name, icon, color)| (*name, (*icon, Color::from_str(color).unwrap())))
         .collect()
 });
 
 static EXTS: LazyLock<HashMap<&str, (&str, Color)>> = LazyLock::new(|| {
     EXTS_RAW
-        .into_iter()
+        .iter()
         .map(|(name, icon, color)| (*name, (*icon, Color::from_str(color).unwrap())))
         .collect()
 });

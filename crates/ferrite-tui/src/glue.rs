@@ -1,22 +1,17 @@
-
 pub fn convert_style(style: &ferrite_core::theme::style::Style) -> tui::style::Style {
     tui::style::Style {
-        fg: style.fg.as_ref().map(|color| {
-            tui::style::Color::Rgb(
-                (color.r * 255.0) as u8,
-                (color.g * 255.0) as u8,
-                (color.b * 255.0) as u8,
-            )
-        }),
-        bg: style.bg.as_ref().map(|color| {
-            tui::style::Color::Rgb(
-                (color.r * 255.0) as u8,
-                (color.g * 255.0) as u8,
-                (color.b * 255.0) as u8,
-            )
-        }),
+        fg: style.fg.as_ref().map(convert_color),
+        bg: style.bg.as_ref().map(convert_color),
         ..Default::default()
     }
+}
+
+pub fn convert_color(color: &ferrite_core::theme::style::Color)-> tui::style::Color {
+    tui::style::Color::Rgb(
+        (color.r * 255.0) as u8,
+        (color.g * 255.0) as u8,
+        (color.b * 255.0) as u8,
+    )
 }
 
 pub fn tui_to_ferrite_rect(rect: tui::layout::Rect) -> ferrite_core::layout::panes::Rect {

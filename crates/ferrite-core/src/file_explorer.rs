@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     collections::HashMap,
     ffi::OsString,
-    fs::{self, FileType},
+    fs::{self, FileType, Metadata},
     path::{Path, PathBuf},
 };
 
@@ -23,6 +23,7 @@ slotmap::new_key_type! {
 pub struct DirEntry {
     pub path: PathBuf,
     pub file_type: FileType,
+    pub metadata: Metadata,
 }
 
 impl Matchable for DirEntry {
@@ -77,7 +78,18 @@ impl FileExplorer {
                         tracing::error!("Error file path line break");
                         continue;
                     }
-                    entries.push(DirEntry { path, file_type });
+                    let metadata = match entry.metadata() {
+                        Ok(metadata) => metadata,
+                        Err(err) => {
+                            tracing::error!("{}", err);
+                            continue;
+                        }
+                    };
+                    entries.push(DirEntry {
+                        path,
+                        file_type,
+                        metadata,
+                    });
                 }
                 self.error = None;
             }
