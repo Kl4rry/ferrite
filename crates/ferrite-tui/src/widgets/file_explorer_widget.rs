@@ -50,6 +50,7 @@ impl StatefulWidget for FileExplorerWidget<'_> {
         let text_style = convert_style(&self.theme.text);
         let dir_style = convert_style(&self.theme.file_explorer_directory);
         let exe_style = convert_style(&self.theme.file_explorer_executable);
+        let link_style = convert_style(&self.theme.file_explorer_link);
 
         if area.height > 2 {
             let height = area.height.saturating_sub(1);
@@ -93,17 +94,25 @@ impl StatefulWidget for FileExplorerWidget<'_> {
                     icon_style,
                 );
 
-                let style = if is_dir {
+                let style = if entry.link.is_some() {
+                    link_style
+                } else if is_dir {
                     dir_style
                 } else if is_executable(&entry.metadata) {
                     exe_style
                 } else {
                     text_style
                 };
+
+                let line: Cow<str> = match &entry.link {
+                    Some(path) => format!("{} -> {}", file_name, path.to_string_lossy()).into(),
+                    None => file_name,
+                };
+
                 buf.set_stringn(
                     area.x + icon_width,
                     area.y + i,
-                    &file_name,
+                    &line,
                     area.width.saturating_sub(icon_width) as usize,
                     style,
                 );

@@ -19,6 +19,7 @@
 "editor.scrollbar" = { bg = "black", fg = "scrollbar" }
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
+"editor.file_explorer.link" = { fg = "cyan" }
 
 [syntax]
 "tag" = { fg = "red" }

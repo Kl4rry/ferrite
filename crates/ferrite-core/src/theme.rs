@@ -108,6 +108,7 @@ pub struct EditorTheme {
     pub scrollbar: style::Style,
     pub file_explorer_directory: style::Style,
     pub file_explorer_executable: style::Style,
+    pub file_explorer_link: style::Style,
     // syntax styles
     syntax: HashMap<String, style::Style>,
 }
@@ -137,6 +138,7 @@ impl EditorTheme {
             scrollbar: theme.get_style("editor.scrollbar")?,
             file_explorer_directory: theme.get_style("editor.file_explorer.directory")?,
             file_explorer_executable: theme.get_style("editor.file_explorer.executable")?,
+            file_explorer_link: theme.get_style("editor.file_explorer.link")?,
 
             syntax: {
                 let mut syntax = HashMap::new();

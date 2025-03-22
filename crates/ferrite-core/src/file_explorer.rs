@@ -24,6 +24,7 @@ pub struct DirEntry {
     pub path: PathBuf,
     pub file_type: FileType,
     pub metadata: Metadata,
+    pub link: Option<PathBuf>,
 }
 
 impl Matchable for DirEntry {
@@ -85,10 +86,16 @@ impl FileExplorer {
                             continue;
                         }
                     };
+                    let link = if file_type.is_symlink() {
+                        fs::read_link(&path).ok()
+                    } else {
+                        None
+                    };
                     entries.push(DirEntry {
                         path,
                         file_type,
                         metadata,
+                        link,
                     });
                 }
                 self.error = None;

@@ -19,6 +19,7 @@
 "editor.scrollbar" = { fg = "fg3", bg = "bg2" }
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
+"editor.file_explorer.link" = { fg = "yellow" }
 
 [syntax]
 "markup.raw" = { fg = "magenta" } # Code block in Markdown.
