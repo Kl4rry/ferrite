@@ -47,6 +47,10 @@ impl StatefulWidget for FileExplorerWidget<'_> {
         Clear.render(area, buf);
         buf.set_style(area, convert_style(&self.theme.background));
 
+        let text_style = convert_style(&self.theme.text);
+        let dir_style = convert_style(&self.theme.file_explorer_directory);
+        let exe_style = convert_style(&self.theme.file_explorer_executable);
+
         if area.height > 2 {
             let height = area.height.saturating_sub(1);
             let page = state.index() / height as usize;
@@ -69,9 +73,6 @@ impl StatefulWidget for FileExplorerWidget<'_> {
                     file_name = file.into();
                 }
 
-                let text_style = convert_style(&self.theme.text);
-                let dir_style = convert_style(&self.theme.file_explorer_directory);
-
                 let (icon, color) = get_icon(entry, entry.file_type);
                 let icon_width: u16 = if self.config.icons {
                     (icon.width() + 2) as u16
@@ -92,7 +93,13 @@ impl StatefulWidget for FileExplorerWidget<'_> {
                     icon_style,
                 );
 
-                let style = if is_dir { dir_style } else { text_style };
+                let style = if is_dir {
+                    dir_style
+                } else if is_executable(&entry.metadata) {
+                    exe_style
+                } else {
+                    text_style
+                };
                 buf.set_stringn(
                     area.x + icon_width,
                     area.y + i,
@@ -209,10 +216,18 @@ fn get_icon(entry: &DirEntry, file_type: FileType) -> (&'static str, Option<Colo
         }
     }
     #[cfg(unix)]
-    if std::os::unix::fs::PermissionsExt::mode(&entry.metadata.permissions()) & 0o111 != 0 {
+    if is_executable(&entry.metadata) {
         return (DEFAULT_EXE, None);
     }
     (DEFAULT_FILE, None)
+}
+
+pub fn is_executable(metadata: &std::fs::Metadata) -> bool {
+    #[cfg(unix)]
+    if std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0 {
+        return true;
+    }
+    false
 }
 
 // Copied from yazi dark theme

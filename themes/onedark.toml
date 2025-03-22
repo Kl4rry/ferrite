@@ -18,6 +18,7 @@
 "editor.cursorline" = { bg = "cursorline" }
 "editor.scrollbar" = { bg = "black", fg = "scrollbar" }
 "editor.file_explorer.directory" = { fg = "blue" }
+"editor.file_explorer.executable" = { fg = "green" }
 
 [syntax]
 "tag" = { fg = "red" }

@@ -17,6 +17,7 @@
 "editor.cursorline" = { bg = "highlight-line" }
 "editor.scrollbar" = { bg = "bg", fg = "scrollbar" }
 "editor.file_explorer.directory" = { fg = "blue" }
+"editor.file_explorer.executable" = { fg = "green" }
 
 [syntax]
 "attribute" = { fg = "text" }
