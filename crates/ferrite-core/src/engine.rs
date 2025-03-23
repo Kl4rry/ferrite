@@ -1914,6 +1914,13 @@ impl Engine {
     }
 
     pub fn get_input_ctx(&self) -> InputContext {
+        if self.palette.has_focus()
+            || self.file_picker.is_some()
+            || self.buffer_picker.is_some()
+            || self.global_search_picker.is_some()
+        {
+            return InputContext::Edit;
+        }
         match self.workspace.panes.get_current_pane() {
             PaneKind::Buffer(..) => InputContext::Edit,
             PaneKind::Logger => InputContext::Edit,
