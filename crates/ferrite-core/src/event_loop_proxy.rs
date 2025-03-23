@@ -4,7 +4,8 @@ use crate::palette::{PaletteMode, PalettePromptEvent};
 
 #[derive(Debug)]
 pub enum UserEvent {
-    PaletteEvent { mode: PaletteMode, content: String },
+    PaletteFinished { mode: PaletteMode, content: String },
+    PalettePreview { mode: PaletteMode, content: String },
     PromptEvent(PalettePromptEvent),
     Wake,
 }

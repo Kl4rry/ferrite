@@ -332,7 +332,7 @@ impl CommandPalette {
                 if enter && buffer.rope().len_bytes() > 0 {
                     let history = self.histories.get_mut(mode).unwrap();
                     history.add(buffer.rope().to_string());
-                    self.proxy.send(UserEvent::PaletteEvent {
+                    self.proxy.send(UserEvent::PaletteFinished {
                         mode: mode.clone(),
                         content: buffer.rope().to_string(),
                     });
@@ -340,6 +340,11 @@ impl CommandPalette {
                     && (*mode == PaletteMode::Command || *mode == PaletteMode::Shell)
                 {
                     completer.update_text(buffer);
+                } else if buffer.is_dirty() {
+                    self.proxy.send(UserEvent::PalettePreview {
+                        mode: mode.clone(),
+                        content: buffer.rope().to_string(),
+                    });
                 }
             }
             PaletteState::Prompt {

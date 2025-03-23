@@ -1066,10 +1066,26 @@ impl Engine {
         }
     }
 
+    pub fn handle_search(&mut self, text: String) {
+        let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() else {
+            return;
+        };
+        self.workspace.buffers[buffer_id].start_search(
+            view_id,
+            self.proxy.dup(),
+            text,
+            self.config.editor.case_insensitive_search,
+        );
+    }
+
     pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
         match event {
             UserEvent::Wake => (),
-            UserEvent::PaletteEvent { mode, content } => match mode {
+            UserEvent::PalettePreview { mode, content } => match mode {
+                PaletteMode::Search => self.handle_search(content),
+                _ => (),
+            },
+            UserEvent::PaletteFinished { mode, content } => match mode {
                 PaletteMode::Command => match cmd_parser::parse_cmd(&content) {
                     Ok(cmd) => {
                         self.palette.reset();
@@ -1089,17 +1105,7 @@ impl Engine {
                     }
                 }
                 PaletteMode::Search => {
-                    let PaneKind::Buffer(buffer_id, view_id) =
-                        self.workspace.panes.get_current_pane()
-                    else {
-                        return;
-                    };
-                    self.workspace.buffers[buffer_id].start_search(
-                        view_id,
-                        self.proxy.dup(),
-                        content,
-                        self.config.editor.case_insensitive_search,
-                    );
+                    self.handle_search(content);
                     self.palette.unfocus();
                 }
                 PaletteMode::Replace => {
@@ -1822,8 +1828,9 @@ impl Engine {
             PaneKind::Buffer(buffer_id, view_id) => {
                 let buffer = &mut self.workspace.buffers[buffer_id];
                 let selection = buffer.get_selection(view_id, 0);
-                let current_query = buffer
-                    .get_searcher(view_id)
+                let current_query = buffer.views[view_id]
+                    .searcher
+                    .as_ref()
                     .map(|searcher| searcher.get_last_query());
                 self.palette.focus(
                     self.get_search_prompt(false),
@@ -1880,7 +1887,7 @@ impl Engine {
             return;
         };
         let buffer = &mut self.workspace.buffers[buffer_id];
-        if buffer.get_searcher(view_id).is_some() {
+        if buffer.views[view_id].searcher.is_some() {
             self.palette.focus(
                 "replace: ",
                 PaletteMode::Replace,

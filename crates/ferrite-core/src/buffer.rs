@@ -115,7 +115,7 @@ pub struct View {
     last_click_pos: Point<usize>,
     clicks_in_a_row: u8,
     pub clamp_cursor: bool,
-    searcher: Option<BufferSearcher>,
+    pub searcher: Option<BufferSearcher>,
     pub replacement: Option<String>,
     view_lines: usize,
     view_columns: usize,
@@ -2541,10 +2541,6 @@ impl Buffer {
             );
             self.views[view_id].searcher = Some(searcher);
         }
-    }
-
-    pub fn get_searcher(&self, view_id: ViewId) -> Option<&BufferSearcher> {
-        self.views[view_id].searcher.as_ref()
     }
 
     pub fn next_match(&mut self, view_id: ViewId) {

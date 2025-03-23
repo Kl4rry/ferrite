@@ -175,6 +175,10 @@ pub fn search_rope(
     let mut query_idx = 0;
     let mut current_char = 1;
 
+    if query.is_empty() {
+        return Vec::new();
+    }
+
     for ch in rope.chars() {
         if compare_char(&ch, &chars[query_idx], case_insensitive) {
             query_idx += 1;

@@ -492,8 +492,9 @@ impl StatefulWidget for EditorWidget<'_> {
                 }
             }
 
-            let matches = buffer
-                .get_searcher(view_id)
+            let matches = buffer.views[view_id]
+                .searcher
+                .as_ref()
                 .map(|searcher| searcher.get_matches());
             if let Some(matches) = matches {
                 let matches = matches.lock().unwrap();
