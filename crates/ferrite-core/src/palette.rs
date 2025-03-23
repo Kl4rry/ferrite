@@ -295,17 +295,19 @@ impl CommandPalette {
                     }
                     Cmd::MoveUp { .. } => {
                         if let Some(history) = self.histories.get(mode) {
-                            *history_index += 1;
-                            *history_index = (*history_index).min(history.len());
-                            let string = history
-                                .get(history_index.saturating_sub(1))
-                                .unwrap()
-                                .to_string();
-                            if *history_index == 1 {
-                                *old_line = buffer.rope().to_string();
+                            if history.len() > 0 {
+                                *history_index += 1;
+                                *history_index = (*history_index).min(history.len());
+                                let string = history
+                                    .get(history_index.saturating_sub(1))
+                                    .unwrap()
+                                    .to_string();
+                                if *history_index == 1 {
+                                    *old_line = buffer.rope().to_string();
+                                }
+                                buffer.replace(*view_id, 0..buffer.rope().len_bytes(), &string);
+                                buffer.eof(*view_id, false);
                             }
-                            buffer.replace(*view_id, 0..buffer.rope().len_bytes(), &string);
-                            buffer.eof(*view_id, false);
                         }
                     }
                     Cmd::MoveDown { .. } => {
