@@ -1714,7 +1714,6 @@ impl Engine {
                     let mut buffer = Vec::new();
                     let mut bytes = [0u8; 4096];
                     let mut dirty = false;
-                    let mut last_flush = Instant::now();
                     loop {
                         if let Ok(read_bytes) = stdout.read(&mut bytes) {
                             if read_bytes == 0 {
@@ -1735,13 +1734,9 @@ impl Engine {
                             }
                             buffer.drain(..total);
                         }
-                        let duration_since = last_flush.duration_since(Instant::now());
-                        if let (Some(buffer_id), true, true) =
-                            (buffer_id, dirty, duration_since > Duration::from_millis(8))
-                        {
+                        if let (Some(buffer_id), true) = (buffer_id, dirty) {
                             progressor.make_progress((buffer_id, rope.clone()));
                             dirty = false;
-                            last_flush = Instant::now();
                         }
                     }
                     rope
