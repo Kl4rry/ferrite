@@ -20,7 +20,7 @@ impl BufferWatcher {
         let (tx, rx) = mpsc::channel();
 
         let debouncer = new_debouncer(
-            Duration::from_secs(1),
+            Duration::from_millis(200),
             None,
             move |result: DebounceEventResult| {
                 if let Ok(events) = result {

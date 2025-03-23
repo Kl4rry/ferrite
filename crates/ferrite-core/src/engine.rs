@@ -500,9 +500,7 @@ impl Engine {
             Cmd::ReopenBuffer => self.reopen_last_closed_buffer(),
             Cmd::UrlOpen => self.open_selected_url(),
             Cmd::OpenShellPalette => {
-                self.file_picker = None;
-                self.buffer_picker = None;
-                self.global_search_picker = None;
+                self.hide_pickers();
                 self.palette.focus(
                     "$ ",
                     PaletteMode::Shell,
@@ -531,9 +529,7 @@ impl Engine {
                 self.quit(control_flow);
             }
             Cmd::FocusPalette if !self.palette.has_focus() => {
-                self.file_picker = None;
-                self.buffer_picker = None;
-                self.global_search_picker = None;
+                self.hide_pickers();
                 self.palette.focus(
                     "> ",
                     PaletteMode::Command,
@@ -546,9 +542,7 @@ impl Engine {
                 );
             }
             Cmd::PromptGoto => {
-                self.file_picker = None;
-                self.buffer_picker = None;
-                self.global_search_picker = None;
+                self.hide_pickers();
                 self.palette.focus(
                     "goto: ",
                     PaletteMode::Goto,
@@ -584,18 +578,9 @@ impl Engine {
                     || self.global_search_picker.is_some()
                 {
                     self.chord = None;
-                    self.file_picker = None;
-                    self.buffer_picker = None;
-                    self.global_search_picker = None;
-                } else if let PaneKind::FileExplorer(file_explorer_id) =
-                    self.workspace.panes.get_current_pane()
-                {
-                    if self.workspace.file_explorers[file_explorer_id].searching {
-                        let _ = self.workspace.file_explorers[file_explorer_id]
-                            .handle_input(Cmd::Escape);
-                    } else {
-                        self.force_close_current_buffer();
-                    }
+                    self.hide_pickers();
+                } else if let PaneKind::FileExplorer(_) = self.workspace.panes.get_current_pane() {
+                    self.force_close_current_buffer();
                 } else if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
                     let _ = buffer.handle_input(view_id, Cmd::Escape);
                 }
@@ -642,8 +627,7 @@ impl Engine {
                 }
                 match env::set_current_dir(&path) {
                     Ok(_) => {
-                        self.buffer_picker = None;
-                        self.file_picker = None;
+                        self.hide_pickers();
 
                         self.file_scanner = Some(FileScanner::new(
                             env::current_dir().unwrap_or(PathBuf::from(".")),
@@ -990,7 +974,7 @@ impl Engine {
                 } else if let Some(picker) = &mut self.file_picker {
                     let _ = picker.handle_input(input);
                     if let Some(path) = picker.get_choice() {
-                        self.file_picker = None;
+                        self.hide_pickers();
                         self.open_file(path);
                     }
                 } else if let Some(picker) = &mut self.buffer_picker {
@@ -1067,20 +1051,26 @@ impl Engine {
     }
 
     pub fn handle_search(&mut self, text: String) {
-        let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() else {
-            return;
-        };
-        self.workspace.buffers[buffer_id].start_search(
-            view_id,
-            self.proxy.dup(),
-            text,
-            self.config.editor.case_insensitive_search,
-        );
+        match self.workspace.panes.get_current_pane() {
+            PaneKind::Buffer(buffer_id, view_id) => {
+                self.workspace.buffers[buffer_id].start_search(
+                    view_id,
+                    self.proxy.dup(),
+                    text,
+                    self.config.editor.case_insensitive_search,
+                );
+            }
+            PaneKind::FileExplorer(file_explorer_id) => {
+                self.workspace.file_explorers[file_explorer_id].handle_search(text);
+            }
+            PaneKind::Logger => (),
+        }
     }
 
     pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
         match event {
             UserEvent::Wake => (),
+            #[allow(clippy::single_match)]
             UserEvent::PalettePreview { mode, content } => match mode {
                 PaletteMode::Search => self.handle_search(content),
                 _ => (),
@@ -1283,8 +1273,8 @@ impl Engine {
     }
 
     pub fn open_buffer_picker(&mut self) {
+        self.hide_pickers();
         self.palette.reset();
-        self.file_picker = None;
         let mut buffers: Vec<_> = self
             .workspace
             .buffers
@@ -1724,6 +1714,7 @@ impl Engine {
                     let mut buffer = Vec::new();
                     let mut bytes = [0u8; 4096];
                     let mut dirty = false;
+                    let mut last_flush = Instant::now();
                     loop {
                         if let Ok(read_bytes) = stdout.read(&mut bytes) {
                             if read_bytes == 0 {
@@ -1744,9 +1735,13 @@ impl Engine {
                             }
                             buffer.drain(..total);
                         }
-                        if let (Some(buffer_id), true) = (buffer_id, dirty) {
+                        let duration_since = last_flush.duration_since(Instant::now());
+                        if let (Some(buffer_id), true, true) =
+                            (buffer_id, dirty, duration_since > Duration::from_millis(8))
+                        {
                             progressor.make_progress((buffer_id, rope.clone()));
                             dirty = false;
+                            last_flush = Instant::now();
                         }
                     }
                     rope
@@ -1847,23 +1842,31 @@ impl Engine {
                 } else if !selection.is_empty() {
                     self.palette.set_line(selection);
                 }
-                self.file_picker = None;
-                self.buffer_picker = None;
+                self.hide_pickers();
             }
-            PaneKind::FileExplorer(file_explorer_id) => {
-                let _ = self.workspace.file_explorers[file_explorer_id].handle_input(Cmd::Search);
+            PaneKind::FileExplorer(_) => {
+                self.palette.focus(
+                    self.get_search_prompt(false),
+                    PaletteMode::Search,
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        self.workspace.config.actions.keys().cloned().collect(),
+                        false,
+                        None,
+                    ),
+                );
+                self.hide_pickers();
             }
             PaneKind::Logger => (),
         }
     }
 
     pub fn global_search(&mut self) {
+        self.hide_pickers();
         let selection = self
             .get_current_buffer()
             .map(|(buffer, view_id)| buffer.get_selection(view_id, 0))
             .unwrap_or_default();
-        self.file_picker = None;
-        self.buffer_picker = None;
         self.palette.focus(
             self.get_search_prompt(true),
             PaletteMode::GlobalSearch,
@@ -1920,6 +1923,12 @@ impl Engine {
         Ok(())
     }
 
+    pub fn hide_pickers(&mut self) {
+        self.file_picker = None;
+        self.buffer_picker = None;
+        self.global_search_picker = None;
+    }
+
     pub fn get_input_ctx(&self) -> InputContext {
         if self.palette.has_focus()
             || self.file_picker.is_some()
@@ -1931,13 +1940,7 @@ impl Engine {
         match self.workspace.panes.get_current_pane() {
             PaneKind::Buffer(..) => InputContext::Edit,
             PaneKind::Logger => InputContext::Edit,
-            PaneKind::FileExplorer(file_explorer_id) => {
-                if self.workspace.file_explorers[file_explorer_id].searching {
-                    InputContext::Edit
-                } else {
-                    InputContext::FileExplorer
-                }
-            }
+            PaneKind::FileExplorer(_) => InputContext::FileExplorer,
         }
     }
 }

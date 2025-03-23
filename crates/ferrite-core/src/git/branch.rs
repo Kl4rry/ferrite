@@ -70,7 +70,7 @@ impl BranchWatcher {
 
             if let Some(git_dir) = get_git_directory() {
                 watcher = match new_debouncer(
-                    Duration::from_secs(1),
+                    Duration::from_millis(200),
                     None,
                     move |_: DebounceEventResult| {
                         if let Some(branch) = get_current_branch() {
