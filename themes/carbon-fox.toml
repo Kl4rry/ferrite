@@ -39,7 +39,7 @@
 
 "type" = { fg = "yellow" } # Variable type, like integer or string, including program defined classes, structs etc..
 "type.builtin" = { fg = "cyan-bright" } # Primitive types of the language (string, int, float).
-"type.enum.variant" = { fg = "orange-bright" }
+"type.enum.variant" = { fg = "pink" }
 
 "constructor" = { fg = "magenta" } # Constructor method for a class or struct.
 
@@ -76,18 +76,8 @@
 
 "key" = { fg = "blue-bright" }
 "keyword" = { fg = "magenta" } # Language reserved keywords.
-"keyword.control" = { fg = "pink" } # Control keywords.
-"keyword.control.conditional" = { fg = "magenta-bright" } # `if`, `else`, `elif`.
-"keyword.control.repeat" = { fg = "magenta-bright" } # `for`, `while`, `loop`.
-"keyword.control.import" = { fg = "pink-bright" } # `import`, `export` `use`.
-"keyword.control.return" = { fg = "magenta" } # `return` in most languages.
-"keyword.control.exception" = { fg = "magenta" } # `try`, `catch`, `raise`/`throw` and related.
 "keyword.operator" = { fg = "fg2" } # 'or', 'and', 'in'.
 "keyword.directive" = { fg = "pink-bright" } # Preprocessor directives (#if in C...).
-"keyword.function" = { fg = "red" } # The keyword to define a function: 'def', 'fun', 'fn'.
-"keyword.storage" = { fg = "magenta" } # Keywords describing how things are stored
-"keyword.storage.type" = { fg = "magenta" } #  The type of something, class, function, var, let, etc.
-"keyword.storage.modifier" = { fg = "yellow" } # Storage modifiers like static, mut, const, ref, etc.
 
 "operator" = {  fg = "fg2" } # Logical, mathematical, and other operators.
 

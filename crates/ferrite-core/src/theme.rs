@@ -235,7 +235,7 @@ impl EditorTheme {
 
 impl Default for EditorTheme {
     fn default() -> Self {
-        EditorTheme::parse_theme(include_str!("../../../themes/catppuccin_mocha.toml")).unwrap()
+        EditorTheme::parse_theme(include_str!("../../../themes/carbon-fox.toml")).unwrap()
     }
 }
 
