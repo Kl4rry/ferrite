@@ -1188,6 +1188,9 @@ impl Buffer {
             .max(0) as usize;
 
         self.set_cursor_pos(view_id, 0, 0, line_idx);
+        if self.views[view_id].clamp_cursor {
+            self.center_on_main_cursor(view_id);
+        }
         self.history.finish();
     }
 
@@ -2405,8 +2408,6 @@ impl Buffer {
             }
             self.views[view_id].cursors[cursor_index].anchor = next_line_start + byte_idx;
         }
-        self.views[view_id].cursors[cursor_index].anchor =
-            self.views[view_id].cursors[cursor_index].anchor;
     }
 
     pub fn select_area(

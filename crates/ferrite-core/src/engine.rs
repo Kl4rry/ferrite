@@ -384,13 +384,19 @@ impl Engine {
         self.save_jobs.retain(|job| !job.is_finished());
 
         for (buffer_id, job) in &mut self.shell_jobs {
+            let mut i = 0;
+            let mut dirty_buffer_id = None;
             while let Ok(result) = job.poll_progress() {
+                i += 1;
+                if i > 20 {
+                    break;
+                }
                 match result {
                     Progress::End(Ok((buffer_id, rope))) => {
                         if let Some(buffer_id) = buffer_id {
                             if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
                                 buffer.replace_rope(rope);
-                                buffer.queue_syntax_update();
+                                dirty_buffer_id = Some(buffer_id);
                             }
                         } else {
                             self.palette.set_msg(rope.to_string());
@@ -400,9 +406,15 @@ impl Engine {
                     Progress::Progress((buffer_id, rope)) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
                             buffer.replace_rope(rope);
-                            buffer.auto_detect_language();
+                            dirty_buffer_id = Some(buffer_id);
                         }
                     }
+                }
+            }
+
+            if let Some(buffer_id) = dirty_buffer_id {
+                if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
+                    buffer.queue_syntax_update();
                 }
             }
 
@@ -849,7 +861,9 @@ impl Engine {
                 self.workspace.panes.replace_current(PaneKind::Logger);
             }
             Cmd::Theme { theme } => match theme {
-                Some(theme) => {
+                Some(theme) =>
+                {
+                    #[allow(clippy::map_entry)]
                     if self.themes.contains_key(&theme) {
                         self.config.editor.theme = theme;
                     } else {
