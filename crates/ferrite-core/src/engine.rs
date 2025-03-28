@@ -384,12 +384,13 @@ impl Engine {
         self.save_jobs.retain(|job| !job.is_finished());
 
         for (buffer_id, job) in &mut self.shell_jobs {
-            if let Ok(result) = job.poll_progress() {
+            while let Ok(result) = job.poll_progress() {
                 match result {
                     Progress::End(Ok((buffer_id, rope))) => {
                         if let Some(buffer_id) = buffer_id {
                             if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
                                 buffer.replace_rope(rope);
+                                buffer.queue_syntax_update();
                             }
                         } else {
                             self.palette.set_msg(rope.to_string());

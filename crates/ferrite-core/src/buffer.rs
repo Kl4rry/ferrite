@@ -2375,10 +2375,6 @@ impl Buffer {
         }
         self.views[view_id].cursors[cursor_index].anchor =
             self.views[view_id].cursors[cursor_index].position;
-
-        if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
-        }
     }
 
     pub fn set_anchor_pos(
@@ -2398,9 +2394,19 @@ impl Buffer {
             self.views[view_id].cursors[cursor_index].anchor =
                 next_line_start + next_line.len_bytes();
         } else {
-            let idx = next_line.nth_next_grapheme_boundary_byte(0, col);
-            self.views[view_id].cursors[cursor_index].anchor = next_line_start + idx;
+            let mut width = 0;
+            let mut byte_idx = 0;
+            for grapeheme in next_line.grapehemes() {
+                if width >= col {
+                    break;
+                }
+                width += grapeheme.width(width);
+                byte_idx += grapeheme.len_bytes();
+            }
+            self.views[view_id].cursors[cursor_index].anchor = next_line_start + byte_idx;
         }
+        self.views[view_id].cursors[cursor_index].anchor =
+            self.views[view_id].cursors[cursor_index].anchor;
     }
 
     pub fn select_area(

@@ -30,7 +30,7 @@ right = ["branch", "position", "encoding", "language", "spinner"]
 padding = 1
 
 [gui]
-font_family = "Code Nerd Font Mono"
+font_family = "FiraCode Nerd Font Mono"
 font_weight = "normal"
 cursor_type = "line"
 

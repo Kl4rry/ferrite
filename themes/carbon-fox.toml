@@ -91,6 +91,10 @@
 
 "namespace" = { fg = "cyan-bright" } # Namespace or module identifier.
 
+"diff.plus" = { fg = "green" }
+"diff.minus" = { fg = "red" }
+"diff.delta" = { fg = "blue" }
+
 [palette]
 black          = "#282828"
 red            = "#ee5396"
