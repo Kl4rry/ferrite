@@ -502,7 +502,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
                 for SearchMatch { start, end, .. } in matches {
                     if start.line >= buffer.line_pos(view_id)
-                        && end.line + 2 < buffer.line_pos(view_id) + buffer.get_view_lines(view_id)
+                        && end.line < buffer.line_pos(view_id) + buffer.get_view_lines(view_id)
                     {
                         let highlight_area = Rect {
                             x: (start.column + text_area.left() as usize - buffer.col_pos(view_id))
