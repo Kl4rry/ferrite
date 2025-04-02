@@ -98,7 +98,7 @@ struct GuiApp {
     size: winit::dpi::PhysicalSize<u32>,
     scale_factor: f64,
     window: Arc<Window>,
-    // inpout
+    // input
     modifiers: KeyModifiers,
     mouse_position: PhysicalPosition<f64>,
     drag: Option<Drag>,
@@ -242,6 +242,7 @@ impl GuiApp {
                     self.tui_app.start_of_events();
                 }
                 Event::UserEvent(event) => {
+                    profiling::scope!("user event");
                     self.tui_app
                         .engine
                         .handle_app_event(event, &mut self.control_flow);
@@ -257,7 +258,10 @@ impl GuiApp {
                         Err(wgpu::SurfaceError::OutOfMemory) => event_loop.exit(),
                         Err(e) => tracing::error!("Surface error: {:?}", e),
                     },
-                    event => self.input(event_loop, event),
+                    event => {
+                        profiling::scope!("window event");
+                        self.input(event_loop, event)
+                    }
                 },
                 Event::AboutToWait => {
                     profiling::scope!("about to wait");
@@ -326,6 +330,7 @@ impl GuiApp {
             .unwrap();
     }
 
+    #[profiling::function]
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.config.width = new_size.width;
@@ -350,6 +355,7 @@ impl GuiApp {
         self.render_tui();
     }
 
+    #[profiling::function]
     pub fn input(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>, event: WindowEvent) {
         match event {
             WindowEvent::Focused(false) => {
@@ -748,6 +754,7 @@ impl GuiApp {
         }
     }
 
+    #[profiling::function]
     pub fn render_tui(&mut self) {
         for terminal in self.terminal_panes.values_mut() {
             terminal.touched = false;
@@ -849,6 +856,7 @@ impl GuiApp {
             .unwrap();
     }
 
+    #[profiling::function]
     pub fn draw_buffer_overlay(&mut self) -> Geometry {
         let mut geometry = Geometry::default();
 
@@ -924,6 +932,7 @@ impl GuiApp {
         geometry
     }
 
+    #[profiling::function]
     pub fn render(&mut self) -> std::result::Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -998,8 +1007,14 @@ impl GuiApp {
             self.renderer.render(&mut rpass);
         }
 
-        self.queue.submit(iter::once(encoder.finish()));
-        output.present();
+        {
+            profiling::scope!("queue submit");
+            self.queue.submit(iter::once(encoder.finish()));
+        }
+        {
+            profiling::scope!("present");
+            output.present();
+        }
 
         self.tui_app.engine.last_render_time =
             Instant::now().duration_since(self.tui_app.engine.start_of_events);
