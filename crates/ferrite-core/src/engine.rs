@@ -388,7 +388,7 @@ impl Engine {
             let mut dirty_buffer_id = None;
             while let Ok(result) = job.poll_progress() {
                 i += 1;
-                if i > 20 {
+                if i > 10 {
                     break;
                 }
                 match result {
