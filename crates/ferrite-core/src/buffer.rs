@@ -2554,6 +2554,7 @@ impl Buffer {
         if let Some(searcher) = &mut self.views[view_id].searcher {
             if let Some(search_match) = searcher.get_next_match() {
                 self.select_area(view_id, search_match.end, search_match.start, false);
+                self.center_on_main_cursor(view_id);
             }
         }
     }
@@ -2562,6 +2563,7 @@ impl Buffer {
         if let Some(searcher) = &mut self.views[view_id].searcher {
             if let Some(search_match) = searcher.get_prev_match() {
                 self.select_area(view_id, search_match.end, search_match.start, false);
+                self.center_on_main_cursor(view_id);
             }
         }
     }
