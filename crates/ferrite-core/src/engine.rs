@@ -1847,10 +1847,10 @@ impl Engine {
                         None,
                     ),
                 );
-                if let Some(current_query) = current_query {
-                    self.palette.set_line(current_query);
-                } else if !selection.is_empty() {
+                if !selection.is_empty() {
                     self.palette.set_line(selection);
+                } else if let Some(current_query) = current_query {
+                    self.palette.set_line(current_query);
                 }
                 self.hide_pickers();
             }
