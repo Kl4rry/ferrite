@@ -178,7 +178,6 @@ impl View {
             new_cursors.push((i, cursor));
         }
 
-        new_cursors.sort();
         self.cursors = Vec1::from_vec(new_cursors.into_iter().map(|(_, c)| c).collect()).unwrap();
     }
 
