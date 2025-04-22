@@ -2188,7 +2188,17 @@ impl Buffer {
             .count();
 
         if self.views[view_id].cursors.len() != lines || self.views[view_id].cursors.len() < 2 {
-            self.insert_text(view_id, &text, true);
+            // NOTE: this is a bruh ass hack to remove starting newlines added by the copy function
+            if self.views[view_id].cursors.len() == 1 {
+                let current_line = self.rope.line(self.cursor_line_idx(view_id, 0));
+                if current_line.is_whitespace() && rope.line(0).is_whitespace() {
+                    self.insert_text(view_id, text.trim_start(), true);
+                } else {
+                    self.insert_text(view_id, &text, true);
+                }
+            } else {
+                self.insert_text(view_id, &text, true);
+            }
             self.history.finish();
             return;
         }
