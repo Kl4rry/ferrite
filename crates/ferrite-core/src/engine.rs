@@ -626,8 +626,8 @@ impl Engine {
             Cmd::About => {
                 self.palette.set_msg(format!(
                     "ferrite\nVersion: {}\nCommit: {}",
-                    env!("CARGO_PKG_VERSION"),
-                    env!("GIT_HASH"),
+                    crate::about::version(),
+                    crate::about::git_hash(),
                 ));
             }
             Cmd::Pwd => match env::current_dir() {

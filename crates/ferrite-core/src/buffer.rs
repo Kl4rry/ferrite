@@ -3171,6 +3171,14 @@ impl Buffer {
 
         self.history.finish();
     }
+
+    pub fn update_searchers(&mut self) {
+        for view in self.views.values_mut() {
+            if let Some(searcher) = &mut view.searcher {
+                searcher.update_buffer(self.rope.clone(), None);
+            }
+        }
+    }
 }
 
 pub struct ViewLine<'a> {

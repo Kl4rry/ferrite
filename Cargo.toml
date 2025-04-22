@@ -10,6 +10,7 @@ arboard = { version = "3.2.0", default-features = false }
 bitflags = "2.5.0"
 blake3 = "1.5.1"
 boxcar = "0.2.5"
+bumpalo = { version = "3.17.0" }
 cb = { package = "crossbeam-channel", version = "0.5.8" }
 cc = "1.2.8"
 chardetng = "0.1.17"
@@ -23,6 +24,7 @@ encoding_rs = "0.8.31"
 executable-finder = "0.3.0"
 ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-core = { path = "crates/ferrite-core" }
+ferrite-ctx = { path = "crates/ferrite-ctx" }
 ferrite-gui = { path = "crates/ferrite-gui" }
 ferrite-talloc = { path = "crates/ferrite-talloc" }
 ferrite-term = { path = "crates/ferrite-term" }

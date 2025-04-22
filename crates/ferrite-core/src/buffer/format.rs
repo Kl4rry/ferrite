@@ -116,6 +116,7 @@ impl Buffer {
         self.restore_cursor_positions(cursor_positions);
 
         self.mark_dirty();
+        self.update_searchers();
 
         self.history.finish();
         Ok(())
@@ -149,6 +150,7 @@ impl Buffer {
         }
 
         self.mark_dirty();
+        self.update_searchers();
 
         self.history.finish();
         Ok(())

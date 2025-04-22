@@ -48,6 +48,7 @@ pub struct EditorWidget<'a> {
     spinner: Option<char>,
     pub line_nr: bool,
     pub info_line: bool,
+    pub draw_rulers: bool,
 }
 
 impl<'a> EditorWidget<'a> {
@@ -68,6 +69,7 @@ impl<'a> EditorWidget<'a> {
             spinner,
             line_nr: true,
             info_line: true,
+            draw_rulers: true,
         }
     }
 }
@@ -96,6 +98,7 @@ impl StatefulWidget for EditorWidget<'_> {
             spinner,
             line_nr,
             info_line,
+            draw_rulers,
         } = self;
 
         let (line_number_max_width, left_offset) =
@@ -430,17 +433,19 @@ impl StatefulWidget for EditorWidget<'_> {
                 buf.set_style(cell_area, convert_style(&theme.dim_text));
             }
 
-            for ruler in config.rulers.iter().copied() {
-                let real_col = ruler as i64 - buffer.col_pos(view_id) as i64
-                    + area.x as i64
-                    + left_offset as i64
-                    + 1;
-                if (area.left().into()..area.right().into()).contains(&real_col) {
-                    for y in area.top()..(area.bottom() - 1) {
-                        let cell = buf.cell_mut((real_col as u16, y)).unwrap();
-                        if cell.symbol().chars().all(|ch| ch.is_whitespace()) {
-                            cell.set_symbol("│");
-                            cell.set_style(convert_style(&theme.ruler));
+            if draw_rulers {
+                for ruler in config.rulers.iter().copied() {
+                    let real_col = ruler as i64 - buffer.col_pos(view_id) as i64
+                        + area.x as i64
+                        + left_offset as i64
+                        + 1;
+                    if (area.left().into()..area.right().into()).contains(&real_col) {
+                        for y in area.top()..(area.bottom() - 1) {
+                            let cell = buf.cell_mut((real_col as u16, y)).unwrap();
+                            if cell.symbol().chars().all(|ch| ch.is_whitespace()) {
+                                cell.set_symbol("│");
+                                cell.set_style(convert_style(&theme.ruler));
+                            }
                         }
                     }
                 }

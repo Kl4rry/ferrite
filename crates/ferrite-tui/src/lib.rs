@@ -65,6 +65,7 @@ impl TuiApp {
         #[cfg(feature = "talloc")]
         ferrite_talloc::Talloc::reset_phase_allocations();
         profiling::finish_frame!();
+        ferrite_ctx::Ctx::arena().reset();
     }
 
     pub fn draw_pane_borders(&mut self, buf: &mut tui::buffer::Buffer, size: Rect) {
@@ -86,9 +87,22 @@ impl TuiApp {
         view_id: ViewId,
     ) {
         profiling::scope!("render tui editor");
+
+        let mut splash = false;
+        if self.engine.config.editor.show_splash && self.engine.workspace.panes.num_panes() == 1 {
+            let buffer = &mut self.engine.workspace.buffers[buffer_id];
+            if buffer.len_bytes() == 0
+                && !buffer.is_dirty()
+                && buffer.file().is_none()
+                && self.engine.workspace.buffers.len() == 1
+            {
+                splash = true;
+            }
+        }
+
         let current_pane = self.engine.workspace.panes.get_current_pane();
         let theme = &self.engine.themes[&self.engine.config.editor.theme];
-        EditorWidget::new(
+        let mut widget = EditorWidget::new(
             theme,
             &self.engine.config.editor,
             view_id,
@@ -98,18 +112,12 @@ impl TuiApp {
                 && current_pane == PaneKind::Buffer(buffer_id, view_id),
             self.engine.branch_watcher.current_branch(),
             self.engine.spinner.current(),
-        )
-        .render(area, buf, &mut self.engine.workspace.buffers[buffer_id]);
+        );
+        widget.draw_rulers = !splash;
+        widget.render(area, buf, &mut self.engine.workspace.buffers[buffer_id]);
 
-        if self.engine.config.editor.show_splash && self.engine.workspace.panes.num_panes() == 1 {
-            let buffer = &mut self.engine.workspace.buffers[buffer_id];
-            if buffer.len_bytes() == 0
-                && !buffer.is_dirty()
-                && buffer.file().is_none()
-                && self.engine.workspace.buffers.len() == 1
-            {
-                SplashWidget::new(theme).render(area, buf);
-            }
+        if splash {
+            SplashWidget::new(theme).render(area, buf);
         }
     }
 

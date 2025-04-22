@@ -1,3 +1,4 @@
+pub mod about;
 pub mod buffer;
 pub mod buffer_watcher;
 pub mod byte_size;

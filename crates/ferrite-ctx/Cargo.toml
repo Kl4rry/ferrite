@@ -1,0 +1,7 @@
+[package]
+name = "ferrite-ctx"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bumpalo = { workspace = true, features = ["std", "collections"] }

@@ -915,6 +915,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrite-ctx"
+version = "0.1.0"
+dependencies = [
+ "bumpalo",
+]
+
+[[package]]
 name = "ferrite-gui"
 version = "0.1.0"
 dependencies = [
@@ -1000,10 +1007,12 @@ name = "ferrite-tui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bumpalo",
  "directories",
  "encoding_rs",
  "ferrite-cli",
  "ferrite-core",
+ "ferrite-ctx",
  "ferrite-talloc",
  "ferrite-utility",
  "profiling",

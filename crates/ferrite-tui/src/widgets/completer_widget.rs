@@ -35,12 +35,11 @@ impl StatefulWidget for CompleterWidget<'_> {
             .unwrap()
             + 8;
 
-        pub fn div_up(a: usize, b: usize) -> usize {
-            (a + (b - 1)) / b
-        }
-
         let columns = (area.width as usize / widest).max(1);
-        let rows = (div_up(completer.options().len(), columns))
+        let rows = completer
+            .options()
+            .len()
+            .div_ceil(columns)
             .clamp(1, 10)
             .min(area.height.into());
 

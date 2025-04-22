@@ -71,10 +71,7 @@ impl Buffer {
             _ => return Ok(()),
         }
 
-        if let Some(searcher) = &mut self.views[view_id].searcher {
-            searcher.update_buffer(self.rope.clone(), None);
-        }
-
+        self.update_searchers();
         self.update_interact(Some(view_id));
 
         Ok(())
