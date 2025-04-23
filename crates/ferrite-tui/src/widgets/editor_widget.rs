@@ -9,6 +9,7 @@ use ferrite_core::{
     language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
+use ferrite_ctx::ArenaString;
 use ferrite_utility::{
     graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at},
     point::Point,
@@ -89,6 +90,8 @@ impl StatefulWidget for EditorWidget<'_> {
 
         Clear.render(area, buf);
 
+        let arena = ferrite_ctx::Ctx::arena();
+
         let Self {
             theme,
             config,
@@ -139,7 +142,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
         // We have to overwrite all rendered whitespace with the correct color
         let mut dim_cells = Vec::new();
-        let mut grapheme_buffer = String::new();
+        let mut grapheme_buffer = ArenaString::with_capacity_in(100, &arena);
         let view = buffer.get_buffer_view(view_id);
         {
             profiling::scope!("render text");
@@ -158,8 +161,9 @@ impl StatefulWidget for EditorWidget<'_> {
                             (line_number as i64 - cursor_line_number as i64).unsigned_abs() as usize
                         };
                     let line_number_str = line_number.to_string();
-                    let line_number_str = format!(
+                    let line_number_str = ferrite_ctx::format!(in &arena,
                         "{}{}",
+                        // TODO: remove allocation
                         " ".repeat(line_number_max_width - line_number_str.len()),
                         line_number
                     );
@@ -177,6 +181,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         line_nr_theme,
                     );
 
+                    // TODO: remove allocation
                     let start_offset = " ".repeat(line.col_start_offset);
                     if text_area.width > 0 {
                         buf.set_stringn(

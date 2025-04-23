@@ -2211,8 +2211,13 @@ impl Buffer {
             let before_len_bytes = self.rope.len_bytes();
 
             let text = rope.line_without_line_ending(cursor_loop_index);
-            // TODO remove this `to_string`
-            self.insert_text_raw(view_id, i, &text.to_string(), true, false);
+            self.insert_text_raw(
+                view_id,
+                i,
+                &text.to_arena_string(&ferrite_ctx::Ctx::arena()),
+                true,
+                false,
+            );
 
             let after_len_bytes = self.rope.len_bytes();
             let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;

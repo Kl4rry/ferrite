@@ -65,7 +65,7 @@ impl TuiApp {
         #[cfg(feature = "talloc")]
         ferrite_talloc::Talloc::reset_phase_allocations();
         profiling::finish_frame!();
-        ferrite_ctx::Ctx::arena().reset();
+        ferrite_ctx::Ctx::arena_mut().reset();
     }
 
     pub fn draw_pane_borders(&mut self, buf: &mut tui::buffer::Buffer, size: Rect) {

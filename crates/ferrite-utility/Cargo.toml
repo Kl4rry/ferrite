@@ -5,6 +5,7 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ferrite-ctx = { workspace = true }
 num-traits = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true }

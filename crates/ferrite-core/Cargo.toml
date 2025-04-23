@@ -18,6 +18,7 @@ dunce = { workspace = true }
 encoding_rs = { workspace = true }
 executable-finder = { workspace = true }
 ferrite-cli = { workspace = true }
+ferrite-ctx = { workspace = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
 grep-matcher = { workspace = true }

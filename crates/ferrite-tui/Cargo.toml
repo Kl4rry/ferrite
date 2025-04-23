@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-bumpalo = { workspace = true }
 directories = { workspace = true }
 encoding_rs = { workspace = true }
 ferrite-cli = { workspace = true }

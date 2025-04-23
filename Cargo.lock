@@ -883,6 +883,7 @@ dependencies = [
  "encoding_rs",
  "executable-finder",
  "ferrite-cli",
+ "ferrite-ctx",
  "ferrite-tree-sitter",
  "ferrite-utility",
  "grep-matcher",
@@ -1007,7 +1008,6 @@ name = "ferrite-tui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bumpalo",
  "directories",
  "encoding_rs",
  "ferrite-cli",
@@ -1027,6 +1027,7 @@ dependencies = [
 name = "ferrite-utility"
 version = "0.1.0"
 dependencies = [
+ "ferrite-ctx",
  "num-traits",
  "ropey",
  "serde",

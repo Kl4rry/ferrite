@@ -11,6 +11,7 @@ use std::{
     slice, str,
 };
 
+use ferrite_ctx::{Arena, ArenaString};
 use ropey::{Rope, RopeSlice, iter::Chunks, str_utils::byte_to_char_idx};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
@@ -538,19 +539,17 @@ pub trait RopeGraphemeExt {
     fn ensure_grapheme_boundary_next_byte(&self, byte_idx: usize) -> usize;
 
     fn trim_start_whitespace(&self) -> RopeSlice;
+
+    fn to_arena_string<'a>(&self, arena: &'a Arena) -> ArenaString<'a>;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
     fn width(&self, current_col: usize) -> usize {
         let mut width = 0;
-        let mut buffer = String::new();
         for grapheme in RopeGraphemes::new(*self) {
-            buffer.clear();
-            unsafe {
-                let vec = buffer.as_mut_vec();
-                vec.extend(grapheme.bytes());
+            for chunk in grapheme.chunks() {
+                width += grapheme_width(chunk, current_col + width);
             }
-            width += grapheme_width(buffer.as_str(), current_col + width);
         }
         width
     }
@@ -721,6 +720,14 @@ impl RopeGraphemeExt for RopeSlice<'_> {
 
         self.byte_slice(start..)
     }
+
+    fn to_arena_string<'a>(&self, arena: &'a Arena) -> ArenaString<'a> {
+        let mut string = ArenaString::with_capacity_in(self.len_bytes(), arena);
+        for chunk in self.chunks() {
+            string.push_str(chunk);
+        }
+        string
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -831,5 +838,9 @@ impl RopeGraphemeExt for Rope {
         }
 
         self.byte_slice(start..)
+    }
+
+    fn to_arena_string<'a>(&self, arena: &'a Arena) -> ArenaString<'a> {
+        self.slice(..).to_arena_string(arena)
     }
 }

@@ -20,7 +20,7 @@ impl<'a> SplashWidget<'a> {
 impl Widget for SplashWidget<'_> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         let arena = ferrite_ctx::Ctx::arena();
-        let splash = bumpalo::format!(in &arena,
+        let splash = ferrite_ctx::format!(in &arena,
             r#"
   Ferrite v{} {}
 
