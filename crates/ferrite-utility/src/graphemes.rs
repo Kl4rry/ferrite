@@ -509,6 +509,21 @@ impl Clone for GraphemeStr<'_> {
     }
 }
 
+pub fn is_word_char(ch: char) -> bool {
+    use unicode_general_category::GeneralCategory;
+    matches!(
+        unicode_general_category::get_general_category(ch),
+        GeneralCategory::ConnectorPunctuation
+            | GeneralCategory::UppercaseLetter
+            | GeneralCategory::TitlecaseLetter
+            | GeneralCategory::LowercaseLetter
+            | GeneralCategory::NonspacingMark
+            | GeneralCategory::DecimalNumber
+            | GeneralCategory::LetterNumber
+            | GeneralCategory::OtherLetter
+    )
+}
+
 pub trait RopeGraphemeExt {
     fn width(&self, current_col: usize) -> usize;
     fn line_without_line_ending(&self, line_idx: usize) -> RopeSlice;
@@ -603,20 +618,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     }
 
     fn is_word_char(&self) -> bool {
-        self.chars().all(|ch| {
-            use unicode_general_category::GeneralCategory;
-            matches!(
-                unicode_general_category::get_general_category(ch),
-                GeneralCategory::ConnectorPunctuation
-                    | GeneralCategory::UppercaseLetter
-                    | GeneralCategory::TitlecaseLetter
-                    | GeneralCategory::LowercaseLetter
-                    | GeneralCategory::NonspacingMark
-                    | GeneralCategory::DecimalNumber
-                    | GeneralCategory::LetterNumber
-                    | GeneralCategory::OtherLetter
-            )
-        })
+        self.chars().all(is_word_char)
     }
 
     fn end_of_line_byte(&self, line_idx: usize) -> usize {
