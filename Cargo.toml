@@ -11,7 +11,7 @@ bitflags = "2.5.0"
 blake3 = "1.5.1"
 boxcar = "0.2.5"
 bumpalo = { version = "3.17.0" }
-cb = { package = "crossbeam-channel", version = "0.5.8" }
+cb = { package = "crossbeam-channel", version = "0.5.15" }
 cc = "1.2.8"
 chardetng = "0.1.17"
 clap = { version = "4.5.6", default-features = false }
