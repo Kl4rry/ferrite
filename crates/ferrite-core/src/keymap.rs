@@ -369,7 +369,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
             Key::new(KeyCode::Enter, KeyModifiers::empty()),
             Cmd::Char { ch: '\n' },
             false,
-            InputContext::Edit,
+            InputContext::All,
         ),
         (
             Key::new(KeyCode::Delete, KeyModifiers::CONTROL | KeyModifiers::SHIFT),
