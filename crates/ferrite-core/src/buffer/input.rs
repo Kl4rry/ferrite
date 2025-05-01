@@ -71,9 +71,6 @@ impl Buffer {
             _ => return Ok(()),
         }
 
-        self.update_searchers();
-        self.update_interact(Some(view_id));
-
         Ok(())
     }
 }

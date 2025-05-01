@@ -1438,6 +1438,7 @@ impl Buffer {
         if history_finish {
             self.history.finish();
         }
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn backspace(&mut self, view_id: ViewId) {
@@ -1529,6 +1530,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn backspace_word(&mut self, view_id: ViewId) {
@@ -1572,6 +1574,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn backspace_to_start_of_line(&mut self, view_id: ViewId) {
@@ -1617,6 +1620,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn delete(&mut self, view_id: ViewId) {
@@ -1665,6 +1669,8 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn delete_word(&mut self, view_id: ViewId) {
@@ -1708,6 +1714,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn delete_to_end_of_line(&mut self, view_id: ViewId) {
@@ -1750,6 +1757,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     // TODO make multicursor aware
@@ -1842,6 +1850,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     // TODO make multicursor aware
@@ -1945,6 +1954,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     // TODO make multicursor aware
@@ -2062,6 +2072,7 @@ impl Buffer {
         }
         self.mark_dirty();
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn undo(&mut self, view_id: ViewId) {
@@ -2078,6 +2089,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn redo(&mut self, view_id: ViewId) {
@@ -2094,6 +2106,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn copy(&mut self, view_id: ViewId) {
@@ -2176,6 +2189,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn paste(&mut self, view_id: ViewId) {
@@ -2236,6 +2250,7 @@ impl Buffer {
         self.mark_dirty();
         self.ensure_every_cursor_is_valid();
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
@@ -2243,6 +2258,7 @@ impl Buffer {
         self.set_cursor_pos(view_id, 0, col, line);
         self.insert_text(view_id, &clipboard::get_primary(), true);
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     // TODO make this not use eof
@@ -2271,6 +2287,7 @@ impl Buffer {
         self.set_anchor_pos(view_id, 0, anchor_col, anchor_line);
         self.ensure_cursors_are_valid(view_id);
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn reload(&mut self) -> Result<(), BufferError> {
@@ -2294,6 +2311,7 @@ impl Buffer {
         self.queue_syntax_update();
 
         self.history.finish();
+        self.on_file_changed(None);
 
         self.ensure_every_cursor_is_valid();
         Ok(())
@@ -2731,6 +2749,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn replace_all(&mut self, view_id: ViewId, replacement: String) {
@@ -2774,6 +2793,7 @@ impl Buffer {
             }
 
             self.history.finish();
+            self.on_file_changed(Some(view_id));
         }
     }
 
@@ -2945,6 +2965,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn trim_trailing_whitespace(&mut self) {
@@ -3002,6 +3023,7 @@ impl Buffer {
         }
 
         self.history.finish();
+        self.on_file_changed(None);
     }
 
     pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
@@ -3140,6 +3162,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn new_line_above_without_breaking(&mut self, view_id: ViewId) {
@@ -3175,6 +3198,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         self.history.finish();
+        self.on_file_changed(Some(view_id));
     }
 
     pub fn update_searchers(&mut self) {
@@ -3183,6 +3207,11 @@ impl Buffer {
                 searcher.update_buffer(self.rope.clone(), None);
             }
         }
+    }
+
+    pub fn on_file_changed(&mut self, view_id: Option<ViewId>) {
+        self.update_searchers();
+        self.update_interact(view_id);
     }
 }
 
