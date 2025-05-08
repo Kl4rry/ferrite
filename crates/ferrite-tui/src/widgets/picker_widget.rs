@@ -272,6 +272,7 @@ where
 
             match state.get_current_preview() {
                 Some(Preview::Buffer(buffer)) => {
+                    // TODO: load buffer view pos
                     let view_id = buffer.get_first_view_or_create();
                     let mut preview =
                         EditorWidget::new(self.theme, self.config, view_id, false, None, None);
@@ -280,6 +281,7 @@ where
                     preview.render(preview_area, buf, buffer);
                 }
                 Some(Preview::SharedBuffer(buffer)) => {
+                    // TODO: load buffer view pos
                     let mut guard = buffer.lock().unwrap();
                     let view_id = guard.get_first_view_or_create();
                     let mut preview =
