@@ -53,7 +53,7 @@ use crate::{
     spinner::Spinner,
     theme::EditorTheme,
     watcher::FileWatcher,
-    workspace::{BufferData, BufferId, Workspace},
+    workspace::{BufferId, Workspace},
 };
 
 pub struct Engine {
@@ -325,29 +325,14 @@ impl Engine {
                 {
                     Some(buffer_data) => {
                         if let Some(view_id) = buffer.get_last_used_view() {
-                            if buffer_data.cursors != buffer.views[view_id].cursors {
-                                buffer_data
-                                    .cursors
-                                    .replace_with_slice(&buffer.views[view_id].cursors);
-                            }
-                            buffer_data.line_pos = buffer.line_pos(view_id);
-                            buffer_data.col_pos = buffer.col_pos(view_id);
-                            buffer_data.indent = buffer.indent;
-                            if buffer.language_name() != buffer_data.language {
-                                buffer_data.language = buffer.language_name().into();
-                            }
+                            buffer.write_buffer_data(view_id, buffer_data);
                         }
                     }
                     None => {
                         if let Some(view_id) = buffer.get_last_used_view() {
-                            new_buffers.push(BufferData {
-                                path: path.to_path_buf(),
-                                cursors: buffer.views[view_id].cursors.clone(),
-                                line_pos: buffer.line_pos(view_id),
-                                col_pos: buffer.col_pos(view_id),
-                                indent: buffer.indent,
-                                language: buffer.language_name().into(),
-                            });
+                            if let Some(buffer_data) = buffer.get_buffer_data(view_id) {
+                                new_buffers.push(buffer_data);
+                            }
                         }
                     }
                 }
@@ -414,6 +399,7 @@ impl Engine {
 
             if let Some(buffer_id) = dirty_buffer_id {
                 if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
+                    buffer.auto_detect_language();
                     buffer.queue_syntax_update();
                 }
             }

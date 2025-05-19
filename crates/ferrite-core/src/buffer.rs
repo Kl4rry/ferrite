@@ -2875,20 +2875,6 @@ impl Buffer {
         }
     }
 
-    pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
-        self.views[view_id].cursors = buffer_data.cursors.clone();
-        self.ensure_cursors_are_valid(view_id);
-        self.views[view_id].line_pos = buffer_data.line_pos as f64;
-        self.views[view_id].col_pos = buffer_data.col_pos as f64;
-    }
-
-    pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
-        if let Err(err) = self.set_langauge(&buffer_data.language, get_buffer_proxy()) {
-            tracing::error!("Error loading buffer data: {err}");
-        }
-        self.indent = buffer_data.indent;
-    }
-
     pub fn create_view(&mut self) -> ViewId {
         self.views.insert(View::default())
     }
@@ -3212,6 +3198,46 @@ impl Buffer {
     pub fn on_file_changed(&mut self, view_id: Option<ViewId>) {
         self.update_searchers();
         self.update_interact(view_id);
+    }
+
+    pub fn get_buffer_data(&self, view_id: ViewId) -> Option<BufferData> {
+        let path = self.file()?;
+        Some(BufferData {
+            path: path.to_path_buf(),
+            cursors: self.views[view_id].cursors.clone(),
+            line_pos: self.line_pos(view_id),
+            col_pos: self.col_pos(view_id),
+            indent: self.indent,
+            language: self.language_name().into(),
+        })
+    }
+
+    pub fn write_buffer_data(&self, view_id: ViewId, buffer_data: &mut BufferData) {
+        if buffer_data.cursors != self.views[view_id].cursors {
+            buffer_data
+                .cursors
+                .replace_with_slice(&self.views[view_id].cursors);
+        }
+        buffer_data.line_pos = self.line_pos(view_id);
+        buffer_data.col_pos = self.col_pos(view_id);
+        buffer_data.indent = self.indent;
+        if self.language_name() != buffer_data.language {
+            buffer_data.language = self.language_name().into();
+        }
+    }
+
+    pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
+        self.views[view_id].cursors = buffer_data.cursors.clone();
+        self.ensure_cursors_are_valid(view_id);
+        self.views[view_id].line_pos = buffer_data.line_pos as f64;
+        self.views[view_id].col_pos = buffer_data.col_pos as f64;
+    }
+
+    pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
+        if let Err(err) = self.set_langauge(&buffer_data.language, get_buffer_proxy()) {
+            tracing::error!("Error loading buffer data: {err}");
+        }
+        self.indent = buffer_data.indent;
     }
 }
 
