@@ -36,3 +36,6 @@ cursor_type = "line"
 
 [keymap]
 "F5" = { cmd = "run_action", name = "build" }
+
+[actions]
+build = ["cargo", "build"]

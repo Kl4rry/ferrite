@@ -505,7 +505,7 @@ impl Engine {
                     PaletteMode::Shell,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
-                        self.workspace.config.actions.keys().cloned().collect(),
+                        self.get_action_names(),
                         true,
                         Some(CmdTemplateArg::Path),
                     ),
@@ -534,7 +534,7 @@ impl Engine {
                     PaletteMode::Command,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
-                        self.workspace.config.actions.keys().cloned().collect(),
+                        self.get_action_names(),
                         false,
                         None,
                     ),
@@ -547,7 +547,7 @@ impl Engine {
                     PaletteMode::Goto,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
-                        self.workspace.config.actions.keys().cloned().collect(),
+                        self.get_action_names(),
                         false,
                         None,
                     ),
@@ -919,7 +919,13 @@ impl Engine {
                     }
                 }
             }
-            Cmd::RunAction { name } => match self.workspace.config.actions.get(&name) {
+            Cmd::RunAction { name } => match self
+                .workspace
+                .config
+                .actions
+                .get(&name)
+                .or_else(|| self.config.editor.actions.get(&name))
+            {
                 Some(args) => {
                     self.run_shell_command(args.join(" "), true, false);
                 }
@@ -962,7 +968,7 @@ impl Engine {
                     PaletteMode::Rename { path: path.clone() },
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
-                        self.workspace.config.actions.keys().cloned().collect(),
+                        self.get_action_names(),
                         false,
                         None,
                     ),
@@ -1828,7 +1834,7 @@ impl Engine {
                     PaletteMode::Search,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
-                        self.workspace.config.actions.keys().cloned().collect(),
+                        self.get_action_names(),
                         false,
                         None,
                     ),
@@ -1846,7 +1852,7 @@ impl Engine {
                     PaletteMode::Search,
                     CompleterContext::new(
                         self.themes.keys().cloned().collect(),
-                        self.workspace.config.actions.keys().cloned().collect(),
+                        self.get_action_names(),
                         false,
                         None,
                     ),
@@ -1868,7 +1874,7 @@ impl Engine {
             PaletteMode::GlobalSearch,
             CompleterContext::new(
                 self.themes.keys().cloned().collect(),
-                self.workspace.config.actions.keys().cloned().collect(),
+                self.get_action_names(),
                 false,
                 None,
             ),
@@ -1892,7 +1898,7 @@ impl Engine {
                 PaletteMode::Replace,
                 CompleterContext::new(
                     self.themes.keys().cloned().collect(),
-                    self.workspace.config.actions.keys().cloned().collect(),
+                    self.get_action_names(),
                     false,
                     None,
                 ),
@@ -1938,6 +1944,16 @@ impl Engine {
             PaneKind::Logger => InputContext::Edit,
             PaneKind::FileExplorer(_) => InputContext::FileExplorer,
         }
+    }
+
+    pub fn get_action_names(&self) -> Vec<String> {
+        self.workspace
+            .config
+            .actions
+            .keys()
+            .cloned()
+            .chain(self.config.editor.actions.keys().cloned())
+            .collect()
     }
 }
 

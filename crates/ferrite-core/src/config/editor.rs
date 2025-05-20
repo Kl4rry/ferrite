@@ -1,6 +1,7 @@
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use anyhow::Result;
+use ferrite_utility::vec1::Vec1;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +74,8 @@ pub struct Editor {
     pub gui: Gui,
     #[serde(default)]
     pub keymap: IndexMap<Key, KeymapAndMetadata>,
+    #[serde(default)]
+    pub actions: HashMap<String, Vec1<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
