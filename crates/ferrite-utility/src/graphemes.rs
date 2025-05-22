@@ -541,7 +541,8 @@ pub trait RopeGraphemeExt {
     fn end_of_line_byte(&self, line_idx: usize) -> usize;
     fn end_of_line_char(&self, line_idx: usize) -> usize;
 
-    fn starts_width_char(&self, ch: char) -> bool;
+    fn starts_with_char(&self, ch: char) -> bool;
+    fn starts_with(&self, s: &str) -> bool;
 
     fn get_text_start_col(&self, line_idx: usize) -> usize;
     fn get_text_start_byte(&self, line_idx: usize) -> usize;
@@ -633,7 +634,25 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         line_start + line_len
     }
 
-    fn starts_width_char(&self, ch: char) -> bool {
+    fn starts_with(&self, s: &str) -> bool {
+        let mut rope_bytes = self.bytes();
+        for i in 0..s.len() {
+            let prefix_byte = s.as_bytes()[i];
+            match rope_bytes.next() {
+                Some(rope_byte) => {
+                    if rope_byte == prefix_byte {
+                        continue;
+                    } else {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+        true
+    }
+
+    fn starts_with_char(&self, ch: char) -> bool {
         self.chars()
             .next()
             .map(|first| first == ch)
@@ -801,8 +820,12 @@ impl RopeGraphemeExt for Rope {
         self.byte_slice(..).end_of_line_char(char_idx)
     }
 
-    fn starts_width_char(&self, ch: char) -> bool {
-        self.slice(..).starts_width_char(ch)
+    fn starts_with_char(&self, ch: char) -> bool {
+        self.slice(..).starts_with_char(ch)
+    }
+
+    fn starts_with(&self, s: &str) -> bool {
+        self.slice(..).starts_with(s)
     }
 
     fn get_text_start_col(&self, line_idx: usize) -> usize {

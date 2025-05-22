@@ -5,7 +5,7 @@ use std::{
     fs, io,
     ops::Range,
     path::{Path, PathBuf},
-    sync::OnceLock,
+    sync::{Arc, Mutex, OnceLock},
     time::{Duration, Instant},
 };
 
@@ -56,6 +56,10 @@ fn get_buffer_proxy() -> Box<dyn EventLoopProxy> {
     PROXY.get().unwrap().dup()
 }
 
+pub fn intersects(start1: usize, end1: usize, start2: usize, end2: usize) -> bool {
+    !(start1 > end2 || end1 < start2)
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Cursor {
     pub position: usize,
@@ -73,7 +77,7 @@ impl Cursor {
         let end1 = self.end();
         let start2 = other.start();
         let end2 = other.end();
-        !(start1 > end2 || end1 < start2)
+        intersects(start1, end1, start2, end2)
     }
 
     pub fn coalesce(self, other: Cursor) -> Self {
@@ -206,6 +210,7 @@ pub struct Buffer {
     pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
+    pub conflicts: Arc<Mutex<Vec<(usize, usize, usize)>>>,
     last_interact: Instant,
     last_used_view: ViewId,
     // syntax highlight
@@ -235,6 +240,7 @@ impl Clone for Buffer {
             indent: self.indent,
             syntax: Some(syntax),
             history: self.history.clone(),
+            conflicts: Arc::new(Mutex::new(self.conflicts.lock().unwrap().clone())),
             last_interact: self.last_interact,
             last_used_view: self.last_used_view,
             views: self.views.clone(),
@@ -259,6 +265,7 @@ impl Default for Buffer {
             line_ending: DEFAULT_LINE_ENDING,
             syntax: None,
             history: History::default(),
+            conflicts: Arc::new(Mutex::new(Vec::new())),
             last_interact: Instant::now(),
             last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
@@ -363,7 +370,7 @@ impl Buffer {
 
         let name = path.file_name().unwrap().to_string_lossy().into();
 
-        Ok(Self {
+        let mut new = Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             read_only_file,
@@ -372,7 +379,9 @@ impl Buffer {
             encoding,
             syntax: Some(syntax),
             ..Default::default()
-        })
+        };
+        new.find_conflicts();
+        Ok(new)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, io::Error> {
@@ -386,14 +395,16 @@ impl Buffer {
             syntax.update_text(rope.clone());
         }
 
-        Ok(Self {
+        let mut new = Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             file: None,
             encoding,
             syntax: Some(syntax),
             ..Default::default()
-        })
+        };
+        new.find_conflicts();
+        Ok(new)
     }
 
     pub fn auto_detect_language(&mut self) {
@@ -417,6 +428,7 @@ impl Buffer {
         if let Some(ref mut syntax) = self.syntax {
             syntax.update_text(self.rope.clone());
         }
+        self.find_conflicts();
     }
 
     /// Replaces ropye, moves all cursors to end of file and autoscrolls
@@ -437,6 +449,7 @@ impl Buffer {
         if let Some(ref mut syntax) = self.syntax {
             syntax.update_text(self.rope.clone());
         }
+        self.find_conflicts();
         for view_id in self.views.keys().collect::<Vec<_>>().into_iter() {
             if let Some(scroll) = map.get(view_id) {
                 self.vertical_scroll(view_id, *scroll as f64);
@@ -3198,6 +3211,7 @@ impl Buffer {
     pub fn on_file_changed(&mut self, view_id: Option<ViewId>) {
         self.update_searchers();
         self.update_interact(view_id);
+        self.find_conflicts();
     }
 
     pub fn get_buffer_data(&self, view_id: ViewId) -> Option<BufferData> {
@@ -3238,6 +3252,55 @@ impl Buffer {
             tracing::error!("Error loading buffer data: {err}");
         }
         self.indent = buffer_data.indent;
+    }
+
+    pub fn find_conflicts(&mut self) {
+        let conflicts_ptr = self.conflicts.clone();
+        let proxy = get_buffer_proxy();
+        let rope = self.rope.clone();
+        rayon::spawn(move || {
+            // TODO(axel): rm temp alloc
+            let mut conflicts = Vec::new();
+            enum Stage {
+                Searching,
+                Current(usize),
+                Incomming(usize, usize),
+            }
+            let mut stage = Stage::Searching;
+            for (i, line) in rope.lines().enumerate() {
+                match stage {
+                    Stage::Searching => {
+                        if line.starts_with("<<<<<<<") {
+                            stage = Stage::Current(i);
+                        }
+                    }
+                    Stage::Current(start) => {
+                        if line.starts_with("<<<<<<<") {
+                            stage = Stage::Current(i);
+                            continue;
+                        }
+
+                        if line.starts_with("=======") {
+                            stage = Stage::Incomming(start, i);
+                        }
+                    }
+                    Stage::Incomming(current_start, start) => {
+                        if line.starts_with("<<<<<<<") {
+                            stage = Stage::Current(i);
+                            continue;
+                        }
+
+                        if line.starts_with(">>>>>>>") {
+                            stage = Stage::Searching;
+                        }
+
+                        conflicts.push((current_start, start, i + 1));
+                    }
+                }
+            }
+            *conflicts_ptr.lock().unwrap() = conflicts;
+            proxy.request_render();
+        });
     }
 }
 

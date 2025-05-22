@@ -163,7 +163,7 @@ impl StatefulWidget for EditorWidget<'_> {
                     let line_number_str = line_number.to_string();
                     let line_number_str = ferrite_ctx::format!(in &arena,
                         "{}{}",
-                        // TODO: remove allocation
+                        // TODO: rm temp alloc
                         " ".repeat(line_number_max_width - line_number_str.len()),
                         line_number
                     );
@@ -181,7 +181,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         line_nr_theme,
                     );
 
-                    // TODO: remove allocation
+                    // TODO: rm temp alloc
                     let start_offset = " ".repeat(line.col_start_offset);
                     if text_area.width > 0 {
                         buf.set_stringn(
@@ -221,7 +221,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         break;
                     }
 
-                    if grapheme.starts_width_char('\t') {
+                    if grapheme.starts_with_char('\t') {
                         let tab_width = tab_width_at(current_width, TAB_WIDTH);
                         if render_whitespace(current_width, line.text_end_col) {
                             dim_cells.push((current_width, i));
@@ -558,6 +558,43 @@ impl StatefulWidget for EditorWidget<'_> {
                                 cell.bg = bg;
                             }
                         }
+                    }
+                }
+            }
+
+            {
+                let start_line = buffer.views[view_id].line_pos_floored();
+                let end_line =
+                    buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
+                let conflicts = buffer.conflicts.lock().unwrap();
+                for (start, middle, end) in &*conflicts {
+                    if intersects(*start, *end, start_line, end_line) {
+                        let area_start = (text_area.y as i64 + *start as i64 - start_line as i64)
+                            .clamp(text_area.top() as i64, text_area.bottom() as i64);
+                        let area_middle = (text_area.y as i64 + *middle as i64 - start_line as i64)
+                            .clamp(text_area.top() as i64, text_area.bottom() as i64);
+                        let area_end = (text_area.y as i64 + *end as i64 - start_line as i64)
+                            .clamp(text_area.top() as i64, text_area.bottom() as i64);
+                        let first_area = Rect::new(
+                            text_area.x,
+                            area_start as u16,
+                            text_area.width,
+                            (area_middle - area_start) as u16,
+                        );
+                        let second_area = Rect::new(
+                            text_area.x,
+                            area_middle as u16,
+                            text_area.width,
+                            (area_end - area_middle) as u16,
+                        );
+                        buf.set_style(
+                            first_area,
+                            tui::style::Style::default().bg(tui::style::Color::Rgb(39, 64, 59)),
+                        );
+                        buf.set_style(
+                            second_area,
+                            tui::style::Style::default().bg(tui::style::Color::Rgb(40, 56, 75)),
+                        );
                     }
                 }
             }
