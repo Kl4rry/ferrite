@@ -60,6 +60,9 @@ fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<(
 }
 
 fn main() -> Result<ExitCode> {
+    // Prevents glibc from hoarding memory via memory fragmentation.
+    ferrite_core::malloc::limit_mmap_threshold(128 * 1024);
+
     let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") else {
         eprintln!("Unable to get project directory");
         return Ok(ExitCode::from(1));

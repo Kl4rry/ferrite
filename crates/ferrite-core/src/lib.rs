@@ -16,6 +16,7 @@ pub mod keymap;
 pub mod language;
 pub mod layout;
 pub mod logger;
+pub mod malloc;
 pub mod palette;
 pub mod picker;
 pub mod promise;
