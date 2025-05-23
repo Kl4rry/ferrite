@@ -7,7 +7,7 @@ version = "0.1.0"
 [workspace.dependencies]
 anyhow = "1.0.68"
 arboard = { version = "3.2.0", default-features = false }
-bitflags = "2.5.0"
+bitflags = "2.9.1"
 blake3 = "1.5.1"
 boxcar = "0.2.5"
 bumpalo = { version = "3.17.0" }

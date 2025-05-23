@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    env, iter,
+    iter,
     sync::{Arc, mpsc},
     time::Instant,
 };
@@ -37,9 +37,9 @@ use tui::{Terminal, layout::Position};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
-    event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
+    event_loop::{ActiveEventLoop, EventLoop},
     keyboard::{Key, ModifiersState, NamedKey},
-    window::{CursorIcon, Window, WindowBuilder},
+    window::{CursorIcon, Window},
 };
 
 use crate::renderer::{
@@ -65,7 +65,7 @@ pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
         }));
     }
 
-    let event_loop = EventLoopBuilder::with_user_event().build()?;
+    let event_loop = EventLoop::with_user_event().build()?;
     let gui_app = pollster::block_on(GuiApp::new(args, &event_loop, rx))?;
     gui_app.run(event_loop);
 
@@ -113,15 +113,15 @@ impl GuiApp {
     ) -> Result<Self> {
         let event_loop_wrapper = EventLoopProxyWrapper::new(event_loop.create_proxy());
 
+        #[allow(deprecated)]
         let window = Arc::new(
-            WindowBuilder::new()
-                .with_title("Ferrite")
-                .build(event_loop)
+            event_loop
+                .create_window(Window::default_attributes().with_title("Ferrite"))
                 .unwrap(),
         );
         let size = window.inner_size();
 
-        let mut backends = if cfg!(windows) {
+        let backends = if cfg!(windows) {
             wgpu::Backends::DX12
         } else if cfg!(target_os = "macos") {
             wgpu::Backends::PRIMARY
@@ -129,18 +129,12 @@ impl GuiApp {
             wgpu::Backends::all()
         };
 
-        if let Ok(gpu_backend) = env::var("FERRITE_GPU_BACKEND") {
-            backends = wgpu::util::parse_backends_from_comma_list(&gpu_backend);
-        } else if let Ok(gpu_backend) = env::var("WGPU_BACKEND") {
-            backends = wgpu::util::parse_backends_from_comma_list(&gpu_backend);
-        };
-
         let instance_descriptor = wgpu::InstanceDescriptor {
             backends,
             ..Default::default()
         };
 
-        let instance = wgpu::Instance::new(instance_descriptor);
+        let instance = wgpu::Instance::new(&instance_descriptor);
 
         let surface = instance.create_surface(window.clone()).unwrap();
         let adapter = instance
@@ -153,15 +147,13 @@ impl GuiApp {
             .unwrap();
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    required_features: wgpu::Features::default(),
-                    required_limits: wgpu::Limits::default(),
-                    memory_hints: wgpu::MemoryHints::Performance,
-                },
-                None,
-            )
+            .request_device(&wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::default(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::Performance,
+                trace: wgpu::Trace::Off,
+            })
             .await?;
 
         let surface_caps = surface.get_capabilities(&adapter);
@@ -234,6 +226,7 @@ impl GuiApp {
 
     pub fn run(mut self, event_loop: EventLoop<UserEvent>) {
         event_loop.set_control_flow(winit::event_loop::ControlFlow::Wait);
+        #[allow(deprecated)]
         event_loop
             .run(move |event, event_loop| match event {
                 Event::NewEvents(_) => {
@@ -356,7 +349,7 @@ impl GuiApp {
     }
 
     #[profiling::function]
-    pub fn input(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>, event: WindowEvent) {
+    pub fn input(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
         match event {
             WindowEvent::Focused(false) => {
                 self.modifiers = KeyModifiers::empty();
@@ -551,7 +544,7 @@ impl GuiApp {
                 }
             }
         }
-        self.window.set_cursor_icon(cursor);
+        self.window.set_cursor(cursor);
     }
 
     pub fn handle_click(&mut self, x: f64, y: f64, state: ElementState, button: MouseButton) {

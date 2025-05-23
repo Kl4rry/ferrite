@@ -38,7 +38,7 @@ pub fn calculate_char_size(
     buffer.set_text(
         font_system,
         text,
-        Attrs::new()
+        &Attrs::new()
             .weight(Weight(font_weight as u16))
             .family(Family::Monospace),
         shaping,
@@ -168,7 +168,7 @@ impl WgpuBackend {
             BufferLine::new(
                 "",
                 glyphon::cosmic_text::LineEnding::Lf,
-                AttrsList::new(default_attrs),
+                AttrsList::new(&default_attrs),
                 Shaping::Basic,
             ),
         );
@@ -179,7 +179,7 @@ impl WgpuBackend {
             profiling::scope!("update buffer");
             for (line_idx, line) in self.cells.iter_mut().enumerate() {
                 let mut skip_next = false;
-                let mut attr_list = AttrsList::new(default_attrs);
+                let mut attr_list = AttrsList::new(&default_attrs.clone());
                 let mut line_text = String::new();
                 let mut idx = 0;
                 for (col_idx, cell) in line.iter().enumerate() {
@@ -187,7 +187,7 @@ impl WgpuBackend {
                         skip_next = false;
                         continue;
                     }
-                    let mut attrs = default_attrs;
+                    let mut attrs = default_attrs.clone();
                     let mut fg = default_fg;
                     let mut bg = None;
                     if let tui::style::Color::Rgb(r, g, b) = cell.fg {
@@ -229,7 +229,7 @@ impl WgpuBackend {
                     }
 
                     line_text.push_str(&cow_symbol);
-                    attr_list.add_span(idx..(idx + cow_symbol.len()), attrs);
+                    attr_list.add_span(idx..(idx + cow_symbol.len()), &attrs);
                     idx += cow_symbol.len();
 
                     // TODO greedy mesh here

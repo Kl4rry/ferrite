@@ -7,18 +7,18 @@ edition = "2024"
 anyhow = { workspace = true }
 bytemuck = "1.20.0"
 cgmath = "0.18.0"
-cosmic-text = { version = "0.12.1", features = ["monospace_fallback", "shape-run-cache"] }
+cosmic-text = { version = "0.14.0", features = ["monospace_fallback", "shape-run-cache"] }
 crevice = { version = "0.17.0", features = ["cgmath"] }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
 ferrite-tui = { workspace = true }
 ferrite-utility = { workspace = true }
-glyphon = "0.7.0"
+glyphon = "0.9.0"
 pollster = "0.3.0"
 profiling = { workspace = true }
 ropey = { workspace = true }
 tracing = { workspace = true }
 tui = { workspace = true, default-features = false }
 unicode-width = { workspace = true }
-wgpu = { version = "23.0.0", features = ["glsl"] }
-winit = { version = "0.29.15", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen", "x11"] }
+wgpu = { version = "25.0.0", features = ["glsl"] }
+winit = { version = "0.30.11", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen", "x11"] }
