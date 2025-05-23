@@ -81,6 +81,7 @@ pub struct Engine {
     pub buffer_area: Rect,
     pub force_redraw: bool,
     pub scale: f32,
+    pub last_trim: Instant,
 }
 
 #[profiling::all_functions]
@@ -256,6 +257,7 @@ impl Engine {
             },
             force_redraw: false,
             scale: 1.0,
+            last_trim: Instant::now(),
         })
     }
 
@@ -426,6 +428,12 @@ impl Engine {
         self.shell_jobs.retain(|job| !job.1.is_finished());
 
         self.job_manager.poll_jobs();
+
+        let now = Instant::now();
+        if now.duration_since(self.last_trim) > Duration::from_secs(10) {
+            self.last_trim = now;
+            crate::malloc::trim(0);
+        }
 
         let duration = self
             .spinner
