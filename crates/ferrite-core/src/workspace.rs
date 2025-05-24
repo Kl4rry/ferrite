@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Write,
     fs,
     path::{Path, PathBuf},
 };
@@ -196,13 +197,17 @@ impl Workspace {
 }
 
 pub fn get_workspace_path(workspace_path: impl AsRef<Path>) -> Result<PathBuf> {
+    use sha2::{Digest, Sha256};
     let Some(directories) = directories::ProjectDirs::from("", "", "ferrite") else {
         return Err(anyhow::Error::msg("Unable to find project directory"));
     };
     let path = dunce::canonicalize(&workspace_path)?;
     let path = path.to_string_lossy();
-    let hash = blake3::hash(path.as_bytes());
-    let hex = hash.to_hex();
+    let hash = Sha256::digest(path.as_bytes());
+    let mut hex = String::with_capacity(64);
+    for byte in hash {
+        write!(&mut hex, "{:x}", byte)?;
+    }
     Ok(directories.data_dir().join(format!(
         "ferrite-workspace-{}-{hex}.json",
         workspace_path

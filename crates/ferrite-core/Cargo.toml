@@ -7,7 +7,6 @@ edition = "2024"
 anyhow = { workspace = true }
 arboard = { workspace = true, features = ["wayland-data-control"] }
 bitflags = { workspace = true, features = ["serde"] }
-blake3 = { workspace = true }
 boxcar = { workspace = true }
 cb = { workspace = true }
 chardetng = { workspace = true }
@@ -39,6 +38,7 @@ rayon = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 slotmap = { workspace = true }
 sublime_fuzzy = { workspace = true }
 subprocess = { workspace = true }
