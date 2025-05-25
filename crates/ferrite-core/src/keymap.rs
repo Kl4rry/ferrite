@@ -96,6 +96,12 @@ pub fn get_default_chords() -> Vec<(Key, Cmd, bool, InputContext)> {
             InputContext::All,
         ),
         (
+            Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+            Cmd::Repeat,
+            false,
+            InputContext::Edit,
+        ),
+        (
             Key::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
             Cmd::Format,
             false,
@@ -178,12 +184,6 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
             Cmd::OpenRename,
             false,
             InputContext::FileExplorer,
-        ),
-        (
-            Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
-            Cmd::Repeat,
-            false,
-            InputContext::Edit,
         ),
         (
             Key::new(KeyCode::Char('w'), KeyModifiers::CONTROL),
@@ -312,7 +312,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
             InputContext::All,
         ),
         (
-            Key::new(KeyCode::Char('r'), KeyModifiers::ALT),
+            Key::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
             Cmd::Replace,
             false,
             InputContext::Edit,
