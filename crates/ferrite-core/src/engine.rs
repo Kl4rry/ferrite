@@ -52,6 +52,7 @@ use crate::{
     },
     spinner::Spinner,
     theme::EditorTheme,
+    timer::Timer,
     watcher::FileWatcher,
     workspace::{BufferId, Workspace},
 };
@@ -64,7 +65,6 @@ pub struct Engine {
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
-    pub branch_watcher: BranchWatcher,
     pub proxy: Box<dyn EventLoopProxy>,
     pub file_scanner: Option<FileScanner>,
     pub job_manager: JobManager,
@@ -77,11 +77,12 @@ pub struct Engine {
     pub last_render_time: Duration,
     pub start_of_events: Instant,
     pub closed_buffers: Vec<PathBuf>,
+    pub branch_watcher: BranchWatcher,
     pub buffer_watcher: Option<BufferWatcher>,
     pub buffer_area: Rect,
     pub force_redraw: bool,
     pub scale: f32,
-    pub last_trim: Instant,
+    pub trim_timer: Timer,
 }
 
 #[profiling::all_functions]
@@ -257,7 +258,7 @@ impl Engine {
             },
             force_redraw: false,
             scale: 1.0,
-            last_trim: Instant::now(),
+            trim_timer: Timer::default(),
         })
     }
 
@@ -429,9 +430,7 @@ impl Engine {
 
         self.job_manager.poll_jobs();
 
-        let now = Instant::now();
-        if now.duration_since(self.last_trim) > Duration::from_secs(10) {
-            self.last_trim = now;
+        if self.trim_timer.every(Duration::from_secs(20)) {
             crate::malloc::trim(0);
         }
 
