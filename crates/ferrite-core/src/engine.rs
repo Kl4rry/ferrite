@@ -1955,13 +1955,13 @@ impl Engine {
     }
 
     pub fn get_action_names(&self) -> Vec<String> {
-        self.workspace
-            .config
-            .actions
-            .keys()
-            .cloned()
-            .chain(self.config.editor.actions.keys().cloned())
-            .collect()
+        let mut actions: Vec<_> = self.workspace.config.actions.keys().cloned().collect();
+        for action in self.config.editor.actions.keys().cloned() {
+            if !actions.contains(&action) {
+                actions.push(action);
+            }
+        }
+        actions
     }
 }
 
