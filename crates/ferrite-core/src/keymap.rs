@@ -52,8 +52,11 @@ pub fn get_command_from_input(
     } in mappings
     {
         let ctx_match = *ctx == input_ctx || *ctx == InputContext::All;
+        if !ctx_match {
+            continue;
+        }
         if *ignore_modifiers {
-            if key.keycode == normalized_keycode && modifiers.contains(key.modifiers) && ctx_match {
+            if key.keycode == normalized_keycode && modifiers.contains(key.modifiers) {
                 return Some(cmd.clone());
             }
         } else if *key
@@ -61,7 +64,6 @@ pub fn get_command_from_input(
                 keycode: normalized_keycode,
                 modifiers,
             })
-            && ctx_match
         {
             return Some(cmd.clone());
         }
