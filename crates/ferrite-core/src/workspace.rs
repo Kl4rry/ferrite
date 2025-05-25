@@ -12,7 +12,7 @@ use slotmap::{Key, SlotMap};
 
 use super::buffer::Buffer;
 use crate::{
-    buffer::{Cursor, ViewId},
+    buffer::{ViewId, cursor::Cursor},
     event_loop_proxy::EventLoopProxy,
     file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,

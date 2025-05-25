@@ -1,7 +1,7 @@
 use std::ops::Add;
 
 use ferrite_core::{
-    buffer::{Buffer, Selection, ViewId, search::SearchMatch},
+    buffer::{Buffer, ViewId, cursor::Selection, search::SearchMatch},
     config::{
         self,
         editor::{CursorType, Editor, LineNumber},

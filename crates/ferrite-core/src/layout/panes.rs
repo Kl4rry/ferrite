@@ -485,7 +485,7 @@ pub mod layout {
 
     use super::{Pane, Panes, Split};
     use crate::{
-        buffer::{Buffer, Cursor},
+        buffer::{Buffer, cursor::Cursor},
         file_explorer::{FileExplorer, FileExplorerId},
         workspace::BufferId,
     };

@@ -28,7 +28,7 @@ use crate::{
         keymap::{Keymap, Keymapping},
         languages::Languages,
     },
-    event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent},
+    event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent, set_proxy},
     file_explorer::FileExplorer,
     git::branch::BranchWatcher,
     indent::Indentation,
@@ -92,7 +92,7 @@ impl Engine {
         proxy: Box<dyn EventLoopProxy>,
         recv: mpsc::Receiver<LogMessage>,
     ) -> Result<Self> {
-        buffer::set_buffer_proxy(proxy.dup());
+        set_proxy(proxy.dup());
         let mut palette = CommandPalette::new(proxy.dup());
 
         let config_path = Editor::get_default_location().ok();

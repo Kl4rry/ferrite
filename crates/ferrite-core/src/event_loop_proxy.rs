@@ -1,6 +1,18 @@
-use std::time::Duration;
+use std::{sync::OnceLock, time::Duration};
 
 use crate::palette::{PaletteMode, PalettePromptEvent};
+
+static PROXY: OnceLock<Box<dyn EventLoopProxy>> = OnceLock::new();
+
+pub fn set_proxy(proxy: Box<dyn EventLoopProxy>) {
+    if PROXY.set(proxy).is_err() {
+        tracing::error!("Error attempted to set buffer proxy twice");
+    }
+}
+
+pub fn get_proxy() -> Box<dyn EventLoopProxy> {
+    PROXY.get().unwrap().dup()
+}
 
 #[derive(Debug)]
 pub enum UserEvent {

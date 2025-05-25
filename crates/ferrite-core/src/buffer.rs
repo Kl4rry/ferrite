@@ -5,10 +5,11 @@ use std::{
     fs, io,
     ops::Range,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
+use cursor::{Cursor, Selection};
 use encoding_rs::Encoding;
 use ferrite_utility::{
     graphemes::RopeGraphemeExt,
@@ -18,7 +19,6 @@ use ferrite_utility::{
 };
 use ropey::{Rope, RopeSlice};
 use search::search_rope;
-use serde::{Deserialize, Serialize};
 use slotmap::{Key, SecondaryMap, SlotMap};
 
 use self::{error::BufferError, history::History, search::BufferSearcher};
@@ -27,11 +27,15 @@ use super::{
     language::{get_language_from_path, syntax::Syntax},
 };
 use crate::{
-    clipboard, cmd::LineMoveDir, event_loop_proxy::EventLoopProxy,
-    language::detect::detect_language, workspace::BufferData,
+    clipboard,
+    cmd::LineMoveDir,
+    event_loop_proxy::{EventLoopProxy, get_proxy},
+    language::detect::detect_language,
+    workspace::BufferData,
 };
 
 pub mod case;
+pub mod cursor;
 pub mod encoding;
 pub mod error;
 mod format;
@@ -43,73 +47,6 @@ pub mod write;
 
 #[cfg(test)]
 pub mod buffer_tests;
-
-static PROXY: OnceLock<Box<dyn EventLoopProxy>> = OnceLock::new();
-
-pub fn set_buffer_proxy(proxy: Box<dyn EventLoopProxy>) {
-    if PROXY.set(proxy).is_err() {
-        tracing::error!("Error attempted to set buffer proxy twice");
-    }
-}
-
-fn get_buffer_proxy() -> Box<dyn EventLoopProxy> {
-    PROXY.get().unwrap().dup()
-}
-
-pub fn intersects(start1: usize, end1: usize, start2: usize, end2: usize) -> bool {
-    !(start1 > end2 || end1 < start2)
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Cursor {
-    pub position: usize,
-    pub anchor: usize,
-    pub affinity: usize,
-}
-
-impl Cursor {
-    pub fn has_selection(&self) -> bool {
-        self.position != self.anchor
-    }
-
-    pub fn intersects(&self, other: Cursor) -> bool {
-        let start1 = self.start();
-        let end1 = self.end();
-        let start2 = other.start();
-        let end2 = other.end();
-        intersects(start1, end1, start2, end2)
-    }
-
-    pub fn coalesce(self, other: Cursor) -> Self {
-        if self.position >= self.anchor {
-            Self {
-                position: self.position.max(other.position),
-                anchor: self.anchor.min(other.anchor),
-                affinity: self.affinity,
-            }
-        } else {
-            Self {
-                position: self.position.min(other.position),
-                anchor: self.anchor.max(other.anchor),
-                affinity: self.affinity,
-            }
-        }
-    }
-
-    pub fn start(&self) -> usize {
-        self.position.min(self.anchor)
-    }
-
-    pub fn end(&self) -> usize {
-        self.position.max(self.anchor)
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Selection {
-    pub start: Point<i64>,
-    pub end: Point<i64>,
-}
 
 pub struct View {
     pub cursors: Vec1<Cursor>,
@@ -221,7 +158,7 @@ pub struct Buffer {
 impl Clone for Buffer {
     fn clone(&self) -> Self {
         let rope = self.rope.clone();
-        let mut syntax = Syntax::new(get_buffer_proxy());
+        let mut syntax = Syntax::new(get_proxy());
         if let Err(err) = syntax.set_language(self.language_name()) {
             tracing::error!("Error setting language: {err}");
         }
@@ -303,7 +240,7 @@ impl Buffer {
             cwd.join(path)
         };
 
-        let mut syntax = Syntax::new(get_buffer_proxy());
+        let mut syntax = Syntax::new(get_proxy());
         if let Some(language) = get_language_from_path(&path) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");
@@ -327,7 +264,7 @@ impl Buffer {
     pub fn with_name(name: impl Into<String>) -> Self {
         let name = name.into();
         let path = Path::new(&name);
-        let mut syntax = Syntax::new(get_buffer_proxy());
+        let mut syntax = Syntax::new(get_proxy());
         if let Some(language) = get_language_from_path(path) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");
@@ -353,7 +290,7 @@ impl Buffer {
         let read_only_file = rustix::fs::access(path, rustix::fs::Access::WRITE_OK).is_err();
         let (encoding, rope) = read::read_from_file(path)?;
 
-        let mut syntax = Syntax::new(get_buffer_proxy());
+        let mut syntax = Syntax::new(get_proxy());
         if let Some(language) = get_language_from_path(path) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");
@@ -386,7 +323,7 @@ impl Buffer {
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, io::Error> {
         let (encoding, rope) = read::read(bytes)?;
-        let mut syntax = Syntax::new(get_buffer_proxy());
+        let mut syntax = Syntax::new(get_proxy());
 
         if let Some(language) = detect_language(None, rope.clone()) {
             if let Err(err) = syntax.set_language(language) {
@@ -411,7 +348,7 @@ impl Buffer {
         let syntax = match self.syntax.as_mut() {
             Some(syntax) => syntax,
             None => {
-                self.syntax = Some(Syntax::new(get_buffer_proxy()));
+                self.syntax = Some(Syntax::new(get_proxy()));
                 self.syntax.as_mut().unwrap()
             }
         };
@@ -3248,7 +3185,7 @@ impl Buffer {
     }
 
     pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
-        if let Err(err) = self.set_langauge(&buffer_data.language, get_buffer_proxy()) {
+        if let Err(err) = self.set_langauge(&buffer_data.language, get_proxy()) {
             tracing::error!("Error loading buffer data: {err}");
         }
         self.indent = buffer_data.indent;
@@ -3256,7 +3193,7 @@ impl Buffer {
 
     pub fn find_conflicts(&mut self) {
         let conflicts_ptr = self.conflicts.clone();
-        let proxy = get_buffer_proxy();
+        let proxy = get_proxy();
         let rope = self.rope.clone();
         rayon::spawn(move || {
             // TODO(axel): rm temp alloc
