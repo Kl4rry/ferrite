@@ -68,7 +68,7 @@ pub struct Engine {
     pub proxy: Box<dyn EventLoopProxy>,
     pub file_scanner: Option<FileScanner>,
     pub job_manager: JobManager,
-    pub save_jobs: Vec<JobHandle<Result<SaveBufferJob>>>,
+    pub save_jobs: Vec<(BufferId, JobHandle<Result<SaveBufferJob>>)>,
     pub shell_jobs: Vec<(Option<BufferId>, ShellJobHandle)>,
     pub spinner: Spinner,
     pub logger_state: LoggerState,
@@ -344,7 +344,7 @@ impl Engine {
             .buffer_extra_data
             .extend_from_slice(&new_buffers);
 
-        for job in &mut self.save_jobs {
+        for (_, job) in &mut self.save_jobs {
             if let Ok(result) = job.try_recv() {
                 match result {
                     Ok(job) => {
@@ -368,7 +368,7 @@ impl Engine {
                 }
             }
         }
-        self.save_jobs.retain(|job| !job.is_finished());
+        self.save_jobs.retain(|(_, job)| !job.is_finished());
 
         for (buffer_id, job) in &mut self.shell_jobs {
             let mut i = 0;
@@ -1657,6 +1657,15 @@ impl Engine {
             }
         }
 
+        if self
+            .save_jobs
+            .iter()
+            .any(|(job_buffer_id, _)| *job_buffer_id == buffer_id)
+        {
+            tracing::warn!("Buffer already being saved");
+            return;
+        }
+
         let job = self.job_manager.spawn_foreground_job(
             move |_, _, (buffer_id, encoding, line_ending, rope, path, last_edit)| {
                 let written = buffer::write::write(encoding, line_ending, rope.clone(), &path)?;
@@ -1677,7 +1686,7 @@ impl Engine {
             ),
         );
 
-        self.save_jobs.push(job);
+        self.save_jobs.push((buffer_id, job));
     }
 
     pub fn get_current_keymappings(&self) -> &[Keymapping] {
