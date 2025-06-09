@@ -8,6 +8,7 @@ use encoding_rs::{CoderResult, Encoding};
 use ropey::{Rope, RopeBuilder};
 
 pub fn read(mut reader: impl io::Read) -> Result<(&'static Encoding, Rope), io::Error> {
+    // TODO: add locking
     const BUFFER_SIZE: usize = 8192;
     let mut encoding_detector = chardetng::EncodingDetector::new();
     let mut content = Vec::new();
