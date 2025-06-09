@@ -30,6 +30,7 @@ fn write_inner(
     mut file: BufWriter<&mut File>,
 ) -> Result<usize, BufferError> {
     const BUFFER_SIZE: usize = 8192;
+    file.get_mut().set_len(0)?;
 
     let mut output_string = String::new();
     for line in rope.lines() {
