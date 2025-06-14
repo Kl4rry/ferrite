@@ -68,7 +68,7 @@ impl Previewer<String> for FilePreviewer {
                 if !is_text_file(&path)? {
                     return Ok(None);
                 }
-                Ok(Some(Buffer::from_file(&path)?))
+                Ok(Some(Buffer::builder().from_file(&path).build()?))
             }),
         );
         Preview::Loading

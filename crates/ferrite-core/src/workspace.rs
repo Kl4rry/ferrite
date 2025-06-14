@@ -133,7 +133,7 @@ impl Workspace {
                     continue;
                 }
                 tracing::info!("Loaded workspace buffer: {}", path.display());
-                match Buffer::from_file(path) {
+                match Buffer::builder().from_file(path).build() {
                     Ok(mut buffer) => {
                         let buffer_data = workspace
                             .buffers

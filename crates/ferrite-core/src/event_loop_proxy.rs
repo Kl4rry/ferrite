@@ -35,3 +35,13 @@ pub enum EventLoopControlFlow {
     Exit,
     WaitMax(Duration),
 }
+
+pub struct NoopEventLoop;
+
+impl EventLoopProxy for NoopEventLoop {
+    fn send(&self, _: UserEvent) {}
+    fn request_render(&self) {}
+    fn dup(&self) -> Box<dyn EventLoopProxy> {
+        Box::new(NoopEventLoop)
+    }
+}

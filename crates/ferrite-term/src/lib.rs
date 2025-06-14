@@ -44,7 +44,7 @@ pub fn run(args: &Args, recv: mpsc::Receiver<LogMessage>) -> Result<()> {
         let mut stdin = io::stdin().lock();
         let mut bytes = Vec::new();
         stdin.read_to_end(&mut bytes)?;
-        let mut buffer = Buffer::from_bytes(&bytes)?;
+        let mut buffer = Buffer::builder().with_bytes(&bytes).build()?;
         let view_id = buffer.create_view();
         buffer.goto(view_id, args.line as i64);
         tui_app.engine.insert_buffer(buffer, view_id, true);

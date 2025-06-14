@@ -8,7 +8,6 @@ use encoding_rs::{CoderResult, Encoding};
 use ropey::{Rope, RopeBuilder};
 
 pub fn read(mut reader: impl io::Read) -> Result<(&'static Encoding, Rope), io::Error> {
-    // TODO: add locking
     const BUFFER_SIZE: usize = 8192;
     let mut encoding_detector = chardetng::EncodingDetector::new();
     let mut content = Vec::new();
@@ -62,5 +61,11 @@ pub fn read(mut reader: impl io::Read) -> Result<(&'static Encoding, Rope), io::
 }
 
 pub fn read_from_file(path: impl AsRef<Path>) -> Result<(&'static Encoding, Rope), io::Error> {
-    read(File::open(path)?)
+    let mut file = File::open(path)?;
+    #[cfg(unix)]
+    rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive)?;
+    let res = read(&mut file);
+    #[cfg(unix)]
+    rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock)?;
+    res
 }

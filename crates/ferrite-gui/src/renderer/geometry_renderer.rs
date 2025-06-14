@@ -1,7 +1,6 @@
 use std::{mem, ops::Range};
 
 use cgmath::{Matrix4, Ortho, SquareMatrix};
-use crevice::std140::AsStd140;
 use glyphon::Color;
 use wgpu::util::DeviceExt;
 
@@ -118,10 +117,13 @@ impl Vertex {
 }
 
 #[repr(C)]
-#[derive(crevice::std140::AsStd140, Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 struct Uniform {
     matrix: Matrix4<f32>,
 }
+
+unsafe impl bytemuck::Pod for Uniform {}
+unsafe impl bytemuck::Zeroable for Uniform {}
 
 impl Default for Uniform {
     fn default() -> Self {
@@ -260,10 +262,9 @@ impl GeometryRenderer {
 
         let uniform = Uniform::from_size(config.width as f32, config.height as f32);
 
-        let value_std140 = Uniform::default().as_std140();
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex uniform buffer"),
-            contents: value_std140.as_bytes(),
+            contents: bytemuck::bytes_of(&uniform),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -306,8 +307,7 @@ impl GeometryRenderer {
     }
 
     pub fn prepare(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        let value_std140 = self.uniform.as_std140();
-        queue.write_buffer(&self.uniform_buffer, 0, value_std140.as_bytes());
+        queue.write_buffer(&self.uniform_buffer, 0, bytemuck::bytes_of(&self.uniform));
 
         if self.vertex_buffer_len < self.vertices.len() as u64 {
             while self.vertex_buffer_len < self.vertices.len() as u64 {

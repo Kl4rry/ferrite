@@ -8,7 +8,6 @@ anyhow = { workspace = true }
 bytemuck = "1.20.0"
 cgmath = "0.18.0"
 cosmic-text = { version = "0.14.0", features = ["monospace_fallback", "shape-run-cache"] }
-crevice = { version = "0.17.0", features = ["cgmath"] }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
 ferrite-tui = { workspace = true }

@@ -19,18 +19,10 @@ pub fn write(
     let mut file = OpenOptions::new().create(true).write(true).open(path)?;
     #[cfg(unix)]
     rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive)?;
-    match write_inner(encoding, line_ending, rope, BufWriter::new(&mut file)) {
-        Ok(bytes_written) => {
-            #[cfg(unix)]
-            rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock)?;
-            Ok(bytes_written)
-        }
-        Err(err) => {
-            #[cfg(unix)]
-            rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock)?;
-            Err(err.into())
-        }
-    }
+    let res = write_inner(encoding, line_ending, rope, BufWriter::new(&mut file));
+    #[cfg(unix)]
+    rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock)?;
+    res
 }
 
 fn write_inner(

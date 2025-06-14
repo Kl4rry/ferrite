@@ -141,7 +141,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
                     if !is_text_file(path).unwrap_or(false) {
                         return WalkState::Continue;
                     }
-                    let Ok(mut buffer) = Buffer::from_file(path) else {
+                    let Ok(mut buffer) = Buffer::builder().from_file(path).build() else {
                         return WalkState::Continue;
                     };
 

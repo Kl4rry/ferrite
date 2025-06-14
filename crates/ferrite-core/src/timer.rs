@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+#[derive(Clone)]
 pub struct Timer {
     last_run: Instant,
 }
@@ -10,7 +11,7 @@ impl Default for Timer {
         Self {
             last_run: Instant::now()
                 .checked_sub(Duration::from_secs(3600))
-                .unwrap(),
+                .unwrap_or_else(|| Instant::now()),
         }
     }
 }

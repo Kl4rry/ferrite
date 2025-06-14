@@ -27,6 +27,10 @@ use super::{
     language::{get_language_from_path, syntax::Syntax},
 };
 use crate::{
+    buffer::{
+        builder::BufferBuilder,
+        completer::{Completer, CompletionSource},
+    },
     clipboard,
     cmd::LineMoveDir,
     event_loop_proxy::{EventLoopProxy, get_proxy},
@@ -34,7 +38,9 @@ use crate::{
     workspace::BufferData,
 };
 
+pub mod builder;
 pub mod case;
+pub mod completer;
 pub mod cursor;
 pub mod encoding;
 pub mod error;
@@ -61,6 +67,7 @@ pub struct View {
     view_lines: usize,
     view_columns: usize,
     last_word_selected: Option<usize>,
+    pub completer: Completer,
 }
 
 impl Default for View {
@@ -78,6 +85,7 @@ impl Default for View {
             view_lines: 100,   // semi resonable default
             view_columns: 100, // semi resonable default
             last_word_selected: None,
+            completer: Completer::new(),
         }
     }
 }
@@ -97,6 +105,7 @@ impl Clone for View {
             view_lines: self.view_lines,
             view_columns: self.view_columns,
             last_word_selected: self.last_word_selected,
+            completer: self.completer.clone(),
         }
     }
 }
@@ -140,6 +149,7 @@ pub struct Buffer {
     pub views: SlotMap<ViewId, View>,
     file: Option<PathBuf>,
     name: String,
+    simple: bool,
     dirty: bool,
     pub read_only: bool,
     pub read_only_file: bool,
@@ -150,6 +160,7 @@ pub struct Buffer {
     pub conflicts: Arc<Mutex<Vec<(usize, usize, usize)>>>,
     last_interact: Instant,
     last_used_view: ViewId,
+    completion_source: CompletionSource,
     // syntax highlight
     syntax: Option<Syntax>,
     history: History,
@@ -168,6 +179,7 @@ impl Clone for Buffer {
             rope,
             file: self.file.clone(),
             name: self.name.clone(),
+            simple: self.simple,
             dirty: self.dirty,
             read_only: self.read_only,
             read_only_file: self.read_only_file,
@@ -181,6 +193,7 @@ impl Clone for Buffer {
             last_interact: self.last_interact,
             last_used_view: self.last_used_view,
             views: self.views.clone(),
+            completion_source: self.completion_source.clone(),
         }
     }
 }
@@ -196,6 +209,7 @@ impl Default for Buffer {
             encoding: encoding_rs::UTF_8,
             indent: Indentation::default(),
             dirty: false,
+            simple: false,
             last_edit: Instant::now(),
             read_only: false,
             read_only_file: false,
@@ -206,6 +220,7 @@ impl Default for Buffer {
             last_interact: Instant::now(),
             last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
+            completion_source: CompletionSource::new(),
         }
     }
 }
@@ -222,142 +237,99 @@ impl Buffer {
         Self::default()
     }
 
-    #[allow(dead_code)]
-    pub fn with_text(text: &str) -> Self {
-        Self {
-            indent: Indentation::detect_indent(text),
-            rope: Rope::from(text),
-            ..Default::default()
-        }
+    pub fn builder() -> BufferBuilder<'static> {
+        BufferBuilder::new()
     }
 
-    pub fn with_path(path: impl Into<PathBuf>) -> Result<Self, anyhow::Error> {
-        let path = path.into();
-        let path = if path.has_root() {
-            path
-        } else {
-            let cwd = std::env::current_dir()?;
-            cwd.join(path)
+    pub fn from_builder(builder: &mut BufferBuilder) -> Result<Self, io::Error> {
+        fn make_absolute(path: &Path) -> Result<PathBuf, io::Error> {
+            if path.has_root() {
+                Ok(path.to_path_buf())
+            } else {
+                Ok(std::env::current_dir()?.join(path))
+            }
+        }
+
+        fn get_file_name(path: &Path) -> Result<String, io::Error> {
+            let Some(name) = path.file_name() else {
+                return Err(io::Error::other("path has no filename name"));
+            };
+            Ok(name.to_string_lossy().into())
+        }
+
+        let (encoding, rope, path, name, read_only_file) = match &builder.source {
+            builder::Source::File(file) => {
+                let path = make_absolute(file)?;
+                let name = get_file_name(&path)?;
+
+                #[cfg(not(unix))]
+                let read_only_file = {
+                    let metadata = std::fs::metadata(&path)?;
+                    metadata.permissions().readonly()
+                };
+                #[cfg(unix)]
+                let read_only_file =
+                    rustix::fs::access(&path, rustix::fs::Access::WRITE_OK).is_err();
+                let (encoding, rope) = read::read_from_file(&path)?;
+                (encoding, rope, Some(path), Some(name), read_only_file)
+            }
+            builder::Source::Bytes(bytes) => {
+                let (encoding, rope) = read::read(*bytes)?;
+                (encoding, rope, builder.path.clone(), None, false)
+            }
+            builder::Source::Text(text) => (
+                encoding_rs::UTF_8,
+                Rope::from_str(text),
+                builder.path.clone(),
+                None,
+                false,
+            ),
+            builder::Source::Empty => (
+                encoding_rs::UTF_8,
+                Rope::new(),
+                builder.path.clone(),
+                None,
+                false,
+            ),
         };
-
-        let mut syntax = Syntax::new(get_proxy());
-        if let Some(language) = get_language_from_path(&path) {
-            if let Err(err) = syntax.set_language(language) {
-                tracing::error!("Error setting language: {err}");
-            }
-            syntax.update_text(Rope::new());
-        }
-
-        let Some(name) = path.file_name() else {
-            anyhow::bail!("path has no filename name");
-        };
-        let name = name.to_string_lossy().into();
-
-        Ok(Self {
-            name,
-            file: Some(path),
-            syntax: Some(syntax),
-            ..Default::default()
-        })
-    }
-
-    pub fn with_name(name: impl Into<String>) -> Self {
-        let name = name.into();
-        let path = Path::new(&name);
-        let mut syntax = Syntax::new(get_proxy());
-        if let Some(language) = get_language_from_path(path) {
-            if let Err(err) = syntax.set_language(language) {
-                tracing::error!("Error setting language: {err}");
-            }
-            syntax.update_text(Rope::new());
-        }
-
-        Self {
-            name,
-            syntax: Some(syntax),
-            ..Default::default()
-        }
-    }
-
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self, io::Error> {
-        let path = path.as_ref();
-        #[cfg(not(unix))]
-        let read_only_file = {
-            let metadata = std::fs::metadata(path)?;
-            metadata.permissions().readonly()
-        };
-        #[cfg(unix)]
-        let read_only_file = rustix::fs::access(path, rustix::fs::Access::WRITE_OK).is_err();
-        let (encoding, rope) = read::read_from_file(path)?;
-
-        let mut syntax = Syntax::new(get_proxy());
-        if let Some(language) = get_language_from_path(path) {
-            if let Err(err) = syntax.set_language(language) {
-                tracing::error!("Error setting language: {err}");
-            }
-            syntax.update_text(rope.clone());
-        }
-
-        if let Some(language) = detect_language(syntax.get_language_name(), rope.clone()) {
-            if let Err(err) = syntax.set_language(language) {
-                tracing::error!("Error setting language: {err}");
-            }
-            syntax.update_text(rope.clone());
-        }
-
-        let name = path.file_name().unwrap().to_string_lossy().into();
 
         let mut new = Self {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             read_only_file,
-            name,
-            file: Some(dunce::canonicalize(path)?),
+            name: name.unwrap_or_else(|| SCRATCH_NAME.to_string()),
+            file: path,
             encoding,
-            syntax: Some(syntax),
+            syntax: None,
+            simple: builder.simple,
             ..Default::default()
         };
-        new.find_conflicts();
-        Ok(new)
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, io::Error> {
-        let (encoding, rope) = read::read(bytes)?;
-        let mut syntax = Syntax::new(get_proxy());
-
-        if let Some(language) = detect_language(None, rope.clone()) {
-            if let Err(err) = syntax.set_language(language) {
-                tracing::error!("Error setting language: {err}");
-            }
-            syntax.update_text(rope.clone());
+        if !builder.simple {
+            new.find_conflicts();
+            new.auto_detect_language();
+            new.completion_source.update_words(new.rope.clone());
         }
-
-        let mut new = Self {
-            indent: Indentation::detect_indent_rope(rope.slice(..)),
-            rope,
-            file: None,
-            encoding,
-            syntax: Some(syntax),
-            ..Default::default()
-        };
-        new.find_conflicts();
         Ok(new)
     }
 
     pub fn auto_detect_language(&mut self) {
-        let syntax = match self.syntax.as_mut() {
-            Some(syntax) => syntax,
-            None => {
-                self.syntax = Some(Syntax::new(get_proxy()));
-                self.syntax.as_mut().unwrap()
+        if self.syntax.is_none() {
+            self.syntax = Some(Syntax::new(get_proxy()));
+        }
+        if let Some(path) = self.file() {
+            if let Some(language) = get_language_from_path(path) {
+                if let Err(err) = self.syntax.as_mut().unwrap().set_language(language) {
+                    tracing::error!("Error setting language: {err}");
+                }
             }
-        };
-        if let Some(language) = detect_language(None, self.rope.clone()) {
+        }
+        let syntax = self.syntax.as_mut().unwrap();
+        if let Some(language) = detect_language(syntax.get_language_name(), self.rope.clone()) {
             if let Err(err) = syntax.set_language(language) {
                 tracing::error!("Error setting language: {err}");
             }
-            syntax.update_text(self.rope.clone());
         }
+        syntax.update_text(self.rope.clone());
     }
 
     pub fn set_text(&mut self, text: &str) {
@@ -368,7 +340,7 @@ impl Buffer {
         self.find_conflicts();
     }
 
-    /// Replaces ropye, moves all cursors to end of file and autoscrolls
+    /// Replaces rope, moves all cursors to end of file and autoscrolls
     pub fn replace_rope(&mut self, rope: Rope) {
         let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
         let mut map = SecondaryMap::new();
@@ -704,6 +676,9 @@ impl Buffer {
             let (column_idx, line_idx) = self.cursor_byte_pos(view_id, i);
             let new_line_idx = (line_idx + distance).min(self.rope.len_lines().saturating_sub(1));
             if line_idx == new_line_idx {
+                if !expand_selection {
+                    self.views[view_id].cursors[i].collapse();
+                }
                 continue;
             }
 
@@ -765,6 +740,9 @@ impl Buffer {
         for i in 0..self.views[view_id].cursors.len() {
             let (column_idx, line_idx) = self.cursor_byte_pos(view_id, i);
             if line_idx == 0 {
+                if !expand_selection {
+                    self.views[view_id].cursors[i].collapse();
+                }
                 continue;
             }
 
@@ -2456,8 +2434,6 @@ impl Buffer {
 
     pub fn mark_dirty(&mut self) {
         self.dirty = true;
-        self.last_edit = Instant::now();
-        self.queue_syntax_update();
     }
 
     pub fn mark_clean(&mut self) {
@@ -2580,6 +2556,9 @@ impl Buffer {
     pub fn mark_saved(&mut self) {
         self.dirty = false;
         self.history.save();
+        if self.language_name() == "text" {
+            self.auto_detect_language();
+        }
     }
 
     pub fn len_bytes(&self) -> usize {
@@ -3146,9 +3125,14 @@ impl Buffer {
     }
 
     pub fn on_file_changed(&mut self, view_id: Option<ViewId>) {
-        self.update_searchers();
         self.update_interact(view_id);
-        self.find_conflicts();
+        self.last_edit = Instant::now();
+        if !self.simple {
+            self.update_searchers();
+            self.find_conflicts();
+            self.queue_syntax_update();
+            self.completion_source.update_words(self.rope.clone());
+        }
     }
 
     pub fn get_buffer_data(&self, view_id: ViewId) -> Option<BufferData> {

@@ -30,8 +30,16 @@ pub fn count_words<'a>(words: &mut HashMap<RopeSlice<'a>, usize>, rope: &'a Rope
     }
 }
 
+pub fn parse_words(rope: &Rope) -> Vec<String> {
+    let mut words = HashMap::new();
+    count_words(&mut words, rope);
+    words.values().map(|rope| rope.to_string()).collect()
+}
+
 #[cfg(test)]
 mod tests {
+    use std::{hint::black_box, time::Instant};
+
     use super::*;
 
     #[test]
@@ -47,5 +55,14 @@ mod tests {
         assert_eq!(words[&RopeSlice::from("moo")], 1);
         assert_eq!(words[&RopeSlice::from("o")], 1);
         assert!(words.get(&RopeSlice::from("a")).is_none());
+    }
+
+    #[test]
+    fn count_words_large_json() {
+        let text = include_str!("../../../test_files/emoji-utf8.json");
+        let mut words = HashMap::new();
+        let start = Instant::now();
+        black_box(count_words(&mut words, &Rope::from_str(text)));
+        eprintln!("{:?}", start.elapsed());
     }
 }

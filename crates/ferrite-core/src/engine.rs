@@ -148,10 +148,10 @@ impl Engine {
                 continue;
             }
 
-            let buffer = match Buffer::from_file(file) {
+            let buffer = match Buffer::builder().from_file(file).build() {
                 Ok(buffer) => buffer,
                 Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound => match Buffer::with_path(file) {
+                    io::ErrorKind::NotFound => match Buffer::builder().with_path(file).build() {
                         Ok(buffer) => buffer,
                         Err(err) => {
                             palette.set_error(err);
@@ -792,7 +792,7 @@ impl Engine {
             }
             Cmd::New { path } => {
                 if let Some(path) = path {
-                    match Buffer::with_path(path) {
+                    match Buffer::builder().with_path(path).build() {
                         Ok(mut buffer) => {
                             let view_id = buffer.create_view();
                             self.insert_buffer(buffer, view_id, true);
@@ -1235,7 +1235,7 @@ impl Engine {
                 }
                 true
             }
-            None => match Buffer::from_file(&real_path) {
+            None => match Buffer::builder().from_file(&real_path).build() {
                 Ok(mut buffer) => {
                     let view_id = buffer.create_view();
                     let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
@@ -1346,8 +1346,11 @@ impl Engine {
     }
 
     pub fn open_default_config(&mut self) {
-        let mut buffer = Buffer::with_name("default_config.toml");
-        buffer.set_text(Editor::DEFAULT);
+        let mut buffer = Buffer::builder()
+            .with_text(Editor::DEFAULT)
+            .with_name("default_config.toml")
+            .build()
+            .unwrap();
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }
@@ -1364,29 +1367,39 @@ impl Engine {
     }
 
     pub fn open_default_languages(&mut self) {
-        let mut buffer = Buffer::with_name("default_languages.toml");
-        buffer.set_text(Languages::DEFAULT);
+        let mut buffer = Buffer::builder()
+            .with_text(Languages::DEFAULT)
+            .with_name("default_languages.toml")
+            .build()
+            .unwrap();
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }
 
     pub fn open_keymap(&mut self) {
         let keymap = self.config.keymap.to_map();
-        let mut buffer = Buffer::with_name("keymap.toml");
         let data = toml::to_string_pretty(&keymap).unwrap();
-        buffer.set_text(&format!(
-            "# This are the current loaded keybinds. Editing this file does nothing.\n\n{}",
-            data
-        ));
-        buffer.read_only = false;
+        let mut buffer = Buffer::builder()
+            .with_text(&format!(
+                "# This are the current loaded keybinds. Editing this file does nothing.\n\n{}",
+                data
+            ))
+            .with_name("keymap.toml")
+            .read_only(false)
+            .build()
+            .unwrap();
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }
 
     pub fn open_default_keymap(&mut self) {
         let keymap = Keymap::default().to_map();
-        let mut buffer = Buffer::with_name("default_keymap.toml");
-        buffer.set_text(&toml::to_string_pretty(&keymap).unwrap());
+        let content = toml::to_string_pretty(&keymap).unwrap();
+        let mut buffer = Buffer::builder()
+            .with_text(&content)
+            .with_name("default_keymap.toml")
+            .build()
+            .unwrap();
         let view_id = buffer.create_view();
         self.insert_buffer(buffer, view_id, true);
     }

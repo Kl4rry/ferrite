@@ -32,6 +32,7 @@ fn read_write_utf8() {
 
 #[test]
 fn insert_random_ascii() {
+    crate::event_loop_proxy::set_proxy(Box::new(crate::event_loop_proxy::NoopEventLoop));
     for _ in 0..100 {
         use rand::Rng;
         fn get_random_text() -> String {

@@ -48,6 +48,10 @@ impl Cursor {
     pub fn end(&self) -> usize {
         self.position.max(self.anchor)
     }
+
+    pub fn collapse(&mut self) {
+        self.anchor = self.position;
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
