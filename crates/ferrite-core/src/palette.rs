@@ -274,6 +274,9 @@ impl CommandPalette {
                     Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                         enter = true;
                     }
+                    Cmd::Enter => {
+                        enter = true;
+                    }
                     Cmd::TabOrIndent { back }
                         if *mode == PaletteMode::Command || *mode == PaletteMode::Shell =>
                     {
@@ -361,6 +364,7 @@ impl CommandPalette {
                 match input {
                     Cmd::Char { ch } => chars.push(ch),
                     Cmd::Insert { text } => chars.extend(text.chars()),
+                    Cmd::Enter => chars.push('\n'),
                     _ => (),
                 }
                 for ch in chars {

@@ -195,6 +195,9 @@ impl FileExplorer {
             Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                 enter = true;
             }
+            Cmd::Enter => {
+                enter = true;
+            }
             _ => (),
         }
 

@@ -195,6 +195,10 @@ where
             Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
                 enter = true;
             }
+            Cmd::Enter => {
+                enter = true;
+            }
+
             input => {
                 self.search_field.handle_input(self.view_id, input)?;
                 let _ = self.tx.send(self.search_field.to_string());

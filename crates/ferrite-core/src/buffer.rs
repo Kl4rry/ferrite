@@ -1415,7 +1415,7 @@ impl Buffer {
     }
 
     pub fn enter(&mut self, view_id: ViewId) {
-        if self.views[view_id].completer.can_complete() {
+        if self.views[view_id].completer.can_complete() && !self.simple {
             self.do_completion(view_id);
             return;
         }
@@ -1843,7 +1843,7 @@ impl Buffer {
 
     // TODO make multicursor aware
     pub fn tab_or_indent(&mut self, view_id: ViewId, back: bool) {
-        if self.views[view_id].completer.can_complete() {
+        if self.views[view_id].completer.can_complete() && !self.simple {
             self.do_completion(view_id);
             return;
         }
