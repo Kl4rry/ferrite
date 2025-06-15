@@ -115,5 +115,8 @@ impl Completer {
         self.matching_words
             .extend(matches.into_iter().map(|(_, s)| s.to_string()));
         self.index = 0;
+        if self.matching_words.is_empty() {
+            self.visible = false;
+        }
     }
 }

@@ -696,7 +696,7 @@ impl Buffer {
         create_cursor: bool,
         distance: usize,
     ) {
-        if !self.simple && self.views[view_id].completer.visible {
+        if !self.simple && self.views[view_id].completer.can_complete() {
             self.views[view_id].completer.next();
             return;
         }
@@ -767,7 +767,7 @@ impl Buffer {
         create_cursor: bool,
         distance: usize,
     ) {
-        if !self.simple && self.views[view_id].completer.visible {
+        if !self.simple && self.views[view_id].completer.can_complete() {
             self.views[view_id].completer.prev();
             return;
         }
