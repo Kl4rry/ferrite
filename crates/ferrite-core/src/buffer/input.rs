@@ -22,6 +22,7 @@ impl Buffer {
             MoveLine { direction } if !self.read_only => self.move_line(view_id, direction),
             Insert { text } if !self.read_only => self.insert_text(view_id, &text, true),
             Char { ch } if !self.read_only => self.insert_text(view_id, &String::from(ch), true),
+            Enter if !self.read_only => self.enter(view_id),
             Backspace if !self.read_only => self.backspace(view_id),
             BackspaceWord if !self.read_only => self.backspace_word(view_id),
             Delete if !self.read_only => self.delete(view_id),

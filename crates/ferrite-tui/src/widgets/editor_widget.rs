@@ -310,7 +310,7 @@ impl StatefulWidget for EditorWidget<'_> {
             let mut draw_cursor_line = true;
 
             let cursor_view_pos =
-                buffer.cursor_view_pos(view_id, text_area.width.into(), text_area.height.into());
+                buffer.cursors_view_pos(view_id, text_area.width.into(), text_area.height.into());
 
             if cursor_view_pos.len() > 1 {
                 draw_cursor_line = false;
@@ -564,8 +564,7 @@ impl StatefulWidget for EditorWidget<'_> {
 
             {
                 let start_line = buffer.views[view_id].line_pos_floored();
-                let end_line =
-                    buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
+                let end_line = start_line + buffer.get_view_lines(view_id);
                 let conflicts = buffer.conflicts.lock().unwrap();
                 for (start, middle, end) in &*conflicts {
                     if intersects(*start, *end, start_line, end_line) {
@@ -587,14 +586,60 @@ impl StatefulWidget for EditorWidget<'_> {
                             text_area.width,
                             (area_end - area_middle) as u16,
                         );
-                        buf.set_style(
-                            first_area,
-                            tui::style::Style::default().bg(tui::style::Color::Rgb(39, 64, 59)),
+                        buf.set_style(first_area, convert_style(&theme.cursorline));
+                        buf.set_style(second_area, convert_style(&theme.cursorline));
+                    }
+                }
+            }
+
+            if buffer.views[view_id].completer.visible
+                && !buffer.views[view_id].completer.matching_words.is_empty()
+            {
+                let cursor_view_pos = buffer.cursor_view_pos(
+                    view_id,
+                    0,
+                    text_area.width.into(),
+                    text_area.height.into(),
+                );
+                if let Some((column, line)) = cursor_view_pos {
+                    let longest: usize = buffer.views[view_id]
+                        .completer
+                        .matching_words
+                        .iter()
+                        .map(|w| w.width() + 2)
+                        .max()
+                        .unwrap_or_default()
+                        .min(40);
+
+                    for (i, word) in buffer.views[view_id]
+                        .completer
+                        .matching_words
+                        .iter()
+                        .enumerate()
+                    {
+                        let rect = Rect::new(
+                            (column + text_area.x as usize) as u16,
+                            (line + text_area.y as usize + i + 1) as u16,
+                            longest as u16,
+                            1,
                         );
-                        buf.set_style(
-                            second_area,
-                            tui::style::Style::default().bg(tui::style::Color::Rgb(40, 56, 75)),
-                        );
+                        let rect = rect.intersection(text_area);
+                        if rect.area() > 0 {
+                            Clear.render(rect, buf);
+                            buf.set_stringn(
+                                rect.x + 1,
+                                rect.y,
+                                word,
+                                rect.width.into(),
+                                tui::style::Style::default(),
+                            );
+                            let style = if i == buffer.views[view_id].completer.index {
+                                convert_style(&theme.completer_selected)
+                            } else {
+                                convert_style(&theme.completer)
+                            };
+                            buf.set_style(rect, style);
+                        }
                     }
                 }
             }

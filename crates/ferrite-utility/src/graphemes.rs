@@ -557,6 +557,8 @@ pub trait RopeGraphemeExt {
     fn trim_start_whitespace(&self) -> RopeSlice;
 
     fn to_arena_string<'a>(&self, arena: &'a Arena) -> ArenaString<'a>;
+
+    fn prev_non_word_byte(&self, byte_idx: usize) -> usize;
 }
 
 impl RopeGraphemeExt for RopeSlice<'_> {
@@ -749,6 +751,21 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         }
         string
     }
+
+    fn prev_non_word_byte(&self, byte_idx: usize) -> usize {
+        let mut current = byte_idx;
+        loop {
+            if current == 0 {
+                return 0;
+            }
+            let prev = self.prev_grapheme_boundary_byte(current);
+            let is_word = self.byte_slice(prev..current).is_word_char();
+            if !is_word {
+                return current;
+            }
+            current = prev;
+        }
+    }
 }
 
 impl RopeGraphemeExt for Rope {
@@ -867,5 +884,9 @@ impl RopeGraphemeExt for Rope {
 
     fn to_arena_string<'a>(&self, arena: &'a Arena) -> ArenaString<'a> {
         self.slice(..).to_arena_string(arena)
+    }
+
+    fn prev_non_word_byte(&self, byte_idx: usize) -> usize {
+        self.slice(..).prev_non_word_byte(byte_idx)
     }
 }

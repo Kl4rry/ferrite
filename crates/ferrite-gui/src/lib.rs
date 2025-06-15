@@ -438,7 +438,7 @@ impl GuiApp {
                             if s.chars().count() == 1 {
                                 let ch = s.chars().next().unwrap();
                                 let cmd = if LineEnding::from_char(ch).is_some() {
-                                    Some(Cmd::Char { ch: '\n' })
+                                    Some(Cmd::Enter)
                                 } else {
                                     keymap::get_command_from_input(
                                         keymap::keycode::KeyCode::Char(s.chars().next().unwrap()),

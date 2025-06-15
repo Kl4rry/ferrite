@@ -116,9 +116,9 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
     entries.into_iter().map(|(_, _, p)| p).collect()
 }
 
-fn is_executable(metadata: &Metadata) -> bool {
+fn is_executable(_metadata: &Metadata) -> bool {
     #[cfg(unix)]
-    let value = std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0;
+    let value = std::os::unix::fs::PermissionsExt::mode(&_metadata.permissions()) & 0o111 != 0;
     #[cfg(windows)]
     let value = true;
     value

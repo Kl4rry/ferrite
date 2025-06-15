@@ -4,6 +4,7 @@ use std::{error::Error, fmt, io};
 pub enum BufferError {
     NoPathSet,
     Io(io::Error),
+    #[cfg(unix)]
     Errno(rustix::io::Errno),
 }
 
@@ -12,6 +13,7 @@ impl fmt::Display for BufferError {
         match self {
             Self::NoPathSet => writeln!(f, "Error no path set"),
             Self::Io(err) => err.fmt(f),
+            #[cfg(unix)]
             Self::Errno(err) => err.fmt(f),
         }
     }
@@ -33,6 +35,7 @@ impl From<io::Error> for BufferError {
     }
 }
 
+#[cfg(unix)]
 impl From<rustix::io::Errno> for BufferError {
     fn from(value: rustix::io::Errno) -> Self {
         Self::Errno(value)

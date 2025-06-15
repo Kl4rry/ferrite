@@ -338,6 +338,7 @@ impl Buffer {
             syntax.update_text(self.rope.clone());
         }
         self.find_conflicts();
+        self.hide_completers();
     }
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
@@ -369,6 +370,7 @@ impl Buffer {
             self.eof(view_id, false);
             self.views[view_id].clamp_cursor = before;
         }
+        self.hide_completers();
     }
 
     pub fn cursor(&self, view_id: ViewId, cursor_index: usize) -> Cursor {
@@ -504,7 +506,7 @@ impl Buffer {
         self.rope.len_lines()
     }
 
-    pub fn cursor_view_pos(
+    pub fn cursors_view_pos(
         &self,
         view_id: ViewId,
         max_cols: usize,
@@ -525,6 +527,27 @@ impl Buffer {
             }
         }
         output
+    }
+
+    pub fn cursor_view_pos(
+        &self,
+        view_id: ViewId,
+        cursor_idx: usize,
+        max_cols: usize,
+        max_lines: usize,
+    ) -> Option<(usize, usize)> {
+        let view = &self.views[view_id];
+        let start_line = view.line_pos_floored();
+        let end_line = std::cmp::min(self.rope.len_lines(), max_lines + view.line_pos_floored());
+        let start_col = view.col_pos_floored();
+        let end_col = view.col_pos_floored() + max_cols;
+
+        let line = self.cursor_line_idx(view_id, cursor_idx);
+        let col = self.cursor_grapheme_column(view_id, cursor_idx);
+        if col >= start_col && col < end_col && line >= start_line && line < end_line {
+            return Some((col - start_col, line - start_line));
+        }
+        None
     }
 
     pub fn cursor_line_idx(&self, view_id: ViewId, cursor_index: usize) -> usize {
@@ -635,6 +658,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     pub fn move_left_char(&mut self, view_id: ViewId, expand_selection: bool) {
@@ -662,6 +686,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     pub fn move_down(
@@ -671,6 +696,11 @@ impl Buffer {
         create_cursor: bool,
         distance: usize,
     ) {
+        if !self.simple && self.views[view_id].completer.visible {
+            self.views[view_id].completer.next();
+            return;
+        }
+
         let cursors_len = self.views[view_id].cursors.len();
         for i in 0..cursors_len {
             let (column_idx, line_idx) = self.cursor_byte_pos(view_id, i);
@@ -737,6 +767,11 @@ impl Buffer {
         create_cursor: bool,
         distance: usize,
     ) {
+        if !self.simple && self.views[view_id].completer.visible {
+            self.views[view_id].completer.prev();
+            return;
+        }
+
         for i in 0..self.views[view_id].cursors.len() {
             let (column_idx, line_idx) = self.cursor_byte_pos(view_id, i);
             if line_idx == 0 {
@@ -927,6 +962,7 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
+        self.hide_completers();
     }
 
     pub fn select_all_matching(&mut self, view_id: ViewId) {
@@ -953,6 +989,7 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
+        self.hide_completers();
     }
 
     fn next_word_end(&self, view_id: ViewId, cursor_index: usize, greedy: bool) -> usize {
@@ -1084,6 +1121,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     pub fn move_left_word(&mut self, view_id: ViewId, expand_selection: bool) {
@@ -1105,6 +1143,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     /// Move cursor to line. Line is indexed from 1
@@ -1119,6 +1158,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.hide_completers();
     }
 
     fn home_raw(&mut self, view_id: ViewId, expand_selection: bool, stop_at_whitespace: bool) {
@@ -1159,6 +1199,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     fn end_raw(&mut self, view_id: ViewId, expand_selection: bool) {
@@ -1181,6 +1222,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     pub fn start(&mut self, view_id: ViewId, expand_selection: bool) {
@@ -1197,6 +1239,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     pub fn eof(&mut self, view_id: ViewId, expand_selection: bool) {
@@ -1213,6 +1256,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     /// `insert_text_raw` is a buffer internal function for inserting text without checks or validation
@@ -1367,6 +1411,15 @@ impl Buffer {
             self.history.finish();
         }
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::Insert);
+    }
+
+    pub fn enter(&mut self, view_id: ViewId) {
+        if self.views[view_id].completer.can_complete() {
+            self.do_completion(view_id);
+            return;
+        }
+        self.insert_text(view_id, "\n", true);
     }
 
     pub fn backspace(&mut self, view_id: ViewId) {
@@ -1459,6 +1512,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn backspace_word(&mut self, view_id: ViewId) {
@@ -1503,6 +1557,7 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn backspace_to_start_of_line(&mut self, view_id: ViewId) {
@@ -1549,6 +1604,7 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn delete(&mut self, view_id: ViewId) {
@@ -1599,6 +1655,7 @@ impl Buffer {
         }
 
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn delete_word(&mut self, view_id: ViewId) {
@@ -1643,6 +1700,7 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn delete_to_end_of_line(&mut self, view_id: ViewId) {
@@ -1686,6 +1744,7 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     // TODO make multicursor aware
@@ -1779,10 +1838,16 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     // TODO make multicursor aware
     pub fn tab_or_indent(&mut self, view_id: ViewId, back: bool) {
+        if self.views[view_id].completer.can_complete() {
+            self.do_completion(view_id);
+            return;
+        }
+
         self.views[view_id].cursors.clear();
         // TODO optimize for larger files
 
@@ -1883,6 +1948,7 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.hide_completers();
     }
 
     // TODO make multicursor aware
@@ -1932,6 +1998,7 @@ impl Buffer {
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
+        self.hide_completers();
     }
 
     fn select_line_raw(&mut self, view_id: ViewId, cursor_idx: usize) {
@@ -1959,6 +2026,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.history.finish();
+        self.hide_completers();
     }
 
     pub fn remove_line(&mut self, view_id: ViewId) {
@@ -2001,6 +2069,7 @@ impl Buffer {
         self.mark_dirty();
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.hide_completers();
     }
 
     pub fn undo(&mut self, view_id: ViewId) {
@@ -2018,6 +2087,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn redo(&mut self, view_id: ViewId) {
@@ -2035,6 +2105,7 @@ impl Buffer {
             self.center_on_main_cursor(view_id);
         }
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn copy(&mut self, view_id: ViewId) {
@@ -2118,6 +2189,7 @@ impl Buffer {
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     pub fn paste(&mut self, view_id: ViewId) {
@@ -2179,6 +2251,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::Insert);
     }
 
     pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
@@ -2187,6 +2260,7 @@ impl Buffer {
         self.insert_text(view_id, &clipboard::get_primary(), true);
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
     // TODO make this not use eof
@@ -2242,10 +2316,16 @@ impl Buffer {
         self.on_file_changed(None);
 
         self.ensure_every_cursor_is_valid();
+        self.update_completer(None, CompleterEvent::None);
         Ok(())
     }
 
     pub fn escape(&mut self, view_id: ViewId) {
+        if !self.simple && self.views[view_id].completer.visible {
+            self.views[view_id].completer.visible = false;
+            return;
+        }
+
         if self.views[view_id].searcher.is_some() || self.views[view_id].replacement.is_some() {
             self.views[view_id].searcher = None;
             self.views[view_id].replacement = None;
@@ -2306,6 +2386,7 @@ impl Buffer {
         self.views[view_id].last_click = now;
         self.views[view_id].last_click_pos = click_point;
         self.views[view_id].coalesce_cursors();
+        self.hide_completers();
     }
 
     pub fn set_cursor_pos(
@@ -2386,14 +2467,15 @@ impl Buffer {
         }
         self.update_affinity(view_id);
         self.history.finish();
+        self.hide_completers();
     }
 
-    pub fn copy_selection_to_primary(&mut self, view_id: ViewId) {
+    pub fn copy_selection_to_primary(&mut self, _view_id: ViewId) {
         #[cfg(target_os = "linux")]
         {
-            self.views[view_id].cursors.clear();
-            let start = self.views[view_id].cursors.first().start();
-            let end = self.views[view_id].cursors.first().end();
+            self.views[_view_id].cursors.clear();
+            let start = self.views[_view_id].cursors.first().start();
+            let end = self.views[_view_id].cursors.first().end();
             clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
         }
     }
@@ -2679,6 +2761,7 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.hide_completers();
     }
 
     pub fn replace_all(&mut self, view_id: ViewId, replacement: String) {
@@ -2723,6 +2806,7 @@ impl Buffer {
 
             self.history.finish();
             self.on_file_changed(Some(view_id));
+            self.hide_completers();
         }
     }
 
@@ -2881,6 +2965,7 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.hide_completers();
     }
 
     pub fn trim_trailing_whitespace(&mut self) {
@@ -2939,6 +3024,7 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(None);
+        self.update_completer(None, CompleterEvent::None);
     }
 
     pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {
@@ -3078,6 +3164,7 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.hide_completers();
     }
 
     pub fn new_line_above_without_breaking(&mut self, view_id: ViewId) {
@@ -3114,6 +3201,7 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(Some(view_id));
+        self.hide_completers();
     }
 
     pub fn update_searchers(&mut self) {
@@ -3223,6 +3311,88 @@ impl Buffer {
             proxy.request_render();
         });
     }
+
+    fn do_completion(&mut self, view_id: ViewId) {
+        self.history.begin(self.get_all_cursors(), self.dirty);
+        for cursor in self.views[view_id].cursors.iter_mut() {
+            let start_byte_idx = self.rope.prev_non_word_byte(cursor.position);
+            let end_byte_idx = cursor.end();
+            cursor.position = end_byte_idx;
+            cursor.anchor = start_byte_idx;
+        }
+
+        self.views[view_id].coalesce_cursors();
+        let cursors = self.get_cursors_sorted(view_id);
+
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
+            self.insert_text_raw(
+                view_id,
+                i,
+                &self.views[view_id].completer.get_completion(),
+                false,
+                false,
+            );
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
+        }
+
+        if self.views[view_id].clamp_cursor {
+            self.center_on_main_cursor(view_id);
+        }
+
+        self.update_affinity(view_id);
+        self.ensure_every_cursor_is_valid();
+        self.mark_dirty();
+        self.history.finish();
+
+        self.on_file_changed(Some(view_id));
+        self.hide_completers();
+    }
+
+    fn hide_completers(&mut self) {
+        for view in self.views.values_mut() {
+            view.completer.visible = false;
+        }
+    }
+
+    // TODO refactor this stupid function, its should be two functions
+    fn update_completer(&mut self, view_id: Option<ViewId>, completer_event: CompleterEvent) {
+        match completer_event {
+            CompleterEvent::Insert => {
+                if let Some(view_id) = view_id {
+                    self.views[view_id].completer.visible = true;
+                    let cursor_pos = self.views[view_id].cursors[0].position;
+                    let before = self.rope.prev_non_word_byte(cursor_pos);
+                    let query = self.rope.byte_slice(before..cursor_pos).to_string();
+                    self.views[view_id]
+                        .completer
+                        .update_query(self.completion_source.words.clone(), query);
+                }
+            }
+            CompleterEvent::None => {
+                if let Some(view_id) = view_id {
+                    let cursor_pos = self.views[view_id].cursors[0].position;
+                    let before = self.rope.prev_non_word_byte(cursor_pos);
+                    let query = self.rope.byte_slice(before..cursor_pos).to_string();
+                    self.views[view_id]
+                        .completer
+                        .update_query(self.completion_source.words.clone(), query);
+                }
+            }
+        };
+    }
+}
+
+enum CompleterEvent {
+    Insert,
+    None,
 }
 
 pub struct ViewLine<'a> {

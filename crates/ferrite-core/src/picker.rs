@@ -59,7 +59,7 @@ where
         proxy: Box<dyn EventLoopProxy>,
         path: Option<PathBuf>,
     ) -> Self {
-        let mut search_field = Buffer::new();
+        let mut search_field = Buffer::builder().simple(true).build().unwrap();
         let view_id = search_field.create_view();
         search_field.set_view_lines(view_id, 1);
 

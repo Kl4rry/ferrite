@@ -126,7 +126,7 @@ impl CommandPalette {
     }
 
     pub fn focus(&mut self, prompt: impl Into<String>, mode: PaletteMode, ctx: CompleterContext) {
-        let mut buffer = Buffer::new();
+        let mut buffer = Buffer::builder().simple(true).build().unwrap();
         let view_id = buffer.create_view();
         buffer.set_view_lines(view_id, 1);
         if let PaletteState::Input {

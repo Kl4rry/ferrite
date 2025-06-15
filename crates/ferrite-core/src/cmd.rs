@@ -122,6 +122,7 @@ pub enum Cmd {
     Char {
         ch: char,
     },
+    Enter,
     MoveLine {
         direction: LineMoveDir,
     },
@@ -231,6 +232,7 @@ impl Cmd {
             MoveLeftWord { .. } => "Move left word",
             Insert { text } => text.as_str(),
             Char { .. } => "char",
+            Enter => "Enter",
             MoveLine {
                 direction: LineMoveDir::Up,
             } => "Move line up",
@@ -371,6 +373,7 @@ impl Cmd {
             MoveLeftWord { .. } => true,
             Insert { .. } => true,
             Char { .. } => true,
+            Enter => true,
             MoveLine { .. } => true,
             Backspace => true,
             BackspaceWord => true,

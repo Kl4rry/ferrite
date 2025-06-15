@@ -119,6 +119,7 @@ impl Buffer {
         self.update_searchers();
 
         self.history.finish();
+        self.on_file_changed(None);
         Ok(())
     }
 
@@ -153,6 +154,7 @@ impl Buffer {
         self.update_searchers();
 
         self.history.finish();
+        self.on_file_changed(Some(view_id));
         Ok(())
     }
 }

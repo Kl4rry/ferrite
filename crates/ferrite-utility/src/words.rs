@@ -33,7 +33,7 @@ pub fn count_words<'a>(words: &mut HashMap<RopeSlice<'a>, usize>, rope: &'a Rope
 pub fn parse_words(rope: &Rope) -> Vec<String> {
     let mut words = HashMap::new();
     count_words(&mut words, rope);
-    words.values().map(|rope| rope.to_string()).collect()
+    words.keys().map(|rope| rope.to_string()).collect()
 }
 
 #[cfg(test)]
