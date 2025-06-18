@@ -18,10 +18,12 @@ pub fn write(
 ) -> Result<usize, BufferError> {
     let mut file = OpenOptions::new().create(true).write(true).open(path)?;
     #[cfg(unix)]
-    rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive)?;
+    let locked = rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).is_ok();
     let res = write_inner(encoding, line_ending, rope, BufWriter::new(&mut file));
     #[cfg(unix)]
-    rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock)?;
+    if locked {
+        let _ = rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock);
+    }
     res
 }
 
