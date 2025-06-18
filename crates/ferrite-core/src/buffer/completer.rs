@@ -99,6 +99,9 @@ impl Completer {
         let mut matches: Vec<(isize, &str)> = guard
             .par_iter()
             .filter_map(|word| {
+                if *word == query {
+                    return None;
+                }
                 if let Some(m) = FuzzySearch::new(&query, &word)
                     .score_with(&scoring)
                     .best_match()
