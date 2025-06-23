@@ -656,7 +656,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -684,7 +684,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -756,7 +756,11 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            if create_cursor {
+                self.scroll_cursor_into_view(view_id, self.views[view_id].cursors.len() - 1);
+            } else {
+                self.scroll_main_cursor_into_view(view_id);
+            }
         }
     }
 
@@ -827,7 +831,11 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            if create_cursor {
+                self.scroll_cursor_into_view(view_id, self.views[view_id].cursors.len() - 1);
+            } else {
+                self.scroll_main_cursor_into_view(view_id);
+            }
         }
     }
 
@@ -1119,7 +1127,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -1141,7 +1149,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -1197,7 +1205,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -1220,7 +1228,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -1237,7 +1245,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -1254,7 +1262,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -1400,7 +1408,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.update_affinity(view_id);
@@ -1509,7 +1517,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.on_file_changed(Some(view_id));
         self.update_completer(Some(view_id), CompleterEvent::None);
@@ -1553,7 +1561,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -1651,7 +1659,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.on_file_changed(Some(view_id));
@@ -1696,7 +1704,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -1740,7 +1748,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -1834,7 +1842,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -1944,7 +1952,7 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -1996,7 +2004,7 @@ impl Buffer {
         self.history.finish();
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.hide_completers();
     }
@@ -2023,7 +2031,7 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.hide_completers();
@@ -2185,7 +2193,7 @@ impl Buffer {
         self.update_affinity(view_id);
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -2243,7 +2251,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.update_affinity(view_id);
@@ -2335,7 +2343,7 @@ impl Buffer {
         if self.views[view_id].cursors.len() > 1 {
             self.views[view_id].cursors.clear();
             if self.views[view_id].clamp_cursor {
-                self.center_on_main_cursor(view_id);
+                self.scroll_main_cursor_into_view(view_id);
             }
             return;
         }
@@ -2344,7 +2352,7 @@ impl Buffer {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
             if self.views[view_id].clamp_cursor {
-                self.center_on_main_cursor(view_id);
+                self.scroll_main_cursor_into_view(view_id);
             }
         }
     }
@@ -2498,6 +2506,42 @@ impl Buffer {
             if cursor_line < start_line || cursor_line >= end_line {
                 self.views[view_id].line_pos =
                     cursor_line.saturating_sub(self.views[view_id].view_lines / 2) as f64;
+            }
+        }
+
+        {
+            let cursor_col = self.cursor_grapheme_column(view_id, cursor_idx);
+            let start_col = self.views[view_id].col_pos_floored();
+            let end_col = start_col + self.views[view_id].view_columns;
+
+            if cursor_col <= start_col {
+                self.horizontal_scroll(view_id, -((start_col - cursor_col) as f64));
+            } else if cursor_col >= end_col {
+                self.horizontal_scroll(view_id, (cursor_col - end_col + 1) as f64);
+            }
+        }
+    }
+
+    pub fn scroll_main_cursor_into_view(&mut self, view_id: ViewId) {
+        if self.views[view_id].cursors.len() > 1 {
+            return;
+        }
+
+        self.scroll_cursor_into_view(view_id, 0);
+    }
+
+    pub fn scroll_cursor_into_view(&mut self, view_id: ViewId, cursor_idx: usize) {
+        {
+            let cursor_line = self
+                .rope
+                .byte_to_line(self.views[view_id].cursors[cursor_idx].position);
+            let start_line = self.views[view_id].line_pos_floored();
+            let end_line = start_line + self.views[view_id].view_lines;
+            if cursor_line < start_line {
+                self.views[view_id].line_pos = cursor_line as f64;
+            } else if cursor_line >= end_line {
+                self.views[view_id].line_pos =
+                    (cursor_line - self.views[view_id].view_lines + 1) as f64;
             }
         }
 
@@ -2801,7 +2845,7 @@ impl Buffer {
             self.ensure_every_cursor_is_valid();
 
             if self.views[view_id].clamp_cursor {
-                self.center_on_main_cursor(view_id);
+                self.scroll_main_cursor_into_view(view_id);
             }
 
             self.history.finish();
@@ -2956,7 +3000,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.update_affinity(view_id);
@@ -3155,7 +3199,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.update_affinity(view_id);
@@ -3192,7 +3236,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.update_affinity(view_id);
@@ -3344,7 +3388,7 @@ impl Buffer {
         }
 
         if self.views[view_id].clamp_cursor {
-            self.center_on_main_cursor(view_id);
+            self.scroll_main_cursor_into_view(view_id);
         }
 
         self.update_affinity(view_id);
