@@ -14,7 +14,7 @@
 "editor.search.match" = { bg = "search_match" }
 "editor.fuzzy.match" = { fg = "red" }
 "editor.completer" = { bg = "sel0", fg = "fg1" }
-"editor.completer.selected" = { bg = "fg3" }
+"editor.completer.selected" = { bg = "fg3", fg = "fg1" }
 "editor.cursorline" = { bg = "bg3" }
 "editor.scrollbar" = { fg = "fg3", bg = "bg2" }
 "editor.file_explorer.directory" = { fg = "blue" }
