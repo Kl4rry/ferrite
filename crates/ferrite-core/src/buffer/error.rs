@@ -23,6 +23,7 @@ impl Error for BufferError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Io(err) => Some(err),
+            #[cfg(unix)]
             Self::Errno(err) => Some(err),
             _ => None,
         }
