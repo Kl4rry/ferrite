@@ -430,6 +430,9 @@ impl Engine {
 
         self.job_manager.poll_jobs();
 
+        #[cfg(target_os = "linux")]
+        clipboard::flush_primary();
+
         if self.trim_timer.every(Duration::from_secs(20)) {
             crate::malloc::trim(0);
         }
