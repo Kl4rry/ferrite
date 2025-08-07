@@ -16,7 +16,11 @@ pub fn write(
     rope: Rope,
     path: impl AsRef<Path>,
 ) -> Result<usize, BufferError> {
-    let mut file = OpenOptions::new().create(true).write(true).open(path)?;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(path)?;
     #[cfg(unix)]
     let locked = rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).is_ok();
     let res = write_inner(encoding, line_ending, rope, BufWriter::new(&mut file));

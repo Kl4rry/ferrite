@@ -76,12 +76,12 @@ impl BranchWatcher {
                         if let Some(branch) = get_current_branch() {
                             {
                                 let mut guard = current_branch_thread.lock().unwrap();
-                                if let Some(current) = &*guard {
-                                    if current != &branch {
-                                        tracing::info!(
-                                            "Git branch changed from `{current}` to `{branch}`"
-                                        );
-                                    }
+                                if let Some(current) = &*guard
+                                    && current != &branch
+                                {
+                                    tracing::info!(
+                                        "Git branch changed from `{current}` to `{branch}`"
+                                    );
                                 }
                                 *guard = Some(branch);
                             }

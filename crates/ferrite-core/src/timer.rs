@@ -11,7 +11,7 @@ impl Default for Timer {
         Self {
             last_run: Instant::now()
                 .checked_sub(Duration::from_secs(3600))
-                .unwrap_or_else(|| Instant::now()),
+                .unwrap_or_else(Instant::now),
         }
     }
 }

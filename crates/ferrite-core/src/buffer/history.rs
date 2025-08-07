@@ -157,10 +157,10 @@ impl History {
     }
 
     pub fn finish(&mut self) {
-        if let Some(frame) = self.stack.get_mut(self.current_frame as usize) {
-            if !frame.finished {
-                frame.finished = true;
-            }
+        if let Some(frame) = self.stack.get_mut(self.current_frame as usize)
+            && !frame.finished
+        {
+            frame.finished = true;
         }
     }
 
@@ -193,10 +193,10 @@ impl History {
                     break;
                 }
                 let earlier_class = frame.edit_class;
-                if let Some(last_class) = last_class {
-                    if !EditClass::mergeable(&earlier_class, &last_class) {
-                        break;
-                    }
+                if let Some(last_class) = last_class
+                    && !EditClass::mergeable(&earlier_class, &last_class)
+                {
+                    break;
                 }
                 last_class = Some(earlier_class);
             }
@@ -230,10 +230,10 @@ impl History {
 
             if let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize + 1) {
                 let earlier_class = frame.edit_class;
-                if let Some(last_class) = last_class {
-                    if !EditClass::mergeable(&last_class, &earlier_class) {
-                        break;
-                    }
+                if let Some(last_class) = last_class
+                    && !EditClass::mergeable(&last_class, &earlier_class)
+                {
+                    break;
                 }
                 last_class = Some(earlier_class);
             }

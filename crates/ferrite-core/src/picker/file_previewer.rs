@@ -40,11 +40,11 @@ impl FilePreviewer {
 
 impl Previewer<String> for FilePreviewer {
     fn request_preview(&mut self, m: &String) -> Preview {
-        if let Entry::Occupied(mut entry) = self.loading.entry(m.clone()) {
-            if let Some(result) = entry.get_mut().poll() {
-                let (k, _) = entry.remove_entry();
-                self.files.insert(k, result);
-            }
+        if let Entry::Occupied(mut entry) = self.loading.entry(m.clone())
+            && let Some(result) = entry.get_mut().poll()
+        {
+            let (k, _) = entry.remove_entry();
+            self.files.insert(k, result);
         }
 
         match self.files.get_mut(m) {

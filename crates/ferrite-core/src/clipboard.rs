@@ -46,10 +46,10 @@ pub fn get_contents() -> String {
     }
 
     let mut clipboard = CLIPBOARD.lock().unwrap();
-    if let Some(clipboard) = &mut *clipboard {
-        if let Ok(text) = clipboard.get_text() {
-            return text;
-        }
+    if let Some(clipboard) = &mut *clipboard
+        && let Ok(text) = clipboard.get_text()
+    {
+        return text;
     }
 
     LOCAL_CLIPBOARD.lock().unwrap().clone()
@@ -69,14 +69,13 @@ pub fn flush_primary() {
     let Some(text) = PRIMARY_CLIPBOARD_CACHE.lock().unwrap().take() else {
         return;
     };
-    if let Some(clipboard) = CLIPBOARD.lock().unwrap().as_mut() {
-        if let Err(err) = clipboard
+    if let Some(clipboard) = CLIPBOARD.lock().unwrap().as_mut()
+        && let Err(err) = clipboard
             .set()
             .clipboard(LinuxClipboardKind::Primary)
             .text(text)
-        {
-            tracing::error!("{err}");
-        }
+    {
+        tracing::error!("{err}");
     }
 }
 

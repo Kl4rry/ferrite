@@ -161,12 +161,12 @@ impl Workspace {
             panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
         }
 
-        if let PaneKind::Buffer(buffer_id, _) = panes.get_current_pane() {
-            if buffers.get(buffer_id).is_none() {
-                let (buffer_id, buffer) = buffers.iter_mut().next().unwrap();
-                let view_id = buffer.create_view();
-                panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
-            }
+        if let PaneKind::Buffer(buffer_id, _) = panes.get_current_pane()
+            && buffers.get(buffer_id).is_none()
+        {
+            let (buffer_id, buffer) = buffers.iter_mut().next().unwrap();
+            let view_id = buffer.create_view();
+            panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
         }
 
         panes.ensure_current_pane_exists();

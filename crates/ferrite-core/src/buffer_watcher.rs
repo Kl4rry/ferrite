@@ -25,11 +25,11 @@ impl BufferWatcher {
             move |result: DebounceEventResult| {
                 if let Ok(events) = result {
                     for mut event in events {
-                        if event.kind.is_modify() {
-                            if let Some(path) = event.event.paths.pop() {
-                                let _ = tx.send(path);
-                                proxy.request_render();
-                            }
+                        if event.kind.is_modify()
+                            && let Some(path) = event.event.paths.pop()
+                        {
+                            let _ = tx.send(path);
+                            proxy.request_render();
                         }
                     }
                 }
@@ -54,31 +54,32 @@ impl BufferWatcher {
     pub fn update(&mut self, buffers: &mut SlotMap<BufferId, Buffer>) {
         while let Ok(path) = self.update_rx.try_recv() {
             for buffer in buffers.values_mut() {
-                if let Some(file) = buffer.file() {
-                    if file == path && !buffer.is_dirty() {
-                        let _ = buffer.reload();
-                    }
+                if let Some(file) = buffer.file()
+                    && file == path
+                    && !buffer.is_dirty()
+                {
+                    let _ = buffer.reload();
                 }
             }
         }
 
         for buffer in buffers.values() {
-            if let Some(file) = buffer.file() {
-                if !self.buffers.contains_key(file) {
-                    tracing::info!("Started watching: {file:?}");
-                    let _ = self.watcher.watch(file, RecursiveMode::NonRecursive);
-                    self.buffers.insert(file.into(), true);
-                }
+            if let Some(file) = buffer.file()
+                && !self.buffers.contains_key(file)
+            {
+                tracing::info!("Started watching: {file:?}");
+                let _ = self.watcher.watch(file, RecursiveMode::NonRecursive);
+                self.buffers.insert(file.into(), true);
             }
         }
 
         for (path, touched) in &mut self.buffers {
             *touched = false;
             for buffer in buffers.values() {
-                if let Some(file) = buffer.file() {
-                    if path == file {
-                        *touched = true;
-                    }
+                if let Some(file) = buffer.file()
+                    && path == file
+                {
+                    *touched = true;
                 }
             }
         }

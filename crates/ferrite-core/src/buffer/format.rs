@@ -17,7 +17,7 @@ fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
         .args(&parts.collect::<Vec<_>>())
         .stdin(Redirection::Pipe)
         .stdout(Redirection::Pipe)
-        .stderr(Redirection::Merge)
+        .stderr(Redirection::Pipe)
         .popen()?;
 
     let mut input = Vec::new();
@@ -28,16 +28,17 @@ fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
     let mut com = child
         .communicate_start(Some(input))
         .limit_time(Duration::from_secs(3));
-    let (stdout, _) = com.read()?;
+    let (stdout, stderr) = com.read()?;
     let exit_status = child.wait()?;
 
-    let output = String::from_utf8_lossy(&stdout.unwrap()).into();
-    if exit_status.success() {
-        Ok(output)
+    let stdout_output: String = String::from_utf8_lossy(&stdout.unwrap()).into();
+    let stderr_output: String = String::from_utf8_lossy(&stderr.unwrap()).into();
+    if exit_status.success() && stderr_output.is_empty() {
+        Ok(stdout_output)
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            output,
+            stderr_output,
         ))?
     }
 }
@@ -70,7 +71,7 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
     let mut child = cmd
         .stdin(Redirection::Pipe)
         .stdout(Redirection::Pipe)
-        .stderr(Redirection::Merge)
+        .stderr(Redirection::Pipe)
         .popen()?;
 
     let mut input = Vec::new();
@@ -81,16 +82,17 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
     let mut com = child
         .communicate_start(Some(input))
         .limit_time(Duration::from_secs(3));
-    let (stdout, _) = com.read()?;
+    let (stdout, stderr) = com.read()?;
     let exit_status = child.wait()?;
 
-    let output = String::from_utf8_lossy(&stdout.unwrap()).into();
-    if exit_status.success() {
-        Ok(output)
+    let stdout_output: String = String::from_utf8_lossy(&stdout.unwrap()).into();
+    let stderr_output: String = String::from_utf8_lossy(&stderr.unwrap()).into();
+    if exit_status.success() && stderr_output.is_empty() {
+        Ok(stdout_output)
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            output,
+            stderr_output,
         ))?
     }
 }

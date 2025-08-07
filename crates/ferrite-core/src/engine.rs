@@ -168,28 +168,28 @@ impl Engine {
         }
 
         for (_, buffer) in &mut buffers {
-            if let Some(language) = &args.language {
-                if let Err(err) = buffer.set_langauge(language, proxy.dup()) {
-                    palette.set_error(err);
-                }
+            if let Some(language) = &args.language
+                && let Err(err) = buffer.set_langauge(language, proxy.dup())
+            {
+                palette.set_error(err);
             }
         }
 
         let mut file_scanner = None;
         let mut file_finder = None;
 
-        if let Some(path) = args.files.first() {
-            if path.is_dir() {
-                std::env::set_current_dir(path)?;
-                let scanner = FileScanner::new(std::env::current_dir()?, &config);
-                file_finder = Some(Picker::new(
-                    FileFindProvider(scanner.subscribe()),
-                    Some(Box::new(FilePreviewer::new(proxy.dup()))),
-                    proxy.dup(),
-                    None,
-                ));
-                file_scanner = Some(scanner);
-            }
+        if let Some(path) = args.files.first()
+            && path.is_dir()
+        {
+            std::env::set_current_dir(path)?;
+            let scanner = FileScanner::new(std::env::current_dir()?, &config);
+            file_finder = Some(Picker::new(
+                FileFindProvider(scanner.subscribe()),
+                Some(Box::new(FilePreviewer::new(proxy.dup()))),
+                proxy.dup(),
+                None,
+            ));
+            file_scanner = Some(scanner);
         }
 
         let job_manager = JobManager::new(proxy.dup());
@@ -277,43 +277,43 @@ impl Engine {
             self.buffer_watcher = BufferWatcher::new(self.proxy.dup()).ok();
         }
 
-        if let Some(config_watcher) = &mut self.config.editor_watcher {
-            if let Some(result) = config_watcher.poll_update() {
-                match result {
-                    Ok(editor) => {
-                        self.config.editor = editor;
-                        if !self.themes.contains_key(&self.config.editor.theme) {
-                            self.config.editor.theme = "default".into();
-                        }
-                        self.palette.set_msg("Reloaded editor config");
-                        self.config.keymap = Keymap::from_editor(&self.config.editor);
+        if let Some(config_watcher) = &mut self.config.editor_watcher
+            && let Some(result) = config_watcher.poll_update()
+        {
+            match result {
+                Ok(editor) => {
+                    self.config.editor = editor;
+                    if !self.themes.contains_key(&self.config.editor.theme) {
+                        self.config.editor.theme = "default".into();
                     }
-                    Err(err) => self.palette.set_error(err),
+                    self.palette.set_msg("Reloaded editor config");
+                    self.config.keymap = Keymap::from_editor(&self.config.editor);
                 }
+                Err(err) => self.palette.set_error(err),
             }
         }
 
-        if let Some(config_watcher) = &mut self.config.languages_watcher {
-            if let Some(result) = config_watcher.poll_update() {
-                match result {
-                    Ok(languages) => {
-                        self.config.languages = languages;
-                        self.palette.set_msg("Reloaded languages");
-                    }
-                    Err(err) => self.palette.set_error(err),
+        if let Some(config_watcher) = &mut self.config.languages_watcher
+            && let Some(result) = config_watcher.poll_update()
+        {
+            match result {
+                Ok(languages) => {
+                    self.config.languages = languages;
+                    self.palette.set_msg("Reloaded languages");
                 }
+                Err(err) => self.palette.set_error(err),
             }
         }
 
-        if let Some(config_watcher) = &mut self.workspace.config_watcher {
-            if let Some(result) = config_watcher.poll_update() {
-                match result {
-                    Ok(config) => {
-                        self.workspace.config = config;
-                        self.palette.set_msg("Reloaded workspace config");
-                    }
-                    Err(err) => self.palette.set_error(err),
+        if let Some(config_watcher) = &mut self.workspace.config_watcher
+            && let Some(result) = config_watcher.poll_update()
+        {
+            match result {
+                Ok(config) => {
+                    self.workspace.config = config;
+                    self.palette.set_msg("Reloaded workspace config");
                 }
+                Err(err) => self.palette.set_error(err),
             }
         }
 
@@ -332,10 +332,10 @@ impl Engine {
                         }
                     }
                     None => {
-                        if let Some(view_id) = buffer.get_last_used_view() {
-                            if let Some(buffer_data) = buffer.get_buffer_data(view_id) {
-                                new_buffers.push(buffer_data);
-                            }
+                        if let Some(view_id) = buffer.get_last_used_view()
+                            && let Some(buffer_data) = buffer.get_buffer_data(view_id)
+                        {
+                            new_buffers.push(buffer_data);
                         }
                     }
                 }
@@ -400,17 +400,17 @@ impl Engine {
                 }
             }
 
-            if let Some(buffer_id) = dirty_buffer_id {
-                if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
-                    buffer.auto_detect_language();
-                    buffer.queue_syntax_update();
-                }
+            if let Some(buffer_id) = dirty_buffer_id
+                && let Some(buffer) = self.workspace.buffers.get_mut(buffer_id)
+            {
+                buffer.auto_detect_language();
+                buffer.queue_syntax_update();
             }
 
-            if let Some(buffer_id) = buffer_id {
-                if !self.workspace.buffers.contains_key(*buffer_id) {
-                    job.kill();
-                }
+            if let Some(buffer_id) = buffer_id
+                && !self.workspace.buffers.contains_key(*buffer_id)
+            {
+                job.kill();
             }
         }
 
@@ -830,10 +830,10 @@ impl Engine {
                         continue;
                     }
 
-                    if buffer.file().is_some() {
-                        if let Err(err) = buffer.reload() {
-                            self.palette.set_error(err);
-                        }
+                    if buffer.file().is_some()
+                        && let Err(err) = buffer.reload()
+                    {
+                        self.palette.set_error(err);
                     }
                 }
             }
@@ -921,10 +921,10 @@ impl Engine {
             Cmd::KillJob => {
                 if let Some((current_buffer_id, _)) = self.get_current_buffer_id() {
                     for (buffer_id, job) in &mut self.shell_jobs {
-                        if let Some(buffer_id) = buffer_id {
-                            if *buffer_id == current_buffer_id {
-                                job.kill();
-                            }
+                        if let Some(buffer_id) = buffer_id
+                            && *buffer_id == current_buffer_id
+                        {
+                            job.kill();
                         }
                     }
                 }
@@ -1021,25 +1021,25 @@ impl Engine {
                     if let Some(choice) = picker.get_choice() {
                         self.global_search_picker = None;
                         let guard = choice.buffer.lock().unwrap();
-                        if let Some(file) = guard.file() {
-                            if self.open_file(file) {
-                                let view_id = guard.get_first_view().unwrap();
-                                let cursor_line = guard.cursor_line_idx(view_id, 0);
-                                let cursor_col = guard.cursor_grapheme_column(view_id, 0);
-                                let anchor_line = guard.anchor_line_idx(view_id, 0);
-                                let anchor_col = guard.anchor_grapheme_column(view_id, 0);
-                                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                                    buffer.select_area(
-                                        view_id,
-                                        Point::new(cursor_col, cursor_line),
-                                        Point::new(anchor_col, anchor_line),
-                                        false,
-                                    );
-                                    // A buffers default amount of lines when newly opened is too large
-                                    // and the view will not jump to it.
-                                    buffer.set_view_lines(view_id, 10);
-                                    buffer.center_on_main_cursor(view_id);
-                                }
+                        if let Some(file) = guard.file()
+                            && self.open_file(file)
+                        {
+                            let view_id = guard.get_first_view().unwrap();
+                            let cursor_line = guard.cursor_line_idx(view_id, 0);
+                            let cursor_col = guard.cursor_grapheme_column(view_id, 0);
+                            let anchor_line = guard.anchor_line_idx(view_id, 0);
+                            let anchor_col = guard.anchor_grapheme_column(view_id, 0);
+                            if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                                buffer.select_area(
+                                    view_id,
+                                    Point::new(cursor_col, cursor_line),
+                                    Point::new(anchor_col, anchor_line),
+                                    false,
+                                );
+                                // A buffers default amount of lines when newly opened is too large
+                                // and the view will not jump to it.
+                                buffer.set_view_lines(view_id, 10);
+                                buffer.center_on_main_cursor(view_id);
                             }
                         }
                     }
@@ -1458,18 +1458,18 @@ impl Engine {
     }
 
     fn load_view_data(&mut self, buffer_id: BufferId, view_id: ViewId) {
-        if let Some(real_path) = self.workspace.buffers[buffer_id].file() {
-            if let Some(buffer_data) = self
+        if let Some(real_path) = self.workspace.buffers[buffer_id].file()
+            && let Some(buffer_data) = self
                 .workspace
                 .buffer_extra_data
                 .iter()
                 .find(|b| b.path == real_path)
-            {
-                let buffer = &mut self.workspace.buffers[buffer_id];
-                buffer.load_view_data(view_id, buffer_data);
-                buffer.load_buffer_data(buffer_data);
-            }
+        {
+            let buffer = &mut self.workspace.buffers[buffer_id];
+            buffer.load_view_data(view_id, buffer_data);
+            buffer.load_buffer_data(buffer_data);
         }
+
         let _ = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::Nop);
     }
 
@@ -1486,10 +1486,10 @@ impl Engine {
             }
         }
 
-        if next_buffer.is_none() {
-            if let Some((buffer_id, buffer)) = buffers.first_mut() {
-                next_buffer = Some((*buffer_id, buffer.create_view()));
-            }
+        if next_buffer.is_none()
+            && let Some((buffer_id, buffer)) = buffers.first_mut()
+        {
+            next_buffer = Some((*buffer_id, buffer.create_view()));
         }
 
         if let Some((buffer_id, view_id)) = next_buffer {
@@ -1559,10 +1559,10 @@ impl Engine {
 
     pub fn reopen_last_closed_buffer(&mut self) {
         while let Some(path) = self.closed_buffers.pop() {
-            if let Some((buffer, _)) = self.get_current_buffer() {
-                if buffer.file() == Some(&path) {
-                    continue;
-                }
+            if let Some((buffer, _)) = self.get_current_buffer()
+                && buffer.file() == Some(&path)
+            {
+                continue;
             }
             self.open_file(path);
             break;
@@ -1641,11 +1641,11 @@ impl Engine {
     pub fn save_buffer(&mut self, buffer_id: BufferId, path: Option<PathBuf>) {
         let buffer = &mut self.workspace.buffers[buffer_id];
 
-        if let Some(path) = path {
-            if let Err(err) = buffer.set_file(Some(path)) {
-                self.palette.set_msg(err);
-                return;
-            }
+        if let Some(path) = path
+            && let Err(err) = buffer.set_file(Some(path))
+        {
+            self.palette.set_msg(err);
+            return;
         }
 
         let Some(path) = buffer.file().map(|p| p.to_owned()) else {
@@ -1666,10 +1666,8 @@ impl Engine {
             buffer.trim_trailing_whitespace();
         }
 
-        if auto_format {
-            if let Some(fmt) = fmt {
-                let _ = buffer.format(&fmt);
-            }
+        if auto_format && let Some(fmt) = fmt {
+            let _ = buffer.format(&fmt);
         }
 
         if self

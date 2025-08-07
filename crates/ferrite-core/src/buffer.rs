@@ -316,18 +316,17 @@ impl Buffer {
         if self.syntax.is_none() {
             self.syntax = Some(Syntax::new(get_proxy()));
         }
-        if let Some(path) = self.file() {
-            if let Some(language) = get_language_from_path(path) {
-                if let Err(err) = self.syntax.as_mut().unwrap().set_language(language) {
-                    tracing::error!("Error setting language: {err}");
-                }
-            }
+        if let Some(path) = self.file()
+            && let Some(language) = get_language_from_path(path)
+            && let Err(err) = self.syntax.as_mut().unwrap().set_language(language)
+        {
+            tracing::error!("Error setting language: {err}");
         }
         let syntax = self.syntax.as_mut().unwrap();
-        if let Some(language) = detect_language(syntax.get_language_name(), self.rope.clone()) {
-            if let Err(err) = syntax.set_language(language) {
-                tracing::error!("Error setting language: {err}");
-            }
+        if let Some(language) = detect_language(syntax.get_language_name(), self.rope.clone())
+            && let Err(err) = syntax.set_language(language)
+        {
+            tracing::error!("Error setting language: {err}");
         }
         syntax.update_text(self.rope.clone());
     }
@@ -2635,20 +2634,20 @@ impl Buffer {
     }
 
     pub fn next_match(&mut self, view_id: ViewId) {
-        if let Some(searcher) = &mut self.views[view_id].searcher {
-            if let Some(search_match) = searcher.get_next_match() {
-                self.select_area(view_id, search_match.end, search_match.start, false);
-                self.center_on_main_cursor(view_id);
-            }
+        if let Some(searcher) = &mut self.views[view_id].searcher
+            && let Some(search_match) = searcher.get_next_match()
+        {
+            self.select_area(view_id, search_match.end, search_match.start, false);
+            self.center_on_main_cursor(view_id);
         }
     }
 
     pub fn prev_match(&mut self, view_id: ViewId) {
-        if let Some(searcher) = &mut self.views[view_id].searcher {
-            if let Some(search_match) = searcher.get_prev_match() {
-                self.select_area(view_id, search_match.end, search_match.start, false);
-                self.center_on_main_cursor(view_id);
-            }
+        if let Some(searcher) = &mut self.views[view_id].searcher
+            && let Some(search_match) = searcher.get_prev_match()
+        {
+            self.select_area(view_id, search_match.end, search_match.start, false);
+            self.center_on_main_cursor(view_id);
         }
     }
 

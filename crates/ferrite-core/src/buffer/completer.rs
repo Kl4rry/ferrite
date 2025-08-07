@@ -34,6 +34,12 @@ impl CompletionSource {
     }
 }
 
+impl Default for CompletionSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Clone for CompletionSource {
     fn clone(&self) -> Self {
         Self {
@@ -102,14 +108,10 @@ impl Completer {
                 if *word == query {
                     return None;
                 }
-                if let Some(m) = FuzzySearch::new(&query, &word)
+                FuzzySearch::new(&query, word)
                     .score_with(&scoring)
                     .best_match()
-                {
-                    Some((m.score(), word.as_str()))
-                } else {
-                    None
-                }
+                    .map(|m| (m.score(), word.as_str()))
             })
             .collect();
         matches.sort_by(|a, b| a.0.cmp(&b.0));
@@ -121,5 +123,11 @@ impl Completer {
         if self.matching_words.is_empty() {
             self.visible = false;
         }
+    }
+}
+
+impl Default for Completer {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -296,8 +296,7 @@ impl StatefulWidget for EditorWidget<'_> {
                         let cell = buf.cell_mut((col, line)).unwrap();
                         if !RopeSlice::from(cell.symbol()).is_whitespace()
                             || (col as usize - text_area.left() as usize + buffer.col_pos(view_id))
-                                % buffer.indent.width()
-                                != 0
+                                .is_multiple_of(buffer.indent.width())
                         {
                             continue;
                         }
@@ -336,30 +335,30 @@ impl StatefulWidget for EditorWidget<'_> {
             {
                 // TODO do this async on syntax thread
                 profiling::scope!("collect syntax events");
-                if let Some(syntax) = buffer.get_syntax() {
-                    if let Some((rope, events)) = &*syntax.get_highlight_events() {
-                        syntax_rope = Some(rope.clone());
-                        let mut highlight_stack: Vec<Highlight> = Vec::new();
-                        for event in events {
-                            match event {
-                                HighlightEvent::Source { start, end } => {
-                                    if intersects(*start, *end, range.start, range.end) {
-                                        let mut style = convert_style(&theme.text);
-                                        if let Some(highlight) = highlight_stack.last() {
-                                            if let Some(name) = highlight
-                                                .query
-                                                .capture_names()
-                                                .get(highlight.capture_index)
-                                            {
-                                                style = convert_style(&self.theme.get_syntax(name));
-                                            }
-                                        }
-                                        highlights.push((*start, *end, style));
+                if let Some(syntax) = buffer.get_syntax()
+                    && let Some((rope, events)) = &*syntax.get_highlight_events()
+                {
+                    syntax_rope = Some(rope.clone());
+                    let mut highlight_stack: Vec<Highlight> = Vec::new();
+                    for event in events {
+                        match event {
+                            HighlightEvent::Source { start, end } => {
+                                if intersects(*start, *end, range.start, range.end) {
+                                    let mut style = convert_style(&theme.text);
+                                    if let Some(highlight) = highlight_stack.last()
+                                        && let Some(name) = highlight
+                                            .query
+                                            .capture_names()
+                                            .get(highlight.capture_index)
+                                    {
+                                        style = convert_style(&self.theme.get_syntax(name));
                                     }
+
+                                    highlights.push((*start, *end, style));
                                 }
-                                HighlightEvent::HighlightStart(h) => highlight_stack.push(*h),
-                                HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
                             }
+                            HighlightEvent::HighlightStart(h) => highlight_stack.push(*h),
+                            HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
                         }
                     }
                 }

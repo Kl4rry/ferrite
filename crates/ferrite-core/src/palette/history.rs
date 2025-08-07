@@ -7,10 +7,10 @@ pub struct History {
 
 impl History {
     pub fn add(&mut self, text: String) {
-        if let Some(entry) = self.entires.back() {
-            if *entry == text {
-                return;
-            }
+        if let Some(entry) = self.entires.back()
+            && *entry == text
+        {
+            return;
         }
 
         self.entires.push_back(text);

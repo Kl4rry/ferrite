@@ -497,16 +497,13 @@ impl<'a> HighlightIterLayer<'a> {
                     }
                     for (lang_name, content_nodes, includes_children) in injections_by_pattern_index
                     {
-                        if let (Some(lang_name), false) = (lang_name, content_nodes.is_empty()) {
-                            if let Some(next_config) = (injection_callback)(&lang_name) {
-                                let ranges = Self::intersect_ranges(
-                                    &ranges,
-                                    &content_nodes,
-                                    includes_children,
-                                );
-                                if !ranges.is_empty() {
-                                    queue.push((next_config, depth + 1, ranges));
-                                }
+                        if let (Some(lang_name), false) = (lang_name, content_nodes.is_empty())
+                            && let Some(next_config) = (injection_callback)(&lang_name)
+                        {
+                            let ranges =
+                                Self::intersect_ranges(&ranges, &content_nodes, includes_children);
+                            if !ranges.is_empty() {
+                                queue.push((next_config, depth + 1, ranges));
                             }
                         }
                     }
@@ -707,11 +704,11 @@ where
             if let Some(sort_key) = self.layers[0].sort_key() {
                 let mut i = 0;
                 while i + 1 < self.layers.len() {
-                    if let Some(next_offset) = self.layers[i + 1].sort_key() {
-                        if next_offset < sort_key {
-                            i += 1;
-                            continue;
-                        }
+                    if let Some(next_offset) = self.layers[i + 1].sort_key()
+                        && next_offset < sort_key
+                    {
+                        i += 1;
+                        continue;
                     }
                     break;
                 }
@@ -782,11 +779,11 @@ where
                 // If any previous highlight ends before this node starts, then before
                 // processing this capture, emit the source code up until the end of the
                 // previous highlight, and an end event for that highlight.
-                if let Some(end_byte) = layer.highlight_end_stack.last().cloned() {
-                    if end_byte <= range.start {
-                        layer.highlight_end_stack.pop();
-                        return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
-                    }
+                if let Some(end_byte) = layer.highlight_end_stack.last().cloned()
+                    && end_byte <= range.start
+                {
+                    layer.highlight_end_stack.pop();
+                    return self.emit_event(end_byte, Some(HighlightEvent::HighlightEnd));
                 }
             }
             // If there are no more captures, then emit any remaining highlight end events.
@@ -816,29 +813,29 @@ where
 
                 // If a language is found with the given name, then add a new language layer
                 // to the highlighted document.
-                if let (Some(language_name), Some(content_node)) = (language_name, content_node) {
-                    if let Some(config) = (self.injection_callback)(&language_name) {
-                        let ranges = HighlightIterLayer::intersect_ranges(
-                            &self.layers[0].ranges,
-                            &[content_node],
-                            include_children,
-                        );
-                        if !ranges.is_empty() {
-                            match HighlightIterLayer::new(
-                                self.source,
-                                self.highlighter,
-                                &mut self.injection_callback,
-                                config,
-                                self.layers[0].depth + 1,
-                                ranges,
-                            ) {
-                                Ok(layers) => {
-                                    for layer in layers {
-                                        self.insert_layer(layer);
-                                    }
+                if let (Some(language_name), Some(content_node)) = (language_name, content_node)
+                    && let Some(config) = (self.injection_callback)(&language_name)
+                {
+                    let ranges = HighlightIterLayer::intersect_ranges(
+                        &self.layers[0].ranges,
+                        &[content_node],
+                        include_children,
+                    );
+                    if !ranges.is_empty() {
+                        match HighlightIterLayer::new(
+                            self.source,
+                            self.highlighter,
+                            &mut self.injection_callback,
+                            config,
+                            self.layers[0].depth + 1,
+                            ranges,
+                        ) {
+                            Ok(layers) => {
+                                for layer in layers {
+                                    self.insert_layer(layer);
                                 }
-                                Err(e) => return Some(Err(e)),
                             }
+                            Err(e) => return Some(Err(e)),
                         }
                     }
                 }
@@ -940,11 +937,13 @@ where
             // Otherwise, this capture must represent a highlight.
             // If this exact range has already been highlighted by an earlier pattern, or by
             // a different layer, then skip over this one.
-            if let Some((last_start, last_end, last_depth)) = self.last_highlight_range {
-                if range.start == last_start && range.end == last_end && layer.depth < last_depth {
-                    self.sort_layers();
-                    continue 'main;
-                }
+            if let Some((last_start, last_end, last_depth)) = self.last_highlight_range
+                && range.start == last_start
+                && range.end == last_end
+                && layer.depth < last_depth
+            {
+                self.sort_layers();
+                continue 'main;
             }
 
             // If the current node was found to be a local variable, then skip over any

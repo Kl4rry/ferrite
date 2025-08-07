@@ -91,16 +91,15 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
                     if let Some(m) = FuzzySearch::new(&file_name, &ns)
                         .score_with(&scoring)
                         .best_match()
+                        && let Ok(metadata) = fs::metadata(entry.path())
                     {
-                        if let Ok(metadata) = fs::metadata(entry.path()) {
-                            let mut path = String::from(dir_name) + s;
-                            if metadata.is_dir() {
-                                path.push(sep);
-                            }
+                        let mut path = String::from(dir_name) + s;
+                        if metadata.is_dir() {
+                            path.push(sep);
+                        }
 
-                            if !executable_only || is_executable(&metadata) || metadata.is_dir() {
-                                entries.push((m.score(), ns.starts_with(&*file_name), path.into()));
-                            }
+                        if !executable_only || is_executable(&metadata) || metadata.is_dir() {
+                            entries.push((m.score(), ns.starts_with(&*file_name), path.into()));
                         }
                     }
                 }

@@ -49,10 +49,10 @@ impl Write for LoggerSink {
 
         self.bytes.drain(..last_line_start);
 
-        if last_line_start > 0 {
-            if let Some(proxy) = &*PROXY.lock().unwrap() {
-                proxy.request_render();
-            }
+        if last_line_start > 0
+            && let Some(proxy) = &*PROXY.lock().unwrap()
+        {
+            proxy.request_render();
         }
 
         Ok(buf.len())

@@ -18,7 +18,7 @@ pub fn count_words<'a>(words: &mut HashMap<RopeSlice<'a>, usize>, rope: &'a Rope
         if is_on_word && !is_word_char {
             is_on_word = false;
             let slice = rope.slice(word_start..i);
-            if slice.chars().any(|ch| !ch.is_digit(10)) {
+            if slice.chars().any(|ch| !ch.is_ascii_digit()) {
                 let count = words.entry(slice).or_default();
                 *count += 1;
             }
@@ -27,7 +27,7 @@ pub fn count_words<'a>(words: &mut HashMap<RopeSlice<'a>, usize>, rope: &'a Rope
 
     if is_on_word {
         let slice = rope.slice(word_start..rope.len_chars());
-        if slice.chars().any(|ch| !ch.is_digit(10)) {
+        if slice.chars().any(|ch| !ch.is_ascii_digit()) {
             let count = words.entry(slice).or_default();
             *count += 1;
         }

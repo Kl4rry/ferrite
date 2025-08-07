@@ -200,18 +200,18 @@ impl EditorTheme {
             };
 
             for entry in dir.filter_map(|entry| entry.ok()) {
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_file() {
-                        let path = entry.path();
+                if let Ok(file_type) = entry.file_type()
+                    && file_type.is_file()
+                {
+                    let path = entry.path();
 
-                        match EditorTheme::load_theme(entry.path()) {
-                            Ok(theme) => {
-                                let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-                                themes.entry(name).or_insert(theme);
-                            }
-                            Err(err) => {
-                                tracing::error!("Error loading {} {err}", path.to_string_lossy())
-                            }
+                    match EditorTheme::load_theme(entry.path()) {
+                        Ok(theme) => {
+                            let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+                            themes.entry(name).or_insert(theme);
+                        }
+                        Err(err) => {
+                            tracing::error!("Error loading {} {err}", path.to_string_lossy())
                         }
                     }
                 }

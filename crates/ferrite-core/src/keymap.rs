@@ -69,13 +69,12 @@ pub fn get_command_from_input(
         }
     }
 
-    if let KeyCode::Char(ch) = keycode {
-        if !ch.is_ascii_alphanumeric()
+    if let KeyCode::Char(ch) = keycode
+        && (!ch.is_ascii_alphanumeric()
             || modifiers == KeyModifiers::empty()
-            || modifiers == KeyModifiers::SHIFT
-        {
-            return Some(Cmd::Char { ch });
-        }
+            || modifiers == KeyModifiers::SHIFT)
+    {
+        return Some(Cmd::Char { ch });
     }
 
     None
