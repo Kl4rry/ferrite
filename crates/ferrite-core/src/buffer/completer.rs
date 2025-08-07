@@ -70,7 +70,7 @@ impl Completer {
     }
 
     pub fn next(&mut self) {
-        self.index += self.index;
+        self.index += 1;
         if self.index >= self.matching_words.len() {
             self.index = 0;
         }
