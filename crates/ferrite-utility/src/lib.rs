@@ -1,3 +1,4 @@
+#![allow(mismatched_lifetime_syntaxes)]
 pub mod chars;
 pub mod geom;
 pub mod graphemes;

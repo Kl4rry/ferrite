@@ -1,3 +1,4 @@
+#![allow(mismatched_lifetime_syntaxes)]
 use std::{
     collections::HashMap,
     iter,

@@ -1,3 +1,4 @@
+#![allow(mismatched_lifetime_syntaxes)]
 pub mod about;
 pub mod buffer;
 pub mod buffer_watcher;
