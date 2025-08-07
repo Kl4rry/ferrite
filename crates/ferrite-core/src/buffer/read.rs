@@ -62,12 +62,10 @@ pub fn read(mut reader: impl io::Read) -> Result<(&'static Encoding, Rope), io::
 
 pub fn read_from_file(path: impl AsRef<Path>) -> Result<(&'static Encoding, Rope), io::Error> {
     let mut file = File::open(path)?;
-    #[cfg(unix)]
-    let locked = rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).is_ok();
+    let locked = file.lock().is_ok();
     let res = read(&mut file);
-    #[cfg(unix)]
     if locked {
-        let _ = rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock);
+        let _ = file.unlock();
     }
     res
 }

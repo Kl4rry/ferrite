@@ -21,12 +21,10 @@ pub fn write(
         .truncate(false)
         .write(true)
         .open(path)?;
-    #[cfg(unix)]
-    let locked = rustix::fs::flock(&file, rustix::fs::FlockOperation::LockExclusive).is_ok();
+    let locked = file.lock().is_ok();
     let res = write_inner(encoding, line_ending, rope, BufWriter::new(&mut file));
-    #[cfg(unix)]
     if locked {
-        let _ = rustix::fs::flock(&file, rustix::fs::FlockOperation::Unlock);
+        let _ = file.unlock();
     }
     res
 }
