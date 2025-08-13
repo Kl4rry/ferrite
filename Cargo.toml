@@ -48,6 +48,7 @@ puffin = "0.19.1"
 puffin_http = "0.16.0"
 rand = "0.8.5"
 rayon = "1.7.0"
+regex = "1.11.1"
 ropey = "1.5.1"
 rustix = "0.38.34"
 serde = { version = "1.0.152", features = ["derive"] }

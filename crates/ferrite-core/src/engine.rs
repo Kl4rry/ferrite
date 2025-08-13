@@ -11,10 +11,9 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_utility::{line_ending, point::Point, trim::trim_path};
+use ferrite_utility::{line_ending, point::Point, trim::trim_path, url};
 use linkify::{LinkFinder, LinkKind};
 use ropey::Rope;
-use slotmap::{Key as _, SlotMap};
 
 use crate::{
     buffer::{self, Buffer, ViewId, encoding::get_encoding},
@@ -140,75 +139,15 @@ impl Engine {
             config.theme = "default".into();
         }
 
-        let mut buffers: SlotMap<BufferId, _> = SlotMap::with_key();
-        let mut current_buffer_id = BufferId::null();
-
-        for (i, file) in args.files.iter().enumerate() {
-            if i == 0 && file.is_dir() {
-                continue;
-            }
-
-            let buffer = match Buffer::builder().from_file(file).build() {
-                Ok(buffer) => buffer,
-                Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound => match Buffer::builder().with_path(file).build() {
-                        Ok(buffer) => buffer,
-                        Err(err) => {
-                            palette.set_error(err);
-                            continue;
-                        }
-                    },
-                    _ => {
-                        palette.set_error(err);
-                        continue;
-                    }
-                },
-            };
-            current_buffer_id = buffers.insert(buffer);
-        }
-
-        for (_, buffer) in &mut buffers {
-            if let Some(language) = &args.language
-                && let Err(err) = buffer.set_langauge(language, proxy.dup())
-            {
-                palette.set_error(err);
-            }
-        }
-
-        let mut file_scanner = None;
-        let mut file_finder = None;
-
-        if let Some(path) = args.files.first()
-            && path.is_dir()
-        {
-            std::env::set_current_dir(path)?;
-            let scanner = FileScanner::new(std::env::current_dir()?, &config);
-            file_finder = Some(Picker::new(
-                FileFindProvider(scanner.subscribe()),
-                Some(Box::new(FilePreviewer::new(proxy.dup()))),
-                proxy.dup(),
-                None,
-            ));
-            file_scanner = Some(scanner);
-        }
-
         let job_manager = JobManager::new(proxy.dup());
 
-        let mut workspace = match Workspace::load_workspace(buffers.is_empty(), proxy.dup()) {
+        let workspace = match Workspace::load_workspace(true, proxy.dup()) {
             Ok(workspace) => workspace,
             Err(err) => {
                 tracing::error!("Error loading workspace: {err}");
                 Workspace::default()
             }
         };
-
-        if !buffers.is_empty() {
-            workspace.buffers = buffers;
-            let buffer = &mut workspace.buffers[current_buffer_id];
-            let view_id = buffer.create_view();
-            buffer.goto(view_id, args.line as i64);
-            workspace.panes = Panes::new(current_buffer_id, view_id);
-        }
 
         let branch_watcher = BranchWatcher::new(proxy.dup())?;
 
@@ -228,17 +167,17 @@ impl Engine {
             keymap,
         };
 
-        Ok(Self {
+        let mut engine = Self {
             workspace,
             themes,
             config,
             palette,
-            file_picker: file_finder,
+            file_picker: None,
             buffer_picker: None,
             global_search_picker: None,
             branch_watcher,
             proxy,
-            file_scanner,
+            file_scanner: None,
             job_manager,
             save_jobs: Default::default(),
             shell_jobs: Default::default(),
@@ -259,7 +198,30 @@ impl Engine {
             force_redraw: false,
             scale: 1.0,
             trim_timer: Timer::default(),
-        })
+        };
+
+        for (i, file) in args.files.iter().enumerate() {
+            let file_str = file.to_string_lossy();
+
+            if i == 0
+                && let ("file", body) = url::parse_scheme(&*file_str)
+                && file.is_dir()
+            {
+                engine.cd(&body);
+                engine.open_file_picker();
+                continue;
+            }
+
+            engine.open_url(file, false, true);
+        }
+
+        if let Some((current_buffer_id, view_id)) = engine.get_current_buffer_id() {
+            let buffer = &mut engine.workspace.buffers[current_buffer_id];
+            buffer.goto(view_id, args.line as i64);
+            engine.workspace.panes = Panes::new(current_buffer_id, view_id);
+        }
+
+        Ok(engine)
     }
 
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
@@ -497,7 +459,7 @@ impl Engine {
                 if let Some((buffer, _)) = self.get_current_buffer() {
                     match buffer.get_next_file() {
                         Ok(file) => {
-                            self.open_file(file);
+                            self.open_file(file, false);
                         }
                         Err(err) => self.palette.set_error(err),
                     };
@@ -631,42 +593,7 @@ impl Engine {
                 Err(err) => self.palette.set_error(err),
             },
             Cmd::Cd { path } => {
-                if let Err(err) = self.workspace.save_workspace() {
-                    self.palette.set_error(err);
-                }
-                match env::set_current_dir(&path) {
-                    Ok(_) => {
-                        self.hide_pickers();
-
-                        self.file_scanner = Some(FileScanner::new(
-                            env::current_dir().unwrap_or(PathBuf::from(".")),
-                            &self.config.editor,
-                        ));
-
-                        match BranchWatcher::new(self.proxy.dup()) {
-                            Ok(branch_watcher) => self.branch_watcher = branch_watcher,
-                            Err(err) => {
-                                let msg = format!("Error creating branch watcher: {err}");
-                                tracing::error!(msg);
-                                self.palette.set_error(msg);
-                            }
-                        }
-
-                        self.workspace = match Workspace::load_workspace(true, self.proxy.dup()) {
-                            Ok(workspace) => workspace,
-                            Err(err) => {
-                                let msg = format!("Error loading workspace: {err}");
-                                tracing::error!(msg);
-                                self.palette.set_error(msg);
-                                Workspace::default()
-                            }
-                        };
-
-                        self.palette
-                            .set_msg(format!("Set working dir to: {}", path.to_string_lossy()));
-                    }
-                    Err(err) => self.palette.set_error(format!("{err}")),
-                }
+                self.cd(path);
             }
             Cmd::Split { direction } => {
                 let (buffer_id, view_id) = match self.workspace.panes.get_current_pane() {
@@ -688,7 +615,7 @@ impl Engine {
                     .map(|s| String::from(s.to_string_lossy()))
                     .collect::<Vec<_>>()
                     .join(" ");
-                self.run_shell_command(cmd, pipe, false);
+                self.run_shell_command(cmd, None, pipe, false);
             }
             Cmd::FormatSelection => self.format_selection_current_buffer(),
             Cmd::Format => {
@@ -697,7 +624,7 @@ impl Engine {
                 }
             }
             Cmd::OpenFile { path } => {
-                self.open_file(path);
+                self.open_file(path, false);
             }
             Cmd::Save { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
@@ -937,7 +864,7 @@ impl Engine {
                 .or_else(|| self.config.editor.actions.get(&name))
             {
                 Some(args) => {
-                    self.run_shell_command(args.join(" "), true, false);
+                    self.run_shell_command(args.join(" "), None, true, false);
                 }
                 None => {
                     self.palette.set_error(format!("Action '{name}' not found"));
@@ -992,7 +919,7 @@ impl Engine {
                     let _ = picker.handle_input(input);
                     if let Some(path) = picker.get_choice() {
                         self.hide_pickers();
-                        self.open_file(path);
+                        self.open_file(path, false);
                     }
                 } else if let Some(picker) = &mut self.buffer_picker {
                     let _ = picker.handle_input(input);
@@ -1022,7 +949,7 @@ impl Engine {
                         self.global_search_picker = None;
                         let guard = choice.buffer.lock().unwrap();
                         if let Some(file) = guard.file()
-                            && self.open_file(file)
+                            && self.open_file(file, false)
                         {
                             let view_id = guard.get_first_view().unwrap();
                             let cursor_line = guard.cursor_line_idx(view_id, 0);
@@ -1141,7 +1068,12 @@ impl Engine {
                 }
                 PaletteMode::Shell => {
                     self.palette.reset();
-                    self.run_shell_command(content, self.config.editor.pipe_shell_palette, false);
+                    self.run_shell_command(
+                        content,
+                        None,
+                        self.config.editor.pipe_shell_palette,
+                        false,
+                    );
                 }
                 PaletteMode::Rename { path } => match self.rename_file(path, content) {
                     Ok(_) => self.palette.reset(),
@@ -1209,7 +1141,88 @@ impl Engine {
         }
     }
 
-    pub fn open_file(&mut self, path: impl AsRef<Path>) -> bool {
+    fn cd(&mut self, path: impl AsRef<Path>) {
+        let path = path.as_ref();
+        if let Err(err) = self.workspace.save_workspace() {
+            self.palette.set_error(err);
+        }
+        match env::set_current_dir(&path) {
+            Ok(_) => {
+                self.hide_pickers();
+
+                self.file_scanner = Some(FileScanner::new(
+                    env::current_dir().unwrap_or(PathBuf::from(".")),
+                    &self.config.editor,
+                ));
+
+                match BranchWatcher::new(self.proxy.dup()) {
+                    Ok(branch_watcher) => self.branch_watcher = branch_watcher,
+                    Err(err) => {
+                        let msg = format!("Error creating branch watcher: {err}");
+                        tracing::error!(msg);
+                        self.palette.set_error(msg);
+                    }
+                }
+
+                self.workspace = match Workspace::load_workspace(true, self.proxy.dup()) {
+                    Ok(workspace) => workspace,
+                    Err(err) => {
+                        let msg = format!("Error loading workspace: {err}");
+                        tracing::error!(msg);
+                        self.palette.set_error(msg);
+                        Workspace::default()
+                    }
+                };
+
+                self.palette
+                    .set_msg(format!("Set working dir to: {}", path.to_string_lossy()));
+            }
+            Err(err) => self.palette.set_error(format!("{err}")),
+        }
+    }
+
+    fn open_url(&mut self, url: impl AsRef<Path>, open_with_os: bool, create_file: bool) {
+        let url = url.as_ref();
+        let url_str = url.to_string_lossy();
+        let (scheme, body) = url::parse_scheme(&*url_str);
+        tracing::info!("Opening url: {}://{}", scheme, body);
+
+        match scheme {
+            "man" => self.open_manpage(body),
+            _ => {
+                if scheme == "file" && (!open_with_os || is_text_file(&body).unwrap_or(false)) {
+                    self.open_file(&body, create_file);
+                    return;
+                }
+                if let Err(err) = opener::open(&url) {
+                    self.palette.set_error(err);
+                }
+            }
+        }
+    }
+
+    pub fn open_selected_url(&mut self) {
+        if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
+            for i in 0..self.workspace.buffers[buffer_id].views[view_id]
+                .cursors
+                .len()
+            {
+                let selection = self.workspace.buffers[buffer_id].get_selection(view_id, i);
+                let mut finder = LinkFinder::new();
+                finder.kinds(&[LinkKind::Url]);
+                let spans: Vec<_> = finder.spans(&selection).collect();
+                if spans.is_empty() {
+                    self.open_url(&selection, true, false);
+                } else {
+                    for span in spans {
+                        self.open_url(span.as_str(), true, false);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn open_file(&mut self, path: impl AsRef<Path>, create_file: bool) -> bool {
         let real_path = match dunce::canonicalize(&path) {
             Ok(path) => path,
             Err(err) => {
@@ -1243,15 +1256,40 @@ impl Engine {
                     let view_id = buffer.create_view();
                     let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
                     self.load_view_data(buffer_id, view_id);
-
                     true
                 }
-                Err(err) => {
-                    self.palette.set_error(err);
-                    false
-                }
+                Err(err) => match err.kind() {
+                    io::ErrorKind::NotFound if create_file => {
+                        match Buffer::builder().with_path(path.as_ref()).build() {
+                            Ok(mut buffer) => {
+                                let view_id = buffer.create_view();
+                                let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
+                                self.load_view_data(buffer_id, view_id);
+                                true
+                            }
+                            Err(err) => {
+                                self.palette.set_error(err);
+                                false
+                            }
+                        }
+                    }
+                    _ => {
+                        self.palette.set_error(err);
+                        false
+                    }
+                },
             },
         }
+    }
+
+    fn open_manpage(&mut self, page: &str) {
+        // TODO: Make width variable
+        self.run_shell_command(
+            format!("MANWIDTH=80 man {page}"),
+            Some(format!("man://{page}")),
+            true,
+            true,
+        );
     }
 
     pub fn quit(&mut self, control_flow: &mut EventLoopControlFlow) {
@@ -1342,7 +1380,7 @@ impl Engine {
     pub fn open_config(&mut self) {
         match &self.config.editor_path {
             Some(path) => {
-                self.open_file(path.clone());
+                self.open_file(path.clone(), false);
             }
             None => self.palette.set_error("Could not locate the config file"),
         }
@@ -1361,7 +1399,7 @@ impl Engine {
     pub fn open_languages(&mut self) {
         match &self.config.languages_path {
             Some(path) => {
-                self.open_file(path.clone());
+                self.open_file(path.clone(), false);
             }
             None => self
                 .palette
@@ -1408,7 +1446,7 @@ impl Engine {
     }
 
     pub fn open_workspace_config(&mut self) {
-        self.open_file(crate::workspace::get_config_path("."));
+        self.open_file(crate::workspace::get_config_path("."), false);
     }
 
     pub fn open_file_explorer(&mut self, path: Option<PathBuf>) {
@@ -1564,7 +1602,7 @@ impl Engine {
             {
                 continue;
             }
-            self.open_file(path);
+            self.open_file(path, false);
             break;
         }
     }
@@ -1714,11 +1752,20 @@ impl Engine {
         }
     }
 
-    pub fn run_shell_command(&mut self, cmd: String, pipe: bool, read_only: bool) {
+    pub fn run_shell_command(
+        &mut self,
+        cmd: String,
+        name: Option<String>,
+        pipe: bool,
+        read_only: bool,
+    ) {
         let buffer_id = if pipe {
             let mut buffer = Buffer::new();
             let view_id = buffer.create_view();
-            buffer.set_name(cmd.clone());
+            match name {
+                Some(name) => buffer.set_name(name),
+                None => buffer.set_name(cmd.clone()),
+            }
             buffer.read_only = read_only;
             Some(self.insert_buffer(buffer, view_id, true).0)
         } else {
@@ -1817,37 +1864,6 @@ impl Engine {
             (),
         );
         self.shell_jobs.push((buffer_id, job));
-    }
-
-    fn os_open_url(&mut self, url: impl AsRef<Path>) {
-        if is_text_file(url.as_ref()).unwrap_or(false) {
-            self.open_file(url.as_ref());
-            return;
-        }
-        if let Err(err) = opener::open(url.as_ref()) {
-            self.palette.set_error(err);
-        }
-    }
-
-    pub fn open_selected_url(&mut self) {
-        if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
-            for i in 0..self.workspace.buffers[buffer_id].views[view_id]
-                .cursors
-                .len()
-            {
-                let selection = self.workspace.buffers[buffer_id].get_selection(view_id, i);
-                let mut finder = LinkFinder::new();
-                finder.kinds(&[LinkKind::Url]);
-                let spans: Vec<_> = finder.spans(&selection).collect();
-                if spans.is_empty() {
-                    self.os_open_url(&selection);
-                } else {
-                    for span in spans {
-                        self.os_open_url(span.as_str());
-                    }
-                }
-            }
-        }
     }
 
     pub fn search(&mut self) {

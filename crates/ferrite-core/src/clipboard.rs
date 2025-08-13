@@ -65,7 +65,7 @@ pub fn set_primary(text: impl Into<String>) {
 
 #[cfg(target_os = "linux")]
 pub fn flush_primary() {
-    use arboard::{LinuxClipboardKind, SetExtLinux};
+    /*use arboard::{LinuxClipboardKind, SetExtLinux};
     let Some(text) = PRIMARY_CLIPBOARD_CACHE.lock().unwrap().take() else {
         return;
     };
@@ -76,7 +76,7 @@ pub fn flush_primary() {
             .text(text)
     {
         tracing::error!("{err}");
-    }
+    }*/
 }
 
 pub fn get_primary() -> String {

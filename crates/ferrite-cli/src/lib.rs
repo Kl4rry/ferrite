@@ -11,9 +11,6 @@ pub struct Args {
     /// Line to open file on
     #[arg(long, short, default_value = "0")]
     pub line: u32,
-    /// Language
-    #[arg(long = "lang")]
-    pub language: Option<String>,
     /// Use process local clipboard
     #[arg(long)]
     pub local_clipboard: bool,
@@ -35,7 +32,7 @@ pub struct Args {
     /// Wait for editor to close
     #[arg(short, long)]
     pub wait: bool,
-    /// Profile
+    /// Enable profiling
     #[arg(long)]
     pub profile: bool,
 }
