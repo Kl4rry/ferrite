@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use ropey::Rope;
+use slotmap::Key;
 use subprocess::{Exec, PopenError, Redirection};
 
 use super::{Buffer, Cursor, ViewId};
@@ -98,7 +99,8 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 }
 
 impl Buffer {
-    pub fn format(&mut self, formatter: &str) -> Result<(), PopenError> {
+    pub fn format(&mut self, view_id: Option<ViewId>, formatter: &str) -> Result<(), PopenError> {
+        let view_id = view_id.unwrap_or(ViewId::null());
         if self.read_only {
             return Ok(());
         }
@@ -107,7 +109,8 @@ impl Buffer {
             return Ok(());
         }
 
-        self.history.begin(self.get_all_cursors(), self.dirty);
+        self.history
+            .begin(view_id, self.get_all_cursors(), self.dirty);
         let new_rope = format(formatter, self.rope.clone())?;
 
         let cursor_positions = self.get_cursor_positions();
@@ -134,7 +137,8 @@ impl Buffer {
             return Ok(());
         }
 
-        self.history.begin(self.get_all_cursors(), self.dirty);
+        self.history
+            .begin(view_id, self.get_all_cursors(), self.dirty);
         let new_rope = format_selection(
             formatter,
             self.rope.clone(),

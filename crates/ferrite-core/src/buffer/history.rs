@@ -88,6 +88,7 @@ impl EditKind {
 struct Frame {
     finished: bool,
     edit_class: EditClass,
+    view_id: ViewId,
     cursors: SecondaryMap<ViewId, Vec1<Cursor>>,
     edits: Vec<EditKind>,
     dirty: bool,
@@ -141,12 +142,18 @@ impl History {
         self.edit(rope, replace);
     }
 
-    pub fn begin(&mut self, cursors: SecondaryMap<ViewId, Vec1<Cursor>>, dirty: bool) {
+    pub fn begin(
+        &mut self,
+        view_id: ViewId,
+        cursors: SecondaryMap<ViewId, Vec1<Cursor>>,
+        dirty: bool,
+    ) {
         self.stack.truncate((self.current_frame + 1) as usize);
 
         self.stack.push(Frame {
             finished: false,
             edit_class: EditClass::Other,
+            view_id,
             cursors: cursors.clone(),
             edits: Vec::new(),
             dirty,
@@ -167,6 +174,7 @@ impl History {
     pub fn undo(
         &mut self,
         rope: &mut Rope,
+        view_id: &mut ViewId,
         cursors: &mut SecondaryMap<ViewId, Vec1<Cursor>>,
         dirty: &mut bool,
     ) {
@@ -182,6 +190,7 @@ impl History {
             }
             mem::swap(&mut frame.cursors, cursors);
             mem::swap(&mut frame.dirty, dirty);
+            mem::swap(&mut frame.view_id, view_id);
             self.current_frame -= 1;
 
             if frame.finished {
@@ -206,6 +215,7 @@ impl History {
     pub fn redo(
         &mut self,
         rope: &mut Rope,
+        view_id: &mut ViewId,
         cursors: &mut SecondaryMap<ViewId, Vec1<Cursor>>,
         dirty: &mut bool,
     ) {
@@ -223,6 +233,7 @@ impl History {
             }
             mem::swap(&mut frame.cursors, cursors);
             mem::swap(&mut frame.dirty, dirty);
+            mem::swap(&mut frame.view_id, view_id);
 
             if frame.finished {
                 break;

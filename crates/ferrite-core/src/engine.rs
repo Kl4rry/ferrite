@@ -619,8 +619,10 @@ impl Engine {
             }
             Cmd::FormatSelection => self.format_selection_current_buffer(),
             Cmd::Format => {
-                if let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() {
-                    self.format_buffer(buffer_id);
+                if let PaneKind::Buffer(buffer_id, view_id) =
+                    self.workspace.panes.get_current_pane()
+                {
+                    self.format_buffer(buffer_id, view_id);
                 }
             }
             Cmd::OpenFile { path } => {
@@ -1121,7 +1123,7 @@ impl Engine {
         }
     }
 
-    pub fn format_buffer(&mut self, buffer_id: BufferId) {
+    pub fn format_buffer(&mut self, buffer_id: BufferId, view_id: ViewId) {
         let buffer_lang = self.workspace.buffers[buffer_id].language_name();
         let config = self.config.languages.from_name(buffer_lang);
         let Some(config) = config else {
@@ -1136,7 +1138,7 @@ impl Engine {
             return;
         };
 
-        if let Err(err) = self.workspace.buffers[buffer_id].format(fmt) {
+        if let Err(err) = self.workspace.buffers[buffer_id].format(Some(view_id), fmt) {
             self.palette.set_error(err);
         }
     }
@@ -1705,7 +1707,7 @@ impl Engine {
         }
 
         if auto_format && let Some(fmt) = fmt {
-            let _ = buffer.format(&fmt);
+            let _ = buffer.format(None, &fmt);
         }
 
         if self

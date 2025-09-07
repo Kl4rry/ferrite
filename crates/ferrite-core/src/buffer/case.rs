@@ -65,7 +65,8 @@ impl Buffer {
         self.views[view_id].coalesce_cursors();
         let cursors = self.get_cursors_sorted(view_id);
 
-        self.history.begin(self.get_all_cursors(), self.dirty);
+        self.history
+            .begin(view_id, self.get_all_cursors(), self.dirty);
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
 
