@@ -1,4 +1,4 @@
-use ferrite_utility::point::Point;
+use ferrite_geom::point::Point;
 use serde::{Deserialize, Serialize};
 
 pub fn intersects(start1: usize, end1: usize, start2: usize, end2: usize) -> bool {

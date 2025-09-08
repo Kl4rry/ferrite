@@ -25,5 +25,6 @@ pub mod pubsub;
 pub mod spinner;
 pub mod theme;
 pub mod timer;
+pub mod views;
 pub mod watcher;
 pub mod workspace;

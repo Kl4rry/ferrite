@@ -91,13 +91,13 @@ pub enum PaletteState {
 }
 
 pub struct CommandPalette {
-    proxy: Box<dyn EventLoopProxy>,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
     state: PaletteState,
     histories: HashMap<PaletteMode, History>,
 }
 
 impl CommandPalette {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
             state: PaletteState::Nothing,
             proxy,

@@ -7,7 +7,7 @@ use slotmap::Key;
 use crate::{buffer::ViewId, file_explorer::FileExplorerId, workspace::BufferId};
 
 // TODO: Remove this
-pub type Rect = ferrite_utility::geom::Rect<usize>;
+pub type Rect = ferrite_geom::rect::Rect<usize>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneKind {

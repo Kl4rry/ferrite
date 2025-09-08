@@ -1,0 +1,18 @@
+[package]
+name = "ferrite-runtime-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+directories = { workspace = true }
+ferrite-cli = { workspace = true }
+ferrite-core = { workspace = true }
+ferrite-runtime = { workspace = true }
+pollster = { workspace = true }
+profiling  = { workspace = true }
+tracing = { workspace = true }
+tracing-log = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["json"] }
+wgpu = { workspace = true, features = ["glsl"] }
+winit = { workspace = true, default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen", "x11"] }

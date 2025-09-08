@@ -6,11 +6,14 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{cmd::Cmd, event_loop_proxy::EventLoopProxy};
+use crate::{
+    cmd::Cmd,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+};
 
-static PROXY: Mutex<Option<Box<dyn EventLoopProxy>>> = Mutex::new(None);
+static PROXY: Mutex<Option<Box<dyn EventLoopProxy<UserEvent>>>> = Mutex::new(None);
 
-pub fn set_proxy(proxy: Box<dyn EventLoopProxy>) {
+pub fn set_proxy(proxy: Box<dyn EventLoopProxy<UserEvent>>) {
     *PROXY.lock().unwrap() = Some(proxy);
 }
 

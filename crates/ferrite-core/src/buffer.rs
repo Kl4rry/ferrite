@@ -12,10 +12,10 @@ use std::{
 
 use cursor::{Cursor, Selection};
 use encoding_rs::Encoding;
+use ferrite_geom::point::Point;
 use ferrite_utility::{
     graphemes::RopeGraphemeExt,
     line_ending::{DEFAULT_LINE_ENDING, LineEnding, rope_end_without_line_ending},
-    point::Point,
     vec1::Vec1,
 };
 use ropey::{Rope, RopeSlice};
@@ -34,7 +34,7 @@ use crate::{
     },
     clipboard,
     cmd::LineMoveDir,
-    event_loop_proxy::{EventLoopProxy, get_proxy},
+    event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy},
     language::detect::detect_language,
     workspace::BufferData,
 };
@@ -415,7 +415,7 @@ impl Buffer {
     pub fn set_langauge(
         &mut self,
         language: &str,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
     ) -> anyhow::Result<()> {
         let syntax = match self.syntax.as_mut() {
             Some(syntax) => syntax,
@@ -2655,7 +2655,7 @@ impl Buffer {
     pub fn start_search(
         &mut self,
         view_id: ViewId,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         query: String,
         case_insensitive: bool,
     ) {

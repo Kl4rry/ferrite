@@ -110,7 +110,7 @@ pub struct TuiEventLoopProxy {
     waker_tx: mpsc::Sender<()>,
 }
 
-impl EventLoopProxy for TuiEventLoopProxy {
+impl EventLoopProxy<UserEvent> for TuiEventLoopProxy {
     fn send(&self, event: ferrite_core::event_loop_proxy::UserEvent) {
         let _ = self.proxy_tx.send(event);
         let _ = self.waker_tx.send(());
@@ -120,7 +120,7 @@ impl EventLoopProxy for TuiEventLoopProxy {
         let _ = self.waker_tx.send(());
     }
 
-    fn dup(&self) -> Box<dyn EventLoopProxy> {
+    fn dup(&self) -> Box<dyn EventLoopProxy<UserEvent>> {
         Box::new(self.clone())
     }
 }

@@ -12,14 +12,12 @@ use std::{
 };
 
 use ferrite_ctx::{Arena, ArenaString};
+use ferrite_geom::point::Point;
 use ropey::{Rope, RopeSlice, iter::Chunks, str_utils::byte_to_char_idx};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
-use crate::{
-    line_ending::{self, LineEnding, get_line_ending, line_without_line_ending},
-    point::Point,
-};
+use crate::line_ending::{self, LineEnding, get_line_ending, line_without_line_ending};
 
 pub const TAB_WIDTH: u16 = 4;
 

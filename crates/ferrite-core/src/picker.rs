@@ -11,7 +11,11 @@ use ropey::RopeSlice;
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{Buffer, error::BufferError};
-use crate::{buffer::ViewId, cmd::Cmd, event_loop_proxy::EventLoopProxy};
+use crate::{
+    buffer::ViewId,
+    cmd::Cmd,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+};
 
 pub mod buffer_picker;
 pub mod file_picker;
@@ -56,7 +60,7 @@ where
     pub fn new<T: PickerOptionProvider<Matchable = M> + Send + Sync + 'static>(
         option_provder: T,
         previewer: Option<Box<dyn Previewer<M>>>,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         path: Option<PathBuf>,
     ) -> Self {
         let mut search_field = Buffer::builder().simple(true).build().unwrap();

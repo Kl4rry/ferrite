@@ -8,11 +8,9 @@ use std::{
 };
 
 use anyhow::Result;
+use ferrite_style::{self as style, Color, ParseColorError};
 use memchr::memrchr;
 use serde::Deserialize;
-use style::{Color, ParseColorError};
-
-pub mod style;
 
 #[derive(Debug)]
 pub enum StyleLoadError {

@@ -10,7 +10,7 @@ use notify_debouncer_full::{
     notify::{self, RecommendedWatcher, RecursiveMode},
 };
 
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 fn get_current_branch() -> Option<String> {
     match Command::new("git")
@@ -55,12 +55,12 @@ fn get_git_directory() -> Option<String> {
 
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
-    proxy: Box<dyn EventLoopProxy>,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
     _watcher: Option<Debouncer<RecommendedWatcher, RecommendedCache>>,
 }
 
 impl BranchWatcher {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Result<Self, notify::Error> {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Result<Self, notify::Error> {
         let current_branch = Arc::new(Mutex::new(None));
         let mut watcher = None;
 

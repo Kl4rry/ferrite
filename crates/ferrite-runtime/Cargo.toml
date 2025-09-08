@@ -1,0 +1,8 @@
+[package]
+name = "ferrite-runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ferrite-geom = { workspace = true }
+tui = { workspace = true }

@@ -7,7 +7,8 @@ use std::{
     thread,
 };
 
-use ferrite_utility::{graphemes::RopeGraphemeExt, point::Point};
+use ferrite_geom::point::Point;
+use ferrite_utility::graphemes::RopeGraphemeExt;
 use grep_matcher::Matcher as _;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{Searcher, sinks::UTF8};

@@ -1,7 +1,7 @@
 use std::ops::{Add, Mul};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Rect<T> {
+pub struct Rect<T = usize> {
     pub x: T,
     pub y: T,
     pub width: T,
@@ -43,10 +43,25 @@ where
             && point.x <= self.x + self.width
             && point.y <= self.y + self.height
     }
+
+    pub fn area(&mut self) -> T {
+        self.width * self.height
+    }
+}
+
+impl From<Rect> for tui::layout::Rect {
+    fn from(rect: Rect) -> tui::layout::Rect {
+        tui::layout::Rect {
+            x: rect.x.try_into().unwrap(),
+            y: rect.y.try_into().unwrap(),
+            width: rect.width.try_into().unwrap(),
+            height: rect.height.try_into().unwrap(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Vec2<T> {
+pub struct Vec2<T = usize> {
     pub x: T,
     pub y: T,
 }

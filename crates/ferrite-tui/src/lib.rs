@@ -5,7 +5,7 @@ use ferrite_cli::Args;
 use ferrite_core::{
     buffer::ViewId,
     engine::Engine,
-    event_loop_proxy::EventLoopProxy,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
     file_explorer::FileExplorerId,
     layout::panes::PaneKind,
     logger::{self, LogMessage},
@@ -23,7 +23,7 @@ use widgets::{
     palette_widget::CmdPaletteWidget, picker_widget::PickerWidget, splash::SplashWidget,
 };
 
-#[rustfmt::skip]
+#[rustfmt::skip] // This is to stop formating of everything inside the glue module
 pub mod glue;
 pub mod rect_ext;
 pub mod widgets;
@@ -35,7 +35,7 @@ pub struct TuiApp {
 
 #[profiling::all_functions]
 impl TuiApp {
-    pub fn new<P: EventLoopProxy + 'static>(
+    pub fn new<P: EventLoopProxy<UserEvent> + 'static>(
         args: &Args,
         proxy: P,
         recv: mpsc::Receiver<LogMessage>,

@@ -11,7 +11,8 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_utility::{line_ending, point::Point, trim::trim_path, url};
+use ferrite_geom::point::Point;
+use ferrite_utility::{line_ending, trim::trim_path, url};
 use linkify::{LinkFinder, LinkKind};
 use ropey::Rope;
 
@@ -64,7 +65,7 @@ pub struct Engine {
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
-    pub proxy: Box<dyn EventLoopProxy>,
+    pub proxy: Box<dyn EventLoopProxy<UserEvent>>,
     pub file_scanner: Option<FileScanner>,
     pub job_manager: JobManager,
     pub save_jobs: Vec<(BufferId, JobHandle<Result<SaveBufferJob>>)>,
@@ -88,7 +89,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(
         args: &Args,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         recv: mpsc::Receiver<LogMessage>,
     ) -> Result<Self> {
         set_proxy(proxy.dup());

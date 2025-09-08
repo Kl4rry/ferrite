@@ -2,15 +2,15 @@ use std::{sync::OnceLock, time::Duration};
 
 use crate::palette::{PaletteMode, PalettePromptEvent};
 
-static PROXY: OnceLock<Box<dyn EventLoopProxy>> = OnceLock::new();
+static PROXY: OnceLock<Box<dyn EventLoopProxy<UserEvent>>> = OnceLock::new();
 
-pub fn set_proxy(proxy: Box<dyn EventLoopProxy>) {
+pub fn set_proxy(proxy: Box<dyn EventLoopProxy<UserEvent>>) {
     if PROXY.set(proxy).is_err() {
         tracing::error!("Error attempted to set buffer proxy twice");
     }
 }
 
-pub fn get_proxy() -> Box<dyn EventLoopProxy> {
+pub fn get_proxy() -> Box<dyn EventLoopProxy<UserEvent>> {
     PROXY.get().unwrap().dup()
 }
 
@@ -22,10 +22,10 @@ pub enum UserEvent {
     Wake,
 }
 
-pub trait EventLoopProxy: Send + Sync {
-    fn send(&self, event: UserEvent);
+pub trait EventLoopProxy<E: 'static>: Send + Sync {
+    fn send(&self, event: E);
     fn request_render(&self);
-    fn dup(&self) -> Box<dyn EventLoopProxy>;
+    fn dup(&self) -> Box<dyn EventLoopProxy<E>>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,10 +38,10 @@ pub enum EventLoopControlFlow {
 
 pub struct NoopEventLoop;
 
-impl EventLoopProxy for NoopEventLoop {
-    fn send(&self, _: UserEvent) {}
+impl<E: 'static> EventLoopProxy<E> for NoopEventLoop {
+    fn send(&self, _: E) {}
     fn request_render(&self) {}
-    fn dup(&self) -> Box<dyn EventLoopProxy> {
+    fn dup(&self) -> Box<dyn EventLoopProxy<E>> {
         Box::new(NoopEventLoop)
     }
 }

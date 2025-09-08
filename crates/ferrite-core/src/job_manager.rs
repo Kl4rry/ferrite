@@ -7,7 +7,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 pub struct JobHandle<T, P = ()> {
     end_recv: mpsc::Receiver<T>,
@@ -60,12 +60,12 @@ impl<T> Progressor<T> {
 }
 
 pub struct JobManager {
-    proxy: Box<dyn EventLoopProxy>,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
     foreground_job: Vec<JoinHandle<()>>,
 }
 
 impl JobManager {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
             proxy,
             foreground_job: Vec::new(),
