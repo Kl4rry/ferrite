@@ -531,7 +531,7 @@ pub mod layout {
                         let view = &buffer.views[*view_id];
                         Some(Self::Leaf(PaneKind::Buffer {
                             path,
-                            cursor: *view.cursors.first(),
+                            cursors: view.cursors.clone(),
                             line_pos: view.line_pos_floored(),
                             col_pos: view.col_pos_floored(),
                         }))
@@ -577,7 +577,7 @@ pub mod layout {
                 Node::Leaf(pane_kind) => match pane_kind {
                     PaneKind::Buffer {
                         path,
-                        cursor,
+                        cursors,
                         line_pos,
                         col_pos,
                     } => {
@@ -588,7 +588,7 @@ pub mod layout {
                             })?;
                         let view_id = buffer.create_view();
                         let view = &mut buffer.views[view_id];
-                        view.cursors = Vec1::new(*cursor);
+                        view.cursors = cursors.clone();
                         view.line_pos = *line_pos as f64;
                         view.col_pos = *col_pos as f64;
                         buffer.ensure_cursors_are_valid(view_id);
@@ -634,7 +634,7 @@ pub mod layout {
     enum PaneKind {
         Buffer {
             path: PathBuf,
-            cursor: Cursor,
+            cursors: Vec1<Cursor>,
             line_pos: usize,
             col_pos: usize,
         },
@@ -655,7 +655,7 @@ pub mod layout {
             let pane_kind = match &self.current_pane {
                 Some(PaneKind::Buffer {
                     path,
-                    cursor,
+                    cursors,
                     line_pos,
                     col_pos,
                 }) => {
@@ -666,7 +666,7 @@ pub mod layout {
                         Some((buffer_id, buffer)) => {
                             let view_id = buffer.create_view();
                             let view = &mut buffer.views[view_id];
-                            view.cursors = Vec1::new(*cursor);
+                            view.cursors = cursors.clone();
                             view.line_pos = *line_pos as f64;
                             view.col_pos = *col_pos as f64;
                             super::PaneKind::Buffer(buffer_id, view_id)
@@ -706,7 +706,7 @@ pub mod layout {
                                 let view = &buffers[buffer_id].views[view_id];
                                 Some(PaneKind::Buffer {
                                     path: path.into(),
-                                    cursor: *view.cursors.first(),
+                                    cursors: view.cursors.clone(),
                                     line_pos: view.line_pos_floored(),
                                     col_pos: view.col_pos_floored(),
                                 })

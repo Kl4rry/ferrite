@@ -152,6 +152,7 @@ impl Workspace {
         let mut panes = workspace
             .layout
             .to_panes(&mut buffers, &mut file_explorers)
+            // Its fine that these are ::null() as they are repaired below
             .unwrap_or_else(|| Panes::new(BufferId::null(), ViewId::null()));
 
         if buffers.is_empty() {

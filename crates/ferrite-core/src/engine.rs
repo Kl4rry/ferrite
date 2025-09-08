@@ -200,6 +200,7 @@ impl Engine {
             trim_timer: Timer::default(),
         };
 
+        let mut files_from_args = false;
         for (i, file) in args.files.iter().enumerate() {
             let file_str = file.to_string_lossy();
 
@@ -213,9 +214,12 @@ impl Engine {
             }
 
             engine.open_url(file, false, true);
+            files_from_args = true;
         }
 
-        if let Some((current_buffer_id, view_id)) = engine.get_current_buffer_id() {
+        if files_from_args
+            && let Some((current_buffer_id, view_id)) = engine.get_current_buffer_id()
+        {
             let buffer = &mut engine.workspace.buffers[current_buffer_id];
             buffer.goto(view_id, args.line as i64);
             engine.workspace.panes = Panes::new(current_buffer_id, view_id);
@@ -376,6 +380,9 @@ impl Engine {
             }
         }
 
+        // Its kinda hard to clean up all views created correctly.
+        // Here we just find all views not connected to a pane and
+        // we just remove them.
         for (buffer_id, buffer) in &mut self.workspace.buffers {
             for view_id in buffer.views.keys().collect::<Vec<_>>() {
                 if !self

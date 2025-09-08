@@ -2,6 +2,7 @@ use core::fmt;
 use std::{
     cmp,
     collections::HashSet,
+    fmt::Debug,
     fs, io,
     ops::Range,
     path::{Path, PathBuf},
