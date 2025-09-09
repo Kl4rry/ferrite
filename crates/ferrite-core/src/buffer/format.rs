@@ -6,7 +6,7 @@ use subprocess::{Exec, PopenError, Redirection};
 
 use super::{Buffer, Cursor, ViewId};
 
-fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
+fn format(formatter: &str, rope: Rope) -> Result<(String, String), PopenError> {
     let mut parts = formatter.split_whitespace();
     let Some(first) = parts.next() else {
         return Err(
@@ -34,8 +34,8 @@ fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
 
     let stdout_output: String = String::from_utf8_lossy(&stdout.unwrap()).into();
     let stderr_output: String = String::from_utf8_lossy(&stderr.unwrap()).into();
-    if exit_status.success() && stderr_output.is_empty() {
-        Ok(stdout_output)
+    if exit_status.success() {
+        Ok((stdout_output, stderr_output))
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -44,7 +44,11 @@ fn format(formatter: &str, rope: Rope) -> Result<String, PopenError> {
     }
 }
 
-fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<String, PopenError> {
+fn format_selection(
+    formatter: &str,
+    rope: Rope,
+    cursor: &Cursor,
+) -> Result<(String, String), PopenError> {
     let mut parts = formatter.split_whitespace();
     let Some(first) = parts.next() else {
         return Err(
@@ -88,8 +92,8 @@ fn format_selection(formatter: &str, rope: Rope, cursor: &Cursor) -> Result<Stri
 
     let stdout_output: String = String::from_utf8_lossy(&stdout.unwrap()).into();
     let stderr_output: String = String::from_utf8_lossy(&stderr.unwrap()).into();
-    if exit_status.success() && stderr_output.is_empty() {
-        Ok(stdout_output)
+    if exit_status.success() {
+        Ok((stdout_output, stderr_output))
     } else {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -111,7 +115,7 @@ impl Buffer {
 
         self.history
             .begin(view_id, self.get_all_cursors(), self.dirty);
-        let new_rope = format(formatter, self.rope.clone())?;
+        let (new_rope, stderr_output) = format(formatter, self.rope.clone())?;
 
         let cursor_positions = self.get_cursor_positions();
 
@@ -125,7 +129,15 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(None);
-        Ok(())
+
+        if stderr_output.is_empty() {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                stderr_output,
+            ))?
+        }
     }
 
     pub fn format_selection(&mut self, view_id: ViewId, formatter: &str) -> Result<(), PopenError> {
@@ -139,7 +151,7 @@ impl Buffer {
 
         self.history
             .begin(view_id, self.get_all_cursors(), self.dirty);
-        let new_rope = format_selection(
+        let (new_rope, stderr_output) = format_selection(
             formatter,
             self.rope.clone(),
             self.views[view_id].cursors.first(),
@@ -161,6 +173,13 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(Some(view_id));
-        Ok(())
+        if stderr_output.is_empty() {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                stderr_output,
+            ))?
+        }
     }
 }
