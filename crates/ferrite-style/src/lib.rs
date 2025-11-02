@@ -55,8 +55,28 @@ impl FromStr for Color {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+impl From<Color> for tui::style::Color {
+    fn from(color: Color) -> tui::style::Color {
+        tui::style::Color::Rgb(
+            (color.r * 255.0) as u8,
+            (color.g * 255.0) as u8,
+            (color.b * 255.0) as u8,
+        )
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Style {
     pub fg: Option<Color>,
     pub bg: Option<Color>,
+}
+
+impl From<Style> for tui::style::Style {
+    fn from(style: Style) -> tui::style::Style {
+        tui::style::Style {
+            fg: style.fg.map(tui::style::Color::from),
+            bg: style.bg.map(tui::style::Color::from),
+            ..Default::default()
+        }
+    }
 }

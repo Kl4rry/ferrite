@@ -1,7 +1,6 @@
-pub mod keycode;
 use std::fmt;
 
-use keycode::{KeyCode, KeyModifiers};
+use ferrite_runtime::input::keycode::{KeyCode, KeyModifiers};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{self, Visitor},

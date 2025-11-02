@@ -12,10 +12,11 @@ use std::{
 
 use cursor::{Cursor, Selection};
 use encoding_rs::Encoding;
+use ferrite_geom::point::Point;
+use ferrite_runtime::unique_id::UniqueId;
 use ferrite_utility::{
     graphemes::RopeGraphemeExt,
     line_ending::{DEFAULT_LINE_ENDING, LineEnding, rope_end_without_line_ending},
-    point::Point,
     vec1::Vec1,
 };
 use ropey::{Rope, RopeSlice};
@@ -34,7 +35,7 @@ use crate::{
     },
     clipboard,
     cmd::LineMoveDir,
-    event_loop_proxy::{EventLoopProxy, get_proxy},
+    event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy},
     language::detect::detect_language,
     workspace::BufferData,
 };
@@ -69,6 +70,7 @@ pub struct View {
     view_columns: usize,
     last_word_selected: Option<usize>,
     pub completer: Completer,
+    unique_id: UniqueId,
 }
 
 impl Default for View {
@@ -87,6 +89,7 @@ impl Default for View {
             view_columns: 100, // semi resonable default
             last_word_selected: None,
             completer: Completer::new(),
+            unique_id: UniqueId::new(),
         }
     }
 }
@@ -107,6 +110,7 @@ impl Clone for View {
             view_columns: self.view_columns,
             last_word_selected: self.last_word_selected,
             completer: self.completer.clone(),
+            unique_id: UniqueId::new(),
         }
     }
 }
@@ -138,6 +142,10 @@ impl View {
 
     pub fn col_pos_floored(&self) -> usize {
         self.col_pos.floor() as usize
+    }
+
+    pub fn unique_id(&self) -> UniqueId {
+        self.unique_id
     }
 }
 
@@ -415,7 +423,7 @@ impl Buffer {
     pub fn set_langauge(
         &mut self,
         language: &str,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
     ) -> anyhow::Result<()> {
         let syntax = match self.syntax.as_mut() {
             Some(syntax) => syntax,
@@ -2635,7 +2643,11 @@ impl Buffer {
         }
     }
 
-    pub fn get_syntax(&mut self) -> Option<&mut Syntax> {
+    pub fn get_syntax(&self) -> Option<&Syntax> {
+        self.syntax.as_ref()
+    }
+
+    pub fn get_syntax_mut(&mut self) -> Option<&mut Syntax> {
         self.syntax.as_mut()
     }
 
@@ -2655,7 +2667,7 @@ impl Buffer {
     pub fn start_search(
         &mut self,
         view_id: ViewId,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         query: String,
         case_insensitive: bool,
     ) {
@@ -3398,8 +3410,8 @@ impl Buffer {
                     }
                 }
             }
-            *conflicts_ptr.lock().unwrap() = conflicts;
-            proxy.request_render();
+            conflicts_ptr.lock().unwrap().clone_from(&conflicts);
+            proxy.request_render("parsing of git conflic done");
         });
     }
 
@@ -3487,6 +3499,7 @@ enum CompleterEvent {
     None,
 }
 
+#[derive(Debug)]
 pub struct ViewLine<'a> {
     pub text: RopeSlice<'a>,
     pub col_start_offset: usize,

@@ -13,7 +13,7 @@ use slotmap::{Key, SlotMap};
 use super::buffer::Buffer;
 use crate::{
     buffer::{ViewId, cursor::Cursor},
-    event_loop_proxy::EventLoopProxy,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
     file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,
     layout::panes::{PaneKind, Panes, layout::Layout},
@@ -112,7 +112,10 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn load_workspace(load_buffers: bool, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
+    pub fn load_workspace(
+        load_buffers: bool,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
+    ) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
         let mut file_explorers: SlotMap<FileExplorerId, FileExplorer> = SlotMap::with_key();
 

@@ -6,12 +6,17 @@ use std::{
 };
 
 use cb::select;
+use ferrite_runtime::unique_id::UniqueId;
 use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
 use ropey::RopeSlice;
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{Buffer, error::BufferError};
-use crate::{buffer::ViewId, cmd::Cmd, event_loop_proxy::EventLoopProxy};
+use crate::{
+    buffer::ViewId,
+    cmd::Cmd,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+};
 
 pub mod buffer_picker;
 pub mod file_picker;
@@ -47,6 +52,7 @@ pub struct Picker<M: Matchable> {
     choice: Option<M>,
     tx: cb::Sender<String>,
     rx: cb::Receiver<PickerResult<M>>,
+    unique_id: UniqueId,
 }
 
 impl<M> Picker<M>
@@ -56,7 +62,7 @@ where
     pub fn new<T: PickerOptionProvider<Matchable = M> + Send + Sync + 'static>(
         option_provder: T,
         previewer: Option<Box<dyn Previewer<M>>>,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         path: Option<PathBuf>,
     ) -> Self {
         let mut search_field = Buffer::builder().simple(true).build().unwrap();
@@ -99,7 +105,7 @@ where
                 }
 
                 if !search_rx.is_empty() || !options_recv.is_empty() {
-                    proxy.request_render();
+                    proxy.request_render("picker result empty");
                     continue;
                 }
 
@@ -114,7 +120,7 @@ where
                     }
                 }
 
-                proxy.request_render();
+                proxy.request_render("picker result ready");
             }
         });
 
@@ -130,6 +136,7 @@ where
                 matches: Vec::new(),
                 total: 0,
             },
+            unique_id: UniqueId::new(),
         }
     }
 }
@@ -229,6 +236,10 @@ where
 
     pub fn has_previewer(&self) -> bool {
         self.previewer.is_some()
+    }
+
+    pub fn unique_id(&self) -> UniqueId {
+        self.unique_id
     }
 }
 

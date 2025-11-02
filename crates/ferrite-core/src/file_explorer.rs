@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use ferrite_runtime::unique_id::UniqueId;
 use ferrite_utility::line_ending::LineEnding;
 use ropey::{Rope, RopeSlice};
 
@@ -45,6 +46,7 @@ pub struct FileExplorer {
     error: Option<std::io::Error>,
     pub buffer: Buffer,
     pub history: HashMap<PathBuf, OsString>,
+    unique_id: UniqueId,
 }
 
 impl FileExplorer {
@@ -57,6 +59,7 @@ impl FileExplorer {
             error: None,
             buffer: Buffer::new(),
             history: HashMap::new(),
+            unique_id: UniqueId::new(),
         };
         fe.change_dir(path);
         fe
@@ -248,5 +251,9 @@ impl FileExplorer {
 
     pub fn error(&self) -> &Option<std::io::Error> {
         &self.error
+    }
+
+    pub fn unique_id(&self) -> UniqueId {
+        self.unique_id
     }
 }

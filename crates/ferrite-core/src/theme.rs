@@ -5,14 +5,13 @@ use std::{
     fmt, fs,
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Arc,
 };
 
 use anyhow::Result;
+use ferrite_style::{self as style, Color, ParseColorError};
 use memchr::memrchr;
 use serde::Deserialize;
-use style::{Color, ParseColorError};
-
-pub mod style;
 
 #[derive(Debug)]
 pub enum StyleLoadError {
@@ -181,7 +180,7 @@ impl EditorTheme {
         Self::parse_theme(&fs::read_to_string(path)?)
     }
 
-    pub fn load_themes() -> HashMap<String, EditorTheme> {
+    pub fn load_themes() -> HashMap<String, Arc<EditorTheme>> {
         let mut theme_dirs = vec![PathBuf::from("themes")];
         if let Some(dirs) = directories::ProjectDirs::from("", "", "ferrite") {
             theme_dirs.push(dirs.config_dir().join("themes"));
@@ -208,7 +207,7 @@ impl EditorTheme {
                     match EditorTheme::load_theme(entry.path()) {
                         Ok(theme) => {
                             let name = path.file_stem().unwrap().to_string_lossy().into_owned();
-                            themes.entry(name).or_insert(theme);
+                            themes.entry(name).or_insert(Arc::new(theme));
                         }
                         Err(err) => {
                             tracing::error!("Error loading {} {err}", path.to_string_lossy())
@@ -221,11 +220,11 @@ impl EditorTheme {
         #[cfg(feature = "embed-themes")]
         {
             for (name, theme) in get_embedded_themes() {
-                themes.entry(name).or_insert(theme);
+                themes.entry(name).or_insert(Arc::new(theme));
             }
         }
 
-        themes.insert("default".into(), EditorTheme::default());
+        themes.insert("default".into(), Arc::new(EditorTheme::default()));
 
         tracing::info!("{:#?}", themes.keys().collect::<Vec<&String>>());
 

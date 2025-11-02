@@ -1,0 +1,20 @@
+[package]
+name = "ferrite-winit-wgpu-platform"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bytemuck = { workspace = true }
+cgmath = { workspace = true }
+cosmic-text = { workspace = true, features = ["monospace_fallback", "shape-run-cache"] }
+ferrite-ctx = { workspace = true }
+ferrite-geom = { workspace = true }
+ferrite-runtime = { workspace = true }
+glyphon = { workspace = true }
+pollster = { workspace = true }
+profiling  = { workspace = true }
+tracing = { workspace = true }
+tui = { workspace = true }
+unicode-width = { workspace = true }
+wgpu = { workspace = true, features = ["glsl"] }
+winit = { workspace = true }

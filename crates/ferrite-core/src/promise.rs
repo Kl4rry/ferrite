@@ -3,7 +3,7 @@ use std::{
     thread::{self, JoinHandle},
 };
 
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 enum Kind<T> {
     Thread(JoinHandle<T>),
@@ -16,10 +16,13 @@ pub struct Promise<T> {
 }
 
 impl<T: 'static + Send> Promise<T> {
-    pub fn spawn<F: 'static + FnOnce() -> T + Send>(proxy: Box<dyn EventLoopProxy>, f: F) -> Self {
+    pub fn spawn<F: 'static + FnOnce() -> T + Send>(
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
+        f: F,
+    ) -> Self {
         let thread = thread::spawn(move || {
             let value = (f)();
-            proxy.request_render();
+            proxy.request_render("promise ready");
             value
         });
         Self {

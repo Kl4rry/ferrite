@@ -7,7 +7,7 @@ use slotmap::Key;
 use crate::{buffer::ViewId, file_explorer::FileExplorerId, workspace::BufferId};
 
 // TODO: Remove this
-pub type Rect = ferrite_utility::geom::Rect<usize>;
+pub type Rect = ferrite_geom::rect::Rect<usize>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneKind {
@@ -175,6 +175,24 @@ impl Pane {
         match self {
             Pane::Leaf(_) => 1,
             Pane::Internal { left, right, .. } => left.num_panes() + right.num_panes(),
+        }
+    }
+
+    fn get_list_of_panes(&self, panes: &mut Vec<PaneKind>) {
+        match self {
+            Pane::Leaf(pane_kind) => panes.push(*pane_kind),
+            Pane::Internal {
+                left, right, split, ..
+            } => match split {
+                Split::Horizontal => {
+                    left.get_list_of_panes(panes);
+                    right.get_list_of_panes(panes);
+                }
+                Split::Vertical => {
+                    left.get_list_of_panes(panes);
+                    right.get_list_of_panes(panes);
+                }
+            },
         }
     }
 
@@ -382,6 +400,12 @@ impl Panes {
 
     pub fn num_panes(&self) -> usize {
         self.node.num_panes()
+    }
+
+    pub fn get_list_of_panes(&self) -> Vec<PaneKind> {
+        let mut panes = Vec::new();
+        self.node.get_list_of_panes(&mut panes);
+        panes
     }
 
     pub fn get_pane_bounds(&self, rect: Rect) -> Vec<(PaneKind, Rect)> {

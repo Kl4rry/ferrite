@@ -3,10 +3,11 @@ use std::{
     thread,
 };
 
-use ferrite_utility::{graphemes::RopeGraphemeExt as _, point::Point};
+use ferrite_geom::point::Point;
+use ferrite_utility::graphemes::RopeGraphemeExt as _;
 use ropey::{Rope, RopeSlice};
 
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SearchMatch {
@@ -31,7 +32,7 @@ pub struct BufferSearcher {
 
 impl BufferSearcher {
     pub fn new(
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         query: String,
         rope: Rope,
         case_insensitive: bool,
@@ -94,7 +95,7 @@ impl BufferSearcher {
                     }
                 }
 
-                proxy.request_render();
+                proxy.request_render("search results ready");
             }
             tracing::info!("search thread exit");
         });

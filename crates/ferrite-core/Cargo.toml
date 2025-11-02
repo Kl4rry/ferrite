@@ -18,6 +18,9 @@ encoding_rs = { workspace = true }
 executable-finder = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-ctx = { workspace = true }
+ferrite-geom = { workspace = true }
+ferrite-runtime = { workspace = true }
+ferrite-style = { workspace = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
 grep-matcher = { workspace = true }
@@ -45,9 +48,11 @@ subprocess = { workspace = true }
 toml = { workspace = true, features = ["parse", "display", "indexmap"] }
 tracing = { workspace = true }
 tree-sitter = { workspace = true }
+tui = { workspace = true }
+unicode-width = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true, features = ["fs", "stdio"] }
+rustix = { workspace = true, features = ["fs", "stdio", "process"] }
 
 [dev-dependencies]
 tempdir = { workspace = true }

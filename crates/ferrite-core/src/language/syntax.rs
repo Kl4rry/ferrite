@@ -15,7 +15,7 @@ use tree_sitter::{
 };
 
 use super::{TreeSitterConfig, get_tree_sitter_language};
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 type HighlightResult = Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>;
 
@@ -27,7 +27,7 @@ struct SyntaxProvider {
 impl SyntaxProvider {
     pub fn new(
         language: &'static TreeSitterConfig,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         result: HighlightResult,
     ) -> Result<Self> {
         let (rope_tx, rope_rx) = cb::unbounded::<Rope>();
@@ -62,7 +62,7 @@ impl SyntaxProvider {
                         rope.clone(),
                         iterator.filter_map(|event| event.ok()).collect(),
                     ));
-                    proxy.request_render();
+                    proxy.request_render("syntax update parsed");
                 }
                 tracing::trace!(
                     "highlight took: {}us or {}ms",
@@ -85,11 +85,11 @@ impl SyntaxProvider {
 pub struct Syntax {
     syntax_provder: Option<SyntaxProvider>,
     result: HighlightResult,
-    proxy: Box<dyn EventLoopProxy>,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
 
 impl Syntax {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
             syntax_provder: None,
             result: Arc::new(Mutex::new(None)),
@@ -120,7 +120,7 @@ impl Syntax {
         Some(&self.syntax_provder.as_ref()?.language.name)
     }
 
-    pub fn update_text(&mut self, rope: Rope) {
+    pub fn update_text(&self, rope: Rope) {
         if let Some(syntax) = &self.syntax_provder {
             syntax.update_text(rope);
         }

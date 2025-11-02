@@ -7,7 +7,11 @@ use notify_debouncer_full::{
 };
 use slotmap::SlotMap;
 
-use crate::{buffer::Buffer, event_loop_proxy::EventLoopProxy, workspace::BufferId};
+use crate::{
+    buffer::Buffer,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+    workspace::BufferId,
+};
 
 pub struct BufferWatcher {
     watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
@@ -16,7 +20,7 @@ pub struct BufferWatcher {
 }
 
 impl BufferWatcher {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Result<Self> {
         let (tx, rx) = mpsc::channel();
 
         let debouncer = new_debouncer(
@@ -29,7 +33,7 @@ impl BufferWatcher {
                             && let Some(path) = event.event.paths.pop()
                         {
                             let _ = tx.send(path);
-                            proxy.request_render();
+                            proxy.request_render("watched filed updated");
                         }
                     }
                 }

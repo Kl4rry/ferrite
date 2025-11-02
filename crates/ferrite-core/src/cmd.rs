@@ -1,7 +1,8 @@
 use core::fmt;
 use std::path::PathBuf;
 
-use ferrite_utility::{line_ending::LineEnding, point::Point};
+use ferrite_geom::point::Point;
+use ferrite_utility::line_ending::LineEnding;
 use serde::{Deserialize, Serialize};
 
 use crate::{buffer::case::Case, layout::panes::Direction};

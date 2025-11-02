@@ -6,11 +6,14 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{cmd::Cmd, event_loop_proxy::EventLoopProxy};
+use crate::{
+    cmd::Cmd,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+};
 
-static PROXY: Mutex<Option<Box<dyn EventLoopProxy>>> = Mutex::new(None);
+static PROXY: Mutex<Option<Box<dyn EventLoopProxy<UserEvent>>>> = Mutex::new(None);
 
-pub fn set_proxy(proxy: Box<dyn EventLoopProxy>) {
+pub fn set_proxy(proxy: Box<dyn EventLoopProxy<UserEvent>>) {
     *PROXY.lock().unwrap() = Some(proxy);
 }
 
@@ -52,7 +55,8 @@ impl Write for LoggerSink {
         if last_line_start > 0
             && let Some(proxy) = &*PROXY.lock().unwrap()
         {
-            proxy.request_render();
+            // TODO: this causes redrawing even if log window is not visible
+            proxy.request_render("new log messages ready");
         }
 
         Ok(buf.len())

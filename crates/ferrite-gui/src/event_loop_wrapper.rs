@@ -9,7 +9,7 @@ impl EventLoopProxyWrapper {
     }
 }
 
-impl EventLoopProxy for EventLoopProxyWrapper {
+impl EventLoopProxy<UserEvent> for EventLoopProxyWrapper {
     fn send(&self, event: UserEvent) {
         let _ = self.0.send_event(event);
     }
@@ -18,7 +18,7 @@ impl EventLoopProxy for EventLoopProxyWrapper {
         let _ = self.0.send_event(UserEvent::Wake);
     }
 
-    fn dup(&self) -> Box<dyn EventLoopProxy> {
+    fn dup(&self) -> Box<dyn EventLoopProxy<UserEvent>> {
         Box::new(self.clone())
     }
 }

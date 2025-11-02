@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     buffer::Buffer,
-    event_loop_proxy::EventLoopProxy,
+    event_loop_proxy::{EventLoopProxy, UserEvent},
     picker::{Preview, Previewer},
     promise::Promise,
 };
@@ -25,11 +25,11 @@ pub fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
 pub struct FilePreviewer {
     files: HashMap<String, Result<Option<Buffer>, io::Error>>,
     loading: HashMap<String, Promise<Result<Option<Buffer>, io::Error>>>,
-    proxy: Box<dyn EventLoopProxy>,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
 
 impl FilePreviewer {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
             files: HashMap::new(),
             loading: HashMap::new(),

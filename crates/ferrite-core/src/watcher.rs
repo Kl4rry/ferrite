@@ -12,7 +12,7 @@ use notify_debouncer_full::{
 };
 use serde::Deserialize;
 
-use crate::event_loop_proxy::EventLoopProxy;
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 pub trait ConfigType<T> {
     fn from_file(path: impl AsRef<Path>) -> Result<T>;
@@ -51,7 +51,7 @@ where
     T: 'static + for<'a> Deserialize<'a> + Send,
     C: ConfigType<T>,
 {
-    pub fn new(path: impl AsRef<Path>, proxy: Box<dyn EventLoopProxy>) -> Result<Self> {
+    pub fn new(path: impl AsRef<Path>, proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Result<Self> {
         let path = path.as_ref();
         let (tx, rx) = mpsc::channel();
 
@@ -66,7 +66,7 @@ where
                             notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
                                 let data: Result<T> = C::from_file(&path_buf);
                                 let _ = tx.send(data);
-                                proxy.request_render();
+                                proxy.request_render("generic file watcher");
                             }
                             _ => (),
                         }

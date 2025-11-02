@@ -91,13 +91,13 @@ pub enum PaletteState {
 }
 
 pub struct CommandPalette {
-    proxy: Box<dyn EventLoopProxy>,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
     state: PaletteState,
     histories: HashMap<PaletteMode, History>,
 }
 
 impl CommandPalette {
-    pub fn new(proxy: Box<dyn EventLoopProxy>) -> Self {
+    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
             state: PaletteState::Nothing,
             proxy,
@@ -129,6 +129,7 @@ impl CommandPalette {
         let mut buffer = Buffer::builder().simple(true).build().unwrap();
         let view_id = buffer.create_view();
         buffer.set_view_lines(view_id, 1);
+        buffer.views[view_id].clamp_cursor = true;
         if let PaletteState::Input {
             mode: input_mode,
             focused,
@@ -331,6 +332,8 @@ impl CommandPalette {
 
                     input => {
                         buffer.handle_input(*view_id, input)?;
+                        // Make sure there is only a single cursor
+                        buffer.views[*view_id].cursors.clear();
                     }
                 }
 

@@ -11,7 +11,8 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_utility::{line_ending, point::Point, trim::trim_path, url};
+use ferrite_geom::point::Point;
+use ferrite_utility::{line_ending, trim::trim_path, url};
 use linkify::{LinkFinder, LinkKind};
 use ropey::Rope;
 
@@ -58,13 +59,13 @@ use crate::{
 
 pub struct Engine {
     pub workspace: Workspace,
-    pub themes: HashMap<String, EditorTheme>,
+    pub themes: HashMap<String, Arc<EditorTheme>>,
     pub config: Config,
     pub palette: CommandPalette,
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
-    pub proxy: Box<dyn EventLoopProxy>,
+    pub proxy: Box<dyn EventLoopProxy<UserEvent>>,
     pub file_scanner: Option<FileScanner>,
     pub job_manager: JobManager,
     pub save_jobs: Vec<(BufferId, JobHandle<Result<SaveBufferJob>>)>,
@@ -88,7 +89,7 @@ pub struct Engine {
 impl Engine {
     pub fn new(
         args: &Args,
-        proxy: Box<dyn EventLoopProxy>,
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
         recv: mpsc::Receiver<LogMessage>,
     ) -> Result<Self> {
         set_proxy(proxy.dup());
@@ -158,7 +159,7 @@ impl Engine {
         };
 
         let config = Config {
-            editor: config,
+            editor: Arc::new(config),
             editor_path: config_path,
             editor_watcher: config_watcher,
             languages,
@@ -247,11 +248,11 @@ impl Engine {
             && let Some(result) = config_watcher.poll_update()
         {
             match result {
-                Ok(editor) => {
-                    self.config.editor = editor;
-                    if !self.themes.contains_key(&self.config.editor.theme) {
-                        self.config.editor.theme = "default".into();
+                Ok(mut editor) => {
+                    if !self.themes.contains_key(&editor.theme) {
+                        editor.theme = "default".into();
                     }
+                    self.config.editor = Arc::new(editor);
                     self.palette.set_msg("Reloaded editor config");
                     self.config.keymap = Keymap::from_editor(&self.config.editor);
                 }
@@ -380,9 +381,8 @@ impl Engine {
             }
         }
 
-        // Its kinda hard to clean up all views created correctly.
-        // Here we just find all views not connected to a pane and
-        // we just remove them.
+        // Its kinda hard to clean up all views created correctly. Here we just
+        // find all views not connected to a pane and we just remove them.
         for (buffer_id, buffer) in &mut self.workspace.buffers {
             for view_id in buffer.views.keys().collect::<Vec<_>>() {
                 if !self
@@ -536,7 +536,7 @@ impl Engine {
             Cmd::Replace => self.start_replace(),
             Cmd::GlobalSearch => self.global_search(),
             Cmd::CaseInsensitive => {
-                self.config.editor.case_insensitive_search =
+                Arc::make_mut(&mut self.config.editor).case_insensitive_search =
                     !self.config.editor.case_insensitive_search;
                 if let Some(PaletteMode::Search) = self.palette.mode() {
                     self.palette.update_prompt(self.get_search_prompt(false));
@@ -797,7 +797,7 @@ impl Engine {
                 {
                     #[allow(clippy::map_entry)]
                     if self.themes.contains_key(&theme) {
-                        self.config.editor.theme = theme;
+                        Arc::make_mut(&mut self.config.editor).theme = theme;
                     } else {
                         self.palette.set_error("Theme not found");
                     }
