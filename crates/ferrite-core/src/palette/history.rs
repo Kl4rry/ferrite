@@ -13,9 +13,9 @@ impl History {
             return;
         }
 
-        self.entires.push_back(text);
+        self.entires.push_front(text);
         if self.entires.len() > 1000 {
-            self.entires.pop_front();
+            self.entires.pop_back();
         }
     }
 
