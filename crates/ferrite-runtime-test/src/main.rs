@@ -60,7 +60,9 @@ fn input(engine: &mut Engine, input: InputEvent<UserEvent>) {
                         &mut EventLoopControlFlow::Poll,
                     );
                 }
-                ScrollDelta::Pixel(_x, _y) => todo!(),
+                ScrollDelta::Pixel(_x, _y) => {
+                    // TODO: add smooth scrolling
+                }
             }
             None
         }
