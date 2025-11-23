@@ -71,6 +71,12 @@ where
             vertical: 1,
         });
 
+        // This is a fix for a crash when the window is too small
+        if buf.area.width < 8 {
+            return;
+        }
+        // TODO: display to small text
+
         let search_field_block = Block::default()
             .borders(Borders::BOTTOM)
             .border_style(self.theme.border)

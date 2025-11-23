@@ -42,6 +42,10 @@ impl<T> Rect<T>
 where
     T: Add<Output = T> + Mul<Output = T> + PartialOrd + Copy,
 {
+    pub fn position(&self) -> Vec2<T> {
+        Vec2::new(self.x, self.y)
+    }
+
     pub fn intersects(&self, other: &Self) -> bool {
         self.x < self.x + self.width
             && self.x + self.width > other.x
@@ -124,7 +128,7 @@ impl From<tui::layout::Rect> for Rect {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Vec2<T = usize> {
     pub x: T,
     pub y: T,

@@ -110,6 +110,8 @@ opt-level = 3
 
 [profile.release]
 panic = "abort"
+opt-level = "s"
+lto = "thin"
 
 [workspace]
 resolver = "2"

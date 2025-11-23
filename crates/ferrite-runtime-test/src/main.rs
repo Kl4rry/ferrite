@@ -12,6 +12,7 @@ use ferrite_core::{
     keymap,
     logger::LoggerSink,
     views::{
+        chord_view::ChordView,
         container::Container,
         lens::Lens,
         main_view::MainView,
@@ -83,23 +84,32 @@ fn layout(engine: &mut Engine) -> AnyView<Engine> {
     let theme = engine.themes[&engine.config.editor.theme].clone();
     let config = engine.config.editor.clone();
 
+    let mut stack = Vec::new();
+
+    stack.push(AnyView::new(MainView::new(
+        PaneView::new(engine),
+        PaletteView::new(theme.clone(), config.clone(), engine.palette.has_focus()),
+    )));
+    if engine.chord.is_some() {
+        stack.push(AnyView::new(ChordView::new(theme.clone())));
+    }
+
     let m_x = 5;
     let m_y = 3;
-    let mut picker_view: Option<AnyView<Engine>> = None;
     if engine.file_picker.is_some() {
         profiling::scope!("render tui file picker");
         let p = Lens::new(
             PickerView::new(theme.clone(), config.clone(), "Open file"),
             |engine: &mut Engine| engine.file_picker.as_mut().unwrap(),
         );
-        picker_view = Some(AnyView::new(Container::new(p).margin(m_x, m_y)));
+        stack.push(AnyView::new(Container::new(p).margin(m_x, m_y)));
     } else if engine.buffer_picker.is_some() {
         profiling::scope!("render tui buffer picker");
         let p = Lens::new(
             PickerView::new(theme.clone(), config.clone(), "Open buffer"),
             |engine: &mut Engine| engine.buffer_picker.as_mut().unwrap(),
         );
-        picker_view = Some(AnyView::new(Container::new(p).margin(m_x, m_y)));
+        stack.push(AnyView::new(Container::new(p).margin(m_x, m_y)));
     } else if engine.global_search_picker.is_some() {
         profiling::scope!("render tui search picker");
         let p = Lens::new(
@@ -107,17 +117,10 @@ fn layout(engine: &mut Engine) -> AnyView<Engine> {
                 .set_text_align(TextAlign::Left),
             |engine: &mut Engine| engine.global_search_picker.as_mut().unwrap(),
         );
-        picker_view = Some(AnyView::new(Container::new(p).margin(m_x, m_y)));
+        stack.push(AnyView::new(Container::new(p).margin(m_x, m_y)));
     };
 
-    let main_view = AnyView::new(MainView::new(
-        PaneView::new(engine),
-        PaletteView::new(theme.clone(), config.clone(), engine.palette.has_focus()),
-    ));
-    match picker_view {
-        Some(picker_view) => AnyView::new(ZStack::new(vec![main_view, picker_view])),
-        None => main_view,
-    }
+    AnyView::new(ZStack::new(stack))
 }
 
 fn main() -> Result<ExitCode> {

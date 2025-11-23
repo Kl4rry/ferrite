@@ -7,7 +7,7 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use cursor::{Cursor, Selection};
@@ -60,9 +60,6 @@ pub struct View {
     pub cursors: Vec1<Cursor>,
     pub line_pos: f64,
     pub col_pos: f64,
-    last_click: Instant,
-    last_click_pos: Point<usize>,
-    clicks_in_a_row: u8,
     pub clamp_cursor: bool,
     pub searcher: Option<BufferSearcher>,
     pub replacement: Option<String>,
@@ -79,9 +76,6 @@ impl Default for View {
             cursors: Vec1::default(),
             line_pos: 0.0,
             col_pos: 0.0,
-            last_click: Instant::now(),
-            last_click_pos: Point::new(0, 0),
-            clicks_in_a_row: 0,
             clamp_cursor: true,
             searcher: None,
             replacement: None,
@@ -100,9 +94,6 @@ impl Clone for View {
             cursors: self.cursors.clone(),
             line_pos: self.line_pos,
             col_pos: self.col_pos,
-            last_click: self.last_click,
-            last_click_pos: self.last_click_pos,
-            clicks_in_a_row: self.clicks_in_a_row,
             clamp_cursor: self.clamp_cursor,
             searcher: None,    // TODO: fix
             replacement: None, // TODO: fix
@@ -1170,6 +1161,7 @@ impl Buffer {
             .max(0) as usize;
 
         self.set_cursor_pos(view_id, 0, 0, line_idx);
+        self.set_anchor_pos(view_id, 0, 0, line_idx);
         if self.views[view_id].clamp_cursor {
             self.center_on_main_cursor(view_id);
         }
@@ -2309,6 +2301,7 @@ impl Buffer {
     pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
         self.views[view_id].cursors.clear();
         self.set_cursor_pos(view_id, 0, col, line);
+        self.set_anchor_pos(view_id, 0, col, line);
         self.insert_text(view_id, &clipboard::get_primary(), true);
         self.history.finish();
         self.on_file_changed(Some(view_id));
@@ -2405,7 +2398,14 @@ impl Buffer {
         }
     }
 
-    pub fn handle_click(&mut self, view_id: ViewId, spawn_cursor: bool, col: usize, line: usize) {
+    pub fn handle_click(
+        &mut self,
+        view_id: ViewId,
+        clicks: usize,
+        spawn_cursor: bool,
+        col: usize,
+        line: usize,
+    ) {
         let cursor_idx = if spawn_cursor {
             self.views[view_id].cursors.push(Cursor::default());
             self.views[view_id].cursors.len() - 1
@@ -2414,34 +2414,41 @@ impl Buffer {
             0
         };
         self.set_cursor_pos(view_id, cursor_idx, col, line);
+        self.set_anchor_pos(view_id, cursor_idx, col, line);
         self.views[view_id].cursors[cursor_idx].affinity =
             self.cursor_grapheme_column(view_id, cursor_idx);
 
-        let click_point = Point::new(col, line);
-        let now = Instant::now();
-        if now.duration_since(self.views[view_id].last_click) < Duration::from_millis(500)
-            && click_point == self.views[view_id].last_click_pos
-        {
-            self.views[view_id].clicks_in_a_row += 1;
-            if self.views[view_id].clicks_in_a_row == 1 {
+        match clicks {
+            2 => {
                 self.select_word_raw(view_id, cursor_idx);
                 if !spawn_cursor {
                     self.copy_selection_to_primary(view_id);
                 }
-            } else if self.views[view_id].clicks_in_a_row == 2 {
+            }
+            3 => {
                 self.select_line_raw(view_id, cursor_idx);
                 if !spawn_cursor {
                     self.copy_selection_to_primary(view_id);
                 }
-            } else {
-                self.views[view_id].clicks_in_a_row = 0;
             }
-        } else {
-            self.views[view_id].clicks_in_a_row = 0;
+            _ => (),
         }
-        self.views[view_id].last_click = now;
-        self.views[view_id].last_click_pos = click_point;
+
         self.views[view_id].coalesce_cursors();
+        self.hide_completers();
+    }
+
+    pub fn handle_drag(&mut self, view_id: ViewId, column: usize, line: usize) {
+        let last_idx = self.views[view_id].cursors.len() - 1;
+        self.set_cursor_pos(view_id, last_idx, column, line);
+        self.views[view_id].coalesce_cursors();
+
+        if self.views[view_id].cursors.len() == 1 {
+            self.copy_selection_to_primary(view_id);
+        }
+
+        self.update_affinity(view_id);
+        self.history.finish();
         self.hide_completers();
     }
 
@@ -2473,8 +2480,6 @@ impl Buffer {
             }
             self.views[view_id].cursors[cursor_index].position = next_line_start + byte_idx;
         }
-        self.views[view_id].cursors[cursor_index].anchor =
-            self.views[view_id].cursors[cursor_index].position;
     }
 
     pub fn set_anchor_pos(

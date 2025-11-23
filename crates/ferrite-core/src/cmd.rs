@@ -135,6 +135,11 @@ pub enum Cmd {
     DeleteToEndOfLine,
     ClickCell {
         spawn_cursor: bool,
+        clicks: usize,
+        column: usize,
+        line: usize,
+    },
+    DragCell {
         column: usize,
         line: usize,
     },
@@ -247,6 +252,7 @@ impl Cmd {
             DeleteWord => "Delete word",
             DeleteToEndOfLine => "Delete to end of line",
             ClickCell { .. } => "Set cursor pos",
+            DragCell { .. } => "Set cursor pos and maintain anchor pos",
             SelectArea { .. } => "Select area",
             PromptGoto => "Goto",
             Home { .. } => "Home",
@@ -383,6 +389,7 @@ impl Cmd {
             DeleteWord => true,
             DeleteToEndOfLine => true,
             ClickCell { .. } => false,
+            DragCell { .. } => false,
             SelectArea { .. } => false,
             PromptGoto => false,
             Home { .. } => true,

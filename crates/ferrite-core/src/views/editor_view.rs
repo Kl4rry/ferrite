@@ -5,7 +5,10 @@ use ferrite_geom::{
     point::Point,
     rect::{Rect, Vec2},
 };
-use ferrite_runtime::{Bounds, View, painter::Rounding};
+use ferrite_runtime::{
+    Bounds, MouseButton, MouseInterction, MouseInterctionKind, View, input::keycode::KeyModifiers,
+    painter::Rounding,
+};
 use ferrite_style::Style;
 use ferrite_utility::graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at};
 use rayon::{
@@ -19,6 +22,7 @@ use unicode_width::UnicodeWidthStr;
 use super::info_line_view::InfoLineView;
 use crate::{
     buffer::{Buffer, ViewId, cursor::Selection, search::SearchMatch},
+    cmd::Cmd,
     config::{
         self,
         editor::{CursorType, Editor, LineNumber},
@@ -82,6 +86,45 @@ impl EditorView {
 }
 
 impl View<Buffer> for EditorView {
+    fn handle_mouse(
+        &self,
+        buffer: &mut Buffer,
+        bounds: Bounds,
+        mouse_interaction: MouseInterction,
+    ) -> bool {
+        let cell_position = mouse_interaction.cell_position(bounds.view_bounds().position());
+        let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
+        match mouse_interaction.kind {
+            MouseInterctionKind::Click(clicks) if mouse_interaction.button == MouseButton::Left => {
+                buffer.handle_click(
+                    self.view_id,
+                    clicks,
+                    mouse_interaction.modifiers == KeyModifiers::ALT,
+                    cell_position.x.saturating_sub(left_offset),
+                    cell_position.y,
+                );
+            }
+            MouseInterctionKind::Click(_) if mouse_interaction.button == MouseButton::Middle => {
+                let cmd = Cmd::PastePrimary {
+                    column: cell_position.x.saturating_sub(left_offset),
+                    line: cell_position.y,
+                };
+                // NOTE: Should never panic
+                buffer.handle_input(self.view_id, cmd).unwrap();
+            }
+            MouseInterctionKind::Drag => {
+                let cmd = Cmd::DragCell {
+                    column: cell_position.x.saturating_sub(left_offset),
+                    line: cell_position.y,
+                };
+                // NOTE: Should never panic
+                buffer.handle_input(self.view_id, cmd).unwrap();
+            }
+            _ => (),
+        }
+        true
+    }
+
     fn render(
         &self,
         buffer: &mut Buffer,

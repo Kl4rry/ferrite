@@ -1,8 +1,16 @@
-use std::{any::TypeId, collections::HashMap, iter, sync::Arc, time::Instant};
+use std::{
+    any::TypeId,
+    collections::HashMap,
+    iter,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use ferrite_geom::rect::{Rect, Vec2};
 use ferrite_runtime::{
-    Bounds, Input, Layout, Painter, Runtime, Update, View,
+    Bounds, Input, Layout, MouseButton, MouseInterction, MouseInterctionKind, MouseState, Painter,
+    Runtime, Update, View,
+    any_view::AnyView,
     event_loop_proxy::EventLoopProxy,
     id::Id,
     input::{
@@ -39,6 +47,7 @@ struct State {
     painter: Painter,
     modifiers: KeyModifiers,
     touched: Vec<(TypeId, Id)>,
+    mouse_state: MouseState,
 }
 
 pub fn create_event_loop<E: Send>() -> (
@@ -86,6 +95,7 @@ struct App<S, UserEvent> {
     update: Update<S>,
     input: Input<S, UserEvent>,
     layout: Layout<S>,
+    view_tree: AnyView<S>,
 }
 
 pub struct WinitWgpuPlatform<S, UserEvent> {
@@ -124,13 +134,14 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         let (width, height) = (state.config.width, state.config.height);
 
         {
-            let view = (app.layout)(&mut app.runtime.state);
+            app.view_tree = (app.layout)(&mut app.runtime.state);
             let bounds = Bounds::new(
                 Rect::new(0, 0, width as usize, height as usize),
                 Vec2::new(cell_width, cell_height),
                 Rounding::Round,
             );
-            view.render(&mut app.runtime.state, bounds, &mut state.painter);
+            app.view_tree
+                .render(&mut app.runtime.state, bounds, &mut state.painter);
         }
 
         state.touched.clear();
@@ -259,16 +270,19 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
     pub fn run(
         mut self,
         event_loop: EventLoop<PlatformEvent<UserEvent>>,
-        runtime: Runtime<S>,
+        mut runtime: Runtime<S>,
         update: Update<S>,
         input: Input<S, UserEvent>,
         layout: Layout<S>,
     ) {
+        let view_tree = (layout)(&mut runtime.state);
+
         self.app = Some(App {
             runtime,
             update,
             input,
             layout,
+            view_tree,
         });
         event_loop.set_control_flow(ControlFlow::Wait);
         event_loop.run_app(&mut self).unwrap();
@@ -358,6 +372,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             painter,
             modifiers: KeyModifiers::empty(),
             touched: Vec::new(),
+            mouse_state: MouseState::default(),
         });
     }
 
@@ -443,11 +458,134 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 }
             }
             WindowEvent::MouseInput {
-                state: _,
-                button: _,
+                state: element_state,
+                button,
                 ..
             } => {
-                // TODO
+                let button = match button {
+                    winit::event::MouseButton::Left => MouseButton::Left,
+                    winit::event::MouseButton::Right => MouseButton::Right,
+                    winit::event::MouseButton::Middle => MouseButton::Middle,
+                    _ => return,
+                };
+
+                let state = self.state.as_mut().unwrap();
+                let app = self.app.as_mut().unwrap();
+
+                match element_state {
+                    winit::event::ElementState::Released => match button {
+                        MouseButton::Left => state.mouse_state.left.pressed = false,
+                        MouseButton::Right => state.mouse_state.right.pressed = false,
+                        MouseButton::Middle => state.mouse_state.middle.pressed = false,
+                    },
+                    winit::event::ElementState::Pressed => {
+                        let mouse_state = match button {
+                            MouseButton::Left => &mut state.mouse_state.left,
+                            MouseButton::Right => &mut state.mouse_state.right,
+                            MouseButton::Middle => &mut state.mouse_state.middle,
+                        };
+
+                        mouse_state.pressed = true;
+                        let now = Instant::now();
+                        if now.duration_since(mouse_state.last_press) < Duration::from_millis(400) {
+                            mouse_state.clicks += 1;
+                            if mouse_state.clicks > 3 {
+                                mouse_state.clicks = 1;
+                            }
+                        }
+
+                        let metrics = backend::get_metrics(app.runtime.scale);
+                        let (cell_width, cell_height) = backend::calculate_cell_size(
+                            &mut state.renderer.font_system,
+                            metrics,
+                            glyphon::Weight(app.runtime.font_weight),
+                        );
+
+                        let (width, height) = (state.config.width, state.config.height);
+                        let bounds = Bounds::new(
+                            Rect::new(0, 0, width as usize, height as usize),
+                            Vec2::new(cell_width, cell_height),
+                            Rounding::Round,
+                        );
+
+                        let mouse_interaction = MouseInterction {
+                            button: MouseButton::Left,
+                            kind: MouseInterctionKind::Click(mouse_state.clicks),
+                            cell_size: Vec2::new(cell_width, cell_height),
+                            position: state.mouse_state.position,
+                            modifiers: state.modifiers,
+                        };
+
+                        app.view_tree.handle_mouse(
+                            &mut app.runtime.state,
+                            bounds,
+                            mouse_interaction,
+                        );
+                    }
+                }
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let state = self.state.as_mut().unwrap();
+                let app = self.app.as_mut().unwrap();
+
+                state.mouse_state.position.x = position.x as f32;
+                state.mouse_state.position.y = position.y as f32;
+
+                // Early return as nothing should be done if we just hovered
+                if !state.mouse_state.left.pressed
+                    && !state.mouse_state.right.pressed
+                    && !state.mouse_state.middle.pressed
+                {
+                    return;
+                }
+
+                let metrics = backend::get_metrics(app.runtime.scale);
+                let (cell_width, cell_height) = backend::calculate_cell_size(
+                    &mut state.renderer.font_system,
+                    metrics,
+                    glyphon::Weight(app.runtime.font_weight),
+                );
+
+                let (width, height) = (state.config.width, state.config.height);
+                let bounds = Bounds::new(
+                    Rect::new(0, 0, width as usize, height as usize),
+                    Vec2::new(cell_width, cell_height),
+                    Rounding::Round,
+                );
+
+                if state.mouse_state.left.pressed {
+                    let mouse_interaction = MouseInterction {
+                        button: MouseButton::Left,
+                        kind: MouseInterctionKind::Drag,
+                        cell_size: Vec2::new(cell_width, cell_height),
+                        position: Vec2::new(position.x as f32, position.y as f32),
+                        modifiers: state.modifiers,
+                    };
+                    app.view_tree
+                        .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
+                }
+                if state.mouse_state.right.pressed {
+                    let mouse_interaction = MouseInterction {
+                        button: MouseButton::Right,
+                        kind: MouseInterctionKind::Drag,
+                        cell_size: Vec2::new(cell_width, cell_height),
+                        position: Vec2::new(position.x as f32, position.y as f32),
+                        modifiers: state.modifiers,
+                    };
+                    app.view_tree
+                        .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
+                }
+                if state.mouse_state.middle.pressed {
+                    let mouse_interaction = MouseInterction {
+                        button: MouseButton::Middle,
+                        kind: MouseInterctionKind::Drag,
+                        cell_size: Vec2::new(cell_width, cell_height),
+                        position: Vec2::new(position.x as f32, position.y as f32),
+                        modifiers: state.modifiers,
+                    };
+                    app.view_tree
+                        .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
+                }
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let app = self.app.as_mut().unwrap();

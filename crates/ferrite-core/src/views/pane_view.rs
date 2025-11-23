@@ -1,4 +1,5 @@
-use ferrite_runtime::{Bounds, View, any_view::AnyView};
+use ferrite_geom::rect::Vec2;
+use ferrite_runtime::{Bounds, MouseInterction, View, any_view::AnyView};
 
 use crate::{
     engine::Engine,
@@ -80,7 +81,37 @@ impl PaneView {
 }
 
 impl View<Engine> for PaneView {
+    fn handle_mouse(
+        &self,
+        engine: &mut Engine,
+        bounds: Bounds,
+        mouse_interaction: MouseInterction,
+    ) -> bool {
+        let pane_bounds = engine.workspace.panes.get_pane_bounds(bounds.view_bounds());
+        for (pane_kind, pane_bound) in pane_bounds {
+            let (_, view) = self
+                .views
+                .iter()
+                .find(|(view_pane_kind, _)| pane_kind == *view_pane_kind)
+                .unwrap();
+            if pane_bound.contains(Vec2::new(
+                mouse_interaction.position.x as usize,
+                mouse_interaction.position.y as usize,
+            )) {
+                engine.workspace.panes.make_current(pane_kind);
+                view.handle_mouse(
+                    engine,
+                    Bounds::new(pane_bound, bounds.cell_size(), bounds.rounding),
+                    mouse_interaction,
+                );
+                return true;
+            }
+        }
+        false
+    }
+
     fn render(&self, engine: &mut Engine, bounds: Bounds, painter: &mut ferrite_runtime::Painter) {
+        // TODO: draw separating lines
         let pane_bounds = engine.workspace.panes.get_pane_bounds(bounds.view_bounds());
         for (pane_kind, pane_bound) in pane_bounds {
             let (_, view) = self

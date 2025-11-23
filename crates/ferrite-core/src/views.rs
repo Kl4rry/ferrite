@@ -1,4 +1,5 @@
 pub mod centered_text_view;
+pub mod chord_view;
 pub mod completer_view;
 pub mod container;
 pub mod editor_view;

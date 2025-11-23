@@ -170,6 +170,17 @@ impl Bounds {
     pub fn cell_size(&self) -> Vec2<f32> {
         self.cell_size
     }
+
+    pub fn contains(&self, view_position: Vec2<f32>) -> bool {
+        let view_bounds = self.view_bounds();
+        let view_bounds = Rect::new(
+            view_bounds.x as f32,
+            view_bounds.y as f32,
+            view_bounds.width as f32,
+            view_bounds.height as f32,
+        );
+        view_bounds.contains(view_position)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

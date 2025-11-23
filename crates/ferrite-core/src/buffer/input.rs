@@ -46,10 +46,12 @@ impl Buffer {
             VerticalScrollTo { position } => self.vertical_scroll_to(view_id, position),
             Escape => self.escape(view_id),
             ClickCell {
+                clicks,
                 spawn_cursor,
                 column,
                 line,
-            } => self.handle_click(view_id, spawn_cursor, column, line),
+            } => self.handle_click(view_id, clicks, spawn_cursor, column, line),
+            DragCell { column, line } => self.handle_drag(view_id, column, line),
             SelectArea { cursor, anchor } => self.select_area(view_id, cursor, anchor, true),
             NextMatch => self.next_match(view_id),
             PrevMatch => self.prev_match(view_id),
