@@ -63,7 +63,7 @@
 
 "variable" = { fg = "white" }  # Variable names.
 "variable.builtin" = { fg = "red" } # Language reserved variables: `this`, `self`, `super`, etc.
-"variable.parameter" = { fg = "cyan-bright" } # Function parameters.
+"variable.parameter" = { fg = "white" } # Function parameters.
 "variable.other.member" = { fg = "fg2" } # Fields of composite data types (e.g. structs, unions).
 
 "label" = { fg = "magenta-bright" } # lifetimes - Loop labels, among other things.
