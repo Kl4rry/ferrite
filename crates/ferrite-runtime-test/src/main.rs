@@ -102,14 +102,18 @@ fn layout(engine: &mut Engine) -> AnyView<Engine> {
             PickerView::new(theme.clone(), config.clone(), "Open file"),
             |engine: &mut Engine| engine.file_picker.as_mut().unwrap(),
         );
-        stack.push(AnyView::new(Container::new(p).margin(m_x, m_y)));
+        stack.push(AnyView::new(
+            Container::new(p).margin(m_x, m_y).grid_alinged(true),
+        ));
     } else if engine.buffer_picker.is_some() {
         profiling::scope!("render tui buffer picker");
         let p = Lens::new(
             PickerView::new(theme.clone(), config.clone(), "Open buffer"),
             |engine: &mut Engine| engine.buffer_picker.as_mut().unwrap(),
         );
-        stack.push(AnyView::new(Container::new(p).margin(m_x, m_y)));
+        stack.push(AnyView::new(
+            Container::new(p).margin(m_x, m_y).grid_alinged(true),
+        ));
     } else if engine.global_search_picker.is_some() {
         profiling::scope!("render tui search picker");
         let p = Lens::new(
@@ -117,7 +121,9 @@ fn layout(engine: &mut Engine) -> AnyView<Engine> {
                 .set_text_align(TextAlign::Left),
             |engine: &mut Engine| engine.global_search_picker.as_mut().unwrap(),
         );
-        stack.push(AnyView::new(Container::new(p).margin(m_x, m_y)));
+        stack.push(AnyView::new(
+            Container::new(p).margin(m_x, m_y).grid_alinged(true),
+        ));
     };
 
     AnyView::new(ZStack::new(stack))

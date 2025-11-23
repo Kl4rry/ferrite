@@ -7,6 +7,7 @@ pub struct Container<V, S> {
     inner: V,
     margin_x: usize,
     margin_y: usize,
+    grid_alinged: bool,
     phantom: PhantomData<fn(&mut S)>,
 }
 
@@ -19,6 +20,7 @@ where
             inner,
             margin_x: 0,
             margin_y: 0,
+            grid_alinged: false,
             phantom: PhantomData,
         }
     }
@@ -26,6 +28,11 @@ where
     pub fn margin(mut self, margin_x: usize, margin_y: usize) -> Self {
         self.margin_x = margin_x;
         self.margin_y = margin_y;
+        self
+    }
+
+    pub fn grid_alinged(mut self, grid_alinged: bool) -> Self {
+        self.grid_alinged = grid_alinged;
         self
     }
 }
@@ -36,15 +43,31 @@ where
 {
     fn render(&self, state: &mut S, bounds: Bounds, painter: &mut ferrite_runtime::Painter) {
         let cell_size = bounds.cell_size();
-        let view_bounds = bounds.view_bounds();
+
+        let (x, y, width, height) = if self.grid_alinged {
+            let grid_bounds = bounds.grid_bounds_floored();
+            (
+                grid_bounds.x as f32 * cell_size.x,
+                grid_bounds.y as f32 * cell_size.y,
+                grid_bounds.width as f32 * cell_size.x,
+                grid_bounds.height as f32 * cell_size.y,
+            )
+        } else {
+            let view_bounds = bounds.view_bounds();
+            (
+                view_bounds.x as f32,
+                view_bounds.y as f32,
+                view_bounds.width as f32,
+                view_bounds.height as f32,
+            )
+        };
+
         let inner_bounds = Bounds::new(
             Rect::new(
-                (view_bounds.x as f32 + self.margin_x as f32 * cell_size.x) as usize,
-                (view_bounds.y as f32 + self.margin_y as f32 * cell_size.y) as usize,
-                (view_bounds.width as f32 - self.margin_x as f32 * cell_size.x as f32 * 2.0)
-                    as usize,
-                (view_bounds.height as f32 - self.margin_y as f32 * cell_size.y as f32 * 2.0)
-                    as usize,
+                (x as f32 + self.margin_x as f32 * cell_size.x) as usize,
+                (y as f32 + self.margin_y as f32 * cell_size.y) as usize,
+                (width as f32 - self.margin_x as f32 * cell_size.x as f32 * 2.0) as usize,
+                (height as f32 - self.margin_y as f32 * cell_size.y as f32 * 2.0) as usize,
             ),
             cell_size,
             bounds.rounding,
