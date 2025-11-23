@@ -94,8 +94,8 @@ fn layout(engine: &mut Engine) -> AnyView<Engine> {
         stack.push(AnyView::new(ChordView::new(theme.clone())));
     }
 
-    let m_x = 5;
-    let m_y = 3;
+    let m_x = 4;
+    let m_y = 2;
     if engine.file_picker.is_some() {
         profiling::scope!("render tui file picker");
         let p = Lens::new(
