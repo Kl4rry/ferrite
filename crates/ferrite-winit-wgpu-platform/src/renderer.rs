@@ -154,7 +154,13 @@ impl Renderer {
         } = self;
         for layer in layer_renderers {
             let scissor = layer.scissor;
-            rpass.set_scissor_rect(scissor.x, scissor.y, scissor.width, scissor.height);
+            // This horror is force the scissor rect to be contained in the viewport
+            let scissor_x = scissor.x.min((self.width as u32).saturating_sub(1));
+            let scissor_y = scissor.y.min((self.height as u32).saturating_sub(1));
+            let scissor_width = scissor.width.min((self.width as u32) - scissor_x);
+            let scissor_height = scissor.height.min((self.height as u32) - scissor_y);
+
+            rpass.set_scissor_rect(scissor_x, scissor_y, scissor_width, scissor_height);
             geometry_renderer.render(rpass, layer.bottom_geometry_index_range.clone());
             layer
                 .text_renderer
