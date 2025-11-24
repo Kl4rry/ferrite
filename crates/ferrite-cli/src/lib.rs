@@ -1,49 +1,44 @@
 use std::path::PathBuf;
 
-use clap::{Parser, ValueEnum};
-
 /// A text editor
-#[derive(Parser, Debug)]
-#[command(name = "ferrite", version, about, long_about = None)]
+#[derive(argh::FromArgs)]
+#[argh(help_triggers("-h", "--help"))]
 pub struct Args {
-    /// Path to files that will be opened
+    /// path to files that will be opened
+    #[argh(positional)]
     pub files: Vec<PathBuf>,
-    /// Line to open file on
-    #[arg(long, short, default_value = "0")]
+    /// line to open file on
+    #[argh(option, short = 'l', long = "line", default = "0")]
     pub line: u32,
-    /// Use process local clipboard
-    #[arg(long)]
+    /// use process local clipboard
+    #[argh(switch, long = "local-clipboard")]
     pub local_clipboard: bool,
-    /// Options `error`, `warn`, `info`, `debug` or `trace`
-    #[arg(long)]
+    /// options `error`, `warn`, `info`, `debug` or `trace`
+    #[argh(option, long = "log-level")]
     pub log_level: Option<String>,
-    /// Type UI to use
-    #[arg(long, default_value = "auto")]
-    pub ui: Option<Ui>,
-    /// Tail log file
-    #[arg(long)]
+    /// tui user interface
+    #[argh(switch, long = "tui")]
+    pub tui: bool,
+    /// graphical user interace
+    #[argh(switch, long = "gui")]
+    pub gui: bool,
+    /// tail log file
+    #[argh(switch, long = "log")]
     pub log: bool,
-    /// Initialize default config
-    #[arg(long)]
+    /// initialize default config
+    #[argh(switch, long = "init")]
     pub init: bool,
-    /// Overwrite existing config
-    #[arg(long)]
+    /// overwrite existing config
+    #[argh(switch, long = "overwrite")]
     pub overwrite: bool,
-    /// Wait for editor to close
-    #[arg(short, long)]
+    /// wait for editor to close
+    #[argh(switch, short = 'w', long = "wait")]
     pub wait: bool,
-    /// Enable profiling
-    #[arg(long)]
+    /// enable profiling
+    #[argh(switch, long = "profile")]
     pub profile: bool,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum Ui {
-    Tui,
-    Gui,
-    Auto,
-}
-
 pub fn parse() -> Args {
-    Args::parse()
+    argh::from_env()
 }

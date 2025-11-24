@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = { workspace = true, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
+argh = { workspace = true }

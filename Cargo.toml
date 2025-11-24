@@ -8,6 +8,7 @@ version = "0.1.0"
 ahash = { version = "0.8.12", default-features = false }
 anyhow = "1.0.68"
 arboard = { version = "3.2.0", default-features = false }
+argh = "0.1.13"
 bitflags = "2.9.1"
 boxcar = "0.2.5"
 bumpalo = { version = "3.17.0" }
@@ -15,7 +16,6 @@ bytemuck = "1.20.0"
 cb = { package = "crossbeam-channel", version = "0.5.15" }
 cgmath = "0.18.0"
 chardetng = "0.1.17"
-clap = { version = "4.5.6", default-features = false }
 content_inspector = "0.2.4"
 cosmic-text = "0.14.0"
 crossterm = "0.28.0"
