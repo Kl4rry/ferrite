@@ -1,0 +1,216 @@
+use std::{io, io::Stdout, time::Instant};
+
+use ferrite_runtime::{Runtime, event_loop_proxy::EventLoopProxy};
+
+use crate::event_loop::TuiEventLoop;
+pub mod event_loop;
+mod glue;
+
+use crossterm::{
+    event,
+    event::{
+        Event, KeyEventKind, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+        PushKeyboardEnhancementFlags,
+    },
+    execute, terminal,
+};
+use ferrite_geom::rect::{Rect, Vec2};
+use ferrite_runtime::{
+    Bounds, Input, Layout, Painter, StartOfFrame, Update, View, any_view::AnyView,
+    event_loop_proxy::EventLoopControlFlow, input::event::InputEvent, painter::Rounding,
+};
+use tui::Terminal;
+
+use crate::event_loop::{TuiEvent, TuiEventLoopProxy};
+
+pub fn create_event_loop<UserEvent: Send + 'static>() -> (
+    event_loop::TuiEventLoop<UserEvent>,
+    Box<dyn EventLoopProxy<UserEvent>>,
+) {
+    let event_loop = TuiEventLoop::new();
+    let proxy = event_loop.create_proxy();
+    (event_loop, Box::new(proxy))
+}
+pub struct TermPlatform<S, UserEvent> {
+    terminal: tui::Terminal<tui::backend::CrosstermBackend<Stdout>>,
+    painter: Painter,
+    runtime: Runtime<S>,
+    update: Update<S>,
+    input: Input<S, UserEvent>,
+    layout: Layout<S>,
+    start_of_frame: StartOfFrame<S>,
+    view_tree: AnyView<S>,
+    keyboard_enhancement: bool,
+    columns: u16,
+    lines: u16,
+}
+
+impl<S, UserEvent> TermPlatform<S, UserEvent> {
+    pub fn new(
+        mut state: S,
+        update: Update<S>,
+        input: Input<S, UserEvent>,
+        layout: Layout<S>,
+        start_of_frame: StartOfFrame<S>,
+    ) -> Result<Self, io::Error> {
+        let backend = tui::backend::CrosstermBackend::new(std::io::stdout());
+        let terminal = Terminal::new(backend)?;
+        let (columns, lines) = crossterm::terminal::size()?;
+        let view_tree = (layout)(&mut state);
+        let painter = Painter::new(false);
+        Ok(Self {
+            terminal,
+            painter,
+            runtime: Runtime::new(state),
+            update,
+            input,
+            layout,
+            start_of_frame,
+            view_tree,
+            keyboard_enhancement: false,
+            columns,
+            lines,
+        })
+    }
+
+    pub fn run(mut self, event_loop: event_loop::TuiEventLoop<UserEvent>) {
+        tracing::info!("Starting tui app");
+        let mut stdout = std::io::stdout();
+        terminal::enable_raw_mode().unwrap();
+        execute!(
+            stdout,
+            event::EnableBracketedPaste,
+            terminal::EnterAlternateScreen,
+            terminal::Clear(terminal::ClearType::Purge),
+            event::EnableMouseCapture,
+        )
+        .unwrap();
+
+        if terminal::supports_keyboard_enhancement().unwrap() {
+            execute!(
+                stdout,
+                PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+            )
+            .unwrap();
+            self.keyboard_enhancement = true
+        }
+
+        // Reset terminal to non raw mode on panic
+        std::panic::set_hook(Box::new(move |info| {
+            if self.keyboard_enhancement {
+                let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
+            }
+            let _ = execute!(
+                io::stdout(),
+                event::DisableMouseCapture,
+                event::DisableBracketedPaste,
+                terminal::LeaveAlternateScreen,
+            );
+            _ = terminal::disable_raw_mode();
+            println!();
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            let panic_info = format!("{backtrace}\n{info}");
+            let _ = std::fs::write("panic.txt", &panic_info);
+            println!("{panic_info}");
+        }));
+
+        event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
+    }
+
+    pub fn handle_event(
+        &mut self,
+        proxy: &TuiEventLoopProxy<UserEvent>,
+        event: TuiEvent<UserEvent>,
+        control_flow: &mut EventLoopControlFlow,
+    ) {
+        match event {
+            event_loop::TuiEvent::StartOfEvents => {
+                self.runtime.start_of_events = Instant::now();
+                (self.start_of_frame)(&mut self.runtime);
+            }
+            event_loop::TuiEvent::Crossterm(event) => {
+                self.handle_crossterm_event(proxy, event, control_flow)
+            }
+            event_loop::TuiEvent::UserEvent(event) => {
+                (self.input)(
+                    &mut self.runtime.state,
+                    InputEvent::UserEvent(event),
+                    control_flow,
+                );
+            }
+            event_loop::TuiEvent::Render => {
+                (self.update)(&mut self.runtime, control_flow);
+                self.view_tree = (self.layout)(&mut self.runtime.state);
+                // TODO KEEP THIS self.tui_app.engine.config.editor.gui.cursor_type = CursorType::Block;
+                /*if self.tui_app.engine.force_redraw {
+                    self.tui_app.engine.force_redraw = false;
+                    let _ = self.terminal.clear();
+                }*/
+
+                let bounds = Bounds::new(
+                    Rect::new(0, 0, self.columns.into(), self.lines.into()),
+                    Vec2::new(1.0, 1.0),
+                    Rounding::Round,
+                );
+                self.view_tree
+                    .render(&mut self.runtime.state, bounds, &mut self.painter);
+
+                self.terminal
+                    .draw(|f| {
+                        for (_, _, layer) in self.painter.layers() {
+                            let layer = layer.lock().unwrap();
+                            f.buffer_mut().merge(&layer.buf);
+                        }
+                    })
+                    .unwrap();
+
+                self.runtime.last_render_time =
+                    Instant::now().duration_since(self.runtime.start_of_events);
+                self.painter.clean_up_frame();
+            }
+        }
+    }
+
+    pub fn handle_crossterm_event(
+        &mut self,
+        _proxy: &TuiEventLoopProxy<UserEvent>,
+        event: event::Event,
+        control_flow: &mut EventLoopControlFlow,
+    ) {
+        match event {
+            Event::Resize(columns, lines) => {
+                self.columns = columns;
+                self.lines = lines;
+            }
+            Event::Key(event) => {
+                tracing::debug!("{:?}", event);
+                if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
+                    let keycode = glue::convert_keycode(event.code);
+                    let modifier = glue::convert_modifier(event.modifiers);
+                    (self.input)(
+                        &mut self.runtime.state,
+                        InputEvent::Key(keycode, modifier),
+                        control_flow,
+                    );
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
+impl<S, UserEvent> Drop for TermPlatform<S, UserEvent> {
+    fn drop(&mut self) {
+        if self.keyboard_enhancement {
+            let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
+        }
+        let _ = terminal::disable_raw_mode();
+        let _ = execute!(
+            self.terminal.backend_mut(),
+            event::DisableMouseCapture,
+            event::DisableBracketedPaste,
+            terminal::LeaveAlternateScreen,
+        );
+        let _ = self.terminal.show_cursor();
+    }
+}

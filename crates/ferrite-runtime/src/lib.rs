@@ -4,6 +4,7 @@ use ferrite_geom::rect::Vec2;
 
 use crate::{
     any_view::AnyView,
+    event_loop_proxy::EventLoopControlFlow,
     id::Id,
     input::{event::InputEvent, keycode::KeyModifiers},
 };
@@ -17,9 +18,11 @@ pub mod unique_id;
 
 pub use painter::{Bounds, Painter};
 
-pub type Input<S, E> = fn(state: &mut S, event: InputEvent<E>);
-pub type Update<S> = fn(runtime: &mut Runtime<S>);
+pub type Input<S, E> =
+    fn(state: &mut S, event: InputEvent<E>, control_flow: &mut EventLoopControlFlow);
+pub type Update<S> = fn(runtime: &mut Runtime<S>, control_flow: &mut EventLoopControlFlow);
 pub type Layout<S> = for<'a> fn(state: &'a mut S) -> AnyView<S>;
+pub type StartOfFrame<S> = fn(runtime: &mut Runtime<S>);
 
 pub trait View<State> {
     fn handle_mouse(
@@ -53,9 +56,6 @@ impl<S> Runtime<S> {
             last_render_time: Duration::ZERO,
         }
     }
-
-    pub fn request_render() {}
-    pub fn submit_event() {}
 }
 
 #[derive(Debug, Clone)]

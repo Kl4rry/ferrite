@@ -64,7 +64,7 @@ impl SyntaxProvider {
                     ));
                     proxy.request_render("syntax update parsed");
                 }
-                tracing::trace!(
+                tracing::debug!(
                     "highlight took: {}us or {}ms",
                     time.elapsed().as_micros(),
                     time.elapsed().as_millis()
@@ -462,7 +462,7 @@ impl<'a> HighlightIterLayer<'a> {
                         None,
                     )
                     .ok_or(Error::Cancelled)?;
-                tracing::trace!(
+                tracing::debug!(
                     "parsing took: {}us or {}ms",
                     time.elapsed().as_micros(),
                     time.elapsed().as_millis()

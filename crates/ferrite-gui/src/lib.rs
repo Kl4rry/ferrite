@@ -55,16 +55,14 @@ pub mod renderer;
 pub mod srgb;
 
 pub fn run(args: &Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
-    {
-        std::panic::set_hook(Box::new(move |info| {
-            println!();
-            let _ = std::fs::write("./panic.txt", format!("{info:?}"));
-            let backtrace = std::backtrace::Backtrace::force_capture();
-            let panic_info = format!("{backtrace}\n{info}");
-            let _ = std::fs::write("panic.txt", &panic_info);
-            println!("{panic_info}");
-        }));
-    }
+    std::panic::set_hook(Box::new(move |info| {
+        println!();
+        let _ = std::fs::write("./panic.txt", format!("{info:?}"));
+        let backtrace = std::backtrace::Backtrace::force_capture();
+        let panic_info = format!("{backtrace}\n{info}");
+        let _ = std::fs::write("panic.txt", &panic_info);
+        println!("{panic_info}");
+    }));
 
     let event_loop = EventLoop::with_user_event().build()?;
     let gui_app = pollster::block_on(GuiApp::new(args, &event_loop, rx))?;

@@ -2403,9 +2403,11 @@ impl Buffer {
         view_id: ViewId,
         clicks: usize,
         spawn_cursor: bool,
-        col: usize,
+        column: usize,
         line: usize,
     ) {
+        let column = column + self.views[view_id].col_pos as usize;
+        let line = line + self.views[view_id].line_pos as usize;
         let cursor_idx = if spawn_cursor {
             self.views[view_id].cursors.push(Cursor::default());
             self.views[view_id].cursors.len() - 1
@@ -2413,8 +2415,8 @@ impl Buffer {
             self.views[view_id].cursors.clear();
             0
         };
-        self.set_cursor_pos(view_id, cursor_idx, col, line);
-        self.set_anchor_pos(view_id, cursor_idx, col, line);
+        self.set_cursor_pos(view_id, cursor_idx, column, line);
+        self.set_anchor_pos(view_id, cursor_idx, column, line);
         self.views[view_id].cursors[cursor_idx].affinity =
             self.cursor_grapheme_column(view_id, cursor_idx);
 
@@ -2439,6 +2441,8 @@ impl Buffer {
     }
 
     pub fn handle_drag(&mut self, view_id: ViewId, column: usize, line: usize) {
+        let column = column + self.views[view_id].col_pos as usize;
+        let line = line + self.views[view_id].line_pos as usize;
         let last_idx = self.views[view_id].cursors.len() - 1;
         self.set_cursor_pos(view_id, last_idx, column, line);
         self.views[view_id].coalesce_cursors();

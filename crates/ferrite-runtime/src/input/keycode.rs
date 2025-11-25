@@ -7,7 +7,7 @@ use serde::{
 
 bitflags::bitflags! {
     // TODO make custom impl of Serialize and Deserialize to match to and from str
-    #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
+    #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash, Default)]
     pub struct KeyModifiers: u8 {
         const SHIFT = 0b0000_0001;
         const CONTROL = 0b0000_0010;

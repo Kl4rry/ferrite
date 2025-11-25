@@ -9,12 +9,12 @@ use std::{
 use ferrite_geom::rect::{Rect, Vec2};
 use ferrite_runtime::{
     Bounds, Input, Layout, MouseButton, MouseInterction, MouseInterctionKind, MouseState, Painter,
-    Runtime, Update, View,
+    Runtime, StartOfFrame, Update, View,
     any_view::AnyView,
-    event_loop_proxy::EventLoopProxy,
+    event_loop_proxy::{EventLoopControlFlow, EventLoopProxy},
     id::Id,
     input::{
-        event::{InputEvent, ScrollDelta},
+        event::InputEvent,
         keycode::{KeyCode, KeyModifiers},
     },
     painter::Rounding,
@@ -48,6 +48,8 @@ struct State {
     modifiers: KeyModifiers,
     touched: Vec<(TypeId, Id)>,
     mouse_state: MouseState,
+    line_height: f32,
+    control_flow: EventLoopControlFlow,
 }
 
 pub fn create_event_loop<E: Send>() -> (
@@ -95,6 +97,7 @@ struct App<S, UserEvent> {
     update: Update<S>,
     input: Input<S, UserEvent>,
     layout: Layout<S>,
+    start_of_frame: StartOfFrame<S>,
     view_tree: AnyView<S>,
 }
 
@@ -111,7 +114,6 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         }
     }
 
-    // TODO: remove
     fn state_mut(&mut self) -> &mut State {
         self.state.as_mut().unwrap()
     }
@@ -130,6 +132,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             metrics,
             glyphon::Weight(app.runtime.font_weight),
         );
+        state.line_height = cell_height;
 
         let (width, height) = (state.config.width, state.config.height);
 
@@ -274,7 +277,19 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         update: Update<S>,
         input: Input<S, UserEvent>,
         layout: Layout<S>,
+        start_of_frame: StartOfFrame<S>,
     ) {
+        {
+            std::panic::set_hook(Box::new(move |info| {
+                println!();
+                let _ = std::fs::write("./panic.txt", format!("{info:?}"));
+                let backtrace = std::backtrace::Backtrace::force_capture();
+                let panic_info = format!("{backtrace}\n{info}");
+                let _ = std::fs::write("panic.txt", &panic_info);
+                println!("{panic_info}");
+            }));
+        }
+
         let view_tree = (layout)(&mut runtime.state);
 
         self.app = Some(App {
@@ -282,10 +297,21 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             update,
             input,
             layout,
+            start_of_frame,
             view_tree,
         });
-        event_loop.set_control_flow(ControlFlow::Wait);
         event_loop.run_app(&mut self).unwrap();
+    }
+
+    fn update_control_flow(&self, event_loop: &ActiveEventLoop) {
+        match self.state.as_ref().unwrap().control_flow {
+            EventLoopControlFlow::Poll => event_loop.set_control_flow(ControlFlow::Poll),
+            EventLoopControlFlow::Wait => event_loop.set_control_flow(ControlFlow::Wait),
+            EventLoopControlFlow::Exit => event_loop.exit(),
+            EventLoopControlFlow::WaitMax(duration) => {
+                event_loop.set_control_flow(ControlFlow::wait_duration(duration))
+            }
+        }
     }
 }
 
@@ -373,6 +399,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             modifiers: KeyModifiers::empty(),
             touched: Vec::new(),
             mouse_state: MouseState::default(),
+            line_height: 1.0,
+            control_flow: EventLoopControlFlow::Wait,
         });
     }
 
@@ -400,10 +428,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 tracing::trace!("{:?}", event);
-                let state = self.state.as_mut().unwrap();
-                let app = self.app.as_mut().unwrap();
 
                 if let Key::Named(key) = event.logical_key {
+                    let state = self.state.as_mut().unwrap();
                     match key {
                         NamedKey::Super => {
                             state
@@ -431,22 +458,31 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     return;
                 }
 
+                let modifiers = self.state.as_mut().unwrap().modifiers;
                 match event.logical_key {
                     Key::Named(key) => {
-                        if let Some(keycode) = glue::convert_keycode(key, state.modifiers) {
+                        if let Some(keycode) = glue::convert_keycode(key, modifiers) {
+                            let app = self.app.as_mut().unwrap();
+                            let state = self.state.as_mut().unwrap();
                             (app.input)(
                                 &mut app.runtime.state,
-                                InputEvent::Key(keycode, state.modifiers),
+                                InputEvent::Key(keycode, modifiers),
+                                &mut state.control_flow,
                             );
+                            self.update_control_flow(event_loop);
                             return;
                         }
                     }
                     Key::Character(s) => {
                         for ch in s.chars() {
+                            let app = self.app.as_mut().unwrap();
+                            let state = self.state.as_mut().unwrap();
                             (app.input)(
                                 &mut app.runtime.state,
-                                InputEvent::Key(KeyCode::Char(ch), state.modifiers),
+                                InputEvent::Key(KeyCode::Char(ch), modifiers),
+                                &mut state.control_flow,
                             );
+                            self.update_control_flow(event_loop);
                         }
                         return;
                     }
@@ -454,7 +490,14 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 }
 
                 if let Some(text) = event.text {
-                    (app.input)(&mut app.runtime.state, InputEvent::Text(text.to_string()));
+                    let app = self.app.as_mut().unwrap();
+                    let state = self.state.as_mut().unwrap();
+                    (app.input)(
+                        &mut app.runtime.state,
+                        InputEvent::Text(text.to_string()),
+                        &mut state.control_flow,
+                    );
+                    self.update_control_flow(event_loop);
                 }
             }
             WindowEvent::MouseInput {
@@ -589,15 +632,16 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 let app = self.app.as_mut().unwrap();
+                let state = self.state.as_mut().unwrap();
                 let input_event = match delta {
-                    MouseScrollDelta::LineDelta(x, y) => {
-                        InputEvent::Scroll(ScrollDelta::Line(x, y))
-                    }
-                    MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition { x, y }) => {
-                        InputEvent::Scroll(ScrollDelta::Pixel(x as f32, y as f32))
+                    MouseScrollDelta::LineDelta(x, y) => InputEvent::Scroll(x, y),
+                    MouseScrollDelta::PixelDelta(winit::dpi::PhysicalPosition { x: _, y }) => {
+                        let distance = y as f32 / state.line_height;
+                        InputEvent::Scroll(0.0, distance)
                     }
                 };
-                (app.input)(&mut app.runtime.state, input_event);
+                (app.input)(&mut app.runtime.state, input_event, &mut state.control_flow);
+                self.update_control_flow(event_loop);
             }
             WindowEvent::Resized(size) => {
                 let state = self.state_mut();
@@ -621,28 +665,34 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: PlatformEvent<UserEvent>) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: PlatformEvent<UserEvent>) {
         match event {
             PlatformEvent::Wake(reason) => tracing::info!("Woken because: {reason}"),
             PlatformEvent::UserEvent(event) => {
                 let app = self.app.as_mut().unwrap();
-                (app.input)(&mut app.runtime.state, InputEvent::UserEvent(event));
+                let state = self.state.as_mut().unwrap();
+                (app.input)(
+                    &mut app.runtime.state,
+                    InputEvent::UserEvent(event),
+                    &mut state.control_flow,
+                );
+                self.update_control_flow(event_loop);
             }
         }
     }
 
     fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {
-        self.app.as_mut().unwrap().runtime.start_of_events = Instant::now();
-        // #[cfg(feature = "talloc")]
-        // ferrite_talloc::Talloc::reset_phase_allocations();
-        profiling::finish_frame!();
-        ferrite_ctx::Ctx::arena_mut().reset();
+        let app = self.app.as_mut().unwrap();
+        app.runtime.start_of_events = Instant::now();
+        (app.start_of_frame)(&mut app.runtime);
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         {
             let app = self.app.as_mut().unwrap();
-            (app.update)(&mut app.runtime);
+            let state = self.state.as_mut().unwrap();
+            (app.update)(&mut app.runtime, &mut state.control_flow);
+            self.update_control_flow(event_loop);
         }
         self.prepare();
         let state = self.state.as_mut().unwrap();
@@ -652,7 +702,5 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 terminal.backend_mut().redraw = false;
             }
         }
-
-        event_loop.set_control_flow(ControlFlow::Wait);
     }
 }

@@ -2047,5 +2047,6 @@ impl Drop for Engine {
         for job in &mut self.shell_jobs {
             job.1.kill();
         }
+        clipboard::uninit();
     }
 }

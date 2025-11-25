@@ -35,6 +35,7 @@ ferrite-talloc = { path = "crates/ferrite-talloc" }
 ferrite-term = { path = "crates/ferrite-term" }
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
 ferrite-tui = { path = "crates/ferrite-tui" }
+ferrite-term-platform = { path = "crates/ferrite-term-platform" }
 ferrite-utility = { path = "crates/ferrite-utility" }
 ferrite-winit-wgpu-platform = { path = "crates/ferrite-winit-wgpu-platform" }
 glyphon = "0.9.0"
@@ -85,10 +86,11 @@ anyhow = { workspace = true }
 directories = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-core = { workspace = true }
-ferrite-gui = { workspace = true, optional = true }
+ferrite-ctx = { workspace = true }
+ferrite-runtime = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
-ferrite-term = { workspace = true, optional = true }
-ferrite-tui = { workspace = true }
+ferrite-term-platform = { workspace = true, optional = true }
+ferrite-winit-wgpu-platform = { workspace = true, optional = true }
 profiling = { workspace = true }
 puffin = { workspace = true }
 puffin_http = { workspace = true }
@@ -98,9 +100,9 @@ tracing-subscriber = { workspace = true, features = ["json"] }
 
 [features]
 default = ["tui", "gui"]
-tui = ["dep:ferrite-term"]
-gui = ["dep:ferrite-gui"]
-talloc = ["dep:ferrite-talloc", "ferrite-tui/talloc"]
+tui = ["dep:ferrite-term-platform"]
+gui = ["dep:ferrite-winit-wgpu-platform"]
+talloc = ["dep:ferrite-talloc"]
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -112,6 +114,7 @@ opt-level = 3
 panic = "abort"
 opt-level = "s"
 lto = "thin"
+strip = "symbols"
 
 [workspace]
 resolver = "2"

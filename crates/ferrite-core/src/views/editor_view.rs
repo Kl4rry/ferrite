@@ -158,6 +158,7 @@ impl View<Buffer> for EditorView {
         bounds.rounding = rounding;
         let layer = painter.create_layer(unique_id, bounds);
         let mut layer = layer.lock().unwrap();
+        let has_2d_painter = layer.painter2d.is_some();
         let view_bounds = bounds.view_bounds();
         let area: Rect = layer.buf.area.into();
         let buf = &mut layer.buf;
@@ -517,18 +518,18 @@ impl View<Buffer> for EditorView {
 
             for rect in cursor_rects {
                 match config.gui.cursor_type {
-                    CursorType::Block => {
-                        buf.set_style(
-                            rect.into(),
-                            tui::style::Style::from(theme.text)
-                                .add_modifier(tui::style::Modifier::REVERSED),
-                        );
-                    }
-                    CursorType::Line => {
+                    CursorType::Line if has_2d_painter => {
                         buf.set_style(
                             rect.into(),
                             tui::style::Style::default()
                                 .add_modifier(tui::style::Modifier::SLOW_BLINK),
+                        );
+                    }
+                    _ => {
+                        buf.set_style(
+                            rect.into(),
+                            tui::style::Style::from(theme.text)
+                                .add_modifier(tui::style::Modifier::REVERSED),
                         );
                     }
                 }

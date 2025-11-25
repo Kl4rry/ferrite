@@ -1,0 +1,11 @@
+[package]
+name = "ferrite-term-platform"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+crossterm = { workspace = true }
+ferrite-geom = { workspace = true }
+ferrite-runtime = { workspace = true }
+tracing = { workspace = true }
+tui = { workspace = true, features = ["crossterm"] }

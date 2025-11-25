@@ -5,11 +5,14 @@ use std::{
 };
 
 use anyhow::Result;
-use ferrite_cli::Ui;
 use ferrite_core::{
     config::{editor::Editor, languages::Languages},
+    engine::Engine,
+    event_loop_proxy::UserEvent,
     logger::{LogMessage, LoggerSink},
+    ui::{input, layout, update},
 };
+use ferrite_runtime::Runtime;
 use tracing::Level;
 use tracing_subscriber::{Registry, filter, fmt, layer::Layer, prelude::*};
 
@@ -17,7 +20,11 @@ use tracing_subscriber::{Registry, filter, fmt, layer::Layer, prelude::*};
 #[global_allocator]
 static GLOBAL: ferrite_talloc::Talloc = ferrite_talloc::Talloc;
 
+#[cfg(not(any(feature = "tui", feature = "gui")))]
+compile_error!("You must enable either tui or gui");
+
 #[cfg(not(target_os = "windows"))]
+#[cfg(feature = "tui")]
 fn maybe_disown(args: &ferrite_cli::Args) {
     use std::{env, io::IsTerminal, process};
     if args.wait || !std::io::stdout().is_terminal() {
@@ -37,26 +44,6 @@ fn maybe_disown(args: &ferrite_cli::Args) {
             "error in disowning process, cannot obtain the path for the current executable, continuing without disowning..."
         );
     }
-}
-
-#[cfg(feature = "tui")]
-fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
-    if let Err(err) = ferrite_term::run(args, rx) {
-        tracing::error!("{err}");
-        return Err(err);
-    }
-    Ok(())
-}
-
-#[cfg(feature = "gui")]
-fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
-    #[cfg(not(target_os = "windows"))]
-    maybe_disown(args);
-    if let Err(err) = ferrite_gui::run(args, rx) {
-        tracing::error!("{err}");
-        return Err(err);
-    }
-    Ok(())
 }
 
 fn main() -> Result<ExitCode> {
@@ -167,33 +154,52 @@ fn main() -> Result<ExitCode> {
 
     ferrite_core::clipboard::init(args.local_clipboard);
 
-    #[cfg(not(any(feature = "tui", feature = "gui")))]
-    compile_error!("You must enable either tui or gui");
+    #[derive(Debug)]
+    enum Ui {
+        Tui,
+        Gui,
+        Auto,
+    }
 
-    match args.ui {
-        Some(Ui::Tui) => {
+    let ui = if args.tui && args.gui {
+        eprintln!("Cannot use both gui and tui");
+        return Ok(ExitCode::FAILURE);
+    } else if args.tui {
+        Ui::Tui
+    } else if args.gui {
+        Ui::Gui
+    } else {
+        Ui::Auto
+    };
+
+    match ui {
+        Ui::Tui => {
             #[cfg(feature = "tui")]
-            run_tui(&args, rx)?;
+            {
+                run_tui(&args, rx)?;
+                return Ok(ExitCode::SUCCESS);
+            }
 
             #[cfg(not(feature = "tui"))]
             {
                 eprintln!("Ferrite has not been compiled with tui");
                 return Ok(ExitCode::FAILURE);
             }
-            return Ok(ExitCode::SUCCESS);
         }
-        Some(Ui::Gui) => {
+        Ui::Gui => {
             #[cfg(feature = "gui")]
-            run_gui(&args, rx)?;
+            {
+                run_gui(&args, rx)?;
+                return Ok(ExitCode::SUCCESS);
+            }
 
             #[cfg(not(feature = "gui"))]
             {
                 eprintln!("Ferrite has not been compiled with gui");
                 return Ok(ExitCode::FAILURE);
             }
-            return Ok(ExitCode::SUCCESS);
         }
-        _ => {
+        Ui::Auto => {
             #[cfg(feature = "gui")]
             if std::env::var("WAYLAND_DISPLAY").is_ok() {
                 run_gui(&args, rx)?;
@@ -202,17 +208,47 @@ fn main() -> Result<ExitCode> {
 
             #[cfg(feature = "tui")]
             if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
-                ferrite_term::run(&args, rx)?;
+                run_tui(&args, rx)?;
                 return Ok(ExitCode::SUCCESS);
-            } else {
-                #[cfg(not(feature = "gui"))]
-                anyhow::bail!("stdout must is not a tty");
             }
 
             #[cfg(feature = "gui")]
-            run_gui(&args, rx)?;
+            {
+                run_gui(&args, rx)?;
+                return Ok(ExitCode::SUCCESS);
+            }
+
+            #[cfg(not(feature = "gui"))]
+            return Ok(ExitCode::SUCCESS);
         }
     }
+}
 
-    Ok(ExitCode::SUCCESS)
+#[cfg(feature = "tui")]
+fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+    let (event_loop, proxy) = ferrite_term_platform::create_event_loop::<UserEvent>();
+    let engine = Engine::new(&args, proxy, rx)?;
+    let platform =
+        ferrite_term_platform::TermPlatform::new(engine, update, input, layout, start_of_frame)?;
+    platform.run(event_loop);
+    Ok(())
+}
+
+#[cfg(feature = "gui")]
+fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+    #[cfg(not(target_os = "windows"))]
+    maybe_disown(args);
+    let (event_loop, proxy) = ferrite_winit_wgpu_platform::create_event_loop::<UserEvent>();
+    let engine = Engine::new(&args, proxy, rx)?;
+    let runtime = Runtime::new(engine);
+    let platform = ferrite_winit_wgpu_platform::WinitWgpuPlatform::new();
+    platform.run(event_loop, runtime, update, input, layout, start_of_frame);
+    Ok(())
+}
+
+fn start_of_frame(_: &mut Runtime<Engine>) {
+    #[cfg(feature = "talloc")]
+    ferrite_talloc::Talloc::reset_phase_allocations();
+    profiling::finish_frame!();
+    ferrite_ctx::Ctx::arena_mut().reset();
 }

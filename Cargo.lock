@@ -818,10 +818,11 @@ dependencies = [
  "directories",
  "ferrite-cli",
  "ferrite-core",
- "ferrite-gui",
+ "ferrite-ctx",
+ "ferrite-runtime",
  "ferrite-talloc",
- "ferrite-term",
- "ferrite-tui",
+ "ferrite-term-platform",
+ "ferrite-winit-wgpu-platform",
  "profiling",
  "puffin",
  "puffin_http",
@@ -945,22 +946,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrite-runtime-test"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "directories",
- "ferrite-cli",
- "ferrite-core",
- "ferrite-runtime",
- "ferrite-winit-wgpu-platform",
- "profiling",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ferrite-style"
 version = "0.1.0"
 dependencies = [
@@ -981,6 +966,17 @@ dependencies = [
  "ferrite-core",
  "ferrite-tui",
  "ferrite-utility",
+ "ratatui",
+ "tracing",
+]
+
+[[package]]
+name = "ferrite-term-platform"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "ferrite-geom",
+ "ferrite-runtime",
  "ratatui",
  "tracing",
 ]
