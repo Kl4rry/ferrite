@@ -1234,10 +1234,15 @@ impl Engine {
     pub fn open_file(&mut self, path: impl AsRef<Path>, create_file: bool) -> bool {
         let real_path = match dunce::canonicalize(&path) {
             Ok(path) => path,
-            Err(err) => {
-                self.palette.set_error(err);
-                return false;
-            }
+            Err(err) => match err.kind() {
+                // NOTE: it might be broken that we do not canonicalize this file path as some code
+                // assumes that all paths are absolute
+                io::ErrorKind::NotFound if create_file => path.as_ref().to_path_buf(),
+                _ => {
+                    self.palette.set_error(err);
+                    return false;
+                }
+            },
         };
 
         match self.workspace.buffers.iter_mut().find(|(_, buffer)| {
