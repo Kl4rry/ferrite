@@ -64,10 +64,10 @@ where
 
         let inner_bounds = Bounds::new(
             Rect::new(
-                (x as f32 + self.margin_x as f32 * cell_size.x) as usize,
-                (y as f32 + self.margin_y as f32 * cell_size.y) as usize,
-                (width as f32 - self.margin_x as f32 * cell_size.x as f32 * 2.0) as usize,
-                (height as f32 - self.margin_y as f32 * cell_size.y as f32 * 2.0) as usize,
+                (x + self.margin_x as f32 * cell_size.x) as usize,
+                (y + self.margin_y as f32 * cell_size.y) as usize,
+                (width - self.margin_x as f32 * cell_size.x * 2.0) as usize,
+                (height - self.margin_y as f32 * cell_size.y * 2.0) as usize,
             ),
             cell_size,
             bounds.rounding,

@@ -51,7 +51,7 @@ impl View<Engine> for ChordView {
                             name: String::from("normal"),
                         }
             })
-            .take(height.into())
+            .take(height)
         {
             let mapping = format!("{}{} ", key.keycode.to_string(), key.modifiers);
             let cmd = cmd.to_string();

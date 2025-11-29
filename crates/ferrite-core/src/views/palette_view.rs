@@ -84,28 +84,28 @@ impl View<CommandPalette> for PaletteView {
             }
             PaletteState::Message(msg) => {
                 for (i, line) in msg.lines().enumerate() {
-                    if i >= area.height.into() {
+                    if i >= area.height {
                         break;
                     }
                     buf.set_stringn(
                         (area.x + 1) as u16,
                         (area.y + i) as u16,
                         line,
-                        (area.width as usize).saturating_sub(1),
+                        area.width.saturating_sub(1),
                         self.theme.text,
                     );
                 }
             }
             PaletteState::Error(msg) => {
                 for (i, line) in msg.lines().enumerate() {
-                    if i >= area.height.into() {
+                    if i >= area.height {
                         break;
                     }
                     buf.set_stringn(
                         (area.x + 1) as u16,
                         (area.y + i) as u16,
                         line,
-                        (area.width as usize).saturating_sub(1),
+                        area.width.saturating_sub(1),
                         self.theme.error_text,
                     );
                 }
@@ -120,14 +120,14 @@ impl View<CommandPalette> for PaletteView {
             } => {
                 let msg = CommandPalette::get_prompt(*selected, prompt, *alt1_char, *alt2_char);
                 for (i, line) in msg.lines().enumerate() {
-                    if i >= area.height.into() {
+                    if i >= area.height {
                         break;
                     }
                     buf.set_stringn(
                         (area.x + 1) as u16,
                         (area.y + i) as u16,
                         line,
-                        (area.width as usize).saturating_sub(1),
+                        area.width.saturating_sub(1),
                         self.theme.text,
                     );
                 }

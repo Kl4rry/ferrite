@@ -106,14 +106,16 @@ pub struct WinitWgpuPlatform<S, UserEvent> {
     app: Option<App<S, UserEvent>>,
 }
 
-impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
-    pub fn new() -> Self {
+impl<S, UserEvent: 'static + Send> Default for WinitWgpuPlatform<S, UserEvent> {
+    fn default() -> Self {
         Self {
             state: None,
             app: None,
         }
     }
+}
 
+impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
     fn state_mut(&mut self) -> &mut State {
         self.state.as_mut().unwrap()
     }
@@ -175,7 +177,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             let backend_bounds = terminal.backend().bounds();
             if backend_bounds != layer.bounds {
                 terminal.backend_mut().resize(layer.bounds);
-                terminal.resize(layer.buf.area.into()).unwrap();
+                terminal.resize(layer.buf.area).unwrap();
             }
 
             terminal

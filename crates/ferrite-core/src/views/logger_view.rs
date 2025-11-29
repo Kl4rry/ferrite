@@ -36,7 +36,7 @@ impl View<LoggerState> for LoggerView {
         for y in 0..area.height.saturating_sub(1) {
             match state
                 .messages
-                .get(y as usize + state.lines_scrolled_up.floor() as usize)
+                .get(y + state.lines_scrolled_up.floor() as usize)
             {
                 Some(msg) => {
                     let string = format!("{:>5} {} {}", msg.level, msg.target, msg.fields.message);
@@ -44,7 +44,7 @@ impl View<LoggerState> for LoggerView {
                         area.x as u16,
                         (area.top() + area.height - y - 2) as u16, // TODO fix this - 2
                         string,
-                        area.width.into(),
+                        area.width,
                         self.theme.text,
                     );
                 }
@@ -79,24 +79,25 @@ impl View<LoggerState> for LoggerView {
             };
 
             buf.set_style(line_area.into(), style);
-            //#[cfg(not(feature = "talloc"))]
+            // #[cfg(not(feature = "talloc"))]
             let line = format!(" Frame time: {:?}", self.render_time);
-            //#[cfg(feature = "talloc")]
-            //let line = format!(
-            //    " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
-            //    self.render_time,
-            //    ferrite_core::byte_size::format_byte_size(
-            //        ferrite_talloc::Talloc::total_memory_allocated()
-            //    ),
-            //    ferrite_talloc::Talloc::num_allocations(),
-            //    ferrite_talloc::Talloc::phase_allocations()
-            //);
+            // TODO: FIX
+            // #[cfg(feature = "talloc")]
+            // let line = format!(
+            //     " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
+            //     self.render_time,
+            //     ferrite_core::byte_size::format_byte_size(
+            //         ferrite_talloc::Talloc::total_memory_allocated()
+            //     ),
+            //     ferrite_talloc::Talloc::num_allocations(),
+            //     ferrite_talloc::Talloc::phase_allocations()
+            // );
 
             buf.set_stringn(
                 line_area.x as u16,
                 line_area.y as u16,
                 line,
-                line_area.width.into(),
+                line_area.width,
                 style,
             );
         }

@@ -2,8 +2,9 @@ use std::{borrow::Cow, mem};
 
 use ferrite_geom::rect::{Rect, Vec2};
 use ferrite_runtime::Bounds;
+use ferrite_style::Color;
 use glyphon::{
-    Attrs, AttrsList, Buffer, BufferLine, Color, Family, FontSystem, Metrics, Shaping, TextArea,
+    Attrs, AttrsList, Buffer, BufferLine, Family, FontSystem, Metrics, Shaping, TextArea,
     TextBounds, Weight, cosmic_text::Scroll,
 };
 use tui::{
@@ -71,7 +72,7 @@ pub struct WgpuBackend {
     font_family: String,
     font_weight: Weight,
     // gemoetry from Painter2d
-    pub overlay_gemoetry: Vec<(Rect<f32>, (u8, u8, u8))>,
+    pub overlay_gemoetry: Vec<(Rect<f32>, Color)>,
 }
 
 #[profiling::all_functions]
@@ -232,8 +233,8 @@ impl WgpuBackend {
                         x: col_idx as f32 * cell_width + x,
                         y: line_idx as f32 * cell_height + y,
                         width: cell_width * symbol_width as f32,
-                        height: cell_height as f32,
-                        color: bg.unwrap_or(Color::rgba(0, 0, 0, 0)),
+                        height: cell_height,
+                        color: bg.unwrap_or(glyphon::Color::rgba(0, 0, 0, 0)),
                     });
 
                     if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
@@ -243,17 +244,21 @@ impl WgpuBackend {
                             y: line_idx as f32 * cell_height + y,
                             width: cursor_width,
                             height: cell_height,
-                            color: Color::rgb(82, 139, 255),
+                            color: glyphon::Color::rgb(82, 139, 255),
                         });
                     }
 
-                    for (rect, (r, g, b)) in &self.overlay_gemoetry {
+                    for (rect, color) in &self.overlay_gemoetry {
                         self.top_geometry.quads.push(Quad {
                             x: rect.x,
                             y: rect.y,
                             width: rect.width,
                             height: rect.height,
-                            color: Color::rgb(*r, *g, *b),
+                            color: glyphon::Color::rgb(
+                                (color.r * 255.0) as u8,
+                                (color.g * 255.0) as u8,
+                                (color.b * 255.0) as u8,
+                            ),
                         });
                     }
                 }
@@ -342,7 +347,7 @@ impl WgpuBackend {
     }
 
     pub fn line_height(&self) -> f32 {
-        self.bounds.cell_size().y as f32
+        self.bounds.cell_size().y
     }
 
     pub fn set_default_fg(&mut self, r: u8, g: u8, b: u8) {

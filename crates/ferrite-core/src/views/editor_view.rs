@@ -182,12 +182,9 @@ impl View<Buffer> for EditorView {
             height: area.height - info_line as usize,
         };
 
-        buffer.set_view_lines(view_id, text_area.height.into());
+        buffer.set_view_lines(view_id, text_area.height);
 
-        buffer.set_view_columns(
-            view_id,
-            (text_area.width as usize).saturating_sub(left_offset),
-        );
+        buffer.set_view_columns(view_id, text_area.width.saturating_sub(left_offset));
         buf.set_style(area.into(), theme.background);
 
         if line_nr {
@@ -242,7 +239,7 @@ impl View<Buffer> for EditorView {
                         area.x as u16,
                         (area.y + i) as u16,
                         &line_number_str,
-                        area.width.into(),
+                        area.width,
                         line_nr_theme,
                     );
 
@@ -253,7 +250,7 @@ impl View<Buffer> for EditorView {
                             text_area.x as u16,
                             (text_area.y + i) as u16,
                             &start_offset,
-                            text_area.width as usize,
+                            text_area.width,
                             theme.text,
                         );
                     }
@@ -266,7 +263,7 @@ impl View<Buffer> for EditorView {
                         (text_area.x + current_width) as u16,
                         (text_area.y + i) as u16,
                         text,
-                        text_area.width as usize - current_width,
+                        text_area.width - current_width,
                         style,
                     );
                     text.width()
@@ -282,7 +279,7 @@ impl View<Buffer> for EditorView {
 
                 let text = line.text.line_without_line_ending(0);
                 for grapheme in text.grapehemes() {
-                    if current_width >= text_area.width as usize {
+                    if current_width >= text_area.width {
                         break;
                     }
 
@@ -297,30 +294,29 @@ impl View<Buffer> for EditorView {
                         grapheme_buffer
                             .extend(std::iter::repeat_n(" ", tab_width.saturating_sub(1)));
                         current_width +=
-                            render_text(&grapheme_buffer, theme.dim_text.into(), current_width);
+                            render_text(&grapheme_buffer, theme.dim_text, current_width);
                         grapheme_buffer.clear();
                         continue;
                     }
 
                     if grapheme.chars().any(|ch| ch.is_ascii_control()) {
-                        current_width += render_text("�", theme.text.into(), current_width);
+                        current_width += render_text("�", theme.text, current_width);
                     } else if grapheme.is_whitespace() {
                         let width = grapheme.width(current_width);
                         if render_whitespace(current_width, line.text_end_col) {
                             dim_cells.push((current_width, i));
-                            current_width += render_text("·", theme.dim_text.into(), current_width);
+                            current_width += render_text("·", theme.dim_text, current_width);
                         } else {
-                            current_width += render_text(" ", theme.text.into(), current_width);
+                            current_width += render_text(" ", theme.text, current_width);
                         }
                         for _ in 0..width.saturating_sub(1) {
-                            current_width += render_text(" ", theme.dim_text.into(), current_width);
+                            current_width += render_text(" ", theme.dim_text, current_width);
                         }
                     } else {
                         for ch in grapheme.chars() {
                             grapheme_buffer.push(ch);
                         }
-                        current_width +=
-                            render_text(&grapheme_buffer, theme.text.into(), current_width);
+                        current_width += render_text(&grapheme_buffer, theme.text, current_width);
                         grapheme_buffer.clear();
                     }
                 }
@@ -331,7 +327,7 @@ impl View<Buffer> for EditorView {
                 let mut last_text_start_col = 0;
                 'outer: for line in text_area.top()..text_area.bottom() {
                     for col in text_area.left()..text_area.right() {
-                        let Some(view_line) = view.lines.get((line - text_area.y) as usize) else {
+                        let Some(view_line) = view.lines.get(line - text_area.y) else {
                             break 'outer;
                         };
                         let text_start = if view_line.text.is_whitespace() {
@@ -341,16 +337,14 @@ impl View<Buffer> for EditorView {
                         };
                         last_text_start_col = text_start;
 
-                        let visual_text_start = text_start + text_area.x as usize;
-                        if col as usize + buffer.col_pos(view_id) > visual_text_start
-                            || text_start == 0
-                        {
+                        let visual_text_start = text_start + text_area.x;
+                        if col + buffer.col_pos(view_id) > visual_text_start || text_start == 0 {
                             break;
                         }
 
                         let cell = buf.cell_mut((col as u16, line as u16)).unwrap();
                         if !RopeSlice::from(cell.symbol()).is_whitespace()
-                            || (col as usize - text_area.left() as usize + buffer.col_pos(view_id))
+                            || (col - text_area.left() + buffer.col_pos(view_id))
                                 .is_multiple_of(buffer.indent.width())
                         {
                             continue;
@@ -364,7 +358,7 @@ impl View<Buffer> for EditorView {
             let mut draw_cursor_line = true;
 
             let cursor_view_pos =
-                buffer.cursors_view_pos(view_id, text_area.width.into(), text_area.height.into());
+                buffer.cursors_view_pos(view_id, text_area.width, text_area.height);
 
             if cursor_view_pos.len() > 1 {
                 draw_cursor_line = false;
@@ -406,7 +400,7 @@ impl View<Buffer> for EditorView {
                                             .capture_names()
                                             .get(highlight.capture_index)
                                     {
-                                        style = theme.get_syntax(name).into();
+                                        style = theme.get_syntax(name);
                                     }
 
                                     highlights.push((*start, *end, style));
@@ -443,28 +437,28 @@ impl View<Buffer> for EditorView {
                             .line
                             .saturating_sub(line_pos)
                             .add(i)
-                            .clamp(0, text_area.height.into());
+                            .clamp(0, text_area.height);
                         let end_y = end_point
                             .line
                             .saturating_sub(line_pos)
                             .add(i)
-                            .clamp(0, text_area.height.into());
+                            .clamp(0, text_area.height);
 
                         let first = i == 0;
                         let last = i == diff;
 
                         let start_view_col = start_point.column.saturating_sub(col_pos);
                         let start_x = if first {
-                            start_view_col.clamp(0, text_area.width.into())
+                            start_view_col.clamp(0, text_area.width)
                         } else {
                             0
                         };
 
                         let end_view_col = end_point.column.saturating_sub(col_pos);
                         let end_x = if last {
-                            end_view_col.clamp(0, text_area.width.into())
+                            end_view_col.clamp(0, text_area.width)
                         } else {
-                            text_area.width.into()
+                            text_area.width
                         };
 
                         // FIXME This should not be needed
@@ -570,8 +564,8 @@ impl View<Buffer> for EditorView {
                         && end.line < buffer.line_pos(view_id) + buffer.get_view_lines(view_id)
                     {
                         let highlight_area = Rect {
-                            x: (start.column + text_area.left() as usize - buffer.col_pos(view_id)),
-                            y: (start.line + text_area.top() as usize - buffer.line_pos(view_id)),
+                            x: (start.column + text_area.left() - buffer.col_pos(view_id)),
+                            y: (start.line + text_area.top() - buffer.line_pos(view_id)),
                             width: (end.column - start.column),
                             height: (end.line - start.line + 1),
                         };
@@ -590,14 +584,14 @@ impl View<Buffer> for EditorView {
                     let line_pos = buffer.line_pos(view_id);
 
                     for y in 0..text_area.height {
-                        let line_idx = y as usize + line_pos;
+                        let line_idx = y + line_pos;
                         let width = if line_idx >= buffer.rope().len_lines() {
                             0
                         } else {
                             buffer.rope().line_without_line_ending(line_idx).width(0)
                         };
                         for x in 0..text_area.width {
-                            if x as usize > width {
+                            if x > width {
                                 break;
                             }
                             let current = Point {
@@ -657,12 +651,8 @@ impl View<Buffer> for EditorView {
             if buffer.views[view_id].completer.visible
                 && !buffer.views[view_id].completer.matching_words.is_empty()
             {
-                let cursor_view_pos = buffer.cursor_view_pos(
-                    view_id,
-                    0,
-                    text_area.width.into(),
-                    text_area.height.into(),
-                );
+                let cursor_view_pos =
+                    buffer.cursor_view_pos(view_id, 0, text_area.width, text_area.height);
                 if let Some((column, line)) = cursor_view_pos {
                     let longest: usize = buffer.views[view_id]
                         .completer
@@ -679,12 +669,8 @@ impl View<Buffer> for EditorView {
                         .iter()
                         .enumerate()
                     {
-                        let rect = Rect::new(
-                            column + text_area.x as usize,
-                            line + text_area.y as usize + i + 1,
-                            longest,
-                            1,
-                        );
+                        let rect =
+                            Rect::new(column + text_area.x, line + text_area.y + i + 1, longest, 1);
                         let rect = rect.intersection(text_area);
                         if rect.area() > 0 {
                             Clear.render(rect.into(), buf);
@@ -692,7 +678,7 @@ impl View<Buffer> for EditorView {
                                 (rect.x + 1) as u16,
                                 rect.y as u16,
                                 word,
-                                rect.width.into(),
+                                rect.width,
                                 tui::style::Style::default(),
                             );
                             let style = if i == buffer.views[view_id].completer.index {
@@ -722,7 +708,7 @@ impl View<Buffer> for EditorView {
                     line: buffer.cursor_line_idx(view_id, 0) + 1,
                     column: buffer.cursor_grapheme_column(view_id, 0) + 1,
                     dirty: buffer.is_dirty(),
-                    branch: &branch,
+                    branch,
                     language: buffer.language_name().into(),
                     size: buffer.rope().len_bytes(),
                     read_only: buffer.read_only_file,

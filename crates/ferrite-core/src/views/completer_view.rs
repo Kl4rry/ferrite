@@ -51,13 +51,13 @@ impl View<Completer> for CompleterView {
             .unwrap()
             + 8;
 
-        let columns = (area.width as usize / widest).max(1);
+        let columns = (area.width / widest).max(1);
         let rows = completer
             .options()
             .len()
             .div_ceil(columns)
             .clamp(1, 10)
-            .min(area.height.into());
+            .min(area.height);
 
         let completer_area = Rect::new(area.x, area.bottom() - rows, area.width, rows);
 
@@ -71,8 +71,8 @@ impl View<Completer> for CompleterView {
                 let Some(option) = completer.options().get(index) else {
                     break;
                 };
-                let y = area.bottom() as usize - rows + row;
-                let x = area.left() as usize + widest * col;
+                let y = area.bottom() - rows + row;
+                let x = area.left() + widest * col;
                 let style = if Some(index) == completer.current() {
                     self.theme.completer_selected
                 } else {

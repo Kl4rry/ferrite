@@ -6,20 +6,21 @@ use std::{
 };
 
 use ferrite_geom::rect::{Rect, Vec2};
+use ferrite_style::Color;
 
 use crate::Id;
 
 #[derive(Default)]
 pub struct Painter2D {
-    quads: Vec<(Rect<f32>, (u8, u8, u8))>,
+    quads: Vec<(Rect<f32>, Color)>,
 }
 
 impl Painter2D {
-    pub fn draw_quad(&mut self, rect: Rect<f32>, color: (u8, u8, u8)) {
+    pub fn draw_quad(&mut self, rect: Rect<f32>, color: Color) {
         self.quads.push((rect, color))
     }
 
-    pub fn get_overlay(&self) -> &Vec<(Rect<f32>, (u8, u8, u8))> {
+    pub fn get_overlay(&self) -> &Vec<(Rect<f32>, Color)> {
         &self.quads
     }
 }

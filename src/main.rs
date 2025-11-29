@@ -227,7 +227,7 @@ fn main() -> Result<ExitCode> {
 #[cfg(feature = "tui")]
 fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     let (event_loop, proxy) = ferrite_term_platform::create_event_loop::<UserEvent>();
-    let engine = Engine::new(&args, proxy, rx)?;
+    let engine = Engine::new(args, proxy, rx)?;
     let platform =
         ferrite_term_platform::TermPlatform::new(engine, update, input, layout, start_of_frame)?;
     platform.run(event_loop);
@@ -239,9 +239,9 @@ fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<(
     #[cfg(not(target_os = "windows"))]
     maybe_disown(args);
     let (event_loop, proxy) = ferrite_winit_wgpu_platform::create_event_loop::<UserEvent>();
-    let engine = Engine::new(&args, proxy, rx)?;
+    let engine = Engine::new(args, proxy, rx)?;
     let runtime = Runtime::new(engine);
-    let platform = ferrite_winit_wgpu_platform::WinitWgpuPlatform::new();
+    let platform = ferrite_winit_wgpu_platform::WinitWgpuPlatform::default();
     platform.run(event_loop, runtime, update, input, layout, start_of_frame);
     Ok(())
 }

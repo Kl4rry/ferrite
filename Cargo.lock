@@ -941,6 +941,7 @@ dependencies = [
  "bitflags 2.10.0",
  "boxcar",
  "ferrite-geom",
+ "ferrite-style",
  "ratatui",
  "serde",
 ]
@@ -1066,6 +1067,7 @@ dependencies = [
  "ferrite-ctx",
  "ferrite-geom",
  "ferrite-runtime",
+ "ferrite-style",
  "glyphon",
  "pollster",
  "profiling",

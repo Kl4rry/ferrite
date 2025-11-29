@@ -23,6 +23,12 @@ impl UniqueId {
     }
 }
 
+impl Default for UniqueId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl std::fmt::Debug for UniqueId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:04X}", self.value() as u16)

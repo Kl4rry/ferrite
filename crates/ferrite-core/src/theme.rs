@@ -153,7 +153,7 @@ impl EditorTheme {
         let mut name = name;
         loop {
             match self.syntax.get(name) {
-                Some(style) => return style.clone(),
+                Some(style) => return *style,
                 None => match memrchr(b'.', name.as_bytes()) {
                     Some(i) => name = &name[..i],
                     None => break,
@@ -173,7 +173,7 @@ impl EditorTheme {
             }
         });
 
-        self.text.clone()
+        self.text
     }
 
     pub fn load_theme(path: impl AsRef<Path>) -> Result<Self> {

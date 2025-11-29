@@ -47,7 +47,7 @@ where
                 x as u16,
                 y as u16,
                 line.as_str().unwrap(),
-                (area.width - left_padding) as usize,
+                area.width - left_padding,
                 self.theme.text,
             );
         }

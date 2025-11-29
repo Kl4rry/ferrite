@@ -59,12 +59,12 @@ impl View<FileExplorer> for FileExplorerView {
 
         if area.height > 2 {
             let height = area.height.saturating_sub(1);
-            let page = state.index() / height as usize;
-            let start = page * height as usize;
+            let page = state.index() / height;
+            let start = page * height;
 
             let entries = state.entries();
             for i in 0..height {
-                let index = start + i as usize;
+                let index = start + i;
                 let Some(entry) = entries.get(index) else {
                     continue;
                 };
@@ -99,7 +99,7 @@ impl View<FileExplorer> for FileExplorerView {
                     (area.x + 1) as u16,
                     (area.y + i) as u16,
                     icon,
-                    area.width.saturating_sub(1) as usize,
+                    area.width.saturating_sub(1),
                     icon_style,
                 );
 
@@ -122,10 +122,10 @@ impl View<FileExplorer> for FileExplorerView {
                     (area.x + icon_width) as u16,
                     (area.y + i) as u16,
                     &line,
-                    area.width.saturating_sub(icon_width) as usize,
+                    area.width.saturating_sub(icon_width),
                     style,
                 );
-                if i as usize + start == state.index() {
+                if i + start == state.index() {
                     buf.set_style(
                         Rect::new(area.x, area.y + i, area.width, 1).into(),
                         self.theme.selection,
@@ -173,7 +173,7 @@ impl View<FileExplorer> for FileExplorerView {
                 info_line_area.x as u16,
                 info_line_y as u16,
                 format!("Dir: {}", directory),
-                info_line_area.width as usize,
+                info_line_area.width,
                 self.theme.text,
             );
             if self.has_focus {

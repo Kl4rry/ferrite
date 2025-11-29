@@ -94,15 +94,9 @@ impl View<()> for InfoLineView<'_> {
 
         // TODO: make right side have prio over left side
 
-        buf.set_stringn(
-            area.x as u16,
-            area.y as u16,
-            &left,
-            area.width.into(),
-            style,
-        );
+        buf.set_stringn(area.x as u16, area.y as u16, &left, area.width, style);
 
-        if area.width as usize > left_width + right_width {
+        if area.width > left_width + right_width {
             let mut output_area = area;
             output_area.x = (output_area.x + output_area.width) - right_width;
             buf.set_string(
@@ -113,14 +107,14 @@ impl View<()> for InfoLineView<'_> {
             );
         }
 
-        if area.width as usize > left_width + center_width + right_width {
-            let center_max_width = area.width as usize - left_width - right_width;
+        if area.width > left_width + center_width + right_width {
+            let center_max_width = area.width - left_width - right_width;
             let padding = (center_max_width - center_width / 2) / 2;
             buf.set_stringn(
                 (area.x + padding) as u16,
                 area.y as u16,
                 &center,
-                area.width.into(),
+                area.width,
                 style,
             );
         }

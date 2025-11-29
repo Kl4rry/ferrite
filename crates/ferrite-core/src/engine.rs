@@ -206,10 +206,10 @@ impl Engine {
             let file_str = file.to_string_lossy();
 
             if i == 0
-                && let ("file", body) = url::parse_scheme(&*file_str)
+                && let ("file", body) = url::parse_scheme(&file_str)
                 && file.is_dir()
             {
-                engine.cd(&body);
+                engine.cd(body);
                 engine.open_file_picker();
                 continue;
             }
@@ -1155,7 +1155,7 @@ impl Engine {
         if let Err(err) = self.workspace.save_workspace() {
             self.palette.set_error(err);
         }
-        match env::set_current_dir(&path) {
+        match env::set_current_dir(path) {
             Ok(_) => {
                 self.hide_pickers();
 
@@ -1193,17 +1193,17 @@ impl Engine {
     fn open_url(&mut self, url: impl AsRef<Path>, open_with_os: bool, create_file: bool) {
         let url = url.as_ref();
         let url_str = url.to_string_lossy();
-        let (scheme, body) = url::parse_scheme(&*url_str);
+        let (scheme, body) = url::parse_scheme(&url_str);
         tracing::info!("Opening url: {}://{}", scheme, body);
 
         match scheme {
             "man" => self.open_manpage(body),
             _ => {
-                if scheme == "file" && (!open_with_os || is_text_file(&body).unwrap_or(false)) {
-                    self.open_file(&body, create_file);
+                if scheme == "file" && (!open_with_os || is_text_file(body).unwrap_or(false)) {
+                    self.open_file(body, create_file);
                     return;
                 }
-                if let Err(err) = opener::open(&url) {
+                if let Err(err) = opener::open(url) {
                     self.palette.set_error(err);
                 }
             }

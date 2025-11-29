@@ -55,7 +55,7 @@ where
         assert_eq!(area.height, 1);
         let view_id = buffer.get_first_view_or_create();
         buffer.set_view_lines(view_id, 1);
-        buffer.set_view_columns(view_id, area.width.into());
+        buffer.set_view_columns(view_id, area.width);
         buffer.views[view_id].cursors.clear();
         buffer.views[view_id].clamp_cursor = true;
         let view = buffer.get_buffer_view(view_id);
@@ -68,7 +68,7 @@ where
                 area.x as u16,
                 area.y as u16,
                 left_prompt,
-                area.width.into(),
+                area.width,
                 self.theme.text,
             );
         }
@@ -85,7 +85,7 @@ where
                 text_area.x as u16,
                 text_area.y as u16,
                 view.lines[0].text.to_string(),
-                text_area.width.into(),
+                text_area.width,
                 self.theme.text,
             );
 
@@ -131,12 +131,12 @@ where
         if let Some(right_prompt) = &self.right_prompt {
             let right_prompt_width = right_prompt.width();
 
-            if area.width as usize > (right_prompt_width * 2 + 2) {
+            if area.width > (right_prompt_width * 2 + 2) {
                 buf.set_stringn(
                     (area.x + area.width - right_prompt_width) as u16 - 1,
                     area.y as u16,
                     right_prompt,
-                    area.width.into(),
+                    area.width,
                     self.theme.text,
                 );
             }
