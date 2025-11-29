@@ -43,6 +43,7 @@ pub struct Runtime<S> {
     pub font_family: String,
     pub start_of_events: Instant,
     pub last_render_time: Duration,
+    pub force_redraw: bool,
 }
 
 impl<S> Runtime<S> {
@@ -54,6 +55,7 @@ impl<S> Runtime<S> {
             font_family: "FiraCode Nerd Font Mono".into(),
             start_of_events: Instant::now(),
             last_render_time: Duration::ZERO,
+            force_redraw: false,
         }
     }
 }

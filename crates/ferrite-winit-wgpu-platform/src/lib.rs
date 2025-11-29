@@ -552,7 +552,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         );
 
                         let mouse_interaction = MouseInterction {
-                            button: MouseButton::Left,
+                            button,
                             kind: MouseInterctionKind::Click(mouse_state.clicks),
                             cell_size: Vec2::new(cell_width, cell_height),
                             position: state.mouse_state.position,

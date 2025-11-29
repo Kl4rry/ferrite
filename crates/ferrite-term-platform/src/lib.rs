@@ -1,23 +1,29 @@
 use std::{io, io::Stdout, time::Instant};
 
-use ferrite_runtime::{Runtime, event_loop_proxy::EventLoopProxy};
+use ferrite_runtime::{MouseInterctionKind, Runtime, event_loop_proxy::EventLoopProxy};
 
 use crate::event_loop::TuiEventLoop;
 pub mod event_loop;
 mod glue;
 
+use std::time::Duration;
+
 use crossterm::{
     event,
     event::{
-        Event, KeyEventKind, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+        Event, KeyEventKind, KeyboardEnhancementFlags, MouseEventKind, PopKeyboardEnhancementFlags,
         PushKeyboardEnhancementFlags,
     },
     execute, terminal,
 };
 use ferrite_geom::rect::{Rect, Vec2};
 use ferrite_runtime::{
-    Bounds, Input, Layout, Painter, StartOfFrame, Update, View, any_view::AnyView,
-    event_loop_proxy::EventLoopControlFlow, input::event::InputEvent, painter::Rounding,
+    Bounds, Input, Layout, MouseButton, MouseInterction, MouseState, Painter, StartOfFrame, Update,
+    View,
+    any_view::AnyView,
+    event_loop_proxy::EventLoopControlFlow,
+    input::{event::InputEvent, keycode::KeyModifiers},
+    painter::Rounding,
 };
 use tui::Terminal;
 
@@ -43,6 +49,8 @@ pub struct TermPlatform<S, UserEvent> {
     keyboard_enhancement: bool,
     columns: u16,
     lines: u16,
+    modifiers: KeyModifiers,
+    mouse_state: MouseState,
 }
 
 impl<S, UserEvent> TermPlatform<S, UserEvent> {
@@ -70,6 +78,8 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             keyboard_enhancement: false,
             columns,
             lines,
+            modifiers: KeyModifiers::default(),
+            mouse_state: MouseState::default(),
         })
     }
 
@@ -148,10 +158,11 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
     pub fn render(&mut self, control_flow: &mut EventLoopControlFlow) {
         (self.update)(&mut self.runtime, control_flow);
         self.view_tree = (self.layout)(&mut self.runtime.state);
-        /*if self.tui_app.engine.force_redraw {
-            self.tui_app.engine.force_redraw = false;
-            let _ = self.terminal.clear();
-        }*/
+
+        if self.runtime.force_redraw {
+            self.runtime.force_redraw = false;
+            self.terminal.clear().unwrap();
+        }
 
         let bounds = Bounds::new(
             Rect::new(0, 0, self.columns.into(), self.lines.into()),
@@ -197,13 +208,126 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 tracing::debug!("{:?}", event);
                 if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
                     let keycode = glue::convert_keycode(event.code);
-                    let modifier = glue::convert_modifier(event.modifiers);
+                    let modifiers = glue::convert_modifier(event.modifiers);
+                    self.modifiers = modifiers;
                     (self.input)(
                         &mut self.runtime.state,
-                        InputEvent::Key(keycode, modifier),
+                        InputEvent::Key(keycode, modifiers),
                         control_flow,
                     );
                 }
+            }
+            Event::Paste(string) => {
+                (self.input)(
+                    &mut self.runtime.state,
+                    InputEvent::Paste(string),
+                    control_flow,
+                );
+            }
+            Event::Mouse(event) => {
+                self.modifiers = glue::convert_modifier(event.modifiers);
+                self.mouse_state.position = Vec2::new(event.column as f32, event.row as f32);
+                let input = match event.kind {
+                    MouseEventKind::ScrollUp => InputEvent::Scroll(0.0, 1.0),
+                    MouseEventKind::ScrollDown => InputEvent::Scroll(0.0, -1.0),
+                    MouseEventKind::ScrollLeft => InputEvent::Scroll(1.0, 0.0),
+                    MouseEventKind::ScrollRight => InputEvent::Scroll(-1.0, 0.0),
+                    MouseEventKind::Down(button) => {
+                        let button = match button {
+                            crossterm::event::MouseButton::Left => MouseButton::Left,
+                            crossterm::event::MouseButton::Right => MouseButton::Right,
+                            crossterm::event::MouseButton::Middle => MouseButton::Middle,
+                        };
+
+                        let mouse_state = match button {
+                            MouseButton::Left => &mut self.mouse_state.left,
+                            MouseButton::Right => &mut self.mouse_state.right,
+                            MouseButton::Middle => &mut self.mouse_state.middle,
+                        };
+
+                        mouse_state.pressed = true;
+                        let now = Instant::now();
+                        if now.duration_since(mouse_state.last_press) < Duration::from_millis(400) {
+                            mouse_state.clicks += 1;
+                            if mouse_state.clicks > 3 {
+                                mouse_state.clicks = 1;
+                            }
+                        }
+
+                        let bounds = Bounds::new(
+                            Rect::new(0, 0, self.columns.into(), self.lines.into()),
+                            Vec2::new(1.0, 1.0),
+                            Rounding::Round,
+                        );
+
+                        let mouse_interaction = MouseInterction {
+                            button,
+                            kind: MouseInterctionKind::Click(mouse_state.clicks),
+                            cell_size: Vec2::new(1.0, 1.0),
+                            position: self.mouse_state.position,
+                            modifiers: self.modifiers,
+                        };
+
+                        self.view_tree.handle_mouse(
+                            &mut self.runtime.state,
+                            bounds,
+                            mouse_interaction,
+                        );
+                        return;
+                    }
+                    MouseEventKind::Up(button) => {
+                        match button {
+                            crossterm::event::MouseButton::Left => {
+                                self.mouse_state.left.pressed = false
+                            }
+                            crossterm::event::MouseButton::Right => {
+                                self.mouse_state.right.pressed = false
+                            }
+                            crossterm::event::MouseButton::Middle => {
+                                self.mouse_state.middle.pressed = false
+                            }
+                        }
+                        return;
+                    }
+                    MouseEventKind::Drag(button) => {
+                        let button = match button {
+                            crossterm::event::MouseButton::Left => MouseButton::Left,
+                            crossterm::event::MouseButton::Right => MouseButton::Right,
+                            crossterm::event::MouseButton::Middle => MouseButton::Middle,
+                        };
+
+                        let mouse_state = match button {
+                            MouseButton::Left => &mut self.mouse_state.left,
+                            MouseButton::Right => &mut self.mouse_state.right,
+                            MouseButton::Middle => &mut self.mouse_state.middle,
+                        };
+
+                        mouse_state.pressed = true;
+
+                        let bounds = Bounds::new(
+                            Rect::new(0, 0, self.columns.into(), self.lines.into()),
+                            Vec2::new(1.0, 1.0),
+                            Rounding::Round,
+                        );
+
+                        let mouse_interaction = MouseInterction {
+                            button,
+                            kind: MouseInterctionKind::Drag,
+                            cell_size: Vec2::new(1.0, 1.0),
+                            position: self.mouse_state.position,
+                            modifiers: self.modifiers,
+                        };
+
+                        self.view_tree.handle_mouse(
+                            &mut self.runtime.state,
+                            bounds,
+                            mouse_interaction,
+                        );
+                        return;
+                    }
+                    MouseEventKind::Moved => return,
+                };
+                (self.input)(&mut self.runtime.state, input, control_flow)
             }
             _ => (),
         }

@@ -24,6 +24,8 @@ pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControl
     runtime.font_family = runtime.state.config.editor.gui.font_family.clone();
     runtime.font_weight = runtime.state.config.editor.gui.font_weight as u16;
     runtime.state.last_render_time = runtime.last_render_time;
+    runtime.force_redraw = runtime.state.force_redraw;
+    runtime.state.force_redraw = false;
 }
 
 #[profiling::function]
