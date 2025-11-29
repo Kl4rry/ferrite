@@ -7,5 +7,6 @@ edition = "2024"
 crossterm = { workspace = true }
 ferrite-geom = { workspace = true }
 ferrite-runtime = { workspace = true }
+profiling = { workspace = true }
 tracing = { workspace = true }
 tui = { workspace = true, features = ["crossterm"] }

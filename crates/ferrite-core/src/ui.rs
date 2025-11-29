@@ -17,6 +17,7 @@ use crate::{
     },
 };
 
+#[profiling::function]
 pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControlFlow) {
     runtime.state.do_polling(control_flow);
     runtime.scale = runtime.state.scale;
@@ -25,6 +26,7 @@ pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControl
     runtime.state.last_render_time = runtime.last_render_time;
 }
 
+#[profiling::function]
 pub fn input(
     engine: &mut Engine,
     input: InputEvent<UserEvent>,
@@ -58,6 +60,7 @@ pub fn input(
     }
 }
 
+#[profiling::function]
 pub fn layout(engine: &mut Engine) -> AnyView<Engine> {
     profiling::scope!("layout");
     let theme = engine.themes[&engine.config.editor.theme].clone();

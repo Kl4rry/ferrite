@@ -977,6 +977,7 @@ dependencies = [
  "crossterm",
  "ferrite-geom",
  "ferrite-runtime",
+ "profiling",
  "ratatui",
  "tracing",
 ]

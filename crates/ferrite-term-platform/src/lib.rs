@@ -139,36 +139,45 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 );
             }
             event_loop::TuiEvent::Render => {
-                (self.update)(&mut self.runtime, control_flow);
-                self.view_tree = (self.layout)(&mut self.runtime.state);
-                // TODO KEEP THIS self.tui_app.engine.config.editor.gui.cursor_type = CursorType::Block;
-                /*if self.tui_app.engine.force_redraw {
-                    self.tui_app.engine.force_redraw = false;
-                    let _ = self.terminal.clear();
-                }*/
-
-                let bounds = Bounds::new(
-                    Rect::new(0, 0, self.columns.into(), self.lines.into()),
-                    Vec2::new(1.0, 1.0),
-                    Rounding::Round,
-                );
-                self.view_tree
-                    .render(&mut self.runtime.state, bounds, &mut self.painter);
-
-                self.terminal
-                    .draw(|f| {
-                        for (_, _, layer) in self.painter.layers() {
-                            let layer = layer.lock().unwrap();
-                            f.buffer_mut().merge(&layer.buf);
-                        }
-                    })
-                    .unwrap();
-
-                self.runtime.last_render_time =
-                    Instant::now().duration_since(self.runtime.start_of_events);
-                self.painter.clean_up_frame();
+                self.render(control_flow);
             }
         }
+    }
+
+    #[profiling::function]
+    pub fn render(&mut self, control_flow: &mut EventLoopControlFlow) {
+        (self.update)(&mut self.runtime, control_flow);
+        self.view_tree = (self.layout)(&mut self.runtime.state);
+        /*if self.tui_app.engine.force_redraw {
+            self.tui_app.engine.force_redraw = false;
+            let _ = self.terminal.clear();
+        }*/
+
+        let bounds = Bounds::new(
+            Rect::new(0, 0, self.columns.into(), self.lines.into()),
+            Vec2::new(1.0, 1.0),
+            Rounding::Round,
+        );
+        {
+            profiling::scope!("view tree render");
+            self.view_tree
+                .render(&mut self.runtime.state, bounds, &mut self.painter);
+        }
+
+        {
+            profiling::scope!("terminal draw");
+            self.terminal
+                .draw(|f| {
+                    for (_, _, layer) in self.painter.layers() {
+                        let layer = layer.lock().unwrap();
+                        overlay(f.buffer_mut(), &layer.buf);
+                    }
+                })
+                .unwrap();
+        }
+
+        self.runtime.last_render_time = Instant::now().duration_since(self.runtime.start_of_events);
+        self.painter.clean_up_frame();
     }
 
     pub fn handle_crossterm_event(
@@ -181,6 +190,8 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             Event::Resize(columns, lines) => {
                 self.columns = columns;
                 self.lines = lines;
+                self.terminal.clear().unwrap();
+                self.render(control_flow);
             }
             Event::Key(event) => {
                 tracing::debug!("{:?}", event);
@@ -212,5 +223,28 @@ impl<S, UserEvent> Drop for TermPlatform<S, UserEvent> {
             terminal::LeaveAlternateScreen,
         );
         let _ = self.terminal.show_cursor();
+    }
+}
+
+#[profiling::function]
+pub fn overlay(output: &mut tui::buffer::Buffer, input: &tui::buffer::Buffer) {
+    for x in input.area.x..(input.area.x + input.area.width) {
+        for y in input.area.y..(input.area.y + input.area.height) {
+            if let Some(out_cell) = output.cell_mut((x, y)) {
+                let in_cell = &input[(x, y)];
+                if in_cell != &tui::buffer::Cell::EMPTY {
+                    out_cell.set_symbol(in_cell.symbol());
+                    if in_cell.fg != tui::buffer::Cell::EMPTY.fg {
+                        out_cell.fg = in_cell.fg;
+                    }
+                    if in_cell.bg != tui::buffer::Cell::EMPTY.bg {
+                        out_cell.bg = in_cell.bg;
+                    }
+                    if in_cell.modifier != tui::buffer::Cell::EMPTY.modifier {
+                        out_cell.modifier = in_cell.modifier;
+                    }
+                }
+            }
+        }
     }
 }
