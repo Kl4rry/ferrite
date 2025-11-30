@@ -557,6 +557,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                                 mouse_state.clicks = 1;
                             }
                         }
+                        mouse_state.last_press = now;
 
                         let metrics = backend::get_metrics(app.runtime.scale);
                         let (cell_width, cell_height) = backend::calculate_cell_size(

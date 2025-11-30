@@ -283,6 +283,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                                 mouse_state.clicks = 1;
                             }
                         }
+                        mouse_state.last_press = now;
 
                         let bounds = Bounds::new(
                             Rect::new(0, 0, self.columns.into(), self.lines.into()),

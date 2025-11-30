@@ -75,7 +75,7 @@ impl Default for MouseButtonState {
         Self {
             pressed: false,
             last_press: Instant::now(),
-            clicks: 0,
+            clicks: 1,
         }
     }
 }
