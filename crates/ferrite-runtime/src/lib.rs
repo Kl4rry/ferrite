@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use ferrite_geom::rect::Vec2;
+use ferrite_style::Color;
 
 use crate::{
     any_view::AnyView,
@@ -41,6 +42,7 @@ pub struct Runtime<S> {
     pub scale: f32,
     pub font_weight: u16,
     pub font_family: String,
+    pub default_bg: Color,
     pub start_of_events: Instant,
     pub last_render_time: Duration,
     pub force_redraw: bool,
@@ -56,6 +58,7 @@ impl<S> Runtime<S> {
             start_of_events: Instant::now(),
             last_render_time: Duration::ZERO,
             force_redraw: false,
+            default_bg: Color::new(0.0, 0.0, 0.0),
         }
     }
 }

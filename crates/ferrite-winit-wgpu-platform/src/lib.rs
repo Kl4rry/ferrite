@@ -250,6 +250,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             });
         {
             profiling::scope!("main render pass");
+            let bg = self.app.as_ref().unwrap().runtime.default_bg;
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Main render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -257,9 +258,9 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.05,
-                            g: 0.0,
-                            b: 0.0,
+                            r: srgb_to_linear(bg.r) as f64,
+                            g: srgb_to_linear(bg.g) as f64,
+                            b: srgb_to_linear(bg.b) as f64,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -733,5 +734,13 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         if state.terminals.values().any(|t| t.backend().redraw) {
             state.window.request_redraw();
         }
+    }
+}
+
+pub fn srgb_to_linear(c: f32) -> f32 {
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
     }
 }

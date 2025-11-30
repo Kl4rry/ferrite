@@ -26,6 +26,10 @@ pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControl
     runtime.state.last_render_time = runtime.last_render_time;
     runtime.force_redraw = runtime.state.force_redraw;
     runtime.state.force_redraw = false;
+    runtime.default_bg = runtime.state.themes[&runtime.state.config.editor.theme]
+        .background
+        .bg
+        .unwrap_or_default();
 }
 
 #[profiling::function]
