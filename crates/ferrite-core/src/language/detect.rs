@@ -1,6 +1,7 @@
 use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::{Rope, RopeSlice};
 
+#[profiling::function]
 pub fn detect_language(inital_guess: Option<&str>, content: Rope) -> Option<&'static str> {
     tracing::debug!("inital_guess: {inital_guess:?}");
     if inital_guess == Some("c") {
@@ -32,6 +33,7 @@ pub fn detect_language(inital_guess: Option<&str>, content: Rope) -> Option<&'st
     detect_shebang(content.slice(..))
 }
 
+#[profiling::function]
 fn detect_shebang(content: RopeSlice) -> Option<&'static str> {
     for line in content.lines() {
         if line.is_whitespace() {
@@ -67,6 +69,7 @@ fn detect_shebang(content: RopeSlice) -> Option<&'static str> {
     None
 }
 
+#[profiling::function]
 fn detect_markers(content: RopeSlice, markers: &[&str]) -> usize {
     let start = content.slice(..content.len_chars().min(1000)).to_string();
     let mut count = 0;

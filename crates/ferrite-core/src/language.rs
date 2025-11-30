@@ -399,6 +399,7 @@ impl Pattern {
     }
 }
 
+#[profiling::function]
 pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
     use Pattern::*;
     static LANGUAGES: &[(Pattern, &str)] = &[

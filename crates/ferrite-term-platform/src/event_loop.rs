@@ -64,6 +64,15 @@ impl<UserEvent> TuiEventLoop<UserEvent> {
         thread::spawn(move || {
             loop {
                 if let Ok(event) = crossterm::event::read() {
+                    // Skip mouse moved to save CPU/battery
+                    if let crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+                        kind, ..
+                    }) = event
+                        && kind == crossterm::event::MouseEventKind::Moved
+                    {
+                        continue;
+                    }
+
                     let _ = crossterm_tx.send(event);
                     let _ = waker_tx.send("recv crossterm event");
                 }

@@ -51,6 +51,7 @@ pub struct TermPlatform<S, UserEvent> {
     lines: u16,
     modifiers: KeyModifiers,
     mouse_state: MouseState,
+    dirty: bool,
 }
 
 impl<S, UserEvent> TermPlatform<S, UserEvent> {
@@ -80,6 +81,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             lines,
             modifiers: KeyModifiers::default(),
             mouse_state: MouseState::default(),
+            dirty: true,
         })
     }
 
@@ -127,6 +129,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
     }
 
+    #[profiling::function]
     pub fn handle_event(
         &mut self,
         proxy: &TuiEventLoopProxy<UserEvent>,
@@ -142,6 +145,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 self.handle_crossterm_event(proxy, event, control_flow)
             }
             event_loop::TuiEvent::UserEvent(event) => {
+                self.dirty = true;
                 (self.input)(
                     &mut self.runtime.state,
                     InputEvent::UserEvent(event),
@@ -149,6 +153,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 );
             }
             event_loop::TuiEvent::Render => {
+                self.dirty = true;
                 self.render(control_flow);
             }
         }
@@ -156,6 +161,10 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
 
     #[profiling::function]
     pub fn render(&mut self, control_flow: &mut EventLoopControlFlow) {
+        if !self.dirty {
+            return;
+        }
+        self.dirty = false;
         (self.update)(&mut self.runtime, control_flow);
         self.view_tree = (self.layout)(&mut self.runtime.state);
 
@@ -191,6 +200,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
         self.painter.clean_up_frame();
     }
 
+    #[profiling::function]
     pub fn handle_crossterm_event(
         &mut self,
         _proxy: &TuiEventLoopProxy<UserEvent>,
@@ -199,13 +209,17 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
     ) {
         match event {
             Event::Resize(columns, lines) => {
+                profiling::scope!("resize");
+                self.dirty = true;
                 self.columns = columns;
                 self.lines = lines;
                 self.terminal.clear().unwrap();
                 self.render(control_flow);
             }
             Event::Key(event) => {
+                profiling::scope!("key");
                 tracing::debug!("{:?}", event);
+                self.dirty = true;
                 if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
                     let keycode = glue::convert_keycode(event.code);
                     let modifiers = glue::convert_modifier(event.modifiers);
@@ -218,6 +232,8 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 }
             }
             Event::Paste(string) => {
+                profiling::scope!("paste");
+                self.dirty = true;
                 (self.input)(
                     &mut self.runtime.state,
                     InputEvent::Paste(string),
@@ -225,14 +241,28 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 );
             }
             Event::Mouse(event) => {
+                profiling::scope!("mouse");
                 self.modifiers = glue::convert_modifier(event.modifiers);
                 self.mouse_state.position = Vec2::new(event.column as f32, event.row as f32);
                 let input = match event.kind {
-                    MouseEventKind::ScrollUp => InputEvent::Scroll(0.0, 1.0),
-                    MouseEventKind::ScrollDown => InputEvent::Scroll(0.0, -1.0),
-                    MouseEventKind::ScrollLeft => InputEvent::Scroll(1.0, 0.0),
-                    MouseEventKind::ScrollRight => InputEvent::Scroll(-1.0, 0.0),
+                    MouseEventKind::ScrollUp => {
+                        self.dirty = true;
+                        InputEvent::Scroll(0.0, 1.0)
+                    }
+                    MouseEventKind::ScrollDown => {
+                        self.dirty = true;
+                        InputEvent::Scroll(0.0, -1.0)
+                    }
+                    MouseEventKind::ScrollLeft => {
+                        self.dirty = true;
+                        InputEvent::Scroll(1.0, 0.0)
+                    }
+                    MouseEventKind::ScrollRight => {
+                        self.dirty = true;
+                        InputEvent::Scroll(-1.0, 0.0)
+                    }
                     MouseEventKind::Down(button) => {
+                        self.dirty = true;
                         let button = match button {
                             crossterm::event::MouseButton::Left => MouseButton::Left,
                             crossterm::event::MouseButton::Right => MouseButton::Right,
@@ -276,6 +306,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                         return;
                     }
                     MouseEventKind::Up(button) => {
+                        self.dirty = true;
                         match button {
                             crossterm::event::MouseButton::Left => {
                                 self.mouse_state.left.pressed = false
@@ -290,6 +321,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                         return;
                     }
                     MouseEventKind::Drag(button) => {
+                        self.dirty = true;
                         let button = match button {
                             crossterm::event::MouseButton::Left => MouseButton::Left,
                             crossterm::event::MouseButton::Right => MouseButton::Right,

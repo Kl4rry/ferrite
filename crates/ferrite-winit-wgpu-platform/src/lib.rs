@@ -104,6 +104,7 @@ struct App<S, UserEvent> {
 pub struct WinitWgpuPlatform<S, UserEvent> {
     state: Option<State>,
     app: Option<App<S, UserEvent>>,
+    dirty: bool,
 }
 
 impl<S, UserEvent: 'static + Send> Default for WinitWgpuPlatform<S, UserEvent> {
@@ -111,6 +112,7 @@ impl<S, UserEvent: 'static + Send> Default for WinitWgpuPlatform<S, UserEvent> {
         Self {
             state: None,
             app: None,
+            dirty: true,
         }
     }
 }
@@ -120,6 +122,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         self.state.as_mut().unwrap()
     }
 
+    #[profiling::function]
     fn prepare(&mut self) {
         let state = self.state.as_mut().unwrap();
         let app = self.app.as_mut().unwrap();
@@ -195,8 +198,17 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         state.terminals.retain(|k, _v| state.touched.contains(k));
     }
 
+    #[profiling::function]
     fn render(&mut self) {
+        self.dirty = false;
         let state = self.state.as_mut().unwrap();
+
+        // Mark terminals clean because we are drawing
+        {
+            for terminal in state.terminals.values_mut() {
+                terminal.backend_mut().redraw = false;
+            }
+        }
 
         // TODO: tmp alloc
         let mut terminals: Vec<_> = state.terminals.iter_mut().collect();
@@ -320,12 +332,16 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
 impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
     for WinitWgpuPlatform<S, UserEvent>
 {
+    #[profiling::function]
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let window = Arc::new(
-            event_loop
-                .create_window(Window::default_attributes().with_title("Ferrite"))
-                .unwrap(),
-        );
+        let window = {
+            profiling::scope!("spawn window");
+            Arc::new(
+                event_loop
+                    .create_window(Window::default_attributes().with_title("Ferrite"))
+                    .unwrap(),
+            )
+        };
         // TODO: This fixes the exit segfault by leaking a Arc<Window> so that
         // the window does not get destoryed
         std::mem::forget(window.clone());
@@ -430,6 +446,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 tracing::trace!("{:?}", event);
+                self.dirty = true;
 
                 if let Key::Named(key) = event.logical_key {
                     let state = self.state.as_mut().unwrap();
@@ -507,6 +524,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 button,
                 ..
             } => {
+                self.dirty = true;
                 let button = match button {
                     winit::event::MouseButton::Left => MouseButton::Left,
                     winit::event::MouseButton::Right => MouseButton::Right,
@@ -584,6 +602,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     return;
                 }
 
+                self.dirty = true;
+
                 let metrics = backend::get_metrics(app.runtime.scale);
                 let (cell_width, cell_height) = backend::calculate_cell_size(
                     &mut state.renderer.font_system,
@@ -633,6 +653,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
+                self.dirty = true;
                 let app = self.app.as_mut().unwrap();
                 let state = self.state.as_mut().unwrap();
                 let input_event = match delta {
@@ -646,6 +667,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 self.update_control_flow(event_loop);
             }
             WindowEvent::Resized(size) => {
+                profiling::scope!("resized");
+                self.dirty = true;
                 let state = self.state_mut();
                 state.config.width = size.width;
                 state.config.height = size.height;
@@ -658,6 +681,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 scale_factor,
                 inner_size_writer: _,
             } => {
+                profiling::scope!("scale factor changed");
+                self.dirty = true;
                 let state = self.state_mut();
                 state.scale_factor = scale_factor;
                 state.window.request_redraw();
@@ -667,7 +692,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         }
     }
 
+    #[profiling::function]
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: PlatformEvent<UserEvent>) {
+        self.dirty = true;
         match event {
             PlatformEvent::Wake(reason) => tracing::info!("Woken because: {reason}"),
             PlatformEvent::UserEvent(event) => {
@@ -689,7 +716,12 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         (app.start_of_frame)(&mut app.runtime);
     }
 
+    #[profiling::function]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        if !self.dirty {
+            return;
+        }
+        self.dirty = false;
         {
             let app = self.app.as_mut().unwrap();
             let state = self.state.as_mut().unwrap();
@@ -700,9 +732,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         let state = self.state.as_mut().unwrap();
         if state.terminals.values().any(|t| t.backend().redraw) {
             state.window.request_redraw();
-            for terminal in state.terminals.values_mut() {
-                terminal.backend_mut().redraw = false;
-            }
         }
     }
 }
