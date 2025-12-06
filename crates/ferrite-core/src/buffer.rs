@@ -3380,7 +3380,7 @@ impl Buffer {
         let proxy = get_proxy();
         let rope = self.rope.clone();
         rayon::spawn(move || {
-            // TODO(axel): rm temp alloc
+            // TODO: rm temp alloc
             let mut conflicts = Vec::new();
             enum Stage {
                 Searching,

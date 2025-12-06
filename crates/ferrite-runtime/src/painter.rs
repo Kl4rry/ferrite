@@ -73,6 +73,10 @@ impl Painter {
     pub fn layers(&self) -> &[(TypeId, Id, Arc<Mutex<Layer>>)] {
         &self.layers
     }
+
+    pub fn has_painter2d(&self) -> bool {
+        self.painter2d
+    }
 }
 
 pub struct Layer {

@@ -247,20 +247,6 @@ impl WgpuBackend {
                             color: glyphon::Color::rgb(82, 139, 255),
                         });
                     }
-
-                    for (rect, color) in &self.overlay_gemoetry {
-                        self.top_geometry.quads.push(Quad {
-                            x: rect.x,
-                            y: rect.y,
-                            width: rect.width,
-                            height: rect.height,
-                            color: glyphon::Color::rgb(
-                                (color.r * 255.0) as u8,
-                                (color.g * 255.0) as u8,
-                                (color.b * 255.0) as u8,
-                            ),
-                        });
-                    }
                 }
 
                 self.buffer.lines[line_idx] = BufferLine::new(
@@ -269,6 +255,20 @@ impl WgpuBackend {
                     attr_list,
                     Shaping::Advanced,
                 );
+            }
+
+            for (rect, color) in &self.overlay_gemoetry {
+                self.top_geometry.quads.push(Quad {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                    color: glyphon::Color::rgb(
+                        (color.r * 255.0) as u8,
+                        (color.g * 255.0) as u8,
+                        (color.b * 255.0) as u8,
+                    ),
+                });
             }
         }
 

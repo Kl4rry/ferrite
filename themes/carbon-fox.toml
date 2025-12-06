@@ -8,7 +8,7 @@
 "editor.background" = { bg = "bg1", fg = "fg1" }
 "editor.selection" = { bg = "bg4"}
 "editor.border" = { fg = "bg4" }
-"editor.pane_border" = { fg = "bg0" }
+"editor.pane_border" = { bg = "bg1", fg = "bg0" }
 "editor.ruler" = { fg = "bg3" }
 "editor.error_text" = { fg = "red" }
 "editor.search.match" = { bg = "search_match" }
