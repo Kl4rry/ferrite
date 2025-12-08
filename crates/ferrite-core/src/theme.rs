@@ -239,21 +239,52 @@ impl Default for EditorTheme {
 }
 
 #[cfg(feature = "embed-themes")]
-static THEMES: include_dir::Dir<'_> = include_dir::include_dir!("$CARGO_MANIFEST_DIR/../../themes");
+static THEMES: &[(&str, &str)] = &[
+    (
+        "carbon-fox.toml",
+        include_str!("../../../themes/carbon-fox.toml"),
+    ),
+    (
+        "catppuccin_frappe.toml",
+        include_str!("../../../themes/catppuccin_frappe.toml"),
+    ),
+    (
+        "catppuccin_latte.toml",
+        include_str!("../../../themes/catppuccin_latte.toml"),
+    ),
+    (
+        "catppuccin_macchiato.toml",
+        include_str!("../../../themes/catppuccin_macchiato.toml"),
+    ),
+    (
+        "catppuccin_mocha.toml",
+        include_str!("../../../themes/catppuccin_mocha.toml"),
+    ),
+    ("gruvbox.toml", include_str!("../../../themes/gruvbox.toml")),
+    (
+        "naysayer.toml",
+        include_str!("../../../themes/naysayer.toml"),
+    ),
+    ("onedark.toml", include_str!("../../../themes/onedark.toml")),
+    (
+        "solarized_dark.toml",
+        include_str!("../../../themes/solarized_dark.toml"),
+    ),
+    (
+        "solarized_light.toml",
+        include_str!("../../../themes/solarized_light.toml"),
+    ),
+];
 
 #[cfg(feature = "embed-themes")]
 fn get_embedded_themes() -> Vec<(String, EditorTheme)> {
     THEMES
-        .files()
-        .map(|file| {
+        .into_iter()
+        .map(|(path, content)| {
             (
-                file.path()
-                    .file_stem()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned(),
-                EditorTheme::parse_theme(file.contents_utf8().unwrap())
-                    .unwrap_or_else(|_| panic!("unable to parse: {:?}", file)),
+                path.to_string(),
+                EditorTheme::parse_theme(content)
+                    .unwrap_or_else(|_| panic!("unable to parse: {:?}", path)),
             )
         })
         .collect()
@@ -267,19 +298,10 @@ pub fn init_themes() -> Result<()> {
         };
         let theme_dir = project_dirs.config_dir().join("themes");
         fs::create_dir_all(&theme_dir)?;
-        for (name, theme) in THEMES.files().map(|file| {
-            (
-                file.path()
-                    .file_stem()
-                    .unwrap()
-                    .to_string_lossy()
-                    .into_owned(),
-                file.contents_utf8().unwrap(),
-            )
-        }) {
-            let path = theme_dir.join(format!("{name}.toml"));
+        for (file, content) in THEMES {
+            let path = theme_dir.join(file);
             if !path.exists() {
-                fs::write(&path, theme)?;
+                fs::write(&path, content)?;
             }
         }
 
@@ -299,10 +321,12 @@ mod tests {
     #[cfg(feature = "embed-themes")]
     #[test]
     fn parse_embedded_themes() {
-        for file in THEMES.files() {
-            let content = file.contents_utf8();
-            assert!(content.is_some());
-            assert!(EditorTheme::parse_theme(content.unwrap()).is_ok());
+        for (file, content) in THEMES {
+            let res = EditorTheme::parse_theme(content).is_ok();
+            if !res {
+                eprintln!("Error parsing: {}", file);
+            }
+            assert!(res);
         }
     }
 }

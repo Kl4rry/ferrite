@@ -29,7 +29,6 @@ grep-searcher = { workspace = true }
 heck = { workspace = true }
 humansize = { workspace = true }
 ignore = { workspace = true }
-include_dir = { workspace = true, optional = true }
 indexmap = { workspace = true, features = ["serde"] }
 lexical-sort = { workspace = true }
 linkify = { workspace = true }
@@ -59,7 +58,7 @@ tempdir = { workspace = true }
 rand = { workspace = true }
 
 [features]
-embed-themes = ["dep:include_dir"]
+embed-themes = []
 lang-bash = ["ferrite-tree-sitter/lang-bash"]
 lang-c = ["ferrite-tree-sitter/lang-c"]
 lang-c-sharp = ["ferrite-tree-sitter/lang-c-sharp"]

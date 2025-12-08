@@ -11,4 +11,5 @@ boxcar = { workspace = true }
 ferrite-geom = { workspace = true }
 ferrite-style = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 tui = { workspace = true }
