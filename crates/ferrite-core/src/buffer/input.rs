@@ -52,7 +52,7 @@ impl Buffer {
                 line,
             } => self.handle_click(view_id, clicks, spawn_cursor, column, line),
             DragCell { column, line } => self.handle_drag(view_id, column, line),
-            SelectArea { cursor, anchor } => self.select_area(view_id, cursor, anchor, true),
+            SelectArea { cursor, anchor } => self.select_area(view_id, cursor, anchor),
             NextMatch => self.next_match(view_id),
             PrevMatch => self.prev_match(view_id),
             ReplaceCurrentMatch if !self.read_only => self.replace_current_match(view_id),

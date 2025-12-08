@@ -216,7 +216,7 @@ impl Previewer<GlobalSearchMatch> for GlobalSearchPreviewer {
             let mut guard = m.buffer.lock().unwrap();
             let (start, end) = m.match_location;
             let view_id = guard.get_first_view().unwrap();
-            guard.select_area(view_id, start, end, false);
+            guard.select_area(view_id, start, end);
             guard.views[view_id].clamp_cursor = true;
             guard.center_on_main_cursor(view_id);
         }

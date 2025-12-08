@@ -56,27 +56,16 @@ pub fn get_contents() -> String {
 }
 
 #[cfg(target_os = "linux")]
-static PRIMARY_CLIPBOARD_CACHE: Mutex<Option<String>> = Mutex::new(None);
-
-#[cfg(target_os = "linux")]
 pub fn set_primary(text: impl Into<String>) {
-    *PRIMARY_CLIPBOARD_CACHE.lock().unwrap() = Some(text.into())
-}
-
-#[cfg(target_os = "linux")]
-pub fn flush_primary() {
-    /*use arboard::{LinuxClipboardKind, SetExtLinux};
-    let Some(text) = PRIMARY_CLIPBOARD_CACHE.lock().unwrap().take() else {
-        return;
-    };
+    use arboard::{LinuxClipboardKind, SetExtLinux};
     if let Some(clipboard) = CLIPBOARD.lock().unwrap().as_mut()
         && let Err(err) = clipboard
             .set()
             .clipboard(LinuxClipboardKind::Primary)
-            .text(text)
+            .text(text.into())
     {
         tracing::error!("{err}");
-    }*/
+    }
 }
 
 pub fn get_primary() -> String {

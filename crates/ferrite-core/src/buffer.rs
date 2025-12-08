@@ -2458,10 +2458,6 @@ impl Buffer {
         self.set_cursor_pos(view_id, last_idx, column, line);
         self.views[view_id].coalesce_cursors();
 
-        if self.views[view_id].cursors.len() == 1 {
-            self.copy_selection_to_primary(view_id);
-        }
-
         self.update_affinity(view_id);
         self.history.finish();
         self.hide_completers();
@@ -2527,20 +2523,11 @@ impl Buffer {
         }
     }
 
-    pub fn select_area(
-        &mut self,
-        view_id: ViewId,
-        cursor: Point<usize>,
-        anchor: Point<usize>,
-        copy_to_clipboard: bool,
-    ) {
+    pub fn select_area(&mut self, view_id: ViewId, cursor: Point<usize>, anchor: Point<usize>) {
         self.views[view_id].cursors.clear();
         self.set_cursor_pos(view_id, 0, cursor.column, cursor.line);
         self.set_anchor_pos(view_id, 0, anchor.column, anchor.line);
 
-        if copy_to_clipboard {
-            self.copy_selection_to_primary(view_id);
-        }
         self.update_affinity(view_id);
         self.history.finish();
         self.hide_completers();
@@ -2549,7 +2536,6 @@ impl Buffer {
     pub fn copy_selection_to_primary(&mut self, _view_id: ViewId) {
         #[cfg(target_os = "linux")]
         {
-            self.views[_view_id].cursors.clear();
             let start = self.views[_view_id].cursors.first().start();
             let end = self.views[_view_id].cursors.first().end();
             clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
@@ -2710,7 +2696,7 @@ impl Buffer {
         if let Some(searcher) = &mut self.views[view_id].searcher
             && let Some(search_match) = searcher.get_next_match()
         {
-            self.select_area(view_id, search_match.end, search_match.start, false);
+            self.select_area(view_id, search_match.end, search_match.start);
             self.center_on_main_cursor(view_id);
         }
     }
@@ -2719,7 +2705,7 @@ impl Buffer {
         if let Some(searcher) = &mut self.views[view_id].searcher
             && let Some(search_match) = searcher.get_prev_match()
         {
-            self.select_area(view_id, search_match.end, search_match.start, false);
+            self.select_area(view_id, search_match.end, search_match.start);
             self.center_on_main_cursor(view_id);
         }
     }
@@ -2997,7 +2983,7 @@ impl Buffer {
         if let (Some(searcher), Some(replacement)) = (&mut view.searcher, view.replacement.clone())
         {
             if let Some(search_match) = searcher.get_current_match() {
-                self.select_area(view_id, search_match.end, search_match.start, false);
+                self.select_area(view_id, search_match.end, search_match.start);
                 self.insert_text(view_id, &replacement, false);
             } else {
                 searcher.get_next_match();

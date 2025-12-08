@@ -180,10 +180,9 @@ impl View<Buffer> for EditorView {
                 }
             }
             MouseInterctionKind::DragStop if mouse_interaction.button == MouseButton::Left => {
-                // TODO: copy selection to primary
+                buffer.copy_selection_to_primary(self.view_id);
                 buffer.views[self.view_id].drag = ViewDrag::None;
             }
-            MouseInterctionKind::DragStop => (),
             _ => (),
         }
         true
