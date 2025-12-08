@@ -16,6 +16,7 @@ pub struct Layer<'a> {
 pub struct Bundle<'a> {
     pub top_geometry: &'a Geometry,
     pub bottom_geometry: &'a Geometry,
+    pub overlay_geometry: &'a Geometry,
     pub text_area: Option<TextArea<'a>>,
 }
 
@@ -24,6 +25,7 @@ pub struct LayerRenderer {
     text_renderer: TextRenderer,
     top_geometry_index_range: Range<u32>,
     bottom_geometry_index_range: Range<u32>,
+    overlay_geometry_index_range: Range<u32>,
     scissor: Rect<u32>,
 }
 
@@ -99,6 +101,7 @@ impl Renderer {
                 atlas,
                 top_geometry_index_range: 0..0,
                 bottom_geometry_index_range: 0..0,
+                overlay_geometry_index_range: 0..0,
                 scissor: Rect::default(),
             });
         }
@@ -123,6 +126,16 @@ impl Renderer {
                 }
                 let end = self.geometry_renderer.num_indices();
                 renderer.top_geometry_index_range = start..end;
+            }
+            {
+                let start = self.geometry_renderer.num_indices();
+                for bundle in &layer.bundles {
+                    bundle
+                        .overlay_geometry
+                        .tessellate(&mut self.geometry_renderer);
+                }
+                let end = self.geometry_renderer.num_indices();
+                renderer.overlay_geometry_index_range = start..end;
             }
             let text_areas: Vec<_> = layer
                 .bundles
@@ -167,6 +180,7 @@ impl Renderer {
                 .render(&layer.atlas, &self.viewport, rpass)
                 .unwrap();
             geometry_renderer.render(rpass, layer.top_geometry_index_range.clone());
+            geometry_renderer.render(rpass, layer.overlay_geometry_index_range.clone());
         }
     }
 

@@ -77,6 +77,18 @@ pub struct Style {
     pub bg: Option<Color>,
 }
 
+impl Style {
+    pub fn set_fg(mut self, fg: Color) -> Self {
+        self.fg = Some(fg);
+        self
+    }
+
+    pub fn set_bg(mut self, bg: Color) -> Self {
+        self.bg = Some(bg);
+        self
+    }
+}
+
 impl From<Style> for tui::style::Style {
     fn from(style: Style) -> tui::style::Style {
         tui::style::Style {

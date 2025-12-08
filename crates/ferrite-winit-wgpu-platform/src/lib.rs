@@ -143,10 +143,9 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
 
         {
             app.view_tree = (app.layout)(&mut app.runtime.state);
-            let bounds = Bounds::new(
-                Rect::new(0, 0, width as usize, height as usize),
+            let bounds = create_bounds(
+                Vec2::new(width as usize, height as usize),
                 Vec2::new(cell_width, cell_height),
-                Rounding::Round,
             );
             app.view_tree
                 .render(&mut app.runtime.state, bounds, &mut state.painter);
@@ -191,11 +190,10 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
 
             terminal
                 .backend_mut()
-                .overlay_gemoetry
-                .clone_from(layer.painter2d.as_ref().unwrap().get_overlay());
+                .set_overlay(layer.painter2d.as_ref().unwrap().get_overlay());
         }
-        state.painter.clean_up_frame();
         state.terminals.retain(|k, _v| state.touched.contains(k));
+        state.painter.clean_up_frame();
     }
 
     #[profiling::function]
@@ -446,7 +444,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 );
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                tracing::trace!("{:?}", event);
+                tracing::debug!("{:?}", event);
                 self.dirty = true;
 
                 if let Key::Named(key) = event.logical_key {
@@ -537,11 +535,44 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 let app = self.app.as_mut().unwrap();
 
                 match element_state {
-                    winit::event::ElementState::Released => match button {
-                        MouseButton::Left => state.mouse_state.left.pressed = false,
-                        MouseButton::Right => state.mouse_state.right.pressed = false,
-                        MouseButton::Middle => state.mouse_state.middle.pressed = false,
-                    },
+                    winit::event::ElementState::Released => {
+                        let mouse_state = match button {
+                            MouseButton::Left => &mut state.mouse_state.left,
+                            MouseButton::Right => &mut state.mouse_state.right,
+                            MouseButton::Middle => &mut state.mouse_state.middle,
+                        };
+                        mouse_state.pressed = false;
+
+                        if mouse_state.drag_start.is_some() {
+                            mouse_state.drag_start = None;
+                            let metrics = backend::get_metrics(app.runtime.scale);
+                            let (cell_width, cell_height) = backend::calculate_cell_size(
+                                &mut state.renderer.font_system,
+                                metrics,
+                                glyphon::Weight(app.runtime.font_weight),
+                            );
+
+                            let (width, height) = (state.config.width, state.config.height);
+                            let bounds = create_bounds(
+                                Vec2::new(width as usize, height as usize),
+                                Vec2::new(cell_width, cell_height),
+                            );
+
+                            let mouse_interaction = MouseInterction {
+                                button,
+                                kind: MouseInterctionKind::DragStop,
+                                cell_size: Vec2::new(cell_width, cell_height),
+                                position: state.mouse_state.position,
+                                modifiers: state.modifiers,
+                            };
+
+                            app.view_tree.handle_mouse(
+                                &mut app.runtime.state,
+                                bounds,
+                                mouse_interaction,
+                            );
+                        }
+                    }
                     winit::event::ElementState::Pressed => {
                         let mouse_state = match button {
                             MouseButton::Left => &mut state.mouse_state.left,
@@ -556,6 +587,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                             if mouse_state.clicks > 3 {
                                 mouse_state.clicks = 1;
                             }
+                        } else {
+                            mouse_state.clicks = 1;
                         }
                         mouse_state.last_press = now;
 
@@ -567,10 +600,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         );
 
                         let (width, height) = (state.config.width, state.config.height);
-                        let bounds = Bounds::new(
-                            Rect::new(0, 0, width as usize, height as usize),
+                        let bounds = create_bounds(
+                            Vec2::new(width as usize, height as usize),
                             Vec2::new(cell_width, cell_height),
-                            Rounding::Round,
                         );
 
                         let mouse_interaction = MouseInterction {
@@ -593,14 +625,15 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 let state = self.state.as_mut().unwrap();
                 let app = self.app.as_mut().unwrap();
 
-                state.mouse_state.position.x = position.x as f32;
-                state.mouse_state.position.y = position.y as f32;
-
                 // Early return as nothing should be done if we just hovered
                 if !state.mouse_state.left.pressed
                     && !state.mouse_state.right.pressed
                     && !state.mouse_state.middle.pressed
                 {
+                    // We need to set mouse position here as it is set last to allow the last position
+                    // to be used as drag start.
+                    state.mouse_state.position.x = position.x as f32;
+                    state.mouse_state.position.y = position.y as f32;
                     return;
                 }
 
@@ -614,16 +647,22 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 );
 
                 let (width, height) = (state.config.width, state.config.height);
-                let bounds = Bounds::new(
-                    Rect::new(0, 0, width as usize, height as usize),
+                let bounds = create_bounds(
+                    Vec2::new(width as usize, height as usize),
                     Vec2::new(cell_width, cell_height),
-                    Rounding::Round,
                 );
 
+                let last_pos = state.mouse_state.position;
                 if state.mouse_state.left.pressed {
+                    if state.mouse_state.left.drag_start.is_none() {
+                        state.mouse_state.left.drag_start = Some(state.mouse_state.position);
+                    }
                     let mouse_interaction = MouseInterction {
                         button: MouseButton::Left,
-                        kind: MouseInterctionKind::Drag,
+                        kind: MouseInterctionKind::Drag {
+                            drag_start: state.mouse_state.left.drag_start.unwrap(),
+                            last_pos,
+                        },
                         cell_size: Vec2::new(cell_width, cell_height),
                         position: Vec2::new(position.x as f32, position.y as f32),
                         modifiers: state.modifiers,
@@ -632,9 +671,15 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
                 }
                 if state.mouse_state.right.pressed {
+                    if state.mouse_state.right.drag_start.is_none() {
+                        state.mouse_state.right.drag_start = Some(state.mouse_state.position);
+                    }
                     let mouse_interaction = MouseInterction {
                         button: MouseButton::Right,
-                        kind: MouseInterctionKind::Drag,
+                        kind: MouseInterctionKind::Drag {
+                            drag_start: state.mouse_state.right.drag_start.unwrap(),
+                            last_pos,
+                        },
                         cell_size: Vec2::new(cell_width, cell_height),
                         position: Vec2::new(position.x as f32, position.y as f32),
                         modifiers: state.modifiers,
@@ -643,9 +688,15 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
                 }
                 if state.mouse_state.middle.pressed {
+                    if state.mouse_state.middle.drag_start.is_none() {
+                        state.mouse_state.middle.drag_start = Some(state.mouse_state.position);
+                    }
                     let mouse_interaction = MouseInterction {
                         button: MouseButton::Middle,
-                        kind: MouseInterctionKind::Drag,
+                        kind: MouseInterctionKind::Drag {
+                            drag_start: state.mouse_state.middle.drag_start.unwrap(),
+                            last_pos,
+                        },
                         cell_size: Vec2::new(cell_width, cell_height),
                         position: Vec2::new(position.x as f32, position.y as f32),
                         modifiers: state.modifiers,
@@ -653,6 +704,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     app.view_tree
                         .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
                 }
+                state.mouse_state.position.x = position.x as f32;
+                state.mouse_state.position.y = position.y as f32;
             }
             WindowEvent::MouseWheel { delta, .. } => {
                 self.dirty = true;
@@ -744,4 +797,12 @@ pub fn srgb_to_linear(c: f32) -> f32 {
     } else {
         ((c + 0.055) / 1.055).powf(2.4)
     }
+}
+
+fn create_bounds(window_size: Vec2, cell_size: Vec2<f32>) -> Bounds {
+    Bounds::new(
+        Rect::new(0, 0, window_size.x.saturating_sub(1).max(1), window_size.y),
+        cell_size,
+        Rounding::Round,
+    )
 }

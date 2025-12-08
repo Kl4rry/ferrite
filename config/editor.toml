@@ -1,5 +1,5 @@
 theme = "default"
-rulers = [80]
+rulers = [100]
 local_clipboard = false
 show_splash = true
 watch_open_files = true

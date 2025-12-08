@@ -56,6 +56,14 @@ pub mod write;
 #[cfg(test)]
 pub mod buffer_tests;
 
+#[derive(Default, Clone, Copy, Debug)]
+pub enum ViewDrag {
+    Text,
+    Scrollbar,
+    #[default]
+    None,
+}
+
 pub struct View {
     pub cursors: Vec1<Cursor>,
     pub line_pos: f64,
@@ -67,6 +75,7 @@ pub struct View {
     view_columns: usize,
     last_word_selected: Option<usize>,
     pub completer: Completer,
+    pub drag: ViewDrag,
     unique_id: UniqueId,
 }
 
@@ -83,6 +92,7 @@ impl Default for View {
             view_columns: 100, // semi resonable default
             last_word_selected: None,
             completer: Completer::new(),
+            drag: ViewDrag::default(),
             unique_id: UniqueId::new(),
         }
     }
@@ -101,6 +111,7 @@ impl Clone for View {
             view_columns: self.view_columns,
             last_word_selected: self.last_word_selected,
             completer: self.completer.clone(),
+            drag: self.drag,
             unique_id: UniqueId::new(),
         }
     }

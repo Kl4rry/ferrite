@@ -64,6 +64,7 @@ pub struct WgpuBackend {
     buffer: Buffer,
     top_geometry: Geometry,
     bottom_geometry: Geometry,
+    overlay_geometry: Geometry,
     cells: Vec<Vec<Cell>>,
     scale: f32,
     default_fg: glyphon::Color,
@@ -72,7 +73,6 @@ pub struct WgpuBackend {
     font_family: String,
     font_weight: Weight,
     // gemoetry from Painter2d
-    pub overlay_gemoetry: Vec<(Rect<f32>, Color)>,
 }
 
 #[profiling::all_functions]
@@ -114,6 +114,7 @@ impl WgpuBackend {
             buffer,
             top_geometry: Default::default(),
             bottom_geometry: Default::default(),
+            overlay_geometry: Default::default(),
             cells,
             redraw: true,
             reshape: true,
@@ -122,7 +123,6 @@ impl WgpuBackend {
             default_bg: glyphon::Color::rgb(255, 255, 255),
             font_family,
             font_weight,
-            overlay_gemoetry: Vec::new(),
         }
     }
 
@@ -256,20 +256,6 @@ impl WgpuBackend {
                     Shaping::Advanced,
                 );
             }
-
-            for (rect, color) in &self.overlay_gemoetry {
-                self.top_geometry.quads.push(Quad {
-                    x: rect.x,
-                    y: rect.y,
-                    width: rect.width,
-                    height: rect.height,
-                    color: glyphon::Color::rgb(
-                        (color.r * 255.0) as u8,
-                        (color.g * 255.0) as u8,
-                        (color.b * 255.0) as u8,
-                    ),
-                });
-            }
         }
 
         self.buffer.set_scroll(Scroll {
@@ -302,6 +288,7 @@ impl WgpuBackend {
             text_area: Some(text_area),
             top_geometry: &self.top_geometry,
             bottom_geometry: &self.bottom_geometry,
+            overlay_geometry: &self.overlay_geometry,
         }
     }
 
@@ -360,6 +347,23 @@ impl WgpuBackend {
 
     pub fn bounds(&self) -> Bounds {
         self.bounds
+    }
+
+    pub fn set_overlay(&mut self, overlay: &[(Rect<f32>, Color)]) {
+        self.overlay_geometry.clear();
+        for (rect, color) in overlay {
+            self.overlay_geometry.quads.push(Quad {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+                color: glyphon::Color::rgb(
+                    (color.r * 255.0) as u8,
+                    (color.g * 255.0) as u8,
+                    (color.b * 255.0) as u8,
+                ),
+            });
+        }
     }
 }
 

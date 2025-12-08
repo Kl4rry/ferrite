@@ -21,7 +21,7 @@ use unicode_width::UnicodeWidthStr;
 
 use super::info_line_view::InfoLineView;
 use crate::{
-    buffer::{Buffer, ViewId, cursor::Selection, search::SearchMatch},
+    buffer::{Buffer, ViewDrag, ViewId, cursor::Selection, search::SearchMatch},
     cmd::Cmd,
     config::{
         self,
@@ -54,6 +54,7 @@ pub struct EditorView {
     pub info_line: bool,
     pub draw_rulers: bool,
     pub ceil_surface_size: bool,
+    pub scrollbar: bool,
 }
 
 impl EditorView {
@@ -76,11 +77,17 @@ impl EditorView {
             info_line: true,
             draw_rulers: true,
             ceil_surface_size: false,
+            scrollbar: false,
         }
     }
 
     pub fn set_ceil_surface_size(mut self, ceil_surface_size: bool) -> Self {
         self.ceil_surface_size = ceil_surface_size;
+        self
+    }
+
+    pub fn set_scrollbar(mut self, scrollbar: bool) -> Self {
+        self.scrollbar = scrollbar;
         self
     }
 }
@@ -96,13 +103,17 @@ impl View<Buffer> for EditorView {
         let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
         match mouse_interaction.kind {
             MouseInterctionKind::Click(clicks) if mouse_interaction.button == MouseButton::Left => {
-                buffer.handle_click(
-                    self.view_id,
-                    clicks,
-                    mouse_interaction.modifiers == KeyModifiers::ALT,
-                    cell_position.x.saturating_sub(left_offset),
-                    cell_position.y,
-                );
+                if get_scrollbar_track(bounds).contains(mouse_interaction.position) {
+                    // TODO: handle clicks on scrollbar
+                } else {
+                    buffer.handle_click(
+                        self.view_id,
+                        clicks,
+                        mouse_interaction.modifiers == KeyModifiers::ALT,
+                        cell_position.x.saturating_sub(left_offset),
+                        cell_position.y,
+                    );
+                }
             }
             MouseInterctionKind::Click(_) if mouse_interaction.button == MouseButton::Middle => {
                 let cmd = Cmd::PastePrimary {
@@ -112,14 +123,67 @@ impl View<Buffer> for EditorView {
                 // NOTE: Should never panic
                 buffer.handle_input(self.view_id, cmd).unwrap();
             }
-            MouseInterctionKind::Drag => {
-                let cmd = Cmd::DragCell {
-                    column: cell_position.x.saturating_sub(left_offset),
-                    line: cell_position.y,
-                };
-                // NOTE: Should never panic
-                buffer.handle_input(self.view_id, cmd).unwrap();
+            MouseInterctionKind::Drag {
+                drag_start: _,
+                last_pos,
+            } if mouse_interaction.button == MouseButton::Left => {
+                match buffer.views[self.view_id].drag {
+                    ViewDrag::Text => {
+                        let cmd = Cmd::DragCell {
+                            column: cell_position.x.saturating_sub(left_offset),
+                            line: cell_position.y,
+                        };
+                        // NOTE: Should never panic
+                        buffer.handle_input(self.view_id, cmd).unwrap();
+                    }
+                    ViewDrag::Scrollbar => {
+                        let moved_distance = (last_pos.y - mouse_interaction.position.y) as f32;
+                        let text_height = buffer.get_view_lines(self.view_id);
+                        let len_lines = (buffer.len_lines() + text_height) - 1;
+                        let scrollbar_ratio = text_height as f32 / len_lines as f32;
+                        let line_distance =
+                            (moved_distance / mouse_interaction.cell_size.y) / scrollbar_ratio;
+
+                        let cmd = Cmd::VerticalScroll {
+                            distance: -line_distance as f64,
+                        };
+                        // NOTE: Should never panic
+                        buffer.handle_input(self.view_id, cmd).unwrap();
+                    }
+                    ViewDrag::None => {
+                        if get_scrollbar_track(bounds).contains(mouse_interaction.position) {
+                            buffer.views[self.view_id].drag = ViewDrag::Scrollbar;
+
+                            // NOTE: everything in this branch is copy pasted from the scrollbar branch
+                            let moved_distance = (last_pos.y - mouse_interaction.position.y) as f32;
+                            let text_height = buffer.get_view_lines(self.view_id);
+                            let len_lines = (buffer.len_lines() + text_height) - 1;
+                            let scrollbar_ratio = text_height as f32 / len_lines as f32;
+                            let line_distance =
+                                (moved_distance / mouse_interaction.cell_size.y) / scrollbar_ratio;
+
+                            let cmd = Cmd::VerticalScroll {
+                                distance: -line_distance as f64,
+                            };
+                            // NOTE: Should never panic
+                            buffer.handle_input(self.view_id, cmd).unwrap();
+                        } else {
+                            buffer.views[self.view_id].drag = ViewDrag::Text;
+                            let cmd = Cmd::DragCell {
+                                column: cell_position.x.saturating_sub(left_offset),
+                                line: cell_position.y,
+                            };
+                            // NOTE: Should never panic
+                            buffer.handle_input(self.view_id, cmd).unwrap();
+                        }
+                    }
+                }
             }
+            MouseInterctionKind::DragStop if mouse_interaction.button == MouseButton::Left => {
+                // TODO: copy selection to primary
+                buffer.views[self.view_id].drag = ViewDrag::None;
+            }
+            MouseInterctionKind::DragStop => (),
             _ => (),
         }
         true
@@ -142,6 +206,7 @@ impl View<Buffer> for EditorView {
             info_line,
             draw_rulers,
             ceil_surface_size,
+            scrollbar,
         } = self;
         let view_id = *view_id;
         let has_focus = *has_focus;
@@ -214,6 +279,7 @@ impl View<Buffer> for EditorView {
                 .zip((buffer.line_pos(view_id) + 1)..=buffer.line_pos(view_id) + buffer.len_lines())
                 .enumerate()
             {
+                profiling::scope!("line");
                 if line_nr {
                     let is_current_line = line_number == cursor_line_number;
                     let line_number =
@@ -692,6 +758,42 @@ impl View<Buffer> for EditorView {
                 }
             }
 
+            if *scrollbar {
+                let scrollbar_bounds = get_scrollbar_bounds(buffer, view_id, bounds);
+                let cell_size = bounds.cell_size();
+                let rect = Rect::new(
+                    view_bounds.x as f32 + view_bounds.width as f32 - cell_size.x,
+                    view_bounds.y as f32,
+                    cell_size.x,
+                    view_bounds.height as f32,
+                );
+                if painter.has_painter2d() {
+                    let painter2d = layer.painter2d.as_mut().unwrap();
+                    painter2d.draw_quad(rect, theme.scrollbar.bg.unwrap_or_default());
+                    painter2d.draw_quad(scrollbar_bounds, theme.scrollbar.fg.unwrap_or_default());
+                } else {
+                    // TODO: use 1/8 blocks to make bar higher resolution
+                    let rect = Rect::new(
+                        rect.x as usize,
+                        rect.y as usize,
+                        rect.width as usize,
+                        rect.height as usize,
+                    );
+                    Clear.render(rect.into(), buf);
+                    buf.set_style(rect.into(), theme.scrollbar);
+                    let rect = Rect::new(
+                        scrollbar_bounds.x as usize,
+                        scrollbar_bounds.y as usize,
+                        scrollbar_bounds.width as usize,
+                        scrollbar_bounds.height as usize,
+                    );
+                    buf.set_style(
+                        rect.into(),
+                        Style::default().set_bg(theme.scrollbar.fg.unwrap_or_default()),
+                    );
+                }
+            }
+
             if info_line {
                 let path = if let Some(path) = buffer.file() {
                     path.to_string_lossy().into()
@@ -734,4 +836,38 @@ impl View<Buffer> for EditorView {
             }
         }
     }
+}
+
+fn get_scrollbar_bounds(buffer: &Buffer, view_id: ViewId, bounds: Bounds) -> Rect<f32> {
+    let view_bounds = bounds.view_bounds();
+    let cell_size = bounds.cell_size();
+
+    let viewport_height = (view_bounds.height as f32 - cell_size.y).max(0.0);
+    let content_height = (buffer.len_lines() as f32 * cell_size.y + viewport_height - cell_size.y)
+        .max(cell_size.y)
+        - cell_size.y;
+    let content_offset = buffer.views[view_id].line_pos as f32 * cell_size.y;
+
+    let scrollbar_ratio = viewport_height as f32 / content_height as f32;
+    let scrollbar_pos_ratio = content_offset as f32 / content_height as f32;
+
+    // TODO: prevent scroll bar from clipping outside of track
+    // probably by doing some thumb height / 2 + nonsense
+    let thumb_heigh = (scrollbar_ratio * viewport_height as f32).max(cell_size.y);
+    let scrollbar_pos = scrollbar_pos_ratio * viewport_height as f32;
+
+    let x = view_bounds.x as f32 + (view_bounds.width as f32 - cell_size.x).max(0.0);
+    let y = view_bounds.y as f32 + scrollbar_pos;
+    Rect::new(x, y, cell_size.x, thumb_heigh)
+}
+
+fn get_scrollbar_track(bounds: Bounds) -> Rect<f32> {
+    let view_bounds = bounds.view_bounds();
+    let cell_size = bounds.cell_size();
+    Rect::new(
+        view_bounds.x as f32 + view_bounds.width as f32 - cell_size.x,
+        view_bounds.y as f32,
+        cell_size.x,
+        view_bounds.height as f32 - cell_size.y,
+    )
 }

@@ -243,26 +243,43 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             Event::Mouse(event) => {
                 profiling::scope!("mouse");
                 self.modifiers = glue::convert_modifier(event.modifiers);
-                self.mouse_state.position = Vec2::new(event.column as f32, event.row as f32);
-                let input = match event.kind {
+                match event.kind {
                     MouseEventKind::ScrollUp => {
                         self.dirty = true;
-                        InputEvent::Scroll(0.0, 1.0)
+                        (self.input)(
+                            &mut self.runtime.state,
+                            InputEvent::Scroll(0.0, 1.0),
+                            control_flow,
+                        );
                     }
                     MouseEventKind::ScrollDown => {
                         self.dirty = true;
-                        InputEvent::Scroll(0.0, -1.0)
+                        (self.input)(
+                            &mut self.runtime.state,
+                            InputEvent::Scroll(0.0, -1.0),
+                            control_flow,
+                        );
                     }
                     MouseEventKind::ScrollLeft => {
                         self.dirty = true;
-                        InputEvent::Scroll(1.0, 0.0)
+                        (self.input)(
+                            &mut self.runtime.state,
+                            InputEvent::Scroll(1.0, 0.0),
+                            control_flow,
+                        );
                     }
                     MouseEventKind::ScrollRight => {
                         self.dirty = true;
-                        InputEvent::Scroll(-1.0, 0.0)
+                        (self.input)(
+                            &mut self.runtime.state,
+                            InputEvent::Scroll(-1.0, 0.0),
+                            control_flow,
+                        );
                     }
                     MouseEventKind::Down(button) => {
                         self.dirty = true;
+                        self.mouse_state.position =
+                            Vec2::new(event.column as f32, event.row as f32);
                         let button = match button {
                             crossterm::event::MouseButton::Left => MouseButton::Left,
                             crossterm::event::MouseButton::Right => MouseButton::Right,
@@ -282,6 +299,8 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                             if mouse_state.clicks > 3 {
                                 mouse_state.clicks = 1;
                             }
+                        } else {
+                            mouse_state.clicks = 1;
                         }
                         mouse_state.last_press = now;
 
@@ -304,22 +323,46 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                             bounds,
                             mouse_interaction,
                         );
-                        return;
                     }
                     MouseEventKind::Up(button) => {
                         self.dirty = true;
-                        match button {
-                            crossterm::event::MouseButton::Left => {
-                                self.mouse_state.left.pressed = false
-                            }
-                            crossterm::event::MouseButton::Right => {
-                                self.mouse_state.right.pressed = false
-                            }
-                            crossterm::event::MouseButton::Middle => {
-                                self.mouse_state.middle.pressed = false
-                            }
+                        self.mouse_state.position =
+                            Vec2::new(event.column as f32, event.row as f32);
+                        let button = match button {
+                            crossterm::event::MouseButton::Left => MouseButton::Left,
+                            crossterm::event::MouseButton::Right => MouseButton::Right,
+                            crossterm::event::MouseButton::Middle => MouseButton::Middle,
+                        };
+
+                        let mouse_state = match button {
+                            MouseButton::Left => &mut self.mouse_state.left,
+                            MouseButton::Right => &mut self.mouse_state.right,
+                            MouseButton::Middle => &mut self.mouse_state.middle,
+                        };
+                        mouse_state.pressed = false;
+
+                        if mouse_state.drag_start.is_some() {
+                            mouse_state.drag_start = None;
+                            let bounds = Bounds::new(
+                                Rect::new(0, 0, self.columns.into(), self.lines.into()),
+                                Vec2::new(1.0, 1.0),
+                                Rounding::Round,
+                            );
+
+                            let mouse_interaction = MouseInterction {
+                                button,
+                                kind: MouseInterctionKind::DragStop,
+                                cell_size: Vec2::new(1.0, 1.0),
+                                position: self.mouse_state.position,
+                                modifiers: self.modifiers,
+                            };
+
+                            self.view_tree.handle_mouse(
+                                &mut self.runtime.state,
+                                bounds,
+                                mouse_interaction,
+                            );
                         }
-                        return;
                     }
                     MouseEventKind::Drag(button) => {
                         self.dirty = true;
@@ -335,6 +378,13 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                             MouseButton::Middle => &mut self.mouse_state.middle,
                         };
 
+                        if mouse_state.drag_start.is_none() {
+                            mouse_state.drag_start = Some(self.mouse_state.position);
+                        }
+                        let last_pos = self.mouse_state.position;
+                        self.mouse_state.position =
+                            Vec2::new(event.column as f32, event.row as f32);
+
                         mouse_state.pressed = true;
 
                         let bounds = Bounds::new(
@@ -345,7 +395,10 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
 
                         let mouse_interaction = MouseInterction {
                             button,
-                            kind: MouseInterctionKind::Drag,
+                            kind: MouseInterctionKind::Drag {
+                                drag_start: mouse_state.drag_start.unwrap(),
+                                last_pos,
+                            },
                             cell_size: Vec2::new(1.0, 1.0),
                             position: self.mouse_state.position,
                             modifiers: self.modifiers,
@@ -356,11 +409,9 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                             bounds,
                             mouse_interaction,
                         );
-                        return;
                     }
-                    MouseEventKind::Moved => return,
+                    MouseEventKind::Moved => (),
                 };
-                (self.input)(&mut self.runtime.state, input, control_flow)
             }
             _ => (),
         }
