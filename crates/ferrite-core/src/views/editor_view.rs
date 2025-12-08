@@ -137,10 +137,10 @@ impl View<Buffer> for EditorView {
                         buffer.handle_input(self.view_id, cmd).unwrap();
                     }
                     ViewDrag::Scrollbar => {
-                        let moved_distance = (last_pos.y - mouse_interaction.position.y) as f32;
-                        let text_height = buffer.get_view_lines(self.view_id);
-                        let len_lines = (buffer.len_lines() + text_height) - 1;
-                        let scrollbar_ratio = text_height as f32 / len_lines as f32;
+                        let moved_distance = last_pos.y - mouse_interaction.position.y;
+                        let content_height = buffer.get_view_lines(self.view_id);
+                        let len_lines = (buffer.len_lines() + content_height) - 1;
+                        let scrollbar_ratio = content_height as f32 / len_lines as f32;
                         let line_distance =
                             (moved_distance / mouse_interaction.cell_size.y) / scrollbar_ratio;
 
@@ -155,10 +155,10 @@ impl View<Buffer> for EditorView {
                             buffer.views[self.view_id].drag = ViewDrag::Scrollbar;
 
                             // NOTE: everything in this branch is copy pasted from the scrollbar branch
-                            let moved_distance = (last_pos.y - mouse_interaction.position.y) as f32;
-                            let text_height = buffer.get_view_lines(self.view_id);
-                            let len_lines = (buffer.len_lines() + text_height) - 1;
-                            let scrollbar_ratio = text_height as f32 / len_lines as f32;
+                            let moved_distance = last_pos.y - mouse_interaction.position.y;
+                            let content_height = buffer.get_view_lines(self.view_id);
+                            let len_lines = (buffer.len_lines() + content_height) - 1;
+                            let scrollbar_ratio = content_height as f32 / len_lines as f32;
                             let line_distance =
                                 (moved_distance / mouse_interaction.cell_size.y) / scrollbar_ratio;
 
@@ -848,13 +848,13 @@ fn get_scrollbar_bounds(buffer: &Buffer, view_id: ViewId, bounds: Bounds) -> Rec
         - cell_size.y;
     let content_offset = buffer.views[view_id].line_pos as f32 * cell_size.y;
 
-    let scrollbar_ratio = viewport_height as f32 / content_height as f32;
-    let scrollbar_pos_ratio = content_offset as f32 / content_height as f32;
+    let scrollbar_ratio = viewport_height / content_height;
+    let scrollbar_pos_ratio = content_offset / content_height;
 
     // TODO: prevent scroll bar from clipping outside of track
     // probably by doing some thumb height / 2 + nonsense
-    let thumb_heigh = (scrollbar_ratio * viewport_height as f32).max(cell_size.y);
-    let scrollbar_pos = scrollbar_pos_ratio * viewport_height as f32;
+    let thumb_heigh = (scrollbar_ratio * viewport_height).max(cell_size.y);
+    let scrollbar_pos = scrollbar_pos_ratio * viewport_height;
 
     let x = view_bounds.x as f32 + (view_bounds.width as f32 - cell_size.x).max(0.0);
     let y = view_bounds.y as f32 + scrollbar_pos;
