@@ -12,4 +12,5 @@ pub mod one_line_input_view;
 pub mod palette_view;
 pub mod pane_view;
 pub mod picker_view;
+pub mod splash_view;
 pub mod zstack;

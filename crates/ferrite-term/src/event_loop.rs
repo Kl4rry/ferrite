@@ -70,8 +70,8 @@ impl TuiEventLoop {
             }
         });
 
+        let mut control_flow = EventLoopControlFlow::Wait;
         'main: loop {
-            let mut control_flow = EventLoopControlFlow::Wait;
             handler(&proxy, TuiEvent::StartOfEvents, &mut control_flow);
 
             while let Ok(event) = crossterm_rx.try_recv() {

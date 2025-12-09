@@ -786,10 +786,14 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         }
     }
 
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, _cause: StartCause) {
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
         let app = self.app.as_mut().unwrap();
         app.runtime.start_of_events = Instant::now();
         (app.start_of_frame)(&mut app.runtime);
+
+        if matches!(cause, StartCause::ResumeTimeReached { .. }) {
+            self.dirty = true;
+        }
     }
 
     #[profiling::function]

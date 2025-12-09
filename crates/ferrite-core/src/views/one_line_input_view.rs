@@ -2,7 +2,6 @@ use std::{hash::Hash, sync::Arc};
 
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, Painter, View};
-use tui::style::{self, Style};
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -112,16 +111,18 @@ where
 
             if cursor_area.intersects(&text_area) && self.focused {
                 match self.config.gui.cursor_type {
-                    CursorType::Block => {
+                    CursorType::Line if painter.has_painter2d() => {
                         buf.set_style(
                             cursor_area.into(),
-                            Style::from(self.theme.text).add_modifier(style::Modifier::REVERSED),
+                            tui::style::Style::default()
+                                .add_modifier(tui::style::Modifier::SLOW_BLINK),
                         );
                     }
-                    CursorType::Line => {
+                    _ => {
                         buf.set_style(
                             cursor_area.into(),
-                            Style::default().add_modifier(style::Modifier::SLOW_BLINK),
+                            tui::style::Style::from(self.theme.text)
+                                .add_modifier(tui::style::Modifier::REVERSED),
                         );
                     }
                 }

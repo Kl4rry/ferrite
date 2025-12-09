@@ -69,7 +69,7 @@ pub struct Engine {
     pub file_scanner: Option<FileScanner>,
     pub job_manager: JobManager,
     pub save_jobs: Vec<(BufferId, JobHandle<Result<SaveBufferJob>>)>,
-    pub shell_jobs: Vec<(Option<BufferId>, ShellJobHandle)>,
+    pub shell_jobs: Vec<(Option<BufferId>, ShellJobHandle, bool)>,
     pub spinner: Spinner,
     pub logger_state: LoggerState,
     pub chord: Option<String>,
@@ -338,7 +338,7 @@ impl Engine {
         }
         self.save_jobs.retain(|(_, job)| !job.is_finished());
 
-        for (buffer_id, job) in &mut self.shell_jobs {
+        for (buffer_id, job, read_only) in &mut self.shell_jobs {
             let mut i = 0;
             let mut dirty_buffer_id = None;
             while let Ok(result) = job.poll_progress() {
@@ -352,12 +352,20 @@ impl Engine {
                             if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
                                 buffer.replace_rope(rope);
                                 dirty_buffer_id = Some(buffer_id);
+                                buffer.read_only = *read_only;
                             }
                         } else {
                             self.palette.set_msg(rope.to_string());
                         }
                     }
-                    Progress::End(Err(e)) => self.palette.set_error(e),
+                    Progress::End(Err(e)) => {
+                        self.palette.set_error(e);
+                        if let Some(buffer_id) = buffer_id
+                            && let Some(buffer) = self.workspace.buffers.get_mut(*buffer_id)
+                        {
+                            buffer.read_only = *read_only;
+                        }
+                    }
                     Progress::Progress((buffer_id, rope)) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
                             buffer.replace_rope(rope);
@@ -853,11 +861,12 @@ impl Engine {
             }
             Cmd::KillJob => {
                 if let Some((current_buffer_id, _)) = self.get_current_buffer_id() {
-                    for (buffer_id, job) in &mut self.shell_jobs {
+                    for (buffer_id, job, read_only) in &mut self.shell_jobs {
                         if let Some(buffer_id) = buffer_id
                             && *buffer_id == current_buffer_id
                         {
                             job.kill();
+                            self.workspace.buffers[*buffer_id].read_only = *read_only;
                         }
                     }
                 }
@@ -1776,7 +1785,7 @@ impl Engine {
                 Some(name) => buffer.set_name(name),
                 None => buffer.set_name(cmd.clone()),
             }
-            buffer.read_only = read_only;
+            buffer.read_only = true;
             Some(self.insert_buffer(buffer, view_id, true).0)
         } else {
             None
@@ -1829,7 +1838,7 @@ impl Engine {
                             buffer.drain(..total);
                         }
                         if let (Some(buffer_id), true) = (buffer_id, dirty) {
-                            progressor.make_progress((buffer_id, rope.clone()));
+                            progressor.make_progress((buffer_id, rope.clone(), true));
                             dirty = false;
                         }
                     }
@@ -1873,7 +1882,7 @@ impl Engine {
             },
             (),
         );
-        self.shell_jobs.push((buffer_id, job));
+        self.shell_jobs.push((buffer_id, job, read_only));
     }
 
     pub fn search(&mut self) {
