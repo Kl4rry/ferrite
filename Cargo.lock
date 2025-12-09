@@ -909,29 +909,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrite-gui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cgmath",
- "cosmic-text",
- "ferrite-cli",
- "ferrite-core",
- "ferrite-tui",
- "ferrite-utility",
- "glyphon",
- "pollster",
- "profiling",
- "ratatui",
- "ropey",
- "tracing",
- "unicode-width 0.1.14",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "ferrite-runtime"
 version = "0.1.0"
 dependencies = [
@@ -956,20 +933,6 @@ dependencies = [
 [[package]]
 name = "ferrite-talloc"
 version = "0.1.0"
-
-[[package]]
-name = "ferrite-term"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "crossterm",
- "ferrite-cli",
- "ferrite-core",
- "ferrite-tui",
- "ferrite-utility",
- "ratatui",
- "tracing",
-]
 
 [[package]]
 name = "ferrite-term-platform"
@@ -1020,26 +983,6 @@ dependencies = [
  "tree-sitter-xml",
  "tree-sitter-yaml",
  "tree-sitter-zig",
-]
-
-[[package]]
-name = "ferrite-tui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "directories",
- "encoding_rs",
- "ferrite-cli",
- "ferrite-core",
- "ferrite-ctx",
- "ferrite-talloc",
- "ferrite-utility",
- "profiling",
- "ratatui",
- "rayon",
- "ropey",
- "tracing",
- "unicode-width 0.1.14",
 ]
 
 [[package]]
