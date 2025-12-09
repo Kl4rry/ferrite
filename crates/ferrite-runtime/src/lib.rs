@@ -46,6 +46,9 @@ pub struct Runtime<S> {
     pub start_of_events: Instant,
     pub last_render_time: Duration,
     pub force_redraw: bool,
+    // about
+    pub drawing_backend: String,
+    pub window_backend: String,
 }
 
 impl<S> Runtime<S> {
@@ -59,6 +62,9 @@ impl<S> Runtime<S> {
             last_render_time: Duration::ZERO,
             force_redraw: false,
             default_bg: Color::new(0.0, 0.0, 0.0),
+            // about
+            drawing_backend: String::from("unknown"),
+            window_backend: String::from("unknown"),
         }
     }
 }

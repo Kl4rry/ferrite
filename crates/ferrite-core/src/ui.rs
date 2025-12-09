@@ -30,6 +30,14 @@ pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControl
         .background
         .bg
         .unwrap_or_default();
+    runtime
+        .state
+        .drawing_backend
+        .clone_from(&runtime.drawing_backend);
+    runtime
+        .state
+        .window_backend
+        .clone_from(&runtime.window_backend);
 }
 
 #[profiling::function]

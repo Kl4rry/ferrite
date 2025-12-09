@@ -78,7 +78,7 @@ unicode-general-category = "0.6.0"
 unicode-segmentation = "1.10.0"
 unicode-width = "0.1.10"
 wgpu = { version = "25.0.2" }
-winit = { version = "0.30.11", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen", "x11"] }
+winit = { version = "0.30.12", default-features = false, features = ["rwh_06", "wayland", "wayland-dlopen", "x11"] }
 
 [dependencies]
 anyhow = { workspace = true }

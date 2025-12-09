@@ -83,6 +83,8 @@ pub struct Engine {
     pub force_redraw: bool,
     pub scale: f32,
     pub trim_timer: Timer,
+    pub drawing_backend: String,
+    pub window_backend: String,
 }
 
 #[profiling::all_functions]
@@ -199,6 +201,8 @@ impl Engine {
             force_redraw: false,
             scale: 1.0,
             trim_timer: Timer::default(),
+            drawing_backend: String::from("unknown"),
+            window_backend: String::from("unknown"),
         };
 
         let mut files_from_args = false;
@@ -595,9 +599,11 @@ impl Engine {
             },
             Cmd::About => {
                 self.palette.set_msg(format!(
-                    "ferrite\nVersion: {}\nCommit: {}",
+                    "ferrite\nVersion: {}\nCommit: {}\nDrawing backend: {}\nWindow platform: {}",
                     crate::about::version(),
                     crate::about::git_hash(),
+                    self.drawing_backend,
+                    self.window_backend,
                 ));
             }
             Cmd::Pwd => match env::current_dir() {

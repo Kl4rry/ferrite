@@ -44,9 +44,9 @@ CTRL + Q    Quit
             .map(|line| line.width())
             .max()
             .unwrap_or_default();
-        let left = (area.width as usize).saturating_sub(width) / 2;
-        let top = (area.height as usize).saturating_sub(lines) / 2;
-        if area.width as usize >= width {
+        let left = area.width.saturating_sub(width) / 2;
+        let top = area.height.saturating_sub(lines) / 2;
+        if area.width >= width {
             for (i, line) in splash.lines().enumerate() {
                 buf.set_string(
                     (area.left() + left) as u16,

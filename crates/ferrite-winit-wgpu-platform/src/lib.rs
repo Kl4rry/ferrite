@@ -357,6 +357,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     .unwrap(),
             )
         };
+
         // TODO: This fixes the exit segfault by leaking a Arc<Window> so that
         // the window does not get destoryed
         std::mem::forget(window.clone());
@@ -418,6 +419,26 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
 
         let terminals = HashMap::new();
         let painter = Painter::new(true);
+
+        {
+            #[cfg(target_os = "linux")]
+            let window_platform = {
+                use winit::platform::wayland::ActiveEventLoopExtWayland;
+                if event_loop.is_wayland() {
+                    "wayland"
+                } else {
+                    "x11"
+                }
+            };
+            #[cfg(target_os = "macos")]
+            let window_platform = "quartz";
+            #[cfg(target_os = "windows")]
+            let window_platform = "win32";
+
+            self.app.as_mut().unwrap().runtime.window_backend = window_platform.into();
+            self.app.as_mut().unwrap().runtime.drawing_backend =
+                adapter.get_info().backend.to_string();
+        }
 
         self.state = Some(State {
             surface,

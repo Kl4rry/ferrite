@@ -126,6 +126,10 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             println!("{panic_info}");
         }));
 
+        self.runtime.drawing_backend = String::from("terminal");
+        self.runtime.window_backend =
+            std::env::var("TERM").unwrap_or_else(|_| "unknown".to_string());
+
         event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
     }
 
