@@ -44,6 +44,7 @@ struct State {
     scale_factor: f64,
     renderer: Renderer,
     terminals: HashMap<(TypeId, Id), Terminal<backend::WgpuBackend>>,
+    terminals_changed: bool,
     painter: Painter,
     modifiers: KeyModifiers,
     touched: Vec<(TypeId, Id)>,
@@ -162,6 +163,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             let layer = layer.lock().unwrap();
             state.touched.push((*type_id, *id));
             let terminal = state.terminals.entry((*type_id, *id)).or_insert_with(|| {
+                state.terminals_changed = true;
                 Terminal::new(WgpuBackend::new(
                     &mut state.renderer.font_system,
                     layer.bounds,
@@ -198,7 +200,11 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
                 .backend_mut()
                 .set_overlay(layer.painter2d.as_ref().unwrap().get_overlay());
         }
-        state.terminals.retain(|k, _v| state.touched.contains(k));
+        state.terminals.retain(|k, _v| {
+            let contains = state.touched.contains(k);
+            state.terminals_changed |= contains;
+            contains
+        });
         state.painter.clean_up_frame();
     }
 
@@ -422,6 +428,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             scale_factor: 1.0,
             renderer,
             terminals,
+            terminals_changed: false,
             painter,
             cursor_zones: Vec::new(),
             modifiers: KeyModifiers::empty(),
@@ -800,6 +807,10 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         self.prepare();
         let state = self.state.as_mut().unwrap();
         if state.terminals.values().any(|t| t.backend().redraw) {
+            state.window.request_redraw();
+        }
+        if state.terminals_changed {
+            state.terminals_changed = false;
             state.window.request_redraw();
         }
     }
