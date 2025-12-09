@@ -279,7 +279,7 @@ static THEMES: &[(&str, &str)] = &[
 #[cfg(feature = "embed-themes")]
 fn get_embedded_themes() -> Vec<(String, EditorTheme)> {
     THEMES
-        .into_iter()
+        .iter()
         .map(|(path, content)| {
             (
                 path.to_string(),

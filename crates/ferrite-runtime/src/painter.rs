@@ -20,7 +20,7 @@ impl Painter2D {
         self.quads.push((rect, color))
     }
 
-    pub fn get_overlay(&self) -> &Vec<(Rect<f32>, Color)> {
+    pub fn get_overlay(&self) -> &[(Rect<f32>, Color)] {
         &self.quads
     }
 }
@@ -28,6 +28,7 @@ impl Painter2D {
 pub struct Painter {
     layer_cache: HashMap<(TypeId, Id), Layer>,
     layers: Vec<(TypeId, Id, Arc<Mutex<Layer>>)>,
+    cursor_zones: Vec<(CursorIcon, Rect)>,
     painter2d: bool,
 }
 
@@ -36,6 +37,7 @@ impl Painter {
         Self {
             layer_cache: HashMap::new(),
             layers: Vec::new(),
+            cursor_zones: Vec::new(),
             painter2d,
         }
     }
@@ -60,6 +62,7 @@ impl Painter {
 
     pub fn clean_up_frame(&mut self) {
         self.layer_cache.clear();
+        self.cursor_zones.clear();
         for (type_id, id, layer) in self.layers.drain(..) {
             let mut layer: Layer = Arc::into_inner(layer).unwrap().into_inner().unwrap();
             layer.buf.reset();
@@ -76,6 +79,14 @@ impl Painter {
 
     pub fn has_painter2d(&self) -> bool {
         self.painter2d
+    }
+
+    pub fn push_cursor_zone(&mut self, icon: CursorIcon, zone: Rect) {
+        self.cursor_zones.push((icon, zone));
+    }
+
+    pub fn cursor_zones(&self) -> &[(CursorIcon, Rect)] {
+        &self.cursor_zones
     }
 }
 
@@ -194,4 +205,44 @@ pub enum Rounding {
     Ceil,
     #[default]
     Round,
+}
+
+#[non_exhaustive]
+#[derive(Debug, Default, Clone, Copy)]
+pub enum CursorIcon {
+    #[default]
+    Default,
+    ContextMenu,
+    Help,
+    Pointer,
+    Progress,
+    Wait,
+    Cell,
+    Crosshair,
+    Text,
+    VerticalText,
+    Alias,
+    Copy,
+    Move,
+    NoDrop,
+    NotAllowed,
+    Grab,
+    Grabbing,
+    EResize,
+    NResize,
+    NeResize,
+    NwResize,
+    SResize,
+    SeResize,
+    SwResize,
+    WResize,
+    EwResize,
+    NsResize,
+    NeswResize,
+    NwseResize,
+    ColResize,
+    RowResize,
+    AllScroll,
+    ZoomIn,
+    ZoomOut,
 }

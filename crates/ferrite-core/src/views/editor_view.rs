@@ -6,8 +6,9 @@ use ferrite_geom::{
     rect::{Rect, Vec2},
 };
 use ferrite_runtime::{
-    Bounds, MouseButton, MouseInterction, MouseInterctionKind, View, input::keycode::KeyModifiers,
-    painter::Rounding,
+    Bounds, MouseButton, MouseInterction, MouseInterctionKind, View,
+    input::keycode::KeyModifiers,
+    painter::{CursorIcon, Rounding},
 };
 use ferrite_style::Style;
 use ferrite_utility::graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at};
@@ -245,6 +246,45 @@ impl View<Buffer> for EditorView {
             width: area.width.saturating_sub(left_offset),
             height: area.height - info_line as usize,
         };
+
+        {
+            let left_offset = (left_offset as f32 * bounds.cell_size().x) as usize;
+            let scrollbar_width = bounds.cell_size().x as usize;
+            let info_line_height = bounds.cell_size().y as usize;
+
+            painter.push_cursor_zone(CursorIcon::Text, view_bounds);
+            painter.push_cursor_zone(
+                CursorIcon::Default,
+                Rect::new(
+                    view_bounds.x,
+                    view_bounds.y,
+                    left_offset,
+                    view_bounds.height,
+                ),
+            );
+            if info_line {
+                painter.push_cursor_zone(
+                    CursorIcon::Default,
+                    Rect::new(
+                        view_bounds.x,
+                        (view_bounds.y + view_bounds.height).saturating_sub(info_line_height),
+                        view_bounds.width,
+                        info_line_height,
+                    ),
+                );
+            }
+            if *scrollbar {
+                painter.push_cursor_zone(
+                    CursorIcon::Pointer,
+                    Rect::new(
+                        (view_bounds.x + view_bounds.width).saturating_sub(scrollbar_width),
+                        view_bounds.y,
+                        scrollbar_width,
+                        view_bounds.height,
+                    ),
+                );
+            }
+        }
 
         buffer.set_view_lines(view_id, text_area.height);
 

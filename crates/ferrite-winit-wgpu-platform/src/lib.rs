@@ -17,7 +17,7 @@ use ferrite_runtime::{
         event::InputEvent,
         keycode::{KeyCode, KeyModifiers},
     },
-    painter::Rounding,
+    painter::{CursorIcon, Rounding},
 };
 use tui::Terminal;
 use winit::{
@@ -49,6 +49,7 @@ struct State {
     touched: Vec<(TypeId, Id)>,
     mouse_state: MouseState,
     line_height: f32,
+    cursor_zones: Vec<(CursorIcon, Rect)>,
     control_flow: EventLoopControlFlow,
 }
 
@@ -149,6 +150,11 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             );
             app.view_tree
                 .render(&mut app.runtime.state, bounds, &mut state.painter);
+
+            state.cursor_zones.clear();
+            state
+                .cursor_zones
+                .extend_from_slice(state.painter.cursor_zones());
         }
 
         state.touched.clear();
@@ -279,6 +285,10 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             profiling::scope!("present");
             output.present();
         }
+
+        state
+            .window
+            .set_cursor(get_cursor(&state.cursor_zones, state.mouse_state.position));
         let app = self.app.as_mut().unwrap();
         app.runtime.last_render_time = Instant::now().duration_since(app.runtime.start_of_events);
     }
@@ -413,6 +423,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             renderer,
             terminals,
             painter,
+            cursor_zones: Vec::new(),
             modifiers: KeyModifiers::empty(),
             touched: Vec::new(),
             mouse_state: MouseState::default(),
@@ -634,6 +645,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     // to be used as drag start.
                     state.mouse_state.position.x = position.x as f32;
                     state.mouse_state.position.y = position.y as f32;
+                    state
+                        .window
+                        .set_cursor(get_cursor(&state.cursor_zones, state.mouse_state.position));
                     return;
                 }
 
@@ -805,4 +819,18 @@ fn create_bounds(window_size: Vec2, cell_size: Vec2<f32>) -> Bounds {
         cell_size,
         Rounding::Round,
     )
+}
+
+fn get_cursor(
+    cursor_zones: &[(CursorIcon, Rect)],
+    position: Vec2<f32>,
+) -> winit::window::CursorIcon {
+    let position = Vec2::new(position.x as usize, position.y as usize);
+    let mut last_icon = CursorIcon::Default;
+    for (icon, rect) in cursor_zones {
+        if rect.contains(position) {
+            last_icon = *icon;
+        }
+    }
+    glue::convert_cursor_icon(last_icon)
 }

@@ -1,4 +1,4 @@
-use ferrite_runtime::input::keycode::KeyModifiers;
+use ferrite_runtime::{input::keycode::KeyModifiers, painter::CursorIcon};
 use winit::keyboard::NamedKey;
 
 pub fn convert_keycode(
@@ -53,4 +53,44 @@ pub fn convert_keycode(
         _ => return None,
     };
     Some(key)
+}
+
+pub fn convert_cursor_icon(cursor_icon: CursorIcon) -> winit::window::CursorIcon {
+    match cursor_icon {
+        CursorIcon::Default => winit::window::CursorIcon::Default,
+        CursorIcon::ContextMenu => winit::window::CursorIcon::ContextMenu,
+        CursorIcon::Help => winit::window::CursorIcon::Help,
+        CursorIcon::Pointer => winit::window::CursorIcon::Pointer,
+        CursorIcon::Progress => winit::window::CursorIcon::Progress,
+        CursorIcon::Wait => winit::window::CursorIcon::Wait,
+        CursorIcon::Cell => winit::window::CursorIcon::Cell,
+        CursorIcon::Crosshair => winit::window::CursorIcon::Crosshair,
+        CursorIcon::Text => winit::window::CursorIcon::Text,
+        CursorIcon::VerticalText => winit::window::CursorIcon::VerticalText,
+        CursorIcon::Alias => winit::window::CursorIcon::Alias,
+        CursorIcon::Copy => winit::window::CursorIcon::Copy,
+        CursorIcon::Move => winit::window::CursorIcon::Move,
+        CursorIcon::NoDrop => winit::window::CursorIcon::NoDrop,
+        CursorIcon::NotAllowed => winit::window::CursorIcon::NotAllowed,
+        CursorIcon::Grab => winit::window::CursorIcon::Grab,
+        CursorIcon::Grabbing => winit::window::CursorIcon::Grabbing,
+        CursorIcon::EResize => winit::window::CursorIcon::EResize,
+        CursorIcon::NResize => winit::window::CursorIcon::NResize,
+        CursorIcon::NeResize => winit::window::CursorIcon::NeResize,
+        CursorIcon::NwResize => winit::window::CursorIcon::NwResize,
+        CursorIcon::SResize => winit::window::CursorIcon::SResize,
+        CursorIcon::SeResize => winit::window::CursorIcon::SeResize,
+        CursorIcon::SwResize => winit::window::CursorIcon::SwResize,
+        CursorIcon::WResize => winit::window::CursorIcon::WResize,
+        CursorIcon::EwResize => winit::window::CursorIcon::EwResize,
+        CursorIcon::NsResize => winit::window::CursorIcon::NsResize,
+        CursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
+        CursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
+        CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
+        CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
+        CursorIcon::AllScroll => winit::window::CursorIcon::AllScroll,
+        CursorIcon::ZoomIn => winit::window::CursorIcon::ZoomIn,
+        CursorIcon::ZoomOut => winit::window::CursorIcon::ZoomOut,
+        _ => winit::window::CursorIcon::Default,
+    }
 }
