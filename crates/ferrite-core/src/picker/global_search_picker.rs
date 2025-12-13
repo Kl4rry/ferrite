@@ -1,19 +1,15 @@
 use std::{
     borrow::Cow,
-    io::Read,
-    iter::Peekable,
-    ptr,
     sync::{Arc, Mutex},
     thread,
 };
 
 use ferrite_geom::point::Point;
-use ferrite_utility::graphemes::RopeGraphemeExt;
+use ferrite_utility::{graphemes::RopeGraphemeExt, rope_reader::RopeReader};
 use grep_matcher::Matcher as _;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{Searcher, sinks::UTF8};
 use ignore::{WalkBuilder, WalkState};
-use ropey::{Rope, iter::Chunks};
 
 use super::{Matchable, PickerOptionProvider, file_previewer::is_text_file};
 use crate::{
@@ -22,74 +18,19 @@ use crate::{
     picker::{Preview, Previewer},
 };
 
-struct RopeReader<'a> {
-    chunks: Peekable<Chunks<'a>>,
-    bytes_read: usize,
-}
-
-impl<'a> RopeReader<'a> {
-    pub fn new(rope: &'a Rope) -> Self {
-        Self {
-            chunks: rope.chunks().peekable(),
-            bytes_read: 0,
-        }
-    }
-}
-
-impl Read for RopeReader<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self.chunks.peek() {
-            Some(chunk) => {
-                let current = &chunk.as_bytes()[self.bytes_read..];
-                let bytes_to_read = buf.len().min(current.len());
-                unsafe {
-                    ptr::copy_nonoverlapping(
-                        current[..bytes_to_read].as_ptr(),
-                        buf.as_mut_ptr(),
-                        bytes_to_read,
-                    );
-                }
-                self.bytes_read += bytes_to_read;
-
-                if bytes_to_read == current.len() {
-                    self.chunks.next();
-                    self.bytes_read = 0;
-                }
-                Ok(bytes_to_read)
-            }
-            None => Ok(0),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rope_reader() {
-        let text = include_str!("../../../../Cargo.toml");
-        let rope = Rope::from(text);
-        let mut buffer = Vec::new();
-        let mut reader = RopeReader::new(&rope);
-        let _ = reader.read_to_end(&mut buffer);
-        assert_eq!(rope.to_string().as_bytes(), buffer);
-    }
-}
-
 pub struct GlobalSearchProvider {
     output: Arc<boxcar::Vec<GlobalSearchMatch>>,
     config: PickerConfig,
-    case_insenstive: bool,
+    case_insensitive: bool,
     query: String,
 }
 
 impl GlobalSearchProvider {
-    pub fn new(query: String, config: PickerConfig, case_insenstive: bool) -> Self {
+    pub fn new(query: String, config: PickerConfig, case_insensitive: bool) -> Self {
         Self {
             output: Arc::new(boxcar::Vec::new()),
             config,
-            case_insenstive,
+            case_insensitive,
             query,
         }
     }
@@ -100,7 +41,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
 
     fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>> {
         let (tx, rx) = cb::unbounded();
-        let case_insenstive = self.case_insenstive;
+        let case_insensitive = self.case_insensitive;
         let query = self.query.clone();
         let config = self.config;
         let output = self.output.clone();
@@ -109,7 +50,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
             let matcher = RegexMatcherBuilder::new()
                 .fixed_strings(true)
                 .multi_line(false)
-                .case_insensitive(case_insenstive)
+                .case_insensitive(case_insensitive)
                 .build(&query)
                 .unwrap();
 
@@ -154,7 +95,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
 
                     if let Err(err) = Searcher::new().search_reader(
                         &matcher,
-                        RopeReader::new(&rope.clone()),
+                        RopeReader::new(rope.slice(..)),
                         UTF8(|lnum, line| {
                             if let Some(mymatch) = matcher.find(line.as_bytes())? {
                                 let lnum = lnum as usize - 1;

@@ -4,7 +4,10 @@ use std::{
 };
 
 use ferrite_geom::point::Point;
-use ferrite_utility::graphemes::RopeGraphemeExt as _;
+use ferrite_utility::{graphemes::RopeGraphemeExt as _, rope_reader::RopeReader};
+use grep_matcher::Matcher;
+use grep_regex::RegexMatcherBuilder;
+use grep_searcher::{SearcherBuilder, sinks::UTF8};
 use ropey::{Rope, RopeSlice};
 
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
@@ -171,49 +174,50 @@ pub fn search_rope(
     case_insensitive: bool,
     stop_at_first: bool,
 ) -> Vec<SearchMatch> {
-    let mut matches = Vec::new();
-    let chars: Vec<_> = query.chars().collect();
-    let mut query_idx = 0;
-    let mut current_char = 1;
-
     if query.is_empty() {
         return Vec::new();
     }
 
-    for ch in rope.chars() {
-        if compare_char(&ch, &chars[query_idx], case_insensitive) {
-            query_idx += 1;
-        } else {
-            query_idx = 0;
-            if compare_char(&ch, &chars[query_idx], case_insensitive) {
-                query_idx += 1;
-            }
-        }
+    let mut matches = Vec::new();
 
-        if query_idx >= chars.len() {
-            let start_byte = rope.char_to_byte(current_char - chars.len());
-            let end_byte = rope.char_to_byte(current_char);
-            matches.push(SearchMatch {
-                start: rope.byte_to_point(start_byte),
-                end: rope.byte_to_point(end_byte),
-                start_byte,
-                end_byte,
-            });
-            if stop_at_first {
-                break;
-            }
-            query_idx = 0;
-        }
-        current_char += 1;
+    let matcher = RegexMatcherBuilder::new()
+        .fixed_strings(true)
+        .multi_line(false)
+        .case_insensitive(case_insensitive)
+        .build(&query)
+        .unwrap();
+
+    let max_matches: Option<u64> = if stop_at_first { Some(1) } else { None };
+
+    if let Err(err) = SearcherBuilder::new()
+        .max_matches(max_matches)
+        .build()
+        .search_reader(
+            &matcher,
+            RopeReader::new(rope),
+            UTF8(|line_number, line| {
+                if let Some(mymatch) = matcher.find(line.as_bytes())? {
+                    let line_number = line_number as usize - 1;
+                    let rope_line = rope.line(line_number);
+                    let line_start_byte = rope.line_to_byte(line_number);
+
+                    let start_byte = mymatch.start();
+                    let end_byte = mymatch.end();
+                    let start_col = rope_line.byte_to_col(start_byte);
+                    let end_col = rope_line.byte_to_col(end_byte);
+                    matches.push(SearchMatch {
+                        start_byte: start_byte + line_start_byte,
+                        end_byte: end_byte + line_start_byte,
+                        start: Point::new(start_col, line_number),
+                        end: Point::new(end_col, line_number),
+                    });
+                }
+                Ok(true)
+            }),
+        )
+    {
+        tracing::error!("Search error: {err}");
     }
+
     matches
-}
-
-#[inline(always)]
-pub fn compare_char(lhs: &char, rhs: &char, case_insensitive: bool) -> bool {
-    if case_insensitive {
-        lhs.eq_ignore_ascii_case(rhs)
-    } else {
-        lhs == rhs
-    }
 }
