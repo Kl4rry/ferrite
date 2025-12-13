@@ -85,9 +85,7 @@ impl View<LoggerState> for LoggerView {
             let line = format!(
                 " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
                 self.render_time,
-                crate::byte_size::format_byte_size(
-                    ferrite_talloc::Talloc::total_memory_allocated()
-                ),
+                crate::byte_size::format_byte_size(ferrite_talloc::Talloc::total_memory_allocated()),
                 ferrite_talloc::Talloc::num_allocations(),
                 ferrite_talloc::Talloc::phase_allocations()
             );

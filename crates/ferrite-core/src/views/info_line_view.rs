@@ -92,11 +92,7 @@ impl View<()> for InfoLineView<'_> {
         }
         let right_width = right.width();
 
-        // TODO: make right side have prio over left side
-
-        buf.set_stringn(area.x as u16, area.y as u16, &left, area.width, style);
-
-        if area.width > left_width + right_width {
+        {
             let mut output_area = area;
             output_area.x = (output_area.x + output_area.width) - right_width;
             buf.set_string(
@@ -107,7 +103,8 @@ impl View<()> for InfoLineView<'_> {
             );
         }
 
-        if area.width > left_width + center_width + right_width {
+        // Idk why this 4 is needed to stop overlapping and I don't care
+        if area.width > center_width + right_width + 4 {
             let center_max_width = area.width - left_width - right_width;
             let padding = (center_max_width - center_width / 2) / 2;
             buf.set_stringn(
@@ -117,6 +114,10 @@ impl View<()> for InfoLineView<'_> {
                 area.width,
                 style,
             );
+        }
+
+        if area.width > left_width + center_width + right_width {
+            buf.set_stringn(area.x as u16, area.y as u16, &left, area.width, style);
         }
 
         buf.set_style(area.into(), style);
