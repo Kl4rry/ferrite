@@ -94,10 +94,12 @@ fn scan_files(
     let mut iterator = ignore::WalkBuilder::new(&path)
         .follow_links(false)
         .hidden(!config.show_hidden)
+        .hidden(false)
         .ignore(config.follow_ignore)
         .git_global(config.follow_git_global)
         .git_ignore(config.follow_gitignore)
         .git_exclude(config.follow_git_exclude)
+        .overrides(config.overrides())
         .sort_by_file_path(|lhs, rhs| {
             lexical_sort::natural_lexical_cmp(&lhs.to_string_lossy(), &rhs.to_string_lossy())
         })

@@ -15,7 +15,8 @@ highlight_cursor_line = true
 icons = true
 
 [picker]
-show_hidden = false
+show_hidden = true
+show_git_folder = false
 follow_gitignore = true
 follow_git_exclude = true
 follow_ignore = true

@@ -57,10 +57,12 @@ impl PickerOptionProvider for GlobalSearchProvider {
             let mut builder = WalkBuilder::new(std::env::current_dir().unwrap());
             let walk_parallel = builder
                 .follow_links(false)
+                .hidden(!config.show_hidden)
                 .ignore(config.follow_ignore)
                 .git_global(config.follow_git_global)
                 .git_ignore(config.follow_gitignore)
                 .git_exclude(config.follow_git_exclude)
+                .overrides(config.overrides())
                 .build_parallel();
 
             walk_parallel.run(move || {
