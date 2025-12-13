@@ -28,13 +28,10 @@ ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-core = { path = "crates/ferrite-core" }
 ferrite-ctx = { path = "crates/ferrite-ctx" }
 ferrite-geom = { path = "crates/ferrite-geom" }
-ferrite-gui = { path = "crates/ferrite-gui" }
 ferrite-runtime = { path = "crates/ferrite-runtime" }
 ferrite-style = { path = "crates/ferrite-style" }
 ferrite-talloc = { path = "crates/ferrite-talloc" }
-ferrite-term = { path = "crates/ferrite-term" }
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
-ferrite-tui = { path = "crates/ferrite-tui" }
 ferrite-term-platform = { path = "crates/ferrite-term-platform" }
 ferrite-utility = { path = "crates/ferrite-utility" }
 ferrite-winit-wgpu-platform = { path = "crates/ferrite-winit-wgpu-platform" }
