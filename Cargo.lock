@@ -859,6 +859,7 @@ dependencies = [
  "ferrite-geom",
  "ferrite-runtime",
  "ferrite-style",
+ "ferrite-talloc",
  "ferrite-tree-sitter",
  "ferrite-utility",
  "grep-matcher",

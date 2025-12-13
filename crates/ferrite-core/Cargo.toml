@@ -23,6 +23,7 @@ ferrite-runtime = { workspace = true }
 ferrite-style = { workspace = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
+ferrite-talloc = { workspace = true, optional = true }
 grep-matcher = { workspace = true }
 grep-regex = { workspace = true }
 grep-searcher = { workspace = true }
@@ -59,6 +60,7 @@ rand = { workspace = true }
 
 [features]
 embed-themes = []
+talloc = ["dep:ferrite-talloc"]
 lang-bash = ["ferrite-tree-sitter/lang-bash"]
 lang-c = ["ferrite-tree-sitter/lang-c"]
 lang-c-sharp = ["ferrite-tree-sitter/lang-c-sharp"]

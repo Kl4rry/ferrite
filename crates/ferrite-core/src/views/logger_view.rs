@@ -79,19 +79,18 @@ impl View<LoggerState> for LoggerView {
             };
 
             buf.set_style(line_area.into(), style);
-            // #[cfg(not(feature = "talloc"))]
+            #[cfg(not(feature = "talloc"))]
             let line = format!(" Frame time: {:?}", self.render_time);
-            // TODO: FIX
-            // #[cfg(feature = "talloc")]
-            // let line = format!(
-            //     " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
-            //     self.render_time,
-            //     ferrite_core::byte_size::format_byte_size(
-            //         ferrite_talloc::Talloc::total_memory_allocated()
-            //     ),
-            //     ferrite_talloc::Talloc::num_allocations(),
-            //     ferrite_talloc::Talloc::phase_allocations()
-            // );
+            #[cfg(feature = "talloc")]
+            let line = format!(
+                " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
+                self.render_time,
+                crate::byte_size::format_byte_size(
+                    ferrite_talloc::Talloc::total_memory_allocated()
+                ),
+                ferrite_talloc::Talloc::num_allocations(),
+                ferrite_talloc::Talloc::phase_allocations()
+            );
 
             buf.set_stringn(
                 line_area.x as u16,

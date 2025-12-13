@@ -55,7 +55,6 @@ impl Write for LoggerSink {
         if last_line_start > 0
             && let Some(proxy) = &*PROXY.lock().unwrap()
         {
-            // TODO: this causes redrawing even if log window is not visible
             proxy.request_render("new log messages ready");
         }
 

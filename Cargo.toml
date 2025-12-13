@@ -98,7 +98,7 @@ tracing-subscriber = { workspace = true, features = ["json"] }
 default = ["tui", "gui"]
 tui = ["dep:ferrite-term-platform"]
 gui = ["dep:ferrite-winit-wgpu-platform"]
-talloc = ["dep:ferrite-talloc"]
+talloc = ["dep:ferrite-talloc", "ferrite-core/talloc"]
 
 [profile.dev.package."*"]
 opt-level = 3

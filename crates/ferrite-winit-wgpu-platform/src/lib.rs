@@ -358,7 +358,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             )
         };
 
-        // TODO: This fixes the exit segfault by leaking a Arc<Window> so that
+        // This fixes the exit segfault by leaking a Arc<Window> so that
         // the window does not get destoryed
         std::mem::forget(window.clone());
         let size = window.inner_size();
