@@ -45,6 +45,3 @@
 
 ### Gui
 - [x] A gui built with wgpu and [cosmic-text](https://crates.io/crates/cosmic-text)
-
-### TODO list
-Figure out ipc stuff.

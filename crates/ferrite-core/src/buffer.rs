@@ -1773,88 +1773,101 @@ impl Buffer {
         self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
-    // TODO make multicursor aware
     pub fn move_line(&mut self, view_id: ViewId, dir: LineMoveDir) {
-        self.views[view_id].cursors.clear();
+        self.views[view_id].coalesce_cursors();
         self.history
             .begin(view_id, self.get_all_cursors(), self.dirty);
-        let len_lines = self.rope.len_lines();
-        let (cursor_col, cursor_line_idx) = self.cursor_byte_pos(view_id, 0);
-        let (anchor_col, anchor_line_idx) = self.anchor_byte_pos(view_id, 0);
 
-        let cursor_byte_idx_in_line =
-            self.views[view_id].cursors.first().position - self.rope.line_to_byte(cursor_line_idx);
-        let anchor_byte_idx_in_line =
-            self.views[view_id].cursors.first().anchor - self.rope.line_to_byte(anchor_line_idx);
+        let cursors = self.get_cursors_sorted(view_id);
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
 
-        let start_line_idx = cursor_line_idx.min(anchor_line_idx);
-        let mut end_line_idx = cursor_line_idx.max(anchor_line_idx);
+            let len_lines = self.rope.len_lines();
+            let (cursor_col, cursor_line_idx) = self.cursor_byte_pos(view_id, i);
+            let (anchor_col, anchor_line_idx) = self.anchor_byte_pos(view_id, i);
 
-        let end_col = if self.views[view_id].cursors.first().position
-            > self.views[view_id].cursors.first().anchor
-        {
-            cursor_col
-        } else {
-            anchor_col
-        };
-        if end_col == 0 && start_line_idx < end_line_idx {
-            end_line_idx -= 1;
-        }
+            let cursor_byte_idx_in_line =
+                self.views[view_id].cursors[i].position - self.rope.line_to_byte(cursor_line_idx);
+            let anchor_byte_idx_in_line =
+                self.views[view_id].cursors[i].anchor - self.rope.line_to_byte(anchor_line_idx);
 
-        if (end_line_idx + 1 >= self.len_lines() && dir == LineMoveDir::Down)
-            || (start_line_idx == 0 && dir == LineMoveDir::Up)
-        {
-            return;
-        }
+            let start_line_idx = cursor_line_idx.min(anchor_line_idx);
+            let mut end_line_idx = cursor_line_idx.max(anchor_line_idx);
 
-        let old_line_idx = self
-            .rope
-            .byte_to_line(self.views[view_id].cursors.first().start());
-        let offset = match dir {
-            LineMoveDir::Up => -1,
-            LineMoveDir::Down => 1,
-        };
-        let new_line_idx = (old_line_idx as i64 + offset) as usize;
+            let end_col = if self.views[view_id].cursors[i].position
+                > self.views[view_id].cursors[i].anchor
+            {
+                cursor_col
+            } else {
+                anchor_col
+            };
+            if end_col == 0 && start_line_idx < end_line_idx {
+                end_line_idx -= 1;
+            }
 
-        let start_byte_idx = self.rope.line_to_byte(start_line_idx);
-        let end_byte_idx = self.rope.end_of_line_byte(end_line_idx);
+            if (end_line_idx + 1 >= self.len_lines() && dir == LineMoveDir::Down)
+                || (start_line_idx == 0 && dir == LineMoveDir::Up)
+            {
+                return;
+            }
 
-        let mut removed = self
-            .rope
-            .byte_slice(start_byte_idx..end_byte_idx)
-            .to_string();
-
-        if RopeSlice::from(removed.as_str())
-            .get_line_ending()
-            .is_none()
-        {
-            removed.push('\n');
-        }
-
-        self.history
-            .remove(&mut self.rope, start_byte_idx..end_byte_idx);
-        let end_idx = self.rope.len_bytes();
-        self.history.insert(&mut self.rope, end_idx, "\n");
-
-        let new_line_start_byte_idx = self.rope.line_to_byte(new_line_idx);
-        self.history
-            .insert(&mut self.rope, new_line_start_byte_idx, &removed);
-
-        while len_lines < self.rope.len_lines() && self.rope.get_line_ending().is_some() {
-            let start = self
+            let old_line_idx = self
                 .rope
-                .char_to_byte(rope_end_without_line_ending(&self.rope.slice(..)));
-            let end = self.rope.len_bytes();
-            self.history.remove(&mut self.rope, start..end);
+                .byte_to_line(self.views[view_id].cursors[i].start());
+            let offset = match dir {
+                LineMoveDir::Up => -1,
+                LineMoveDir::Down => 1,
+            };
+            let new_line_idx = (old_line_idx as i64 + offset) as usize;
+
+            let start_byte_idx = self.rope.line_to_byte(start_line_idx);
+            let end_byte_idx = self.rope.end_of_line_byte(end_line_idx);
+
+            let mut removed = self
+                .rope
+                .byte_slice(start_byte_idx..end_byte_idx)
+                .to_string();
+
+            if RopeSlice::from(removed.as_str())
+                .get_line_ending()
+                .is_none()
+            {
+                removed.push('\n');
+            }
+
+            self.history
+                .remove(&mut self.rope, start_byte_idx..end_byte_idx);
+            let end_idx = self.rope.len_bytes();
+            self.history.insert(&mut self.rope, end_idx, "\n");
+
+            let new_line_start_byte_idx = self.rope.line_to_byte(new_line_idx);
+            self.history
+                .insert(&mut self.rope, new_line_start_byte_idx, &removed);
+
+            while len_lines < self.rope.len_lines() && self.rope.get_line_ending().is_some() {
+                let start = self
+                    .rope
+                    .char_to_byte(rope_end_without_line_ending(&self.rope.slice(..)));
+                let end = self.rope.len_bytes();
+                self.history.remove(&mut self.rope, start..end);
+            }
+
+            let new_cursor_line_idx = (cursor_line_idx as i64 + offset) as usize;
+            let new_anchor_line_idx = (anchor_line_idx as i64 + offset) as usize;
+
+            self.views[view_id].cursors[i].position =
+                self.rope.line_to_byte(new_cursor_line_idx) + cursor_byte_idx_in_line;
+            self.views[view_id].cursors[i].anchor =
+                self.rope.line_to_byte(new_anchor_line_idx) + anchor_byte_idx_in_line;
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
+            }
         }
-
-        let new_cursor_line_idx = (cursor_line_idx as i64 + offset) as usize;
-        let new_anchor_line_idx = (anchor_line_idx as i64 + offset) as usize;
-
-        self.views[view_id].cursors.first_mut().position =
-            self.rope.line_to_byte(new_cursor_line_idx) + cursor_byte_idx_in_line;
-        self.views[view_id].cursors.first_mut().anchor =
-            self.rope.line_to_byte(new_anchor_line_idx) + anchor_byte_idx_in_line;
 
         self.update_affinity(view_id);
         self.mark_dirty();
@@ -1868,102 +1881,107 @@ impl Buffer {
         self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
-    // TODO make multicursor aware
     pub fn tab_or_indent(&mut self, view_id: ViewId, back: bool) {
         if self.views[view_id].completer.can_complete() && !self.simple {
             self.do_completion(view_id);
             return;
         }
 
-        self.views[view_id].cursors.clear();
-        // TODO optimize for larger files
-
-        if !self.views[view_id].cursors.first().has_selection() && !back {
-            let col = self.cursor_grapheme_column(view_id, 0);
-            self.insert_text(view_id, &self.indent.to_next_ident(col), false);
-            self.history.finish();
-            return;
-        }
-
+        self.views[view_id].coalesce_cursors();
+        let cursors = self.get_cursors_sorted(view_id);
         self.history
             .begin(view_id, self.get_all_cursors(), self.dirty);
-        {
-            let cursor_col = self.cursor_grapheme_column(view_id, 0);
-            let anchor_col = self.anchor_grapheme_column(view_id, 0);
-            let cursor_line_idx = self.cursor_line_idx(view_id, 0);
-            let anchor_line_idx = self.anchor_line_idx(view_id, 0);
 
-            let start = self
-                .rope
-                .byte_to_line(self.views[view_id].cursors.first().start());
-            let end = self
-                .rope
-                .byte_to_line(self.views[view_id].cursors.first().end());
+        for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
+            let before_len_bytes = self.rope.len_bytes();
 
-            let last_line_at_start = self.views[view_id]
-                .cursors
-                .first()
-                .position
-                .max(self.views[view_id].cursors.first().anchor)
-                == self.rope.line_to_byte(end);
+            if !self.views[view_id].cursors[i].has_selection() && !back {
+                let col = self.cursor_grapheme_column(view_id, i);
+                self.insert_text_raw(view_id, i, &self.indent.to_next_ident(col), false, false);
+            } else {
+                // TODO optimize for larger files
+                let cursor_col = self.cursor_grapheme_column(view_id, i);
+                let anchor_col = self.anchor_grapheme_column(view_id, i);
+                let cursor_line_idx = self.cursor_line_idx(view_id, i);
+                let anchor_line_idx = self.anchor_line_idx(view_id, i);
 
-            let tab_direction = match back {
-                true => -1,
-                false => 1,
-            };
+                let start = self
+                    .rope
+                    .byte_to_line(self.views[view_id].cursors[i].start());
+                let end = self.rope.byte_to_line(self.views[view_id].cursors[i].end());
 
-            for line_idx in start..=end {
-                let line = self.rope.line_without_line_ending(line_idx);
-                let line_start_byte_idx = self.rope.line_to_byte(line_idx);
-                let text_start_byte = self.rope.get_text_start_byte(line_idx);
-                let text_start_col = self.rope.get_text_start_col(line_idx);
+                let last_line_at_start = self.views[view_id].cursors[i]
+                    .position
+                    .max(self.views[view_id].cursors[i].anchor)
+                    == self.rope.line_to_byte(end);
 
-                let diff: i64 = 'm: {
-                    if line_idx == end && last_line_at_start {
-                        break 'm 0;
-                    }
-
-                    let current_indent = line.byte_slice(..text_start_byte);
-                    let current_indent_width = current_indent.width(0);
-                    let indent_width = self.indent.width();
-
-                    let new_number_of_indent = ((current_indent_width as i64 / indent_width as i64)
-                        + tab_direction)
-                        .max(0) as usize;
-                    let new_start_of_line =
-                        self.indent.to_next_ident(0).repeat(new_number_of_indent);
-
-                    let start_byte_idx = line_start_byte_idx;
-                    let end_byte_idx = line_start_byte_idx + text_start_byte;
-
-                    self.history.replace(
-                        &mut self.rope,
-                        start_byte_idx..end_byte_idx,
-                        &new_start_of_line,
-                    );
-
-                    new_number_of_indent as i64 * indent_width as i64 - current_indent_width as i64
+                let tab_direction = match back {
+                    true => -1,
+                    false => 1,
                 };
 
-                if line_idx == cursor_line_idx {
-                    self.views[view_id].cursors.first_mut().position =
-                        self.rope.line_to_byte(cursor_line_idx);
-                    if cursor_col < text_start_col || cursor_col == 0 {
-                        self.set_cursor_col(view_id, cursor_col);
-                    } else {
-                        self.set_cursor_col(view_id, (cursor_col as i64 + diff) as usize);
-                    }
-                }
+                for line_idx in start..=end {
+                    let line = self.rope.line_without_line_ending(line_idx);
+                    let line_start_byte_idx = self.rope.line_to_byte(line_idx);
+                    let text_start_byte = self.rope.get_text_start_byte(line_idx);
+                    let text_start_col = self.rope.get_text_start_col(line_idx);
 
-                if line_idx == anchor_line_idx {
-                    self.views[view_id].cursors.first_mut().anchor =
-                        self.rope.line_to_byte(anchor_line_idx);
-                    if anchor_col < text_start_col || anchor_col == 0 {
-                        self.set_anchor_col(view_id, anchor_col);
-                    } else {
-                        self.set_anchor_col(view_id, (anchor_col as i64 + diff) as usize);
+                    let diff: i64 = 'm: {
+                        if line_idx == end && last_line_at_start {
+                            break 'm 0;
+                        }
+
+                        let current_indent = line.byte_slice(..text_start_byte);
+                        let current_indent_width = current_indent.width(0);
+                        let indent_width = self.indent.width();
+
+                        let new_number_of_indent =
+                            ((current_indent_width as i64 / indent_width as i64) + tab_direction)
+                                .max(0) as usize;
+                        let new_start_of_line =
+                            self.indent.to_next_ident(0).repeat(new_number_of_indent);
+
+                        let start_byte_idx = line_start_byte_idx;
+                        let end_byte_idx = line_start_byte_idx + text_start_byte;
+
+                        self.history.replace(
+                            &mut self.rope,
+                            start_byte_idx..end_byte_idx,
+                            &new_start_of_line,
+                        );
+
+                        new_number_of_indent as i64 * indent_width as i64
+                            - current_indent_width as i64
+                    };
+
+                    if line_idx == cursor_line_idx {
+                        self.views[view_id].cursors[i].position =
+                            self.rope.line_to_byte(cursor_line_idx);
+                        if cursor_col < text_start_col || cursor_col == 0 {
+                            self.set_cursor_col(view_id, i, cursor_col);
+                        } else {
+                            self.set_cursor_col(view_id, i, (cursor_col as i64 + diff) as usize);
+                        }
+                    }
+
+                    if line_idx == anchor_line_idx {
+                        self.views[view_id].cursors[i].anchor =
+                            self.rope.line_to_byte(anchor_line_idx);
+                        if anchor_col < text_start_col || anchor_col == 0 {
+                            self.set_anchor_col(view_id, i, anchor_col);
+                        } else {
+                            self.set_anchor_col(view_id, i, (anchor_col as i64 + diff) as usize);
+                        }
                     }
                 }
+            }
+
+            let after_len_bytes = self.rope.len_bytes();
+            let diff_len_bytes = after_len_bytes as i64 - before_len_bytes as i64;
+            for (_, i) in cursors.iter().copied().skip(cursor_loop_index + 1) {
+                let cursor = &mut self.views[view_id].cursors[i];
+                cursor.position = (cursor.position as i64 + diff_len_bytes) as usize;
+                cursor.anchor = (cursor.anchor as i64 + diff_len_bytes) as usize;
             }
         }
 
@@ -1979,10 +1997,8 @@ impl Buffer {
         self.hide_completers();
     }
 
-    // TODO make multicursor aware
-    pub fn set_cursor_col(&mut self, view_id: ViewId, col: usize) {
-        self.views[view_id].cursors.clear();
-        let cursor_line_idx = self.cursor_line_idx(view_id, 0);
+    pub fn set_cursor_col(&mut self, view_id: ViewId, cursor_idx: usize, col: usize) {
+        let cursor_line_idx = self.cursor_line_idx(view_id, cursor_idx);
         let line = self.rope.line_without_line_ending(cursor_line_idx);
         let mut byte_idx = 0;
         let mut width = 0;
@@ -1993,14 +2009,12 @@ impl Buffer {
             byte_idx += grapheme.len_bytes();
             width += grapheme.width(width);
         }
-        self.views[view_id].cursors.first_mut().position =
+        self.views[view_id].cursors[cursor_idx].position =
             self.rope.line_to_byte(cursor_line_idx) + byte_idx;
     }
 
-    // TODO make multicursor aware
-    pub fn set_anchor_col(&mut self, view_id: ViewId, col: usize) {
-        self.views[view_id].cursors.clear();
-        let anchor_line_idx = self.anchor_line_idx(view_id, 0);
+    pub fn set_anchor_col(&mut self, view_id: ViewId, cursor_idx: usize, col: usize) {
+        let anchor_line_idx = self.anchor_line_idx(view_id, cursor_idx);
         let line = self.rope.line_without_line_ending(anchor_line_idx);
         let mut byte_idx = 0;
         let mut width = 0;
@@ -2011,7 +2025,7 @@ impl Buffer {
             byte_idx += grapheme.len_bytes();
             width += grapheme.width(width);
         }
-        self.views[view_id].cursors.first_mut().anchor =
+        self.views[view_id].cursors[cursor_idx].anchor =
             self.rope.line_to_byte(anchor_line_idx) + byte_idx;
     }
 
