@@ -683,40 +683,6 @@ impl View<Buffer> for EditorView {
                 }
             }
 
-            if let Some(bg) = tui::style::Style::from(theme.selection).bg {
-                profiling::scope!("draw selections");
-                for Selection { start, end } in buffer.get_view_selection(view_id) {
-                    let line_pos = buffer.line_pos(view_id);
-
-                    for y in 0..text_area.height {
-                        let line_idx = y + line_pos;
-                        let width = if line_idx >= buffer.rope().len_lines() {
-                            0
-                        } else {
-                            buffer.rope().line_without_line_ending(line_idx).width(0)
-                        };
-                        for x in 0..text_area.width {
-                            if x > width {
-                                break;
-                            }
-                            let current = Point {
-                                column: x as i64,
-                                line: y as i64,
-                            };
-                            if current >= start && current < end {
-                                let cell = buf
-                                    .cell_mut((
-                                        (x + text_area.left()) as u16,
-                                        (y + text_area.top()) as u16,
-                                    ))
-                                    .unwrap();
-                                cell.bg = bg;
-                            }
-                        }
-                    }
-                }
-            }
-
             {
                 let start_line = buffer.views[view_id].line_pos_floored();
                 let end_line = start_line + buffer.get_view_lines(view_id);
@@ -749,6 +715,40 @@ impl View<Buffer> for EditorView {
                             second_area.into(),
                             tui::style::Style::default().bg(tui::style::Color::Rgb(40, 56, 75)),
                         );
+                    }
+                }
+            }
+
+            if let Some(bg) = tui::style::Style::from(theme.selection).bg {
+                profiling::scope!("draw selections");
+                for Selection { start, end } in buffer.get_view_selection(view_id) {
+                    let line_pos = buffer.line_pos(view_id);
+
+                    for y in 0..text_area.height {
+                        let line_idx = y + line_pos;
+                        let width = if line_idx >= buffer.rope().len_lines() {
+                            0
+                        } else {
+                            buffer.rope().line_without_line_ending(line_idx).width(0)
+                        };
+                        for x in 0..text_area.width {
+                            if x > width {
+                                break;
+                            }
+                            let current = Point {
+                                column: x as i64,
+                                line: y as i64,
+                            };
+                            if current >= start && current < end {
+                                let cell = buf
+                                    .cell_mut((
+                                        (x + text_area.left()) as u16,
+                                        (y + text_area.top()) as u16,
+                                    ))
+                                    .unwrap();
+                                cell.bg = bg;
+                            }
+                        }
                     }
                 }
             }
@@ -828,7 +828,7 @@ impl View<Buffer> for EditorView {
                     );
                     buf.set_style(
                         rect.into(),
-                        Style::default().set_bg(theme.scrollbar.fg.unwrap_or_default()),
+                        Style::default().bg(theme.scrollbar.fg.unwrap_or_default()),
                     );
                 }
             }

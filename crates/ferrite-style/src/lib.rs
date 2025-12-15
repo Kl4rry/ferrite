@@ -1,6 +1,10 @@
 use core::{fmt, str};
 use std::{error::Error, str::FromStr};
 
+fn lerp(a: f32, b: f32, scale: f32) -> f32 {
+    a * (1.0 - scale) + b * scale
+}
+
 #[derive(Debug)]
 pub struct ParseColorError(&'static str);
 
@@ -26,6 +30,14 @@ pub struct Color {
 impl Color {
     pub fn new(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b }
+    }
+
+    pub fn mix(&self, other: Self, factor: f32) -> Self {
+        Self {
+            r: lerp(self.r, other.r, factor),
+            g: lerp(self.g, other.g, factor),
+            b: lerp(self.b, other.b, factor),
+        }
     }
 }
 
@@ -78,12 +90,12 @@ pub struct Style {
 }
 
 impl Style {
-    pub fn set_fg(mut self, fg: Color) -> Self {
+    pub fn fg(mut self, fg: Color) -> Self {
         self.fg = Some(fg);
         self
     }
 
-    pub fn set_bg(mut self, bg: Color) -> Self {
+    pub fn bg(mut self, bg: Color) -> Self {
         self.bg = Some(bg);
         self
     }

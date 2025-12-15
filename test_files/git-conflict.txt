@@ -1,0 +1,5 @@
+<<<<<<< HEAD
+Hello, this is the **updated project note** by A.
+=======
+Hello, this is the **feature note** by B.
+>>>>>>> feature
