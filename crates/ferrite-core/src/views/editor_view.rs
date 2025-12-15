@@ -1,6 +1,6 @@
 use std::{ops::Add, sync::Arc};
 
-use ferrite_ctx::ArenaString;
+use ferrite_ctx::{ArenaString, ArenaVec};
 use ferrite_geom::{
     point::Point,
     rect::{Rect, Vec2},
@@ -683,39 +683,43 @@ impl View<Buffer> for EditorView {
                 }
             }
 
+            let mut normalized_conflicts = ArenaVec::new_in(&arena);
             {
+                profiling::scope!("draw git conflicts");
+                let conflicts = buffer.conflicts.lock().unwrap();
+                normalized_conflicts.reserve_exact(conflicts.len());
                 let start_line = buffer.views[view_id].line_pos_floored();
                 let end_line = start_line + buffer.get_view_lines(view_id);
-                let conflicts = buffer.conflicts.lock().unwrap();
+                let len_lines = buffer.len_lines() as f32 + bounds.grid_bounds().height as f32;
                 for (start, middle, end) in &*conflicts {
-                    if intersects(*start, *end, start_line, end_line) {
-                        let area_start = (text_area.y as i64 + *start as i64 - start_line as i64)
-                            .clamp(text_area.top() as i64, text_area.bottom() as i64);
-                        let area_middle = (text_area.y as i64 + *middle as i64 - start_line as i64)
-                            .clamp(text_area.top() as i64, text_area.bottom() as i64);
-                        let area_end = (text_area.y as i64 + *end as i64 - start_line as i64)
-                            .clamp(text_area.top() as i64, text_area.bottom() as i64);
-                        let first_area = Rect::new(
-                            text_area.x,
-                            area_start as usize,
-                            text_area.width,
-                            (area_middle - area_start) as usize,
-                        );
-                        let second_area = Rect::new(
-                            text_area.x,
-                            area_middle as usize,
-                            text_area.width,
-                            (area_end - area_middle) as usize,
-                        );
-                        buf.set_style(
-                            first_area.into(),
-                            tui::style::Style::default().bg(tui::style::Color::Rgb(39, 64, 59)),
-                        );
-                        buf.set_style(
-                            second_area.into(),
-                            tui::style::Style::default().bg(tui::style::Color::Rgb(40, 56, 75)),
-                        );
+                    normalized_conflicts.push((
+                        *start as f32 / len_lines,
+                        *middle as f32 / len_lines,
+                        *end as f32 / len_lines,
+                    ));
+                    if !intersects(*start, *end, start_line, end_line) {
+                        continue;
                     }
+                    let area_start = (text_area.y as i64 + *start as i64 - start_line as i64)
+                        .clamp(text_area.top() as i64, text_area.bottom() as i64);
+                    let area_middle = (text_area.y as i64 + *middle as i64 - start_line as i64)
+                        .clamp(text_area.top() as i64, text_area.bottom() as i64);
+                    let area_end = (text_area.y as i64 + *end as i64 - start_line as i64)
+                        .clamp(text_area.top() as i64, text_area.bottom() as i64);
+                    let first_area = Rect::new(
+                        text_area.x,
+                        area_start as usize,
+                        text_area.width,
+                        (area_middle - area_start) as usize,
+                    );
+                    let second_area = Rect::new(
+                        text_area.x,
+                        area_middle as usize,
+                        text_area.width,
+                        (area_end - area_middle) as usize,
+                    );
+                    buf.set_style(first_area.into(), theme.conflict_current);
+                    buf.set_style(second_area.into(), theme.conflict_incoming);
                 }
             }
 
@@ -756,6 +760,7 @@ impl View<Buffer> for EditorView {
             if buffer.views[view_id].completer.visible
                 && !buffer.views[view_id].completer.matching_words.is_empty()
             {
+                profiling::scope!("draw completer");
                 let cursor_view_pos =
                     buffer.cursor_view_pos(view_id, 0, text_area.width, text_area.height);
                 if let Some((column, line)) = cursor_view_pos {
@@ -798,6 +803,7 @@ impl View<Buffer> for EditorView {
             }
 
             if *scrollbar {
+                profiling::scope!("draw scrollbar");
                 let scrollbar_bounds = get_scrollbar_bounds(buffer, view_id, bounds);
                 let cell_size = bounds.cell_size();
                 let rect = Rect::new(
@@ -806,9 +812,43 @@ impl View<Buffer> for EditorView {
                     cell_size.x,
                     view_bounds.height as f32,
                 );
+
+                let mut conflict_areas = ArenaVec::new_in(&arena);
+                conflict_areas.reserve_exact(normalized_conflicts.len() * 2);
+                // Draw git conflicts in the scrollbar
+                let conflict_width = cell_size.x;
+                for (start, middle, end) in normalized_conflicts {
+                    let start = start * view_bounds.height as f32;
+                    let middle = middle * view_bounds.height as f32;
+                    let end = end * view_bounds.height as f32;
+                    conflict_areas.push((
+                        Rect::new(
+                            view_bounds.x as f32 + view_bounds.width as f32 - conflict_width,
+                            start,
+                            conflict_width,
+                            middle - start,
+                        ),
+                        theme.conflict_current.bg.unwrap_or_default(),
+                    ));
+                    conflict_areas.push((
+                        Rect::new(
+                            view_bounds.x as f32 + view_bounds.width as f32 - conflict_width,
+                            middle,
+                            conflict_width,
+                            end - middle,
+                        ),
+                        theme.conflict_incoming.bg.unwrap_or_default(),
+                    ));
+                }
+
                 if painter.has_painter2d() {
                     let painter2d = layer.painter2d.as_mut().unwrap();
                     painter2d.draw_quad(rect, theme.scrollbar.bg.unwrap_or_default());
+
+                    for (rect, color) in conflict_areas {
+                        painter2d.draw_quad(rect, color);
+                    }
+
                     painter2d.draw_quad(scrollbar_bounds, theme.scrollbar.fg.unwrap_or_default());
                 } else {
                     // TODO: use 1/8 blocks to make bar higher resolution
@@ -826,6 +866,15 @@ impl View<Buffer> for EditorView {
                         scrollbar_bounds.width as usize,
                         scrollbar_bounds.height as usize,
                     );
+                    for (rect, color) in conflict_areas {
+                        let rect = Rect::new(
+                            rect.x as usize,
+                            rect.y as usize,
+                            rect.width as usize,
+                            rect.height as usize,
+                        );
+                        buf.set_style(rect.into(), Style::default().bg(color));
+                    }
                     buf.set_style(
                         rect.into(),
                         Style::default().bg(theme.scrollbar.fg.unwrap_or_default()),

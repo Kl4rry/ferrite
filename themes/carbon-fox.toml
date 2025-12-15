@@ -20,6 +20,8 @@
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
 "editor.file_explorer.link" = { fg = "yellow" }
+"editor.conflict.current" = { bg = "conflict-current" }
+"editor.conflict.incoming" = { bg = "conflict-incoming" }
 
 [syntax]
 "markup.raw" = { fg = "magenta" } # Code block in Markdown.
@@ -95,6 +97,7 @@
 "diff.minus" = { fg = "red" }
 "diff.delta" = { fg = "blue" }
 
+
 [palette]
 black          = "#282828"
 red            = "#ee5396"
@@ -129,3 +132,6 @@ sel0           = "#2a2a2a"
 sel1           = "#525253"
 search_match   = "#3E3648"
 comment        = "#738091"
+
+conflict-current  = "#27403B"
+conflict-incoming = "#28384B"

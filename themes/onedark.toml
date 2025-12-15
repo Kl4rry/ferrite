@@ -20,6 +20,8 @@
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
 "editor.file_explorer.link" = { fg = "cyan" }
+"editor.conflict.current" = { bg = "conflict-current" }
+"editor.conflict.incoming" = { bg = "conflict-incoming" }
 
 [syntax]
 "tag" = { fg = "red" }
@@ -74,7 +76,7 @@
 "diff.minus" = { fg = "red" }
 
 # Special case for languages
-"type.builtin.rust" = { fg = "yellow" } 
+"type.builtin.rust" = { fg = "yellow" }
 
 [palette]
 yellow = "#e5c07b"
@@ -95,3 +97,6 @@ faint_blue = "#324971"
 
 cursorline = "#2c313c"
 scrollbar = "#3b414d"
+
+conflict-current  = "#27403B"
+conflict-incoming = "#28384B"

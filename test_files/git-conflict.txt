@@ -1,5 +1,34 @@
+
+Not in conflicts
+
 <<<<<<< HEAD
 Hello, this is the **updated project note** by A.
 =======
 Hello, this is the **feature note** by B.
 >>>>>>> feature
+
+
+Not in conflicts
+
+
+Not in conflicts
+
+
+
+
+
+
+<<<<<<< HEAD
+Hello, this is the **updated project note** by A.
+=======
+Hello, this is the **feature note** by B.
+>>>>>>> feature
+
+
+
+
+
+
+
+
+Not in conflicts

@@ -3391,6 +3391,7 @@ impl Buffer {
         let proxy = get_proxy();
         let rope = self.rope.clone();
         rayon::spawn(move || {
+            let start = Instant::now();
             // TODO: rm temp alloc
             let mut conflicts = Vec::new();
             enum Stage {
@@ -3431,6 +3432,10 @@ impl Buffer {
                 }
             }
             conflicts_ptr.lock().unwrap().clone_from(&conflicts);
+            eprintln!(
+                "Finding conflicts took: {:?}",
+                Instant::now().duration_since(start)
+            );
             proxy.request_render("parsing of git conflic done");
         });
     }

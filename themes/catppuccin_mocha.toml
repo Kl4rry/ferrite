@@ -19,6 +19,8 @@
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
 "editor.file_explorer.link" = { fg = "teal" }
+"editor.conflict.current" = { bg = "conflict-current" }
+"editor.conflict.incoming" = { bg = "conflict-incoming" }
 
 [syntax]
 "type" = { fg = "yellow" }
@@ -70,7 +72,7 @@
 "diff.delta" = { fg = "blue" }
 
 # Special case for languages
-"rust.type.builtin" = { fg = "yellow" } 
+"rust.type.builtin" = { fg = "yellow" }
 
 "markup.heading" = { fg = "lavender" }
 "markup.raw" = { fg = "flamingo" }
@@ -114,3 +116,6 @@ crust = "#11111b"
 search_match = "#384d5d"
 cursorline = "#2a2b3c"
 scrollbar = "#383a4a"
+
+conflict-current  = "#27403B"
+conflict-incoming = "#28384B"

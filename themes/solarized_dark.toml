@@ -19,6 +19,8 @@
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
 "editor.file_explorer.link" = { fg = "cyan" }
+"editor.conflict.current" = { bg = "conflict-current" }
+"editor.conflict.incoming" = { bg = "conflict-incoming" }
 
 [syntax]
 "text" = { fg = "base1" }
@@ -89,3 +91,6 @@ green   = "#859900"
 
 cursorline = "#073642"
 scrollbar = "#304a50"
+
+conflict-current  = "#27403B"
+conflict-incoming = "#28384B"

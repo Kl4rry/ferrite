@@ -19,6 +19,8 @@
 "editor.file_explorer.directory" = { fg = "blue" }
 "editor.file_explorer.executable" = { fg = "green" }
 "editor.file_explorer.link" = { fg = "cyan" }
+"editor.conflict.current" = { bg = "conflict-current" }
+"editor.conflict.incoming" = { bg = "conflict-incoming" }
 
 [syntax]
 "attribute" = { fg = "text" }
@@ -78,3 +80,6 @@ cyan = "#a1efe4"
 violet = "#a381ff"
 
 scrollbar = "#344747"
+
+conflict-current  = "#27403B"
+conflict-incoming = "#28384B"
