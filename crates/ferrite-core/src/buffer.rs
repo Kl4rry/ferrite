@@ -3432,7 +3432,7 @@ impl Buffer {
                 }
             }
             conflicts_ptr.lock().unwrap().clone_from(&conflicts);
-            eprintln!(
+            tracing::info!(
                 "Finding conflicts took: {:?}",
                 Instant::now().duration_since(start)
             );
