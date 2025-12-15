@@ -871,7 +871,7 @@ impl View<Buffer> for EditorView {
                             rect.x as usize,
                             rect.y as usize,
                             rect.width as usize,
-                            rect.height as usize,
+                            rect.height.ceil() as usize,
                         );
                         buf.set_style(rect.into(), Style::default().bg(color));
                     }
