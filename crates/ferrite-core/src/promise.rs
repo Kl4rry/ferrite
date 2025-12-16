@@ -1,12 +1,9 @@
-use std::{
-    mem,
-    thread::{self, JoinHandle},
-};
+use std::{mem, sync::mpsc};
 
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 enum Kind<T> {
-    Thread(JoinHandle<T>),
+    Waiting(mpsc::Receiver<T>),
     Ready(T),
     Consumed,
 }
@@ -20,22 +17,32 @@ impl<T: 'static + Send> Promise<T> {
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
         f: F,
     ) -> Self {
-        let thread = thread::spawn(move || {
+        let (tx, rx) = mpsc::sync_channel(1);
+        rayon::spawn(move || {
             let value = (f)();
+            let _ = tx.send(value);
             proxy.request_render("promise ready");
-            value
         });
         Self {
-            inner: Kind::Thread(thread),
+            inner: Kind::Waiting(rx),
         }
     }
 
     pub fn poll(&mut self) -> Option<T> {
-        let mut inner = Kind::Consumed;
-        mem::swap(&mut self.inner, &mut inner);
-        match inner {
-            Kind::Thread(thread) => Some(thread.join().unwrap()),
-            Kind::Ready(value) => Some(value),
+        match &mut self.inner {
+            Kind::Waiting(rx) => {
+                let value = rx.try_recv().ok()?;
+                self.inner = Kind::Consumed;
+                Some(value)
+            }
+            Kind::Ready(_) => {
+                let mut inner = Kind::Consumed;
+                mem::swap(&mut inner, &mut self.inner);
+                match inner {
+                    Kind::Ready(value) => return Some(value),
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                }
+            }
             Kind::Consumed => None,
         }
     }
