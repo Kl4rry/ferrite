@@ -11,7 +11,10 @@ use ferrite_runtime::{
     painter::{CursorIcon, Rounding},
 };
 use ferrite_style::Style;
-use ferrite_utility::graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at};
+use ferrite_utility::{
+    graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at},
+    tui_buf_ext::TuiBufExt,
+};
 use rayon::{
     iter::IndexedParallelIterator,
     prelude::{IntoParallelRefIterator, ParallelIterator},
@@ -307,7 +310,7 @@ impl View<Buffer> for EditorView {
         let cursor_line_number = buffer.cursor_line_idx(view_id, 0) + 1;
 
         // We have to overwrite all rendered whitespace with the correct color
-        let mut dim_cells = Vec::new();
+        let mut dim_cells = Vec::new(); // TODO: tmp alloc
         let mut grapheme_buffer = ArenaString::with_capacity_in(100, &arena);
         let view = buffer.get_buffer_view(view_id);
         {
@@ -383,7 +386,7 @@ impl View<Buffer> for EditorView {
                 };
 
                 let text = line.text.line_without_line_ending(0);
-                for grapheme in text.grapehemes() {
+                for grapheme in text.graphemes() {
                     if current_width >= text_area.width {
                         break;
                     }
@@ -428,6 +431,7 @@ impl View<Buffer> for EditorView {
             }
             let mut ruler_cells = Vec::new();
             if !view.lines.is_empty() && config.show_indent_rulers {
+                profiling::scope!("indent rulers");
                 // TODO fix empty line gaps in blocks using tree-sitter indent queries
                 let mut last_text_start_col = 0;
                 'outer: for line in text_area.top()..text_area.bottom() {
@@ -680,6 +684,51 @@ impl View<Buffer> for EditorView {
                             theme.search_match,
                         );
                     }
+                }
+            }
+
+            'block: {
+                profiling::scope!("draw blame");
+                let rope = buffer.rope().clone();
+                let blame = buffer.blame.get_blame();
+                let line_pos = buffer.views[view_id].line_pos_floored();
+                let mut hunk_iter = blame.iter();
+                let Some(mut current_hunk) = hunk_iter.next() else {
+                    break 'block;
+                };
+
+                for i in 0..text_area.height {
+                    let line_idx = i + line_pos;
+                    if line_idx >= rope.len_lines() {
+                        break;
+                    }
+                    while line_idx > current_hunk.start_line + current_hunk.len {
+                        match hunk_iter.next() {
+                            Some(hunk) => current_hunk = hunk,
+                            None => break 'block,
+                        }
+                    }
+                    let width = if line_idx >= rope.len_lines() {
+                        0
+                    } else {
+                        rope.line_without_line_ending(line_idx).width(0)
+                    };
+                    let Some(x) = (text_area.x + width + 4)
+                        .checked_sub(buffer.views[view_id].col_pos_floored())
+                    else {
+                        continue;
+                    };
+
+                    buf.draw_string(
+                        x as u16,
+                        (i + text_area.y) as u16,
+                        &ferrite_ctx::format!(in &arena, "{} {} {}", current_hunk.name,
+                            humantime::format_rfc3339(current_hunk.time),
+                            &current_hunk.commit[..8],
+                        ),
+                        text_area.into(),
+                        theme.dim_text,
+                    );
                 }
             }
 

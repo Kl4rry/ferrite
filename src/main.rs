@@ -177,6 +177,7 @@ fn main() -> Result<ExitCode> {
             #[cfg(feature = "tui")]
             {
                 run_tui(&args, rx)?;
+                #[allow(clippy::needless_return)]
                 return Ok(ExitCode::SUCCESS);
             }
 
@@ -190,6 +191,7 @@ fn main() -> Result<ExitCode> {
             #[cfg(feature = "gui")]
             {
                 run_gui(&args, rx)?;
+                #[allow(clippy::needless_return)]
                 return Ok(ExitCode::SUCCESS);
             }
 
@@ -215,6 +217,7 @@ fn main() -> Result<ExitCode> {
             #[cfg(feature = "gui")]
             {
                 run_gui(&args, rx)?;
+                #[allow(clippy::needless_return)]
                 return Ok(ExitCode::SUCCESS);
             }
 

@@ -85,6 +85,7 @@ pub struct Engine {
     pub trim_timer: Timer,
     pub drawing_backend: String,
     pub window_backend: String,
+    pub blame: bool,
 }
 
 #[profiling::all_functions]
@@ -203,6 +204,7 @@ impl Engine {
             trim_timer: Timer::default(),
             drawing_backend: String::from("unknown"),
             window_backend: String::from("unknown"),
+            blame: false,
         };
 
         let mut files_from_args = false;
@@ -322,6 +324,9 @@ impl Engine {
                     Ok(job) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(job.buffer_id) {
                             if job.last_edit <= buffer.get_last_edit() {
+                                if self.blame {
+                                    buffer.try_update_blame();
+                                }
                                 buffer.mark_saved();
                             } else {
                                 buffer.mark_history_dirty();
@@ -923,6 +928,18 @@ impl Engine {
                     ),
                 );
                 self.palette.set_line(path.to_string_lossy());
+            }
+            Cmd::Blame => {
+                self.blame = !self.blame;
+                if self.blame {
+                    for buffer in self.workspace.buffers.values_mut() {
+                        buffer.try_update_blame();
+                    }
+                } else {
+                    for buffer in self.workspace.buffers.values_mut() {
+                        buffer.blame.reset();
+                    }
+                }
             }
             input => {
                 if self.palette.has_focus() {

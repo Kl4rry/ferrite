@@ -21,14 +21,16 @@ ferrite-ctx = { workspace = true }
 ferrite-geom = { workspace = true }
 ferrite-runtime = { workspace = true }
 ferrite-style = { workspace = true }
+ferrite-talloc = { workspace = true, optional = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
-ferrite-talloc = { workspace = true, optional = true }
+git2 = { workspace = true}
 grep-matcher = { workspace = true }
 grep-regex = { workspace = true }
 grep-searcher = { workspace = true }
 heck = { workspace = true }
 humansize = { workspace = true }
+humantime = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lexical-sort = { workspace = true }

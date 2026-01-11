@@ -529,7 +529,7 @@ pub trait RopeGraphemeExt {
     fn nth_prev_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
     fn next_grapheme_boundary_byte(&self, byte_idx: usize) -> usize;
     fn nth_next_grapheme_boundary_byte(&self, byte_idx: usize, n: usize) -> usize;
-    fn grapehemes(&self) -> RopeGraphemes;
+    fn graphemes(&self) -> RopeGraphemes;
     fn get_line_ending(&self) -> Option<LineEnding>;
     fn last_n_columns(&self, n: usize) -> RopeSlice;
 
@@ -590,7 +590,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         nth_next_grapheme_boundary_byte(*self, byte_idx, n)
     }
 
-    fn grapehemes(&self) -> RopeGraphemes {
+    fn graphemes(&self) -> RopeGraphemes {
         RopeGraphemes::new(*self)
     }
 
@@ -602,7 +602,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         let left = self.width(0).saturating_sub(n);
         let mut width = 0;
         let mut byte_idx = 0;
-        for grapheme in self.grapehemes() {
+        for grapheme in self.graphemes() {
             if width >= left {
                 break;
             }
@@ -662,7 +662,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     fn get_text_start_col(&self, line_idx: usize) -> usize {
         let line = self.line_without_line_ending(line_idx);
         let mut width = 0;
-        for grapheme in line.grapehemes() {
+        for grapheme in line.graphemes() {
             if !grapheme.is_whitespace() {
                 break;
             }
@@ -675,7 +675,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     fn get_text_start_byte(&self, line_idx: usize) -> usize {
         let line = self.line_without_line_ending(line_idx);
         let mut len = 0;
-        for grapheme in line.grapehemes() {
+        for grapheme in line.graphemes() {
             if !grapheme.is_whitespace() {
                 break;
             }
@@ -690,7 +690,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         let mut width = 0;
         let mut text_width = 0;
         let mut has_text = false;
-        for grapheme in line.grapehemes() {
+        for grapheme in line.graphemes() {
             if !grapheme.is_whitespace() {
                 has_text = true;
             }
@@ -706,7 +706,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
     fn byte_to_col(&self, byte_idx: usize) -> usize {
         let mut bytes = 0;
         let mut width = 0;
-        for grapheme in self.grapehemes() {
+        for grapheme in self.graphemes() {
             if bytes >= byte_idx {
                 break;
             }
@@ -731,7 +731,7 @@ impl RopeGraphemeExt for RopeSlice<'_> {
 
     fn trim_start_whitespace(&self) -> RopeSlice {
         let mut start = 0;
-        for grapheme in self.grapehemes() {
+        for grapheme in self.graphemes() {
             if grapheme.is_whitespace() {
                 start += grapheme.len_bytes();
             } else {
@@ -795,7 +795,7 @@ impl RopeGraphemeExt for Rope {
             .nth_next_grapheme_boundary_byte(byte_idx, n)
     }
 
-    fn grapehemes(&self) -> RopeGraphemes {
+    fn graphemes(&self) -> RopeGraphemes {
         RopeGraphemes::new(self.byte_slice(..))
     }
 
@@ -807,7 +807,7 @@ impl RopeGraphemeExt for Rope {
         let left = self.width(0).saturating_sub(n);
         let mut width = 0;
         let mut byte_idx = 0;
-        for grapheme in self.grapehemes() {
+        for grapheme in self.graphemes() {
             if width >= left {
                 break;
             }
@@ -869,7 +869,7 @@ impl RopeGraphemeExt for Rope {
 
     fn trim_start_whitespace(&self) -> RopeSlice {
         let mut start = 0;
-        for grapheme in self.grapehemes() {
+        for grapheme in self.graphemes() {
             if grapheme.is_whitespace() {
                 start += grapheme.len_bytes();
             } else {

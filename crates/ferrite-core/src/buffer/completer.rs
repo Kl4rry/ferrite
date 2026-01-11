@@ -90,6 +90,7 @@ impl Completer {
         self.index -= 1;
     }
 
+    #[profiling::function]
     pub fn update_query(&mut self, words: Arc<Mutex<Vec<String>>>, query: String) {
         self.last_query.clear();
         self.last_query.push_str(&query);
@@ -102,18 +103,21 @@ impl Completer {
 
         let scoring = Scoring::emphasize_word_starts();
         let guard = words.lock().unwrap();
-        let mut matches: Vec<(isize, &str)> = guard
-            .par_iter()
-            .filter_map(|word| {
-                if *word == query {
-                    return None;
-                }
-                FuzzySearch::new(&query, word)
-                    .score_with(&scoring)
-                    .best_match()
-                    .map(|m| (m.score(), word.as_str()))
-            })
-            .collect();
+        let mut matches: Vec<(isize, &str)> = {
+            profiling::scope!("fuzzy search");
+            guard
+                .par_iter()
+                .filter_map(|word| {
+                    if *word == query {
+                        return None;
+                    }
+                    FuzzySearch::new(&query, word)
+                        .score_with(&scoring)
+                        .best_match()
+                        .map(|m| (m.score(), word.as_str()))
+                })
+                .collect()
+        };
         matches.sort_by(|a, b| a.0.cmp(&b.0));
         matches.reverse();
         self.matching_words.clear();

@@ -44,14 +44,16 @@ impl Read for RopeReader<'_> {
 
 #[cfg(test)]
 mod tests {
+    use ropey::Rope;
+
     use super::*;
 
     #[test]
     fn rope_reader() {
-        let text = include_str!("../../../../Cargo.toml");
+        let text = include_str!("../../../Cargo.toml");
         let rope = Rope::from(text);
         let mut buffer = Vec::new();
-        let mut reader = RopeReader::new(&rope);
+        let mut reader = RopeReader::new(rope.slice(..));
         let _ = reader.read_to_end(&mut buffer);
         assert_eq!(rope.to_string().as_bytes(), buffer);
     }

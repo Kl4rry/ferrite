@@ -29,6 +29,7 @@ use super::{
     language::{get_language_from_path, syntax::Syntax},
 };
 use crate::{
+    blame::Blame,
     buffer::{
         builder::BufferBuilder,
         completer::{Completer, CompletionSource},
@@ -169,6 +170,7 @@ pub struct Buffer {
     pub encoding: &'static Encoding,
     pub indent: Indentation,
     pub conflicts: Arc<Mutex<Vec<(usize, usize, usize)>>>,
+    pub blame: Blame,
     last_interact: Instant,
     last_used_view: ViewId,
     completion_source: CompletionSource,
@@ -205,6 +207,7 @@ impl Clone for Buffer {
             last_used_view: self.last_used_view,
             views: self.views.clone(),
             completion_source: self.completion_source.clone(),
+            blame: Blame::new(),
         }
     }
 }
@@ -232,6 +235,7 @@ impl Default for Buffer {
             last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
             completion_source: CompletionSource::new(),
+            blame: Blame::new(),
         }
     }
 }
@@ -453,7 +457,7 @@ impl Buffer {
             };
             let mut idx = 0;
             let mut width = 0;
-            for grapheme in line.grapehemes() {
+            for grapheme in line.graphemes() {
                 if width >= view.col_pos_floored() {
                     break;
                 }
@@ -738,7 +742,7 @@ impl Buffer {
             } else {
                 let mut width = 0;
                 let mut byte_idx = 0;
-                for grapeheme in next_line.grapehemes() {
+                for grapeheme in next_line.graphemes() {
                     if width >= before_cursor {
                         break;
                     }
@@ -813,7 +817,7 @@ impl Buffer {
             } else {
                 let mut width = 0;
                 let mut byte_idx = 0;
-                for grapeheme in next_line.grapehemes() {
+                for grapeheme in next_line.graphemes() {
                     if width >= before_cursor {
                         break;
                     }
@@ -1187,7 +1191,7 @@ impl Buffer {
 
             let mut byte_col = 0;
             if stop_at_whitespace {
-                for grapheme in line.grapehemes() {
+                for grapheme in line.graphemes() {
                     if byte_col >= col {
                         byte_col = 0;
                         break;
@@ -2002,7 +2006,7 @@ impl Buffer {
         let line = self.rope.line_without_line_ending(cursor_line_idx);
         let mut byte_idx = 0;
         let mut width = 0;
-        for grapheme in line.grapehemes() {
+        for grapheme in line.graphemes() {
             if width >= col {
                 break;
             }
@@ -2018,7 +2022,7 @@ impl Buffer {
         let line = self.rope.line_without_line_ending(anchor_line_idx);
         let mut byte_idx = 0;
         let mut width = 0;
-        for grapheme in line.grapehemes() {
+        for grapheme in line.graphemes() {
             if width >= col {
                 break;
             }
@@ -2496,7 +2500,7 @@ impl Buffer {
         } else {
             let mut width = 0;
             let mut byte_idx = 0;
-            for grapeheme in next_line.grapehemes() {
+            for grapeheme in next_line.graphemes() {
                 if width >= col {
                     break;
                 }
@@ -2526,7 +2530,7 @@ impl Buffer {
         } else {
             let mut width = 0;
             let mut byte_idx = 0;
-            for grapeheme in next_line.grapehemes() {
+            for grapeheme in next_line.graphemes() {
                 if width >= col {
                     break;
                 }
@@ -2803,7 +2807,7 @@ impl Buffer {
         let line = self.rope.line(line_idx);
 
         let mut indent = String::new();
-        for grapheme in line.grapehemes() {
+        for grapheme in line.graphemes() {
             if !grapheme.is_whitespace() {
                 break;
             }
@@ -3114,7 +3118,7 @@ impl Buffer {
             {
                 let mut last_non_whitespace_byte_idx = 0;
                 let mut byte_idx = 0;
-                for grapheme in line.grapehemes() {
+                for grapheme in line.graphemes() {
                     if !grapheme.is_whitespace() {
                         last_non_whitespace_byte_idx = byte_idx + grapheme.len_bytes();
                     }
@@ -3492,9 +3496,11 @@ impl Buffer {
     }
 
     // TODO refactor this stupid function, its should be two functions
+    #[profiling::function]
     fn update_completer(&mut self, view_id: Option<ViewId>, completer_event: CompleterEvent) {
         match completer_event {
             CompleterEvent::Insert => {
+                profiling::scope!("insert");
                 if let Some(view_id) = view_id {
                     self.views[view_id].completer.visible = true;
                     let cursor_pos = self.views[view_id].cursors[0].position;
@@ -3506,6 +3512,7 @@ impl Buffer {
                 }
             }
             CompleterEvent::None => {
+                profiling::scope!("none");
                 if let Some(view_id) = view_id {
                     let cursor_pos = self.views[view_id].cursors[0].position;
                     let before = self.rope.prev_non_word_byte(cursor_pos);
@@ -3516,6 +3523,12 @@ impl Buffer {
                 }
             }
         };
+    }
+
+    pub fn try_update_blame(&mut self) {
+        if let Some(file) = &self.file {
+            self.blame.request_update(file.to_path_buf(), get_proxy());
+        }
     }
 }
 

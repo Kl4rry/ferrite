@@ -1,5 +1,6 @@
 use encoding_rs::Encoding;
 use ferrite_runtime::{Bounds, Painter, View, unique_id::UniqueId};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 use tui::style::Style;
 use unicode_width::UnicodeWidthStr;
 
@@ -94,11 +95,12 @@ impl View<()> for InfoLineView<'_> {
 
         {
             let mut output_area = area;
-            output_area.x = (output_area.x + output_area.width) - right_width;
-            buf.set_string(
+            output_area.x = (output_area.x + output_area.width).saturating_sub(right_width);
+            buf.draw_string(
                 output_area.x as u16,
                 output_area.y as u16,
                 &right,
+                output_area.into(),
                 Style::default(),
             );
         }
@@ -107,17 +109,17 @@ impl View<()> for InfoLineView<'_> {
         if area.width > center_width + right_width + 4 {
             let center_max_width = area.width - left_width - right_width;
             let padding = (center_max_width - center_width / 2) / 2;
-            buf.set_stringn(
+            buf.draw_string(
                 (area.x + padding) as u16,
                 area.y as u16,
                 &center,
-                area.width,
+                area.into(),
                 style,
             );
         }
 
         if area.width > left_width + center_width + right_width {
-            buf.set_stringn(area.x as u16, area.y as u16, &left, area.width, style);
+            buf.draw_string(area.x as u16, area.y as u16, &left, area.into(), style);
         }
 
         buf.set_style(area.into(), style);

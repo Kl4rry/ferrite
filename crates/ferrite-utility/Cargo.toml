@@ -11,6 +11,7 @@ num-traits = { workspace = true }
 regex = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true }
+tui-core = { workspace = true }
 unicode-general-category = { workspace = true }
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }

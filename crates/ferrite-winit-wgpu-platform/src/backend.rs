@@ -368,6 +368,8 @@ impl WgpuBackend {
 }
 
 impl Backend for WgpuBackend {
+    type Error = std::io::Error;
+
     fn draw<'a, I>(&mut self, content: I) -> std::io::Result<()>
     where
         I: Iterator<Item = (u16, u16, &'a tui::buffer::Cell)>,
@@ -433,5 +435,14 @@ impl Backend for WgpuBackend {
             grid_bounds.width as u16,
             grid_bounds.height as u16,
         ))
+    }
+
+    fn clear_region(&mut self, clear_type: tui::backend::ClearType) -> std::io::Result<()> {
+        if clear_type == tui::backend::ClearType::All {
+            self.clear()?;
+        } else {
+            return Err(std::io::Error::other("unsupported clear type"));
+        }
+        Ok(())
     }
 }

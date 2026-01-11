@@ -222,6 +222,7 @@ pub enum Cmd {
     PageDown,
     Duplicate,
     OpenRename,
+    Blame,
 }
 
 impl Cmd {
@@ -364,6 +365,7 @@ impl Cmd {
             PageDown => "Page down",
             Duplicate => "Duplicate file",
             OpenRename => "Open rename",
+            Blame => "Toggle blame",
         }
     }
 
@@ -485,6 +487,7 @@ impl Cmd {
             PageDown => true,
             Duplicate => false,
             OpenRename => false,
+            Blame => false,
         }
     }
 }

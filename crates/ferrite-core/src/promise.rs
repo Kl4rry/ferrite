@@ -39,7 +39,7 @@ impl<T: 'static + Send> Promise<T> {
                 let mut inner = Kind::Consumed;
                 mem::swap(&mut inner, &mut self.inner);
                 match inner {
-                    Kind::Ready(value) => return Some(value),
+                    Kind::Ready(value) => Some(value),
                     _ => unsafe { std::hint::unreachable_unchecked() },
                 }
             }
@@ -52,6 +52,12 @@ impl<T> Promise<T> {
     pub fn ready(value: T) -> Self {
         Self {
             inner: Kind::Ready(value),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            inner: Kind::Consumed,
         }
     }
 }
