@@ -90,7 +90,7 @@ ferrite-runtime = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-term-platform = { workspace = true, optional = true }
 ferrite-winit-wgpu-platform = { workspace = true, optional = true }
-git2 = { workspace = true }
+git2 = { workspace = true, default-features = false }
 profiling = { workspace = true }
 puffin = { workspace = true }
 puffin_http = { workspace = true }
@@ -99,7 +99,7 @@ tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["json"] }
 
 [features]
-default = ["tui", "gui"]
+default = ["tui", "gui", "vendor-libgit2"]
 tui = ["dep:ferrite-term-platform"]
 gui = ["dep:ferrite-winit-wgpu-platform"]
 talloc = ["dep:ferrite-talloc", "ferrite-core/talloc"]

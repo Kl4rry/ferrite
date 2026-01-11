@@ -24,7 +24,7 @@ ferrite-style = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
-git2 = { workspace = true}
+git2 = { workspace = true, default-features = false }
 grep-matcher = { workspace = true }
 grep-regex = { workspace = true }
 grep-searcher = { workspace = true }
