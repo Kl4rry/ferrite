@@ -723,7 +723,7 @@ impl View<Buffer> for EditorView {
                         x as u16,
                         (i + text_area.y) as u16,
                         &ferrite_ctx::format!(in &arena, "{} {} {} {}", current_hunk.author,
-                            humantime::format_rfc3339(current_hunk.author_time),
+                            "",//humantime::format_rfc3339(current_hunk.author_time),
                             &current_hunk.commit[..8],
                             &current_hunk.summary,
                         ),

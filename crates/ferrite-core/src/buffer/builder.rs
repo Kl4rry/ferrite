@@ -15,6 +15,7 @@ pub struct BufferBuilder<'a> {
     pub(super) source: Source<'a>,
     pub(super) path: Option<PathBuf>,
     pub(super) name: Option<String>,
+    pub(super) blame: bool,
 }
 
 impl Default for BufferBuilder<'_> {
@@ -25,6 +26,7 @@ impl Default for BufferBuilder<'_> {
             source: Source::Empty,
             path: None,
             name: None,
+            blame: false,
         }
     }
 }
@@ -68,6 +70,11 @@ impl<'a> BufferBuilder<'a> {
 
     pub fn with_text(&'a mut self, text: &'a str) -> &'a mut Self {
         self.source = Source::Text(text);
+        self
+    }
+
+    pub fn with_blame(&'a mut self, blame: bool) -> &'a mut Self {
+        self.blame = blame;
         self
     }
 

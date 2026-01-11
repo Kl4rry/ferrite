@@ -1284,7 +1284,11 @@ impl Engine {
                 }
                 true
             }
-            None => match Buffer::builder().from_file(&real_path).build() {
+            None => match Buffer::builder()
+                .with_blame(self.blame)
+                .from_file(&real_path)
+                .build()
+            {
                 Ok(mut buffer) => {
                     let view_id = buffer.create_view();
                     let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
@@ -1293,7 +1297,11 @@ impl Engine {
                 }
                 Err(err) => match err.kind() {
                     io::ErrorKind::NotFound if create_file => {
-                        match Buffer::builder().with_path(path.as_ref()).build() {
+                        match Buffer::builder()
+                            .with_blame(self.blame)
+                            .with_path(path.as_ref())
+                            .build()
+                        {
                             Ok(mut buffer) => {
                                 let view_id = buffer.create_view();
                                 let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);

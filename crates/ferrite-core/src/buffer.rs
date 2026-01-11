@@ -323,6 +323,9 @@ impl Buffer {
             new.find_conflicts();
             new.auto_detect_language();
             new.completion_source.update_words(new.rope.clone());
+            if builder.blame {
+                new.try_update_blame();
+            }
         }
         Ok(new)
     }
