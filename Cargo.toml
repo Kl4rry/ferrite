@@ -24,6 +24,7 @@ directories = "5.0.0"
 dunce = "1.0.4"
 encoding_rs = "0.8.31"
 executable-finder = "0.3.0"
+ferrite-blame = { path = "crates/ferrite-blame" }
 ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-core = { path = "crates/ferrite-core" }
 ferrite-ctx = { path = "crates/ferrite-ctx" }
@@ -35,7 +36,6 @@ ferrite-term-platform = { path = "crates/ferrite-term-platform" }
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
 ferrite-utility = { path = "crates/ferrite-utility" }
 ferrite-winit-wgpu-platform = { path = "crates/ferrite-winit-wgpu-platform" }
-git2 = { version = "0.20.3", default-features = false }
 glyphon = "0.9.0"
 grep-matcher = "0.1.7"
 grep-regex = "0.1.13"
@@ -90,7 +90,6 @@ ferrite-runtime = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-term-platform = { workspace = true, optional = true }
 ferrite-winit-wgpu-platform = { workspace = true, optional = true }
-git2 = { workspace = true, default-features = false }
 profiling = { workspace = true }
 puffin = { workspace = true }
 puffin_http = { workspace = true }
@@ -99,12 +98,10 @@ tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["json"] }
 
 [features]
-default = ["tui", "gui", "vendor-libgit2"]
+default = ["tui", "gui"]
 tui = ["dep:ferrite-term-platform"]
 gui = ["dep:ferrite-winit-wgpu-platform"]
 talloc = ["dep:ferrite-talloc", "ferrite-core/talloc"]
-vendor-libgit2 = ["git2/vendored-libgit2", "git2/vendored-openssl", "git2/zlib-ng-compat"]
-
 
 [profile.dev.package."*"]
 opt-level = 3
@@ -129,15 +126,10 @@ hint-mostly-unused = true
 hint-mostly-unused = true
 [profile.dev.package.x11rb-protocol]
 hint-mostly-unused = true
-[profile.dev.package.git2]
-hint-mostly-unused = true
-
 
 [profile.release.package.rustix]
 hint-mostly-unused = true
 [profile.release.package.ash]
 hint-mostly-unused = true
 [profile.release.package.x11rb-protocol]
-hint-mostly-unused = true
-[profile.release.package.git2]
 hint-mostly-unused = true

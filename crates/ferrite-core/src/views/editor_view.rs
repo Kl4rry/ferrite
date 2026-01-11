@@ -702,7 +702,7 @@ impl View<Buffer> for EditorView {
                     if line_idx >= rope.len_lines() {
                         break;
                     }
-                    while line_idx > current_hunk.start_line + current_hunk.len {
+                    while line_idx > current_hunk.start_line + current_hunk.len_lines {
                         match hunk_iter.next() {
                             Some(hunk) => current_hunk = hunk,
                             None => break 'block,
@@ -722,9 +722,10 @@ impl View<Buffer> for EditorView {
                     buf.draw_string(
                         x as u16,
                         (i + text_area.y) as u16,
-                        &ferrite_ctx::format!(in &arena, "{} {} {}", current_hunk.name,
-                            humantime::format_rfc3339(current_hunk.time),
+                        &ferrite_ctx::format!(in &arena, "{} {} {} {}", current_hunk.author,
+                            humantime::format_rfc3339(current_hunk.author_time),
                             &current_hunk.commit[..8],
+                            &current_hunk.summary,
                         ),
                         text_area.into(),
                         theme.dim_text,
