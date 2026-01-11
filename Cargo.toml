@@ -90,6 +90,7 @@ ferrite-runtime = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-term-platform = { workspace = true, optional = true }
 ferrite-winit-wgpu-platform = { workspace = true, optional = true }
+git2 = { workspace = true }
 profiling = { workspace = true }
 puffin = { workspace = true }
 puffin_http = { workspace = true }
@@ -102,6 +103,8 @@ default = ["tui", "gui"]
 tui = ["dep:ferrite-term-platform"]
 gui = ["dep:ferrite-winit-wgpu-platform"]
 talloc = ["dep:ferrite-talloc", "ferrite-core/talloc"]
+vendor-libgit2 = ["git2/vendored-libgit2", "git2/vendored-openssl", "git2/zlib-ng-compat"]
+
 
 [profile.dev.package."*"]
 opt-level = 3

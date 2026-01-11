@@ -11,7 +11,7 @@ WORKDIR /ferrite
 COPY . .
 
 RUN cargo fetch
-RUN cargo build --release
+RUN cargo build --release --features vendor-libgit2
 
 FROM ubuntu:latest
 
