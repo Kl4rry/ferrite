@@ -1,5 +1,4 @@
 use std::{
-    process::Command,
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -13,44 +12,15 @@ use notify_debouncer_full::{
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 fn get_current_branch() -> Option<String> {
-    match Command::new("git")
-        .args(["branch", "--show-current"])
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-            } else {
-                None
-            }
-        }
-        Err(err) => {
-            tracing::error!("{}", err);
-            None
-        }
-    }
+    let repo = git2::Repository::discover(".").ok()?;
+    let head = repo.head().ok()?;
+    let head_name: String = String::from_utf8_lossy(head.shorthand_bytes()).into();
+    Some(head_name)
 }
 
 fn get_git_directory() -> Option<String> {
-    match Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                Some(format!(
-                    "{}/.git",
-                    String::from_utf8_lossy(&output.stdout).trim()
-                ))
-            } else {
-                None
-            }
-        }
-        Err(err) => {
-            tracing::error!("{}", err);
-            None
-        }
-    }
+    let repo = git2::Repository::discover(".").ok()?;
+    Some(repo.path().to_string_lossy().to_string())
 }
 
 pub struct BranchWatcher {

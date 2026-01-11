@@ -129,15 +129,10 @@ hint-mostly-unused = true
 hint-mostly-unused = true
 [profile.dev.package.x11rb-protocol]
 hint-mostly-unused = true
-[profile.dev.package.git2]
-hint-mostly-unused = true
-
 
 [profile.release.package.rustix]
 hint-mostly-unused = true
 [profile.release.package.ash]
 hint-mostly-unused = true
 [profile.release.package.x11rb-protocol]
-hint-mostly-unused = true
-[profile.release.package.git2]
 hint-mostly-unused = true
