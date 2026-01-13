@@ -26,6 +26,10 @@ impl View<Engine> for MainView {
         bounds: Bounds,
         mouse_interaction: MouseInterction,
     ) -> bool {
+        if mouse_interaction.is_drag() || engine.get_focus().is_pane() {
+            return self.panes.handle_mouse(engine, bounds, mouse_interaction);
+        }
+
         if self
             .palette
             .handle_mouse(&mut engine.palette, bounds, mouse_interaction)

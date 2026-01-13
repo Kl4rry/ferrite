@@ -135,4 +135,11 @@ impl MouseInterction {
         let cell_y = ((self.position.y - offset.y) / self.cell_size.y) as usize;
         Vec2::new(cell_x, cell_y)
     }
+
+    pub fn is_drag(&self) -> bool {
+        matches!(
+            self.kind,
+            MouseInterctionKind::Drag { .. } | MouseInterctionKind::DragStop
+        )
+    }
 }

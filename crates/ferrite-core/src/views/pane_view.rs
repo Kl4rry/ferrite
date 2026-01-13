@@ -6,6 +6,7 @@ use ferrite_style::Color;
 
 use crate::{
     engine::Engine,
+    focus::Focus,
     layout::panes::PaneKind,
     views::{
         editor_view::EditorView, file_explorer_view::FileExplorerView, lens::Lens,
@@ -19,58 +20,41 @@ pub struct PaneView {
 
 impl PaneView {
     pub fn new(engine: &mut Engine) -> Self {
-        let current_pane = engine.workspace.panes.get_current_pane();
         let iter = engine.workspace.panes.get_list_of_panes().into_iter().map(
             |pane_kind| -> (PaneKind, AnyView<Engine>) {
                 (
                     pane_kind,
                     match pane_kind {
-                        PaneKind::Buffer(buffer_id, view_id) => {
-                            AnyView::new(Lens::new(
-                                EditorView::new(
-                                    view_id,
-                                    engine.config.editor.clone(),
-                                    engine.themes[&engine.config.editor.theme].clone(),
-                                    // TODO Move focus checking into engine
-                                    !engine.palette.has_focus()
-                                        && engine.file_picker.is_none()
-                                        && engine.buffer_picker.is_none()
-                                        && engine.global_search_picker.is_none()
-                                        && current_pane == PaneKind::Buffer(buffer_id, view_id),
-                                    engine.branch_watcher.current_branch(),
-                                    engine.spinner.current(),
-                                )
-                                .set_ceil_surface_size(true)
-                                .set_scrollbar(true),
-                                move |engine: &mut Engine| &mut engine.workspace.buffers[buffer_id],
-                            ))
-                        }
-                        PaneKind::FileExplorer(file_explorer_id) => {
-                            AnyView::new(Lens::new(
-                                FileExplorerView::new(
-                                    engine.config.editor.clone(),
-                                    engine.themes[&engine.config.editor.theme].clone(),
-                                    // TODO Move focus checking into engine
-                                    !engine.palette.has_focus()
-                                        && engine.file_picker.is_none()
-                                        && engine.buffer_picker.is_none()
-                                        && engine.global_search_picker.is_none()
-                                        && current_pane == PaneKind::FileExplorer(file_explorer_id),
-                                ),
-                                move |engine: &mut Engine| {
-                                    &mut engine.workspace.file_explorers[file_explorer_id]
-                                },
-                            ))
-                        }
+                        PaneKind::Buffer(buffer_id, view_id) => AnyView::new(Lens::new(
+                            EditorView::new(
+                                view_id,
+                                engine.config.editor.clone(),
+                                engine.themes[&engine.config.editor.theme].clone(),
+                                engine.get_focus()
+                                    == Focus::Pane(PaneKind::Buffer(buffer_id, view_id)),
+                                engine.branch_watcher.current_branch(),
+                                engine.spinner.current(),
+                            )
+                            .set_ceil_surface_size(true)
+                            .set_scrollbar(true),
+                            move |engine: &mut Engine| &mut engine.workspace.buffers[buffer_id],
+                        )),
+                        PaneKind::FileExplorer(file_explorer_id) => AnyView::new(Lens::new(
+                            FileExplorerView::new(
+                                engine.config.editor.clone(),
+                                engine.themes[&engine.config.editor.theme].clone(),
+                                engine.get_focus()
+                                    == Focus::Pane(PaneKind::FileExplorer(file_explorer_id)),
+                            ),
+                            move |engine: &mut Engine| {
+                                &mut engine.workspace.file_explorers[file_explorer_id]
+                            },
+                        )),
                         PaneKind::Logger => AnyView::new(Lens::new(
                             LoggerView::new(
                                 engine.themes[&engine.config.editor.theme].clone(),
                                 engine.last_render_time,
-                                !engine.palette.has_focus()
-                                    && engine.file_picker.is_none()
-                                    && engine.buffer_picker.is_none()
-                                    && engine.global_search_picker.is_none()
-                                    && current_pane == PaneKind::Logger,
+                                engine.get_focus() == Focus::Pane(PaneKind::Logger),
                             ),
                             move |engine: &mut Engine| &mut engine.logger_state,
                         )),
@@ -91,6 +75,13 @@ impl View<Engine> for PaneView {
         bounds: Bounds,
         mouse_interaction: MouseInterction,
     ) -> bool {
+        let mut drag_pane = None;
+        if mouse_interaction.is_drag()
+            && let Focus::Pane(pane_kind) = engine.get_focus()
+        {
+            drag_pane = Some(pane_kind);
+        }
+
         let pane_bounds = engine.workspace.panes.get_pane_bounds(bounds.view_bounds());
         for (pane_kind, pane_bound) in pane_bounds {
             let (_, view) = self
@@ -98,6 +89,16 @@ impl View<Engine> for PaneView {
                 .iter()
                 .find(|(view_pane_kind, _)| pane_kind == *view_pane_kind)
                 .unwrap();
+            if let Some(drag_pane) = drag_pane {
+                if pane_kind == drag_pane {
+                    view.handle_mouse(
+                        engine,
+                        Bounds::new(pane_bound, bounds.cell_size(), bounds.rounding),
+                        mouse_interaction,
+                    );
+                }
+                continue;
+            }
             if pane_bound.contains(Vec2::new(
                 mouse_interaction.position.x as usize,
                 mouse_interaction.position.y as usize,

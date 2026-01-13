@@ -358,6 +358,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             )
         };
 
+        event_loop.listen_device_events(winit::event_loop::DeviceEvents::Never);
+
         // This fixes the exit segfault by leaking a Arc<Window> so that
         // the window does not get destoryed
         std::mem::forget(window.clone());

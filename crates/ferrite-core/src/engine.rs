@@ -30,6 +30,7 @@ use crate::{
     },
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent, set_proxy},
     file_explorer::FileExplorer,
+    focus::Focus,
     git::branch::BranchWatcher,
     indent::Indentation,
     job_manager::{JobHandle, JobManager, Progress, Progressor},
@@ -2041,6 +2042,19 @@ impl Engine {
             }
         }
         actions
+    }
+
+    pub fn get_focus(&self) -> Focus {
+        if self.palette.has_focus() {
+            return Focus::Palette;
+        }
+        if self.file_picker.is_some()
+            || self.buffer_picker.is_some()
+            || self.global_search_picker.is_some()
+        {
+            return Focus::Picker;
+        }
+        Focus::Pane(self.workspace.panes.get_current_pane())
     }
 }
 

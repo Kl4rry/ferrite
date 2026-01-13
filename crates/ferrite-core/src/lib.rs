@@ -10,6 +10,7 @@ pub mod config;
 pub mod engine;
 pub mod event_loop_proxy;
 pub mod file_explorer;
+pub mod focus;
 pub mod git;
 pub mod indent;
 pub mod job_manager;
