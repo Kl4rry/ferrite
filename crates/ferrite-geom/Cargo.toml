@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 num-traits = { workspace = true }
 serde = { workspace = true }
-tui = { workspace = true }
+tui-core = { workspace = true }

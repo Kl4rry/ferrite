@@ -106,9 +106,9 @@ where
     }
 }
 
-impl From<Rect> for tui::layout::Rect {
-    fn from(rect: Rect) -> tui::layout::Rect {
-        tui::layout::Rect {
+impl From<Rect> for tui_core::layout::Rect {
+    fn from(rect: Rect) -> tui_core::layout::Rect {
+        tui_core::layout::Rect {
             x: rect.x.try_into().unwrap(),
             y: rect.y.try_into().unwrap(),
             width: rect.width.try_into().unwrap(),
@@ -117,8 +117,8 @@ impl From<Rect> for tui::layout::Rect {
     }
 }
 
-impl From<tui::layout::Rect> for Rect {
-    fn from(rect: tui::layout::Rect) -> Rect {
+impl From<tui_core::layout::Rect> for Rect {
+    fn from(rect: tui_core::layout::Rect) -> Rect {
         Rect {
             x: rect.x.into(),
             y: rect.y.into(),

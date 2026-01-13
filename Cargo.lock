@@ -960,7 +960,7 @@ name = "ferrite-geom"
 version = "0.1.0"
 dependencies = [
  "num-traits",
- "ratatui",
+ "ratatui-core",
  "serde",
 ]
 
@@ -974,7 +974,7 @@ dependencies = [
  "boxcar",
  "ferrite-geom",
  "ferrite-style",
- "ratatui",
+ "ratatui-core",
  "serde",
  "serde_json",
 ]
@@ -983,7 +983,7 @@ dependencies = [
 name = "ferrite-style"
 version = "0.1.0"
 dependencies = [
- "ratatui",
+ "ratatui-core",
 ]
 
 [[package]]

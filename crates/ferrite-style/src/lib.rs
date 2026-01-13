@@ -73,9 +73,9 @@ impl FromStr for Color {
     }
 }
 
-impl From<Color> for tui::style::Color {
-    fn from(color: Color) -> tui::style::Color {
-        tui::style::Color::Rgb(
+impl From<Color> for tui_core::style::Color {
+    fn from(color: Color) -> tui_core::style::Color {
+        tui_core::style::Color::Rgb(
             (color.r * 255.0) as u8,
             (color.g * 255.0) as u8,
             (color.b * 255.0) as u8,
@@ -101,11 +101,11 @@ impl Style {
     }
 }
 
-impl From<Style> for tui::style::Style {
-    fn from(style: Style) -> tui::style::Style {
-        tui::style::Style {
-            fg: style.fg.map(tui::style::Color::from),
-            bg: style.bg.map(tui::style::Color::from),
+impl From<Style> for tui_core::style::Style {
+    fn from(style: Style) -> tui_core::style::Style {
+        tui_core::style::Style {
+            fg: style.fg.map(tui_core::style::Color::from),
+            bg: style.bg.map(tui_core::style::Color::from),
             ..Default::default()
         }
     }

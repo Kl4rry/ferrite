@@ -92,7 +92,7 @@ impl Painter {
 
 pub struct Layer {
     pub bounds: Bounds,
-    pub buf: tui::buffer::Buffer,
+    pub buf: tui_core::buffer::Buffer,
     pub painter2d: Option<Painter2D>,
 }
 
@@ -100,7 +100,7 @@ impl Layer {
     pub fn new(bounds: Bounds, painter2d: Option<Painter2D>) -> Self {
         Self {
             bounds,
-            buf: tui::buffer::Buffer::empty(bounds.grid_bounds().into()),
+            buf: tui_core::buffer::Buffer::empty(bounds.grid_bounds().into()),
             painter2d,
         }
     }

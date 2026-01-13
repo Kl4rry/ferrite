@@ -1,4 +1,4 @@
-use tui::layout::Rect;
+use tui_core::layout::Rect;
 
 pub trait RectExt {
     fn clamp_within(&self, outer: Rect) -> Rect;
