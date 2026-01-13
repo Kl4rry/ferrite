@@ -15,7 +15,7 @@ glyphon = { workspace = true }
 pollster = { workspace = true }
 profiling  = { workspace = true }
 tracing = { workspace = true }
-tui = { workspace = true }
+tui-core = { workspace = true }
 unicode-width = { workspace = true }
 wgpu = { workspace = true, features = ["glsl"] }
 winit = { workspace = true }

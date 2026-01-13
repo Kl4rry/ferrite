@@ -7,11 +7,10 @@ use glyphon::{
     Attrs, AttrsList, Buffer, BufferLine, Family, FontSystem, Metrics, Shaping, TextArea,
     TextBounds, Weight, cosmic_text::Scroll,
 };
-use tui::{
-    backend::WindowSize,
+use tui_core::{
+    backend::{Backend, WindowSize},
     buffer::Cell,
     layout::{Position, Size},
-    prelude::Backend,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -186,15 +185,15 @@ impl WgpuBackend {
                     let mut attrs = default_attrs.clone();
                     let mut fg = self.default_fg;
                     let mut bg = None;
-                    if let tui::style::Color::Rgb(r, g, b) = cell.fg {
+                    if let tui_core::style::Color::Rgb(r, g, b) = cell.fg {
                         fg = glyphon::Color::rgb(r, g, b);
                     }
 
-                    if let tui::style::Color::Rgb(r, g, b) = cell.bg {
+                    if let tui_core::style::Color::Rgb(r, g, b) = cell.bg {
                         bg = Some(glyphon::Color::rgb(r, g, b));
                     }
 
-                    if cell.modifier.contains(tui::style::Modifier::REVERSED) {
+                    if cell.modifier.contains(tui_core::style::Modifier::REVERSED) {
                         let mut tmp = bg.unwrap_or(self.default_bg);
                         mem::swap(&mut fg, &mut tmp);
                         bg = Some(tmp);
@@ -237,7 +236,10 @@ impl WgpuBackend {
                         color: bg.unwrap_or(glyphon::Color::rgba(0, 0, 0, 0)),
                     });
 
-                    if cell.modifier.contains(tui::style::Modifier::SLOW_BLINK) {
+                    if cell
+                        .modifier
+                        .contains(tui_core::style::Modifier::SLOW_BLINK)
+                    {
                         let cursor_width = 2.0 * self.scale;
                         self.top_geometry.quads.push(Quad {
                             x: col_idx as f32 * cell_width + x,
@@ -372,7 +374,7 @@ impl Backend for WgpuBackend {
 
     fn draw<'a, I>(&mut self, content: I) -> std::io::Result<()>
     where
-        I: Iterator<Item = (u16, u16, &'a tui::buffer::Cell)>,
+        I: Iterator<Item = (u16, u16, &'a tui_core::buffer::Cell)>,
     {
         for (column, line, cell) in content {
             let line = &mut self.cells[line as usize];
@@ -408,7 +410,7 @@ impl Backend for WgpuBackend {
         Ok(())
     }
 
-    fn window_size(&mut self) -> std::io::Result<tui::backend::WindowSize> {
+    fn window_size(&mut self) -> std::io::Result<tui_core::backend::WindowSize> {
         let grid_bounds = self.bounds.grid_bounds();
         let view_bounds = self.bounds.view_bounds();
         Ok(WindowSize {
@@ -429,7 +431,7 @@ impl Backend for WgpuBackend {
         Ok(())
     }
 
-    fn size(&self) -> std::io::Result<tui::prelude::Size> {
+    fn size(&self) -> std::io::Result<tui_core::layout::Size> {
         let grid_bounds = self.bounds.grid_bounds();
         Ok(Size::new(
             grid_bounds.width as u16,
@@ -437,8 +439,8 @@ impl Backend for WgpuBackend {
         ))
     }
 
-    fn clear_region(&mut self, clear_type: tui::backend::ClearType) -> std::io::Result<()> {
-        if clear_type == tui::backend::ClearType::All {
+    fn clear_region(&mut self, clear_type: tui_core::backend::ClearType) -> std::io::Result<()> {
+        if clear_type == tui_core::backend::ClearType::All {
             self.clear()?;
         } else {
             return Err(std::io::Error::other("unsupported clear type"));

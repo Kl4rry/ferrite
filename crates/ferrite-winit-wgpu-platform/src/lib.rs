@@ -19,7 +19,7 @@ use ferrite_runtime::{
     },
     painter::{CursorIcon, Rounding},
 };
-use tui::Terminal;
+use tui_core::terminal::Terminal;
 use winit::{
     application::ApplicationHandler,
     event::{MouseScrollDelta, StartCause, WindowEvent},
