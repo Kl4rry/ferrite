@@ -120,6 +120,7 @@ fn scan_files(
             break;
         }
 
+        tracing::debug!("extending tracked files in scanner");
         tracked_files.par_extend(
             entries
                 .par_iter()

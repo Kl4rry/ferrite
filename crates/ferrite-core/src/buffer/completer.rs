@@ -26,6 +26,7 @@ impl CompletionSource {
     pub fn update_words(&mut self, rope: Rope) {
         if self.debounce_timer.every(Duration::from_secs(3)) {
             let words = self.words.clone();
+            tracing::debug!("update words in buffer");
             rayon::spawn(move || {
                 let w = words::parse_words(&rope);
                 *words.lock().unwrap() = w;
@@ -92,6 +93,7 @@ impl Completer {
 
     #[profiling::function]
     pub fn update_query(&mut self, words: Arc<Mutex<Vec<String>>>, query: String) {
+        tracing::debug_span!("update_query");
         self.last_query.clear();
         self.last_query.push_str(&query);
 
@@ -105,6 +107,7 @@ impl Completer {
         let guard = words.lock().unwrap();
         let mut matches: Vec<(isize, &str)> = {
             profiling::scope!("fuzzy search");
+            tracing::debug!("fuzzy searching {} words", guard.len());
             guard
                 .par_iter()
                 .filter_map(|word| {
@@ -118,6 +121,7 @@ impl Completer {
                 })
                 .collect()
         };
+        tracing::debug!("fuzzy match done");
         matches.sort_by(|a, b| a.0.cmp(&b.0));
         matches.reverse();
         self.matching_words.clear();

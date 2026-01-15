@@ -527,6 +527,7 @@ impl View<Buffer> for EditorView {
                 profiling::scope!("apply highlights");
                 let highlights: Vec<_> = {
                     profiling::scope!("take highlight events");
+                    tracing::debug!("taking highlight events");
                     highlights
                         .par_iter()
                         .take(10000)
