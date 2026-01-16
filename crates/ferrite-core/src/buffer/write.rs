@@ -21,11 +21,11 @@ pub fn write(
         .truncate(false)
         .write(true)
         .open(path)?;
-    let locked = file.lock().is_ok();
+    // let locked = file.lock().is_ok();
     let res = write_inner(encoding, line_ending, rope, BufWriter::new(&mut file));
-    if locked {
+    /*if locked {
         let _ = file.unlock();
-    }
+    }*/
     res
 }
 
