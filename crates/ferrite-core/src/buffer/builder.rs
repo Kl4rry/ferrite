@@ -16,6 +16,7 @@ pub struct BufferBuilder<'a> {
     pub(super) path: Option<PathBuf>,
     pub(super) name: Option<String>,
     pub(super) blame: bool,
+    pub(super) syntax: bool,
 }
 
 impl Default for BufferBuilder<'_> {
@@ -27,6 +28,7 @@ impl Default for BufferBuilder<'_> {
             path: None,
             name: None,
             blame: false,
+            syntax: true,
         }
     }
 }
@@ -36,8 +38,17 @@ impl<'a> BufferBuilder<'a> {
         Self::default()
     }
 
+    /// simple implies syntax = false
     pub fn simple(&mut self, simple: bool) -> &mut Self {
         self.simple = simple;
+        if simple {
+            self.syntax = false;
+        }
+        self
+    }
+
+    pub fn syntax(&mut self, syntax: bool) -> &mut Self {
+        self.syntax = syntax;
         self
     }
 

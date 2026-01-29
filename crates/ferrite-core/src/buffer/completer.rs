@@ -122,7 +122,7 @@ impl Completer {
                 .collect()
         };
         tracing::debug!("fuzzy match done");
-        matches.sort_by(|a, b| a.0.cmp(&b.0));
+        matches.sort_by_key(|a| a.0);
         matches.reverse();
         self.matching_words.clear();
         self.matching_words

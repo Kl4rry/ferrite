@@ -44,12 +44,13 @@ impl<T: Matchable> PartialOrd for FuzzyMatch<T> {
 
 impl<T: Matchable> Ord for FuzzyMatch<T> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
+        // TODO: do not construct this every compare
+        let natural_cmp = crate::get_natural_cmp!();
         match self.score.cmp(&other.score) {
             cmp::Ordering::Equal => match self.proximity.cmp(&other.proximity) {
-                cmp::Ordering::Equal => lexical_sort::natural_lexical_cmp(
-                    &self.item.as_match_str(),
-                    &self.item.as_match_str(),
-                ),
+                cmp::Ordering::Equal => {
+                    natural_cmp.compare(&self.item.as_match_str(), &self.item.as_match_str())
+                }
                 cmp::Ordering::Greater => cmp::Ordering::Less,
                 cmp::Ordering::Less => cmp::Ordering::Greater,
             },
@@ -135,7 +136,7 @@ where
                 }
             }
 
-            matches.sort_by(|a, b| a.start.cmp(&b.start));
+            matches.sort_by_key(|a| a.start);
 
             Some((
                 FuzzyMatch {

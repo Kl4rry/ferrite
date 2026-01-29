@@ -20,6 +20,7 @@ pub mod language;
 pub mod layout;
 pub mod logger;
 pub mod malloc;
+pub mod natural_cmp;
 pub mod palette;
 pub mod picker;
 pub mod promise;

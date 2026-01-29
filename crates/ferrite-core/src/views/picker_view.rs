@@ -295,6 +295,9 @@ where
                 Some(Preview::SharedBuffer(buffer)) => {
                     // TODO: load buffer view pos
                     let mut guard = buffer.lock().unwrap();
+                    if !guard.has_syntax() {
+                        guard.auto_detect_language();
+                    }
                     let view_id = guard.get_first_view_or_create();
                     let mut preview = EditorView::new(
                         view_id,

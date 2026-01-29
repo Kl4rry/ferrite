@@ -795,7 +795,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: PlatformEvent<UserEvent>) {
         self.dirty = true;
         match event {
-            PlatformEvent::Wake(reason) => tracing::info!("Woken because: {reason}"),
+            PlatformEvent::Wake(reason) => tracing::debug!("Woken because: {reason}"),
             PlatformEvent::UserEvent(event) => {
                 let app = self.app.as_mut().unwrap();
                 let state = self.state.as_mut().unwrap();

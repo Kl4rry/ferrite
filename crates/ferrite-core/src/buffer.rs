@@ -321,11 +321,13 @@ impl Buffer {
         };
         if !builder.simple {
             new.find_conflicts();
-            new.auto_detect_language();
             new.completion_source.update_words(new.rope.clone());
             if builder.blame {
                 new.try_update_blame();
             }
+        }
+        if builder.syntax {
+            new.auto_detect_language();
         }
         Ok(new)
     }
@@ -347,6 +349,10 @@ impl Buffer {
             tracing::error!("Error setting language: {err}");
         }
         syntax.update_text(self.rope.clone());
+    }
+
+    pub fn has_syntax(&self) -> bool {
+        self.syntax.is_some()
     }
 
     pub fn set_text(&mut self, text: &str) {
@@ -2859,11 +2865,12 @@ impl Buffer {
             .byte_slice(start_byte..end_byte)
             .lines()
             .collect();
+        let natural_cmp = crate::get_natural_cmp!();
         lines.sort_by(|lhs, rhs| {
             let lhs = lhs.trim_start_whitespace();
             let rhs = rhs.trim_start_whitespace();
             for (lhs, rhs) in lhs.chunks().zip(rhs.chunks()) {
-                match lexical_sort::natural_lexical_cmp(lhs, rhs) {
+                match natural_cmp.compare(lhs, rhs) {
                     cmp::Ordering::Equal => continue,
                     ordering if asc => return ordering.reverse(),
                     ordering => return ordering,
@@ -3439,7 +3446,7 @@ impl Buffer {
                 }
             }
             conflicts_ptr.lock().unwrap().clone_from(&conflicts);
-            tracing::info!(
+            tracing::debug!(
                 "Finding conflicts took: {:?}",
                 Instant::now().duration_since(start)
             );

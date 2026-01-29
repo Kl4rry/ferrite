@@ -90,18 +90,20 @@ fn scan_files(
         return;
     }
 
+    let natural_cmp = crate::get_natural_cmp!();
     let path_str = path.to_string_lossy().into_owned();
     let mut iterator = ignore::WalkBuilder::new(&path)
         .follow_links(false)
         .hidden(!config.show_hidden)
-        .hidden(false)
         .ignore(config.follow_ignore)
         .git_global(config.follow_git_global)
         .git_ignore(config.follow_gitignore)
         .git_exclude(config.follow_git_exclude)
         .overrides(config.overrides())
-        .sort_by_file_path(|lhs, rhs| {
-            lexical_sort::natural_lexical_cmp(&lhs.to_string_lossy(), &rhs.to_string_lossy())
+        .sort_by_file_path(move |lhs, rhs| {
+            let lhs = lhs.to_string_lossy();
+            let rhs = rhs.to_string_lossy();
+            natural_cmp.compare(&lhs, &rhs)
         })
         .build()
         .filter_map(|result| result.ok());

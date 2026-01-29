@@ -1,6 +1,9 @@
 use std::{
     borrow::Cow,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
     thread,
 };
 
@@ -23,6 +26,7 @@ pub struct GlobalSearchProvider {
     config: PickerConfig,
     case_insensitive: bool,
     query: String,
+    running: Arc<AtomicBool>,
 }
 
 impl GlobalSearchProvider {
@@ -32,7 +36,14 @@ impl GlobalSearchProvider {
             config,
             case_insensitive,
             query,
+            running: Arc::new(AtomicBool::new(true)),
         }
+    }
+}
+
+impl Drop for GlobalSearchProvider {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::Relaxed)
     }
 }
 
@@ -40,6 +51,7 @@ impl PickerOptionProvider for GlobalSearchProvider {
     type Matchable = GlobalSearchMatch;
 
     fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>> {
+        let running = self.running.clone();
         let (tx, rx) = cb::unbounded();
         let case_insensitive = self.case_insensitive;
         let query = self.query.clone();
@@ -70,7 +82,12 @@ impl PickerOptionProvider for GlobalSearchProvider {
                 let output = output.clone();
                 let tx = tx.clone();
 
+                let running = running.clone();
                 Box::new(move |result| {
+                    if !running.load(Ordering::Relaxed) {
+                        tracing::debug!("Shutting down global file searcher");
+                        return WalkState::Quit;
+                    }
                     let dir_entry = match result {
                         Ok(entry) => {
                             if !entry.file_type().is_some_and(|ft| ft.is_file()) {
@@ -85,7 +102,9 @@ impl PickerOptionProvider for GlobalSearchProvider {
                     if !is_text_file(path).unwrap_or(false) {
                         return WalkState::Continue;
                     }
-                    let Ok(mut buffer) = Buffer::builder().from_file(path).build() else {
+
+                    let Ok(mut buffer) = Buffer::builder().simple(true).from_file(path).build()
+                    else {
                         return WalkState::Continue;
                     };
 

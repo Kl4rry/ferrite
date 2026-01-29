@@ -1391,7 +1391,7 @@ impl Engine {
             })
             .collect();
 
-        buffers.sort_by(|a, b| b.order.cmp(&a.order));
+        buffers.sort_by_key(|b| std::cmp::Reverse(b.order));
         let buffers: boxcar::Vec<_> = buffers.into_iter().collect();
 
         self.buffer_picker = Some(Picker::new(
@@ -1557,7 +1557,7 @@ impl Engine {
     fn get_next_buffer(&mut self) -> (BufferId, ViewId) {
         let mut next_buffer = None;
         let mut buffers: Vec<_> = self.workspace.buffers.iter_mut().collect();
-        buffers.sort_by(|a, b| b.1.get_last_interact().cmp(&a.1.get_last_interact()));
+        buffers.sort_by_key(|b| std::cmp::Reverse(b.1.get_last_interact()));
         for (buffer_id, buffer) in &mut buffers {
             if !self.workspace.panes.contains_buffer(*buffer_id) {
                 let view_id = buffer.create_view();

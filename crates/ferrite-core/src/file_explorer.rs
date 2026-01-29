@@ -107,8 +107,9 @@ impl FileExplorer {
             }
         }
 
+        let natural_cmp = crate::get_natural_cmp!();
         entries.sort_by(|a, b| {
-            lexical_sort::natural_lexical_cmp(
+            natural_cmp.compare(
                 &a.path.file_name().unwrap().to_string_lossy(),
                 &b.path.file_name().unwrap().to_string_lossy(),
             )
