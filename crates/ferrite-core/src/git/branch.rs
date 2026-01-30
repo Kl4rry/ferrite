@@ -1,7 +1,6 @@
 use std::{
     process::Command,
     sync::{Arc, Mutex},
-    thread,
     time::Duration,
 };
 
@@ -119,7 +118,7 @@ impl BranchWatcher {
     pub fn force_reload(&self) {
         let proxy = self.proxy.dup();
         let current_branch_thread = self.current_branch.clone();
-        thread::spawn(move || {
+        rayon::spawn(move || {
             if let Some(branch) = get_current_branch() {
                 *current_branch_thread.lock().unwrap() = Some(branch);
                 proxy.request_render("git branch force reloaded");

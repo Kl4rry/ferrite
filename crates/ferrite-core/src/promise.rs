@@ -18,7 +18,7 @@ impl<T: 'static + Send> Promise<T> {
         f: F,
     ) -> Self {
         let (tx, rx) = mpsc::sync_channel(1);
-        std::thread::spawn(move || {
+        rayon::spawn(move || {
             let value = (f)();
             let _ = tx.send(value);
             proxy.request_render("promise ready");
