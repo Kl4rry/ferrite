@@ -20,6 +20,7 @@ use rayon::{
     prelude::{IntoParallelRefIterator, ParallelIterator},
 };
 use ropey::RopeSlice;
+use tree_house::highlighter::{Highlight, HighlightEvent};
 use tui::{prelude::Widget as _, widgets::Clear};
 use unicode_width::UnicodeWidthStr;
 
@@ -31,7 +32,7 @@ use crate::{
         self,
         editor::{CursorType, Editor, LineNumber},
     },
-    language::syntax::{Highlight, HighlightEvent},
+    language::LanguageLoader,
     theme::EditorTheme,
 };
 
@@ -488,36 +489,50 @@ impl View<Buffer> for EditorView {
             let range = buffer.view_range(view_id);
             let col_pos = buffer.col_pos(view_id);
             let line_pos = buffer.line_pos(view_id);
-            let mut highlights = Vec::new();
             let mut syntax_rope = None;
+            let mut highlights = Vec::new();
+            if let Some(syntax) = buffer.get_syntax()
+                && let Some(tree_sitter_config) = syntax.tree_sitter_config()
+                && let Some(shared_syntax) = syntax.get_syntax().as_ref()
             {
-                // TODO do this async on syntax thread
-                profiling::scope!("collect syntax events");
-                if let Some(syntax) = buffer.get_syntax()
-                    && let Some((rope, events)) = &*syntax.get_highlight_events()
-                {
-                    syntax_rope = Some(rope.clone());
-                    let mut highlight_stack: Vec<Highlight> = Vec::new();
-                    for event in events {
-                        match event {
-                            HighlightEvent::Source { start, end } => {
-                                if intersects(*start, *end, range.start, range.end) {
-                                    let mut style = theme.text;
-                                    if let Some(highlight) = highlight_stack.last()
-                                        && let Some(name) = highlight
-                                            .query
-                                            .capture_names()
-                                            .get(highlight.capture_index)
-                                    {
-                                        style = theme.get_syntax(name);
-                                    }
+                profiling::scope!("query highlights");
+                syntax_rope = Some(shared_syntax.rope.clone());
+                let capture_names = tree_sitter_config.capture_names();
+                let mut highlighter = tree_house::highlighter::Highlighter::new(
+                    &shared_syntax.syntax,
+                    shared_syntax.rope.slice(..),
+                    &LanguageLoader,
+                    (range.start as u32)..(range.end as u32),
+                );
+                let mut highlight_stack: Vec<Highlight> = Vec::new();
+                let mut vec = ArenaVec::new_in(&arena);
+                let mut last_idx = 0;
+                loop {
+                    let next_idx = highlighter.next_event_offset();
+                    if !highlight_stack.is_empty() {
+                        let highlight = highlight_stack[highlight_stack.len() - 1];
+                        let name = &capture_names[highlight.idx()];
+                        let style = theme.get_syntax(name);
 
-                                    highlights.push((*start, *end, style));
-                                }
-                            }
-                            HighlightEvent::HighlightStart(h) => highlight_stack.push(*h),
-                            HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
+                        highlights.push((last_idx as usize, next_idx as usize, style));
+                    }
+                    last_idx = next_idx;
+
+                    let (event, list) = highlighter.advance();
+                    vec.clear();
+                    vec.extend(list);
+                    match event {
+                        HighlightEvent::Refresh => {
+                            highlight_stack.clear();
+                            highlight_stack.extend_from_slice(&vec);
                         }
+                        HighlightEvent::Push => {
+                            highlight_stack.extend_from_slice(&vec);
+                        }
+                    }
+
+                    if next_idx as usize >= range.end {
+                        break;
                     }
                 }
             }
@@ -527,14 +542,12 @@ impl View<Buffer> for EditorView {
                 profiling::scope!("apply highlights");
                 let highlights: Vec<_> = {
                     profiling::scope!("take highlight events");
-                    tracing::debug!("taking highlight events");
                     highlights
                         .par_iter()
                         .take(10000)
                         .map(|(start, end, style)| {
                             let start_point = rope.byte_to_point((*start).min(rope.len_bytes()));
                             let end_point = rope.byte_to_point((*end).min(rope.len_bytes()));
-
                             (start_point, end_point, style)
                         })
                         .collect()
