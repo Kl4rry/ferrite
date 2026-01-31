@@ -5,40 +5,39 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-#tree-sitter-bash = { git = "https://github.com/tree-sitter/tree-sitter-bash", rev = "1b0321ee85701d5036c334a6f04761cdc672e64c", optional = true }
-tree-sitter-bash = { version = "0.20.5", optional = true }
-tree-sitter-c = { version = "0.20.2", optional = true }
-tree-sitter-c-sharp = { git = "https://github.com/tree-sitter/tree-sitter-c-sharp", rev = "5b60f99545fea00a33bbfae5be956f684c4c69e2", optional = true }
-tree-sitter-cmake = { version = "0.2.0", optional = true }
-tree-sitter-comment = { git = "https://github.com/stsewd/tree-sitter-comment", rev = "94c99a66bb5051d8321b5900aee92b76450c50ce", optional = true }
-tree-sitter-cpp = { git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "a90f170f92d5d70e7c2d4183c146e61ba5f3a457", optional = true }
-tree-sitter-css = { git = "https://github.com/syntacti/tree-sitter-css", rev = "397aa132b9982fcdd2d473ed69343762a557f10a", optional = true }
-tree-sitter-diff = { git = "https://github.com/the-mikedavis/tree-sitter-diff", rev = "fd74c78fa88a20085dbc7bbeaba066f4d1692b63", optional = true }
-tree-sitter-dockerfile = { git = "https://github.com/camdencheek/tree-sitter-dockerfile", rev = "8ee3a0f7587b2bd8c45c8cb7d28bd414604aec62", optional = true }
-tree-sitter-fish = { git = "https://github.com/ram02z/tree-sitter-fish", rev = "6675b56266b3f615fb112205b6b83a79315309c4", optional = true }
-tree-sitter-fortran = { git = "https://github.com/stadelmanma/tree-sitter-fortran", rev = "f73d473e3530862dee7cbb38520f28824e7804f6", optional = true }
-tree-sitter-git-config = { git = "https://github.com/the-mikedavis/tree-sitter-git-config", rev = "9c2a1b7894e6d9eedfe99805b829b4ecd871375e", optional = true }
-tree-sitter-gitcommit = { git = "https://github.com/the-mikedavis/tree-sitter-git-commit", rev = "6f193a66e9aa872760823dff020960c6cedc37b3", optional = true }
-tree-sitter-glsl = { git = "https://github.com/theHamsta/tree-sitter-glsl", rev = "74329feb2605deccd32b1c644af507daa6fb82f1", optional = true }
-tree-sitter-go = { git = "https://github.com/tree-sitter/tree-sitter-go", rev = "64457ea6b73ef5422ed1687178d4545c3e91334a", optional = true }
-tree-sitter-html = { version = "0.19.0", optional = true }
-tree-sitter-hyprlang = { git = "https://github.com/tree-sitter-grammars/tree-sitter-hyprlang", rev = "27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3", optional = true }
-tree-sitter-ini = { git = "https://github.com/justinmk/tree-sitter-ini", rev = "4d247fb876b4ae6b347687de4a179511bf67fcbc", optional = true }
-tree-sitter-javascript = { git = "https://github.com/tree-sitter/tree-sitter-javascript", rev = "f772967f7b7bc7c28f845be2420a38472b16a8ee", optional = true }
-tree-sitter-json = { version = "0.19.0", optional = true }
-tree-sitter-lua = { git = "https://github.com/tree-sitter-grammars/tree-sitter-lua", rev = "88e446476a1e97a8724dff7a23e2d709855077f2", optional = true }
-tree-sitter-md = { git = "https://github.com/MDeiml/tree-sitter-markdown", rev = "272e080bca0efd19a06a7f4252d746417224959e", optional = true }
-tree-sitter-nu = { git = "https://github.com/nushell/tree-sitter-nu", rev = "358c4f509eb97f0148bbd25ad36acc729819b9c1", optional = true }
-tree-sitter-protobuf = { git = "https://github.com/yusdacra/tree-sitter-protobuf", rev = "19c211a01434d9f03efff99f85e19f967591b175", optional = true }
-tree-sitter-python = { version = "0.20.2", optional = true }
-tree-sitter-rebase = { git = "https://github.com/the-mikedavis/tree-sitter-git-rebase", rev = "d8a4207ebbc47bd78bacdf48f883db58283f9fd8", optional = true }
-tree-sitter-ron = { git = "https://github.com/amaanq/tree-sitter-ron", rev = "ce6086b2c9e8e71065b8129d6c2289c5f66d1879", optional = true }
-tree-sitter-rust = { version = "0.20.3", optional = true }
-tree-sitter-toml = { git = "https://github.com/Mathspy/tree-sitter-toml", optional = true }
-tree-sitter-typescript = { git = "https://github.com/tree-sitter/tree-sitter-typescript", rev = "b1bf4825d9eaa0f3bdeb1e52f099533328acfbdf", optional = true }
-tree-sitter-xml = { git = "https://github.com/RenjiSann/tree-sitter-xml", rev = "422528a43630db6dcc1e222d1c5ee3babd559473", optional = true }
-tree-sitter-yaml = { git = "https://github.com/panekj/tree-sitter-yaml", rev = "80c8d76847f03e772c5c524cf29bafb56858a8d1", optional = true }
-tree-sitter-zig = { git = "https://github.com/maxxnino/tree-sitter-zig", rev = "0d08703e4c3f426ec61695d7617415fff97029bd", optional = true }
+tree-sitter-bash = { version = "0.25.1", optional = true }
+tree-sitter-c = { version = "0.24.1", optional = true }
+tree-sitter-c-sharp = { version = "0.23.1", optional = true }
+tree-sitter-cmake = { version = "0.7.1", optional = true }
+tree-sitter-comment = { version = "0.3.0", optional = true }
+tree-sitter-cpp = { version = "0.23.4", optional = true }
+tree-sitter-css = { version = "0.25.0", optional = true }
+tree-sitter-diff = { version = "0.1.0", optional = true }
+tree-sitter-dockerfile = { git = "https://github.com/camdencheek/tree-sitter-dockerfile", rev = "971acdd908568b4531b0ba28a445bf0bb720aba5", optional = true }
+tree-sitter-fish = { version = "3.6.0", optional = true }
+tree-sitter-fortran = { version = "0.5.1", optional = true }
+#tree-sitter-gitcommit = { git = "https://github.com/the-mikedavis/tree-sitter-git-commit", rev = "6f193a66e9aa872760823dff020960c6cedc37b3", optional = true }
+#tree-sitter-git-config = { git = "https://github.com/the-mikedavis/tree-sitter-git-config", rev = "9c2a1b7894e6d9eedfe99805b829b4ecd871375e", optional = true }
+#tree-sitter-glsl = { git = "https://github.com/theHamsta/tree-sitter-glsl", rev = "74329feb2605deccd32b1c644af507daa6fb82f1", optional = true }
+#tree-sitter-go = { git = "https://github.com/tree-sitter/tree-sitter-go", rev = "64457ea6b73ef5422ed1687178d4545c3e91334a", optional = true }
+#tree-sitter-html = { version = "0.19.0", optional = true }
+#tree-sitter-hyprlang = { git = "https://github.com/tree-sitter-grammars/tree-sitter-hyprlang", rev = "27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3", optional = true }
+#tree-sitter-ini = { git = "https://github.com/justinmk/tree-sitter-ini", rev = "4d247fb876b4ae6b347687de4a179511bf67fcbc", optional = true }
+#tree-sitter-javascript = { git = "https://github.com/tree-sitter/tree-sitter-javascript", rev = "f772967f7b7bc7c28f845be2420a38472b16a8ee", optional = true }
+#tree-sitter-json = { version = "0.19.0", optional = true }
+#tree-sitter-lua = { git = "https://github.com/tree-sitter-grammars/tree-sitter-lua", rev = "88e446476a1e97a8724dff7a23e2d709855077f2", optional = true }
+#tree-sitter-md = { git = "https://github.com/MDeiml/tree-sitter-markdown", rev = "272e080bca0efd19a06a7f4252d746417224959e", optional = true }
+#tree-sitter-nu = { git = "https://github.com/nushell/tree-sitter-nu", rev = "358c4f509eb97f0148bbd25ad36acc729819b9c1", optional = true }
+#tree-sitter-protobuf = { git = "https://github.com/yusdacra/tree-sitter-protobuf", rev = "19c211a01434d9f03efff99f85e19f967591b175", optional = true }
+#tree-sitter-python = { version = "0.20.2", optional = true }
+#tree-sitter-rebase = { git = "https://github.com/the-mikedavis/tree-sitter-git-rebase", rev = "d8a4207ebbc47bd78bacdf48f883db58283f9fd8", optional = true }
+#tree-sitter-ron = { git = "https://github.com/amaanq/tree-sitter-ron", rev = "ce6086b2c9e8e71065b8129d6c2289c5f66d1879", optional = true }
+tree-sitter-rust = { version = "0.24.0", optional = true }
+#tree-sitter-toml = { git = "https://github.com/Mathspy/tree-sitter-toml", optional = true }
+#tree-sitter-typescript = { git = "https://github.com/tree-sitter/tree-sitter-typescript", rev = "b1bf4825d9eaa0f3bdeb1e52f099533328acfbdf", optional = true }
+#tree-sitter-xml = { git = "https://github.com/RenjiSann/tree-sitter-xml", rev = "422528a43630db6dcc1e222d1c5ee3babd559473", optional = true }
+#tree-sitter-yaml = { git = "https://github.com/panekj/tree-sitter-yaml", rev = "80c8d76847f03e772c5c524cf29bafb56858a8d1", optional = true }
+#tree-sitter-zig = { git = "https://github.com/maxxnino/tree-sitter-zig", rev = "0d08703e4c3f426ec61695d7617415fff97029bd", optional = true }
 
 [features]
 lang-bash = ["dep:tree-sitter-bash"]
@@ -52,25 +51,25 @@ lang-diff = ["dep:tree-sitter-diff"]
 lang-dockerfile = ["dep:tree-sitter-dockerfile"]
 lang-fish = ["dep:tree-sitter-fish"]
 lang-fortran = ["dep:tree-sitter-fortran"]
-lang-git-commit = ["dep:tree-sitter-gitcommit"]
-lang-git-config = ["dep:tree-sitter-git-config"]
-lang-glsl = ["dep:tree-sitter-glsl"]
-lang-go = ["dep:tree-sitter-go"]
-lang-html = ["dep:tree-sitter-html"]
-lang-hyprlang = ["dep:tree-sitter-hyprlang"]
-lang-ini = ["dep:tree-sitter-ini"]
-lang-javascript = ["dep:tree-sitter-javascript"]
-lang-json = ["dep:tree-sitter-json"]
-lang-lua = ["dep:tree-sitter-lua"]
-lang-md = ["dep:tree-sitter-md"]
-lang-nu = ["dep:tree-sitter-nu"]
-lang-protobuf = ["dep:tree-sitter-protobuf"]
-lang-python = ["dep:tree-sitter-python"]
-lang-rebase =  ["dep:tree-sitter-rebase"]
-lang-ron = ["dep:tree-sitter-ron"]
+#lang-git-commit = ["dep:tree-sitter-gitcommit"]
+#lang-git-config = ["dep:tree-sitter-git-config"]
+#lang-glsl = ["dep:tree-sitter-glsl"]
+#lang-go = ["dep:tree-sitter-go"]
+#lang-html = ["dep:tree-sitter-html"]
+#lang-hyprlang = ["dep:tree-sitter-hyprlang"]
+#lang-ini = ["dep:tree-sitter-ini"]
+#lang-javascript = ["dep:tree-sitter-javascript"]
+#lang-json = ["dep:tree-sitter-json"]
+#lang-lua = ["dep:tree-sitter-lua"]
+#lang-md = ["dep:tree-sitter-md"]
+#lang-nu = ["dep:tree-sitter-nu"]
+#lang-protobuf = ["dep:tree-sitter-protobuf"]
+#lang-python = ["dep:tree-sitter-python"]
+#lang-rebase =  ["dep:tree-sitter-rebase"]
+#lang-ron = ["dep:tree-sitter-ron"]
 lang-rust = ["dep:tree-sitter-rust"]
-lang-toml = ["dep:tree-sitter-toml"]
-lang-typescript = ["dep:tree-sitter-typescript"]
-lang-xml = ["dep:tree-sitter-xml"]
-lang-yaml = ["dep:tree-sitter-yaml"]
-lang-zig = ["dep:tree-sitter-zig"]
+#lang-toml = ["dep:tree-sitter-toml"]
+#lang-typescript = ["dep:tree-sitter-typescript"]
+#lang-xml = ["dep:tree-sitter-xml"]
+#lang-yaml = ["dep:tree-sitter-yaml"]
+#lang-zig = ["dep:tree-sitter-zig"]

@@ -48,7 +48,9 @@ sublime_fuzzy = { workspace = true }
 subprocess = { workspace = true }
 toml = { workspace = true, features = ["parse", "display", "indexmap"] }
 tracing = { workspace = true }
-tree-sitter = { workspace = true }
+tree-house = { workspace = true }
+tree-house-bindings = { workspace = true }
+tree-sitter-language = { workspace = true }
 tui = { workspace = true }
 unicode-width = { workspace = true }
 
@@ -73,62 +75,62 @@ lang-diff = ["ferrite-tree-sitter/lang-diff"]
 lang-dockerfile = ["ferrite-tree-sitter/lang-dockerfile"]
 lang-fish = ["ferrite-tree-sitter/lang-fish"]
 lang-fortran = ["ferrite-tree-sitter/lang-fortran"]
-lang-git-commit = ["ferrite-tree-sitter/lang-git-commit"]
-lang-git-config = ["ferrite-tree-sitter/lang-git-config"]
-lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
-lang-go = ["ferrite-tree-sitter/lang-go"]
-lang-html = ["ferrite-tree-sitter/lang-html"]
-lang-hyprlang = ["ferrite-tree-sitter/lang-hyprlang"]
-lang-ini = ["ferrite-tree-sitter/lang-ini"]
-lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
-lang-json = ["ferrite-tree-sitter/lang-json"]
-lang-lua = ["ferrite-tree-sitter/lang-lua"]
-lang-md = ["ferrite-tree-sitter/lang-md"]
-lang-nu = ["ferrite-tree-sitter/lang-nu"]
-lang-protobuf = ["ferrite-tree-sitter/lang-protobuf"]
-lang-python = ["ferrite-tree-sitter/lang-python"]
-lang-rebase =  ["ferrite-tree-sitter/lang-rebase"]
-lang-ron = ["ferrite-tree-sitter/lang-ron"]
+#lang-git-commit = ["ferrite-tree-sitter/lang-git-commit"]
+#lang-git-config = ["ferrite-tree-sitter/lang-git-config"]
+#lang-glsl = ["ferrite-tree-sitter/lang-glsl"]
+#lang-go = ["ferrite-tree-sitter/lang-go"]
+#lang-html = ["ferrite-tree-sitter/lang-html"]
+#lang-hyprlang = ["ferrite-tree-sitter/lang-hyprlang"]
+#lang-ini = ["ferrite-tree-sitter/lang-ini"]
+#lang-javascript = ["ferrite-tree-sitter/lang-javascript"]
+#lang-json = ["ferrite-tree-sitter/lang-json"]
+#lang-lua = ["ferrite-tree-sitter/lang-lua"]
+#lang-md = ["ferrite-tree-sitter/lang-md"]
+#lang-nu = ["ferrite-tree-sitter/lang-nu"]
+#lang-protobuf = ["ferrite-tree-sitter/lang-protobuf"]
+#lang-python = ["ferrite-tree-sitter/lang-python"]
+#lang-rebase =  ["ferrite-tree-sitter/lang-rebase"]
+#lang-ron = ["ferrite-tree-sitter/lang-ron"]
 lang-rust = ["ferrite-tree-sitter/lang-rust"]
-lang-toml = ["ferrite-tree-sitter/lang-toml"]
-lang-typescript = ["ferrite-tree-sitter/lang-typescript"]
-lang-xml = ["ferrite-tree-sitter/lang-xml"]
-lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
-lang-zig = ["ferrite-tree-sitter/lang-zig"]
+#lang-toml = ["ferrite-tree-sitter/lang-toml"]
+#lang-typescript = ["ferrite-tree-sitter/lang-typescript"]
+#lang-xml = ["ferrite-tree-sitter/lang-xml"]
+#lang-yaml = ["ferrite-tree-sitter/lang-yaml"]
+#lang-zig = ["ferrite-tree-sitter/lang-zig"]
 
 default = [
   "embed-themes",
   "lang-bash",
-  "lang-c-sharp",
   "lang-c",
-  "lang-cmake",
+  "lang-c-sharp",
+  #"lang-cmake",
   "lang-comment",
   "lang-cpp",
   "lang-css",
   "lang-diff",
   "lang-dockerfile",
-  "lang-fish",
+  #"lang-fish",
   "lang-fortran",
-  "lang-git-commit",
-  "lang-git-config",
-  "lang-glsl",
-  "lang-go",
-  "lang-html",
-  "lang-hyprlang",
-  "lang-ini",
-  "lang-javascript",
-  "lang-json",
-  "lang-lua",
-  "lang-md",
-  "lang-nu",
-  "lang-protobuf",
-  "lang-python",
-  "lang-rebase",
-  "lang-ron",
+  #"lang-git-commit",
+  #"lang-git-config",
+  #"lang-glsl",
+  #"lang-go",
+  #"lang-html",
+  #"lang-hyprlang",
+  #"lang-ini",
+  #"lang-javascript",
+  #"lang-json",
+  #"lang-lua",
+  #"lang-md",
+  #"lang-nu",
+  #"lang-protobuf",
+  #"lang-python",
+  #"lang-rebase",
+  #"lang-ron",
   "lang-rust",
-  "lang-toml",
-  "lang-typescript",
-  "lang-xml",
-  "lang-yaml",
-  "lang-zig",
+  #"lang-toml",
+  #"lang-typescript",
+  #"lang-xml",
+  #"lang-yaml",
+  #"lang-zig",
 ]
