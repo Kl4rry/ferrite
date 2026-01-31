@@ -90,7 +90,6 @@ fn scan_files(
         return;
     }
 
-    let natural_cmp = crate::get_natural_cmp!();
     let path_str = path.to_string_lossy().into_owned();
     let mut iterator = ignore::WalkBuilder::new(&path)
         .follow_links(false)
@@ -103,7 +102,7 @@ fn scan_files(
         .sort_by_file_path(move |lhs, rhs| {
             let lhs = lhs.to_string_lossy();
             let rhs = rhs.to_string_lossy();
-            natural_cmp.compare(&lhs, &rhs)
+            ferrite_utility::natural_cmp::natural_cmp(&lhs, &rhs)
         })
         .build()
         .filter_map(|result| result.ok());

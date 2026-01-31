@@ -107,9 +107,8 @@ impl FileExplorer {
             }
         }
 
-        let natural_cmp = crate::get_natural_cmp!();
         entries.sort_by(|a, b| {
-            natural_cmp.compare(
+            ferrite_utility::natural_cmp::natural_cmp(
                 &a.path.file_name().unwrap().to_string_lossy(),
                 &b.path.file_name().unwrap().to_string_lossy(),
             )

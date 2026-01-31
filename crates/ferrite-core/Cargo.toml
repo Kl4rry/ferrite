@@ -31,7 +31,6 @@ grep-searcher = { workspace = true }
 heck = { workspace = true }
 humansize = { workspace = true }
 humantime = { workspace = true }
-icu_collator = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 linkify = { workspace = true }

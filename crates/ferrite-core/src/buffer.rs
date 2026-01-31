@@ -2865,12 +2865,11 @@ impl Buffer {
             .byte_slice(start_byte..end_byte)
             .lines()
             .collect();
-        let natural_cmp = crate::get_natural_cmp!();
         lines.sort_by(|lhs, rhs| {
             let lhs = lhs.trim_start_whitespace();
             let rhs = rhs.trim_start_whitespace();
             for (lhs, rhs) in lhs.chunks().zip(rhs.chunks()) {
-                match natural_cmp.compare(lhs, rhs) {
+                match ferrite_utility::natural_cmp::natural_cmp(lhs, rhs) {
                     cmp::Ordering::Equal => continue,
                     ordering if asc => return ordering.reverse(),
                     ordering => return ordering,
