@@ -197,6 +197,38 @@ impl Bounds {
         );
         view_bounds.contains(view_position)
     }
+
+    pub fn top_lines(&self, lines: usize) -> Bounds {
+        let cell_size = self.cell_size();
+        let view_bounds = self.view_bounds();
+        Bounds::new(
+            Rect::new(
+                view_bounds.left(),
+                view_bounds.top(),
+                view_bounds.width,
+                (lines as f32 * cell_size.y).round() as usize,
+            ),
+            cell_size,
+            self.rounding,
+        )
+    }
+
+    pub fn bottom_lines(&self, lines: usize) -> Bounds {
+        let cell_size = self.cell_size();
+        let view_bounds = self.view_bounds();
+        Bounds::new(
+            Rect::new(
+                view_bounds.left(),
+                view_bounds
+                    .bottom()
+                    .saturating_sub((lines as f32 * cell_size.y).round() as usize),
+                view_bounds.width,
+                (lines as f32 * cell_size.y).round() as usize,
+            ),
+            cell_size,
+            self.rounding,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

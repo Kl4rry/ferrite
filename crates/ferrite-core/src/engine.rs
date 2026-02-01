@@ -169,7 +169,7 @@ impl Engine {
             languages,
             languages_path,
             languages_watcher,
-            keymap,
+            keymap: Arc::new(keymap),
         };
 
         let mut engine = Self {
@@ -261,7 +261,7 @@ impl Engine {
                     }
                     self.config.editor = Arc::new(editor);
                     self.palette.set_msg("Reloaded editor config");
-                    self.config.keymap = Keymap::from_editor(&self.config.editor);
+                    self.config.keymap = Arc::new(Keymap::from_editor(&self.config.editor));
                 }
                 Err(err) => self.palette.set_error(err),
             }

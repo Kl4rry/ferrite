@@ -1,27 +1,40 @@
 use std::sync::Arc;
 
-use ferrite_geom::rect::Rect;
-use ferrite_runtime::{Bounds, Painter, View};
+use ferrite_runtime::{Bounds, Painter, View, any_view::AnyView};
 
 use super::one_line_input_view::OneLineInputView;
 use crate::{
-    config::editor::Editor,
+    config::{editor::Editor, keymap::Keymap},
     palette::{CommandPalette, PaletteMode, PaletteState},
     theme::EditorTheme,
-    views::completer_view::CompleterView,
+    views::{
+        completer_view::CompleterView, nullview::NullView, search_palette_view::SearchPaletteView,
+    },
 };
 
 pub struct PaletteView {
     theme: Arc<EditorTheme>,
-    config: Arc<Editor>,
+    keymap: Arc<Keymap>,
     focused: bool,
+    input_view: OneLineInputView<&'static str>,
 }
 
 impl PaletteView {
-    pub fn new(theme: Arc<EditorTheme>, config: Arc<Editor>, focused: bool) -> Self {
+    pub fn new(
+        theme: Arc<EditorTheme>,
+        config: Arc<Editor>,
+        keymap: Arc<Keymap>,
+        focused: bool,
+    ) -> Self {
         Self {
+            input_view: OneLineInputView::new(
+                theme.clone(),
+                config.clone(),
+                focused,
+                "palette input field",
+            ),
             theme,
-            config,
+            keymap,
             focused,
         }
     }
@@ -30,21 +43,8 @@ impl PaletteView {
 impl View<CommandPalette> for PaletteView {
     fn render(&self, palette: &mut CommandPalette, bounds: Bounds, painter: &mut Painter) {
         let cell_size = bounds.cell_size();
-        let total_area = bounds.grid_bounds();
         let total_view_bounds = bounds.view_bounds();
-        // Calculate size of palette
-        let palette_bounds = Bounds::new(
-            Rect::new(
-                total_view_bounds.left(),
-                total_view_bounds
-                    .bottom()
-                    .saturating_sub((palette.height() as f32 * cell_size.y).round() as usize),
-                total_view_bounds.width,
-                (palette.height().min(total_area.height) as f32 * cell_size.y).round() as usize,
-            ),
-            cell_size,
-            bounds.rounding,
-        );
+        let palette_bounds = bounds.bottom_lines(palette.height());
         let area = palette_bounds.grid_bounds();
 
         let layer = painter.create_layer("command palette view", palette_bounds);
@@ -55,20 +55,30 @@ impl View<CommandPalette> for PaletteView {
 
         match palette.state() {
             PaletteState::Input {
-                buffer,
+                input_state,
                 prompt,
                 completer,
                 mode,
                 ..
             } => {
-                OneLineInputView::new(
-                    self.theme.clone(),
-                    self.config.clone(),
-                    self.focused,
-                    "palette input field",
-                )
-                .set_left_prompt(format!(" {}", prompt))
-                .render(buffer, palette_bounds, painter);
+                let view = match mode {
+                    PaletteMode::Search => AnyView::new(SearchPaletteView::new(
+                        self.theme.clone(),
+                        self.keymap.clone(),
+                        false,
+                    )),
+                    PaletteMode::Replace => AnyView::new(SearchPaletteView::new(
+                        self.theme.clone(),
+                        self.keymap.clone(),
+                        true,
+                    )),
+                    _ => NullView::any(),
+                };
+
+                view.render(&mut (), palette_bounds.top_lines(1), painter);
+                input_state.set_left_prompt(format!(" {}", prompt));
+                self.input_view
+                    .render(input_state, palette_bounds.bottom_lines(1), painter);
 
                 if self.focused && (*mode == PaletteMode::Command || *mode == PaletteMode::Shell) {
                     let mut completer_bounds = total_view_bounds;

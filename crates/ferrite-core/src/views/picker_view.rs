@@ -106,17 +106,14 @@ where
                 height: 1,
             };
 
+            let right_prompt = format!("{}/{}", picker.get_matches().len(), picker.get_total());
+            picker.search_field().set_right_prompt(right_prompt);
             OneLineInputView::new(
                 self.theme.clone(),
                 self.config.clone(),
                 true,
                 (picker.unique_id(), "input field"),
             )
-            .set_right_prompt(format!(
-                "{}/{}",
-                picker.get_matches().len(),
-                picker.get_total()
-            ))
             .render(
                 picker.search_field(),
                 Bounds::from_grid_bounds(input_area.into(), bounds.cell_size(), bounds.rounding),

@@ -10,12 +10,46 @@ use crate::{
     theme::EditorTheme,
 };
 
+pub struct OneLineInputState {
+    pub buffer: Buffer,
+    left_prompt: Option<String>,
+    right_prompt: Option<String>,
+}
+
+impl Default for OneLineInputState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OneLineInputState {
+    pub fn new() -> Self {
+        let mut buffer = Buffer::builder().simple(true).build().unwrap();
+        let view_id = buffer.create_view();
+        buffer.set_view_lines(view_id, 1);
+        buffer.views[view_id].clamp_cursor = true;
+        Self {
+            buffer,
+            left_prompt: None,
+            right_prompt: None,
+        }
+    }
+
+    pub fn set_left_prompt(&mut self, left_prompt: String) -> &mut Self {
+        self.left_prompt = Some(left_prompt);
+        self
+    }
+
+    pub fn set_right_prompt(&mut self, right_prompt: String) -> &mut Self {
+        self.right_prompt = Some(right_prompt);
+        self
+    }
+}
+
 pub struct OneLineInputView<I> {
     theme: Arc<EditorTheme>,
     config: Arc<Editor>,
     focused: bool,
-    left_prompt: Option<String>,
-    right_prompt: Option<String>,
     id: I,
 }
 
@@ -25,28 +59,25 @@ impl<I> OneLineInputView<I> {
             theme,
             config,
             focused,
-            left_prompt: None,
-            right_prompt: None,
             id,
         }
     }
-
-    pub fn set_right_prompt(mut self, right_prompt: String) -> Self {
-        self.right_prompt = Some(right_prompt);
-        self
-    }
-
-    pub fn set_left_prompt(mut self, left_prompt: String) -> Self {
-        self.left_prompt = Some(left_prompt);
-        self
-    }
 }
 
-impl<I> View<Buffer> for OneLineInputView<I>
+impl<I> View<OneLineInputState> for OneLineInputView<I>
 where
     I: Hash + Copy + 'static,
 {
-    fn render(&self, buffer: &mut Buffer, bounds: Bounds, painter: &mut Painter) {
+    fn render(
+        &self,
+        OneLineInputState {
+            buffer,
+            left_prompt,
+            right_prompt,
+        }: &mut OneLineInputState,
+        bounds: Bounds,
+        painter: &mut Painter,
+    ) {
         let area = bounds.grid_bounds();
         let layer = painter.create_layer(self.id, bounds);
         let mut layer = layer.lock().unwrap();
@@ -60,7 +91,7 @@ where
         let view = buffer.get_buffer_view(view_id);
 
         let mut left_prompt_width = 0;
-        if let Some(left_prompt) = &self.left_prompt {
+        if let Some(left_prompt) = left_prompt {
             left_prompt_width = left_prompt.width();
 
             buf.set_stringn(
@@ -129,7 +160,7 @@ where
             }
         }
 
-        if let Some(right_prompt) = &self.right_prompt {
+        if let Some(right_prompt) = right_prompt {
             let right_prompt_width = right_prompt.width();
 
             if area.width > (right_prompt_width * 2 + 2) {

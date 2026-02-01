@@ -13,9 +13,9 @@ use ropey::RopeSlice;
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{Buffer, error::BufferError};
 use crate::{
-    buffer::ViewId,
     cmd::Cmd,
     event_loop_proxy::{EventLoopProxy, UserEvent},
+    views::one_line_input_view::OneLineInputState,
 };
 
 pub mod buffer_picker;
@@ -44,8 +44,7 @@ pub struct PickerResult<M: Matchable> {
 }
 
 pub struct Picker<M: Matchable> {
-    search_field: Buffer,
-    view_id: ViewId,
+    search_field: OneLineInputState,
     selected: usize,
     previewer: Option<Box<dyn Previewer<M>>>,
     result: PickerResult<M>,
@@ -65,10 +64,6 @@ where
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
         path: Option<PathBuf>,
     ) -> Self {
-        let mut search_field = Buffer::builder().simple(true).build().unwrap();
-        let view_id = search_field.create_view();
-        search_field.set_view_lines(view_id, 1);
-
         let (search_tx, search_rx): (_, cb::Receiver<String>) = cb::unbounded();
         let (result_tx, result_rx): (_, cb::Receiver<PickerResult<M>>) = cb::unbounded();
 
@@ -125,8 +120,7 @@ where
         });
 
         Self {
-            search_field,
-            view_id,
+            search_field: OneLineInputState::new(),
             selected: 0,
             choice: None,
             previewer,
@@ -145,7 +139,7 @@ impl<M> Picker<M>
 where
     M: Matchable,
 {
-    pub fn search_field(&mut self) -> &mut Buffer {
+    pub fn search_field(&mut self) -> &mut OneLineInputState {
         &mut self.search_field
     }
 
@@ -174,6 +168,7 @@ where
     }
 
     pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
+        let view_id = self.search_field.buffer.get_first_view_or_create();
         let mut enter = false;
         match input {
             Cmd::MoveUp { .. } => {
@@ -184,11 +179,22 @@ where
                 }
             }
             Cmd::MoveDown { .. } | Cmd::TabOrIndent { .. } => self.selected += 1,
+            Cmd::VerticalScroll { distance } => {
+                if distance.is_sign_negative() {
+                    if self.selected == 0 {
+                        self.selected = self.get_matches().len().saturating_sub(1);
+                    } else {
+                        self.selected = self.selected.saturating_sub(1);
+                    }
+                } else {
+                    self.selected += 1;
+                }
+            }
             Cmd::Insert { text } => {
                 let rope = RopeSlice::from(text.as_str());
                 let line = rope.line_without_line_ending(0);
-                self.search_field.handle_input(
-                    self.view_id,
+                self.search_field.buffer.handle_input(
+                    view_id,
                     Cmd::Insert {
                         text: line.to_string(),
                     },
@@ -196,7 +202,7 @@ where
                 if line.len_bytes() != rope.len_bytes() {
                     enter = true;
                 } else {
-                    let _ = self.tx.send(self.search_field.to_string());
+                    let _ = self.tx.send(self.search_field.buffer.to_string());
                 }
             }
             Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
@@ -207,8 +213,8 @@ where
             }
 
             input => {
-                self.search_field.handle_input(self.view_id, input)?;
-                let _ = self.tx.send(self.search_field.to_string());
+                self.search_field.buffer.handle_input(view_id, input)?;
+                let _ = self.tx.send(self.search_field.buffer.to_string());
             }
         }
 

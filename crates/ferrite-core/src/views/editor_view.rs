@@ -960,22 +960,7 @@ impl View<Buffer> for EditorView {
                     spinner: *spinner,
                     parent_unique_id: unique_id,
                 };
-                let cell_size = bounds.cell_size();
-                info_line.render(
-                    &mut (),
-                    Bounds::new(
-                        Rect::new(
-                            view_bounds.x,
-                            (view_bounds.y as f32 + view_bounds.height as f32 - cell_size.y).round()
-                                as usize,
-                            view_bounds.width,
-                            (1.0 * cell_size.y).round() as usize,
-                        ),
-                        cell_size,
-                        rounding,
-                    ),
-                    painter,
-                );
+                info_line.render(&mut (), bounds.bottom_lines(1), painter);
             }
         }
     }

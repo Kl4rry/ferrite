@@ -83,27 +83,27 @@ impl fmt::Display for KeyModifiers {
         }
 
         if self.contains(Self::SHIFT) {
-            " + Shift".fmt(f)?;
+            "Shift+".fmt(f)?;
         }
 
         if self.contains(Self::CONTROL) {
-            " + Ctrl".fmt(f)?;
+            "Ctrl+".fmt(f)?;
         }
 
         if self.contains(Self::ALT) {
-            " + Alt".fmt(f)?;
+            "Alt+".fmt(f)?;
         }
 
         if self.contains(Self::SUPER) {
-            " + Super".fmt(f)?;
+            "Super+".fmt(f)?;
         }
 
         if self.contains(Self::HYPER) {
-            " + Hyper".fmt(f)?;
+            "Hyper+".fmt(f)?;
         }
 
         if self.contains(Self::META) {
-            " + Meta".fmt(f)?;
+            "Meta+".fmt(f)?;
         }
 
         Ok(())

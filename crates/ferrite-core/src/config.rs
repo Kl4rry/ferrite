@@ -17,5 +17,5 @@ pub struct Config {
     pub languages: Languages,
     pub languages_path: Option<PathBuf>,
     pub languages_watcher: Option<FileWatcher<Languages, TomlConfig>>,
-    pub keymap: Keymap,
+    pub keymap: Arc<Keymap>,
 }

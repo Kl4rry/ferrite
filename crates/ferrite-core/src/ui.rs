@@ -84,7 +84,12 @@ pub fn layout(engine: &mut Engine) -> AnyView<Engine> {
 
     stack.push(AnyView::new(MainView::new(
         PaneView::new(engine),
-        PaletteView::new(theme.clone(), config.clone(), engine.palette.has_focus()),
+        PaletteView::new(
+            theme.clone(),
+            config.clone(),
+            engine.config.keymap.clone(),
+            engine.palette.has_focus(),
+        ),
     )));
     if engine.chord.is_some() {
         stack.push(AnyView::new(ChordView::new(theme.clone())));
