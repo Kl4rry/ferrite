@@ -66,7 +66,7 @@ impl View<()> for InfoLineView<'_> {
             false => self.theme.info_line_unfocused,
         };
 
-        let mut left = String::from(" ");
+        let mut left = String::from("    ");
         for item in &self.config.left {
             if let Some(item) = self.get_info_item(item) {
                 left.push_str(&item);
