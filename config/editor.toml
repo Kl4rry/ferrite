@@ -25,9 +25,8 @@ show_only_text_files = true
 file_picker_auto_reload = true
 
 [info_line]
-left = ["size"]
-center = ["file"]
-right = ["branch", "position", "encoding", "language", "spinner"]
+left = ["file"]
+right = ["branch", "position", "encoding", "language", "size", "spinner"]
 padding = 1
 
 [gui]

@@ -73,16 +73,6 @@ impl View<()> for InfoLineView<'_> {
                 left.push_str(&" ".repeat(self.config.padding));
             }
         }
-        let left_width = left.width();
-
-        let mut center = String::from(" ");
-        for item in &self.config.center {
-            if let Some(item) = self.get_info_item(item) {
-                center.push_str(&item);
-                center.push_str(&" ".repeat(self.config.padding));
-            }
-        }
-        let center_width = center.width();
 
         let mut right = String::from(" ");
         for item in &self.config.right {
@@ -91,6 +81,7 @@ impl View<()> for InfoLineView<'_> {
                 right.push_str(&" ".repeat(self.config.padding));
             }
         }
+        right.push(' ');
         let right_width = right.width();
 
         {
@@ -105,22 +96,7 @@ impl View<()> for InfoLineView<'_> {
             );
         }
 
-        // Idk why this 4 is needed to stop overlapping and I don't care
-        if area.width > center_width + right_width + 4 {
-            let center_max_width = area.width - left_width - right_width;
-            let padding = (center_max_width - center_width / 2) / 2;
-            buf.draw_string(
-                (area.x + padding) as u16,
-                area.y as u16,
-                &center,
-                area.into(),
-                style,
-            );
-        }
-
-        if area.width > left_width + center_width + right_width {
-            buf.draw_string(area.x as u16, area.y as u16, &left, area.into(), style);
-        }
+        buf.draw_string(area.x as u16, area.y as u16, &left, area.into(), style);
 
         buf.set_style(area.into(), style);
     }

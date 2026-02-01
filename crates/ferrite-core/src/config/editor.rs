@@ -184,7 +184,6 @@ impl PickerConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InfoLineConfig {
     pub left: Vec<String>,
-    pub center: Vec<String>,
     pub right: Vec<String>,
     pub padding: usize,
 }
@@ -192,12 +191,13 @@ pub struct InfoLineConfig {
 impl Default for InfoLineConfig {
     fn default() -> Self {
         Self {
-            left: ["size"].iter().map(|s| s.to_string()).collect(),
-            center: ["file"].iter().map(|s| s.to_string()).collect(),
-            right: ["branch", "position", "encoding", "language", "spinner"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect(),
+            left: ["file"].iter().map(|s| s.to_string()).collect(),
+            right: [
+                "branch", "position", "encoding", "language", "size", "spinner",
+            ]
+            .iter()
+            .map(|s| s.to_string())
+            .collect(),
             padding: 1,
         }
     }

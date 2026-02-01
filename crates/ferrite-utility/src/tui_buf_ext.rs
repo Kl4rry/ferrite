@@ -67,14 +67,17 @@ impl TuiBufExt for tui_core::buffer::Buffer {
                 None => break,
             };
 
-            self[(x, y)]
-                .set_symbol(symbol.as_str().expect("rope slice should be contiguous"))
-                .set_style(style);
+            if let Some(cell) = self.cell_mut((x, y)) {
+                cell.set_symbol(symbol.as_str().expect("rope slice should be contiguous"))
+                    .set_style(style);
+            }
             let next_symbol = x + width;
             x += 1;
             // Reset following cells if multi-width (they would be hidden by the grapheme)
             while x < next_symbol {
-                self[(x, y)].reset();
+                if let Some(cell) = self.cell_mut((x, y)) {
+                    cell.reset();
+                }
                 x += 1;
             }
         }
