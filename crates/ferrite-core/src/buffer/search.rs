@@ -170,7 +170,7 @@ impl BufferSearcher {
     pub fn get_match_index_and_match_count(&self) -> (usize, usize) {
         let guard = self.matches.lock().unwrap();
         let count = guard.0.len();
-        let index = self.match_index.min(count);
+        let index = self.match_index.min(count.saturating_sub(1));
         (index, guard.0.len())
     }
 }
