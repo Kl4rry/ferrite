@@ -245,37 +245,34 @@ impl Default for EditorTheme {
 #[cfg(feature = "embed-themes")]
 static THEMES: &[(&str, &str)] = &[
     (
-        "carbon-fox.toml",
+        "carbon-fox",
         include_str!("../../../themes/carbon-fox.toml"),
     ),
     (
-        "catppuccin_frappe.toml",
+        "catppuccin_frappe",
         include_str!("../../../themes/catppuccin_frappe.toml"),
     ),
     (
-        "catppuccin_latte.toml",
+        "catppuccin_latte",
         include_str!("../../../themes/catppuccin_latte.toml"),
     ),
     (
-        "catppuccin_macchiato.toml",
+        "catppuccin_macchiato",
         include_str!("../../../themes/catppuccin_macchiato.toml"),
     ),
     (
-        "catppuccin_mocha.toml",
+        "catppuccin_mocha",
         include_str!("../../../themes/catppuccin_mocha.toml"),
     ),
-    ("gruvbox.toml", include_str!("../../../themes/gruvbox.toml")),
+    ("gruvbox", include_str!("../../../themes/gruvbox.toml")),
+    ("naysayer", include_str!("../../../themes/naysayer.toml")),
+    ("onedark", include_str!("../../../themes/onedark.toml")),
     (
-        "naysayer.toml",
-        include_str!("../../../themes/naysayer.toml"),
-    ),
-    ("onedark.toml", include_str!("../../../themes/onedark.toml")),
-    (
-        "solarized_dark.toml",
+        "solarized_dark",
         include_str!("../../../themes/solarized_dark.toml"),
     ),
     (
-        "solarized_light.toml",
+        "solarized_light",
         include_str!("../../../themes/solarized_light.toml"),
     ),
 ];
