@@ -953,6 +953,10 @@ impl View<Buffer> for EditorView {
                     language: buffer.language_name().into(),
                     size: buffer.rope().len_bytes(),
                     read_only: buffer.read_only_file,
+                    matches: buffer.views[view_id]
+                        .searcher
+                        .as_ref()
+                        .map(|s| s.get_match_index_and_match_count()),
                     spinner: *spinner,
                     parent_unique_id: unique_id,
                 };

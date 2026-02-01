@@ -191,7 +191,7 @@ pub struct InfoLineConfig {
 impl Default for InfoLineConfig {
     fn default() -> Self {
         Self {
-            left: ["file"].iter().map(|s| s.to_string()).collect(),
+            left: ["file", "matches"].iter().map(|s| s.to_string()).collect(),
             right: [
                 "branch", "position", "encoding", "language", "size", "spinner",
             ]

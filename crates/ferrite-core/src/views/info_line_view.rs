@@ -20,6 +20,7 @@ pub struct InfoLineView<'a> {
     pub size: usize,
     pub spinner: Option<char>,
     pub read_only: bool,
+    pub matches: Option<(usize, usize)>,
     pub parent_unique_id: UniqueId,
 }
 
@@ -49,6 +50,10 @@ impl InfoLineView<'_> {
             "size" => Some(format_byte_size(self.size)),
             "spinner" => Some(self.spinner.unwrap_or(' ').to_string()),
             "read_only" if self.read_only => Some("🔒".into()),
+            "matches" => {
+                let (index, count) = self.matches?;
+                Some(format!("Match {} of {}", index + 1, count))
+            }
             _ => None,
         }
     }
@@ -97,7 +102,6 @@ impl View<()> for InfoLineView<'_> {
         }
 
         buf.draw_string(area.x as u16, area.y as u16, &left, area.into(), style);
-
         buf.set_style(area.into(), style);
     }
 }

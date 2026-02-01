@@ -166,6 +166,13 @@ impl BufferSearcher {
     pub fn get_last_query(&self) -> String {
         self.last_query.clone()
     }
+
+    pub fn get_match_index_and_match_count(&self) -> (usize, usize) {
+        let guard = self.matches.lock().unwrap();
+        let count = guard.0.len();
+        let index = self.match_index.min(count);
+        (index, guard.0.len())
+    }
 }
 
 pub fn search_rope(
