@@ -52,7 +52,11 @@ impl InfoLineView<'_> {
             "read_only" if self.read_only => Some("🔒".into()),
             "matches" => {
                 let (index, count) = self.matches?;
-                Some(format!("Match {} of {}", index + 1, count))
+                if count > 0 {
+                    Some(format!("Match {} of {}", (index + 1), count))
+                } else {
+                    Some(String::from("No matches"))
+                }
             }
             _ => None,
         }
