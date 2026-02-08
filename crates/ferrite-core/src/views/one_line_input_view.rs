@@ -2,6 +2,7 @@ use std::{hash::Hash, sync::Arc};
 
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, Painter, View};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -94,11 +95,11 @@ where
         if let Some(left_prompt) = left_prompt {
             left_prompt_width = left_prompt.width();
 
-            buf.set_stringn(
+            buf.draw_string(
                 area.x as u16,
                 area.y as u16,
                 left_prompt,
-                area.width,
+                area.into(),
                 self.theme.text,
             );
         }
@@ -111,11 +112,11 @@ where
                 height: 1,
             };
 
-            buf.set_stringn(
+            buf.draw_string(
                 text_area.x as u16,
                 text_area.y as u16,
                 view.lines[0].text.to_string(),
-                text_area.width,
+                text_area.into(),
                 self.theme.text,
             );
 
@@ -164,11 +165,11 @@ where
             let right_prompt_width = right_prompt.width();
 
             if area.width > (right_prompt_width * 2 + 2) {
-                buf.set_stringn(
+                buf.draw_string(
                     (area.x + area.width - right_prompt_width) as u16 - 1,
                     area.y as u16,
                     right_prompt,
-                    area.width,
+                    area.into(),
                     self.theme.text,
                 );
             }

@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, Painter, View};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 
 use crate::{logger::LoggerState, theme::EditorTheme};
 
@@ -40,11 +41,11 @@ impl View<LoggerState> for LoggerView {
             {
                 Some(msg) => {
                     let string = format!("{:>5} {} {}", msg.level, msg.target, msg.fields.message);
-                    buf.set_stringn(
+                    buf.draw_string(
                         area.x as u16,
                         (area.top() + area.height - y - 2) as u16, // TODO fix this - 2
                         string,
-                        area.width,
+                        area.into(),
                         self.theme.text,
                     );
                 }
@@ -90,11 +91,11 @@ impl View<LoggerState> for LoggerView {
                 ferrite_talloc::Talloc::phase_allocations()
             );
 
-            buf.set_stringn(
+            buf.draw_string(
                 line_area.x as u16,
                 line_area.y as u16,
                 line,
-                line_area.width,
+                line_area.into(),
                 style,
             );
         }

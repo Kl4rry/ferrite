@@ -9,7 +9,7 @@ use std::{
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, View};
 use ferrite_style::Color;
-use ferrite_utility::trim::trim_path;
+use ferrite_utility::{trim::trim_path, tui_buf_ext::TuiBufExt};
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -95,11 +95,11 @@ impl View<FileExplorer> for FileExplorerView {
                     None if is_dir => dir_style,
                     None => text_style,
                 };
-                buf.set_stringn(
+                buf.draw_string(
                     (area.x + 1) as u16,
                     (area.y + i) as u16,
                     icon,
-                    area.width.saturating_sub(1),
+                    area.into(),
                     icon_style,
                 );
 
@@ -118,11 +118,11 @@ impl View<FileExplorer> for FileExplorerView {
                     None => file_name,
                 };
 
-                buf.set_stringn(
+                buf.draw_string(
                     (area.x + icon_width) as u16,
                     (area.y + i) as u16,
                     &line,
-                    area.width.saturating_sub(icon_width),
+                    area.into(),
                     style,
                 );
                 if i + start == state.index() {
@@ -169,11 +169,11 @@ impl View<FileExplorer> for FileExplorerView {
                 state.directory().to_string_lossy().into()
             };
 
-            buf.set_stringn(
+            buf.draw_string(
                 info_line_area.x as u16,
                 info_line_y as u16,
                 format!("Dir: {}", directory),
-                info_line_area.width,
+                info_line_area.into(),
                 self.theme.text,
             );
             if self.has_focus {

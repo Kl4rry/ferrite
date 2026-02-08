@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, Painter, View};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 use tui::{
     layout,
     widgets::{Block, BorderType, Borders, Widget},
@@ -104,11 +105,11 @@ impl View<Engine> for ChordView {
                 &" ".repeat((inner_area.width as usize).saturating_sub(line.width() as usize)),
             );
 
-            buf.set_stringn(
+            buf.draw_string(
                 inner_area.left(),
                 inner_area.top() + i as u16,
                 line,
-                inner_area.width.into(),
+                inner_area,
                 self.theme.text,
             );
         }

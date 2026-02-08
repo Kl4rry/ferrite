@@ -1,7 +1,7 @@
 use std::{borrow::Cow, sync::Arc};
 
 use ferrite_runtime::{Bounds, Painter, View};
-use ferrite_utility::graphemes::RopeGraphemeExt;
+use ferrite_utility::{graphemes::RopeGraphemeExt, tui_buf_ext::TuiBufExt};
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
@@ -90,11 +90,11 @@ where
 
         {
             const PROMPT: &str = " > ";
-            buf.set_stringn(
+            buf.draw_string(
                 search_field_area.x,
                 search_field_area.y,
                 PROMPT,
-                search_field_area.width.into(),
+                search_field_area.into(),
                 self.theme.text,
             );
 
@@ -191,11 +191,11 @@ where
                     "   ".to_string()
                 };
 
-                buf.set_stringn(
+                buf.draw_string(
                     result_area.x,
                     result_area.y + i as u16,
                     &prompt,
-                    width,
+                    result_area,
                     self.theme.text,
                 );
 

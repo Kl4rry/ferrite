@@ -1,7 +1,7 @@
 use std::{hash::Hash, sync::Arc};
 
 use ferrite_runtime::{Bounds, Painter, View};
-use ferrite_utility::graphemes::RopeGraphemeExt;
+use ferrite_utility::{graphemes::RopeGraphemeExt, tui_buf_ext::TuiBufExt};
 use ropey::Rope;
 
 use crate::theme::EditorTheme;
@@ -43,11 +43,11 @@ where
             let text_width = rope.width(0);
             let left_padding = (area.width / 2).saturating_sub(text_width / 2);
             let x = area.x + left_padding;
-            buf.set_stringn(
+            buf.draw_string(
                 x as u16,
                 y as u16,
                 line.as_str().unwrap(),
-                area.width - left_padding,
+                area.into(),
                 self.theme.text,
             );
         }

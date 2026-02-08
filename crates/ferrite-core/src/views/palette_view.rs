@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ferrite_runtime::{Bounds, Painter, View, any_view::AnyView};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 
 use super::one_line_input_view::OneLineInputView;
 use crate::{
@@ -97,11 +98,11 @@ impl View<CommandPalette> for PaletteView {
                     if i >= area.height {
                         break;
                     }
-                    buf.set_stringn(
+                    buf.draw_string(
                         (area.x + 1) as u16,
                         (area.y + i) as u16,
                         line,
-                        area.width.saturating_sub(1),
+                        area.into(),
                         self.theme.text,
                     );
                 }
@@ -111,11 +112,11 @@ impl View<CommandPalette> for PaletteView {
                     if i >= area.height {
                         break;
                     }
-                    buf.set_stringn(
+                    buf.draw_string(
                         (area.x + 1) as u16,
                         (area.y + i) as u16,
                         line,
-                        area.width.saturating_sub(1),
+                        area.into(),
                         self.theme.error_text,
                     );
                 }
@@ -133,11 +134,11 @@ impl View<CommandPalette> for PaletteView {
                     if i >= area.height {
                         break;
                     }
-                    buf.set_stringn(
+                    buf.draw_string(
                         (area.x + 1) as u16,
                         (area.y + i) as u16,
                         line,
-                        area.width.saturating_sub(1),
+                        area.into(),
                         self.theme.text,
                     );
                 }

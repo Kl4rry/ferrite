@@ -343,22 +343,22 @@ impl View<Buffer> for EditorView {
                         theme.line_nr
                     };
 
-                    buf.set_stringn(
+                    buf.draw_string(
                         area.x as u16,
                         (area.y + i) as u16,
                         &line_number_str,
-                        area.width,
+                        area.into(),
                         line_nr_theme,
                     );
 
                     // TODO: rm temp alloc
                     let start_offset = " ".repeat(line.col_start_offset);
                     if text_area.width > 0 {
-                        buf.set_stringn(
+                        buf.draw_string(
                             text_area.x as u16,
                             (text_area.y + i) as u16,
                             &start_offset,
-                            text_area.width,
+                            text_area.into(),
                             theme.text,
                         );
                     }
@@ -367,11 +367,11 @@ impl View<Buffer> for EditorView {
                 let mut current_width: usize = 0;
 
                 let mut render_text = |text: &str, style: Style, current_width: usize| -> usize {
-                    buf.set_stringn(
+                    buf.draw_string(
                         (text_area.x + current_width) as u16,
                         (text_area.y + i) as u16,
                         text,
-                        text_area.width - current_width,
+                        text_area.into(),
                         style,
                     );
                     text.width()
@@ -835,11 +835,11 @@ impl View<Buffer> for EditorView {
                         let rect = rect.intersection(text_area);
                         if rect.area() > 0 {
                             Clear.render(rect.into(), buf);
-                            buf.set_stringn(
+                            buf.draw_string(
                                 (rect.x + 1) as u16,
                                 rect.y as u16,
                                 word,
-                                rect.width,
+                                rect.into(),
                                 tui::style::Style::default(),
                             );
                             let style = if i == buffer.views[view_id].completer.index {

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, Painter, View};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{palette::completer::Completer, theme::EditorTheme};
@@ -78,7 +79,13 @@ impl View<Completer> for CompleterView {
                 } else {
                     self.theme.completer
                 };
-                buf.set_stringn(x as u16, y as u16, option.display(), widest, style);
+                buf.draw_string(
+                    x as u16,
+                    y as u16,
+                    option.display(),
+                    completer_area.into(),
+                    style,
+                );
             }
         }
     }

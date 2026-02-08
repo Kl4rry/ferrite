@@ -90,6 +90,51 @@ where
 
 impl<T> Rect<T>
 where
+    T: Add<Output = T> + std::ops::Sub<Output = T> + Mul<Output = T> + PartialOrd + Copy + Ord,
+{
+    pub fn margin_left(&self, margin: T) -> Self {
+        let margin = margin.max(self.width);
+        Self {
+            x: self.x + margin,
+            y: self.y,
+            width: self.width - margin,
+            height: self.height,
+        }
+    }
+
+    pub fn margin_right(&self, margin: T) -> Self {
+        let margin = margin.max(self.width);
+        Self {
+            x: self.x,
+            y: self.y,
+            width: self.width - margin,
+            height: self.height,
+        }
+    }
+
+    pub fn margin_top(&self, margin: T) -> Self {
+        let margin = margin.max(self.width);
+        Self {
+            x: self.x,
+            y: self.y + margin,
+            width: self.width,
+            height: self.height - margin,
+        }
+    }
+
+    pub fn margin_bottom(&self, margin: T) -> Self {
+        let margin = margin.max(self.width);
+        Self {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height - margin,
+        }
+    }
+}
+
+impl<T> Rect<T>
+where
     T: Add<Output = T> + num_traits::int::PrimInt + num_traits::SaturatingSub,
 {
     pub fn clamp_within(&self, outer: Self) -> Self {
