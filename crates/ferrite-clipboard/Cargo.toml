@@ -1,0 +1,9 @@
+[package]
+name = "ferrite-clipboard"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arboard = { workspace = true, features = ["wayland-data-control"] }
+crossterm = { workspace = true, features = ["osc52"] }
+tracing = { workspace = true }

@@ -4,7 +4,6 @@ pub mod blame;
 pub mod buffer;
 pub mod buffer_watcher;
 pub mod byte_size;
-pub mod clipboard;
 pub mod cmd;
 pub mod config;
 pub mod engine;

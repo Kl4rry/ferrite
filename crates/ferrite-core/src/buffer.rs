@@ -34,7 +34,6 @@ use crate::{
         builder::BufferBuilder,
         completer::{Completer, CompletionSource},
     },
-    clipboard,
     cmd::LineMoveDir,
     event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy},
     language::detect::detect_language,
@@ -2218,8 +2217,8 @@ impl Buffer {
             }
         }
         #[cfg(target_os = "linux")]
-        clipboard::set_primary(text.clone());
-        clipboard::set_contents(text);
+        ferrite_clipboard::set_primary(text.clone());
+        ferrite_clipboard::set_contents(text);
     }
 
     pub fn cut(&mut self, view_id: ViewId) {
@@ -2274,7 +2273,7 @@ impl Buffer {
     }
 
     pub fn paste(&mut self, view_id: ViewId) {
-        let text = clipboard::get_contents();
+        let text = ferrite_clipboard::get_contents();
         let rope = Rope::from_str(&text);
 
         let lines = rope
@@ -2340,7 +2339,7 @@ impl Buffer {
         self.views[view_id].cursors.clear();
         self.set_cursor_pos(view_id, 0, col, line);
         self.set_anchor_pos(view_id, 0, col, line);
-        self.insert_text(view_id, &clipboard::get_primary(), true);
+        self.insert_text(view_id, &ferrite_clipboard::get_primary(), true);
         self.history.finish();
         self.on_file_changed(Some(view_id));
         self.update_completer(Some(view_id), CompleterEvent::None);
@@ -2565,7 +2564,7 @@ impl Buffer {
         {
             let start = self.views[_view_id].cursors.first().start();
             let end = self.views[_view_id].cursors.first().end();
-            clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
+            ferrite_clipboard::set_primary(self.rope.byte_slice(start..end).to_string());
         }
     }
 

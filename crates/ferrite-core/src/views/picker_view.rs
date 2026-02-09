@@ -94,7 +94,7 @@ where
                 search_field_area.x,
                 search_field_area.y,
                 PROMPT,
-                search_field_area.into(),
+                search_field_area,
                 self.theme.text,
             );
 

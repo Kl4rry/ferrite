@@ -20,7 +20,6 @@ use crate::{
     buffer::{self, Buffer, ViewId, encoding::get_encoding},
     buffer_watcher::BufferWatcher,
     byte_size::format_byte_size,
-    clipboard,
     cmd::Cmd,
     config::{
         Config,
@@ -136,7 +135,7 @@ impl Engine {
         let keymap = Keymap::from_editor(&config);
 
         if config.local_clipboard {
-            clipboard::set_local_clipboard(true);
+            ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::Local);
         }
 
         let themes = EditorTheme::load_themes();
@@ -2093,6 +2092,6 @@ impl Drop for Engine {
         for job in &mut self.shell_jobs {
             job.1.kill();
         }
-        clipboard::uninit();
+        ferrite_clipboard::uninit();
     }
 }

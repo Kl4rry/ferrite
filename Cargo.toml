@@ -18,7 +18,7 @@ cgmath = "0.18.0"
 chardetng = "0.1.17"
 content_inspector = "0.2.4"
 cosmic-text = "0.14.0"
-crossterm = "0.28.0"
+crossterm = "0.29.0"
 detect-indent = "0.1.0"
 directories = "5.0.0"
 dunce = "1.0.4"
@@ -26,6 +26,7 @@ encoding_rs = "0.8.31"
 executable-finder = "0.3.0"
 ferrite-blame = { path = "crates/ferrite-blame" }
 ferrite-cli = { path = "crates/ferrite-cli" }
+ferrite-clipboard = { path = "crates/ferrite-clipboard" }
 ferrite-core = { path = "crates/ferrite-core" }
 ferrite-ctx = { path = "crates/ferrite-ctx" }
 ferrite-geom = { path = "crates/ferrite-geom" }
@@ -84,6 +85,7 @@ winit = { version = "0.30.12", default-features = false, features = ["rwh_06", "
 anyhow = { workspace = true }
 directories = { workspace = true }
 ferrite-cli = { workspace = true }
+ferrite-clipboard = { workspace = true }
 ferrite-core = { workspace = true }
 ferrite-ctx = { workspace = true }
 ferrite-runtime = { workspace = true }

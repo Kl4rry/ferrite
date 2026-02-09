@@ -222,7 +222,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             }
             Event::Key(event) => {
                 profiling::scope!("key");
-                tracing::debug!("{:?}", event);
+                tracing::info!("{:?}", event);
                 self.dirty = true;
                 if event.kind == KeyEventKind::Press || event.kind == KeyEventKind::Repeat {
                     let keycode = glue::convert_keycode(event.code);
@@ -237,6 +237,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             }
             Event::Paste(string) => {
                 profiling::scope!("paste");
+                tracing::debug!("paste: {:?}", string);
                 self.dirty = true;
                 (self.input)(
                     &mut self.runtime.state,

@@ -152,8 +152,6 @@ fn main() -> Result<ExitCode> {
     tracing::subscriber::set_global_default(subscriber).unwrap();
     tracing_log::LogTracer::init().unwrap();
 
-    ferrite_core::clipboard::init(args.local_clipboard);
-
     #[derive(Debug)]
     enum Ui {
         Tui,
@@ -229,6 +227,7 @@ fn main() -> Result<ExitCode> {
 
 #[cfg(feature = "tui")]
 fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+    ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::Terminal);
     let (event_loop, proxy) = ferrite_term_platform::create_event_loop::<UserEvent>();
     let engine = Engine::new(args, proxy, rx)?;
     let platform =
@@ -241,6 +240,7 @@ fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<(
 fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
     #[cfg(not(target_os = "windows"))]
     maybe_disown(args);
+    ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::System);
     let (event_loop, proxy) = ferrite_winit_wgpu_platform::create_event_loop::<UserEvent>();
     let engine = Engine::new(args, proxy, rx)?;
     let runtime = Runtime::new(engine);
