@@ -227,7 +227,7 @@ fn main() -> Result<ExitCode> {
 
 #[cfg(feature = "tui")]
 fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
-    ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::Terminal);
+    ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::System);
     let (event_loop, proxy) = ferrite_term_platform::create_event_loop::<UserEvent>();
     let engine = Engine::new(args, proxy, rx)?;
     let platform =
