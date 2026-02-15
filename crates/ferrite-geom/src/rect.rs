@@ -153,11 +153,23 @@ where
 
 impl From<Rect> for tui_core::layout::Rect {
     fn from(rect: Rect) -> tui_core::layout::Rect {
+        let x = rect.x.try_into();
+        let y = rect.y.try_into();
+        let width = rect.width.try_into();
+        let height = rect.height.try_into();
+
+        if x.is_err() || y.is_err() || width.is_err() || height.is_err() {
+            panic!(
+                "x: {} y: {} width: {} height: {}",
+                rect.x, rect.y, rect.width, rect.height
+            );
+        }
+
         tui_core::layout::Rect {
-            x: rect.x.try_into().unwrap(),
-            y: rect.y.try_into().unwrap(),
-            width: rect.width.try_into().unwrap(),
-            height: rect.height.try_into().unwrap(),
+            x: x.unwrap(),
+            y: y.unwrap(),
+            width: width.unwrap(),
+            height: height.unwrap(),
         }
     }
 }

@@ -674,8 +674,10 @@ impl View<Buffer> for EditorView {
                         && end.line < buffer.line_pos(view_id) + buffer.get_view_lines(view_id)
                     {
                         let highlight_area = Rect {
-                            x: (start.column + text_area.left() - buffer.col_pos(view_id)),
-                            y: (start.line + text_area.top() - buffer.line_pos(view_id)),
+                            x: (start.column
+                                + text_area.left().saturating_sub(buffer.col_pos(view_id))),
+                            y: (start.line
+                                + text_area.top().saturating_sub(buffer.line_pos(view_id))),
                             width: (end.column - start.column),
                             height: (end.line - start.line + 1),
                         };
