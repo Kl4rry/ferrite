@@ -11,6 +11,7 @@ pub mod event_loop_proxy;
 pub mod file_explorer;
 pub mod focus;
 pub mod git;
+pub mod hex;
 pub mod indent;
 pub mod job_manager;
 pub mod jobs;

@@ -20,6 +20,9 @@ pub enum Cmd {
     OpenFile {
         path: PathBuf,
     },
+    OpenHex {
+        path: Option<PathBuf>,
+    },
     Cd {
         path: PathBuf,
     },
@@ -310,6 +313,7 @@ impl Cmd {
             New { .. } => "New",
             RotateFile => "Rotate file",
             OpenFile { .. } => "Open file",
+            OpenHex { .. } => "Open file as hex",
             Cd { .. } => "Change project directory",
             Save { .. } => "Save buffer",
             Language { .. } => "Language",
@@ -437,6 +441,7 @@ impl Cmd {
             ReopenBuffer => false,
             RotateFile => false,
             OpenFile { .. } => false,
+            OpenHex { .. } => false,
             Cd { .. } => false,
             Save { .. } => false,
             Language { .. } => false,

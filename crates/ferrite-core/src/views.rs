@@ -4,6 +4,8 @@ pub mod completer_view;
 pub mod container;
 pub mod editor_view;
 pub mod file_explorer_view;
+pub mod hex_view;
+pub mod info_line_hex_view;
 pub mod info_line_view;
 pub mod lens;
 pub mod logger_view;

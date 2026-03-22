@@ -198,6 +198,38 @@ impl Bounds {
         view_bounds.contains(view_position)
     }
 
+    pub fn left_columns(&self, columns: usize) -> Bounds {
+        let cell_size = self.cell_size();
+        let view_bounds = self.view_bounds();
+        Bounds::new(
+            Rect::new(
+                view_bounds.left(),
+                view_bounds.top(),
+                (columns as f32 * cell_size.x).round() as usize,
+                view_bounds.height,
+            ),
+            cell_size,
+            self.rounding,
+        )
+    }
+
+    pub fn right_columns(&self, columns: usize) -> Bounds {
+        let cell_size = self.cell_size();
+        let view_bounds = self.view_bounds();
+        Bounds::new(
+            Rect::new(
+                view_bounds
+                    .right()
+                    .saturating_sub((columns as f32 * cell_size.x).round() as usize),
+                view_bounds.top(),
+                (columns as f32 * cell_size.x).round() as usize,
+                view_bounds.height,
+            ),
+            cell_size,
+            self.rounding,
+        )
+    }
+
     pub fn top_lines(&self, lines: usize) -> Bounds {
         let cell_size = self.cell_size();
         let view_bounds = self.view_bounds();

@@ -9,8 +9,8 @@ use crate::{
     focus::Focus,
     layout::panes::PaneKind,
     views::{
-        editor_view::EditorView, file_explorer_view::FileExplorerView, lens::Lens,
-        logger_view::LoggerView,
+        editor_view::EditorView, file_explorer_view::FileExplorerView, hex_view::HexBufferView,
+        lens::Lens, logger_view::LoggerView,
     },
 };
 
@@ -38,6 +38,20 @@ impl PaneView {
                             .set_ceil_surface_size(true)
                             .set_scrollbar(true),
                             move |engine: &mut Engine| &mut engine.workspace.buffers[buffer_id],
+                        )),
+                        PaneKind::HexBuffer(hex_buffer_id, hex_view_id) => AnyView::new(Lens::new(
+                            HexBufferView::new(
+                                hex_view_id,
+                                engine.config.editor.clone(),
+                                engine.themes[&engine.config.editor.theme].clone(),
+                                engine.get_focus()
+                                    == Focus::Pane(PaneKind::HexBuffer(hex_buffer_id, hex_view_id)),
+                                engine.branch_watcher.current_branch(),
+                                engine.spinner.current(),
+                            ),
+                            move |engine: &mut Engine| {
+                                &mut engine.workspace.hex_buffers[hex_buffer_id]
+                            },
                         )),
                         PaneKind::FileExplorer(file_explorer_id) => AnyView::new(Lens::new(
                             FileExplorerView::new(

@@ -862,7 +862,11 @@ impl View<Buffer> for EditorView {
 
             if *scrollbar {
                 profiling::scope!("draw scrollbar");
-                let scrollbar_bounds = get_scrollbar_bounds(buffer, view_id, bounds);
+                let scrollbar_bounds = get_scrollbar_bounds(
+                    buffer.len_lines(),
+                    buffer.views[view_id].line_pos,
+                    bounds,
+                );
                 let cell_size = bounds.cell_size();
                 let rect = Rect::new(
                     view_bounds.x as f32 + view_bounds.width as f32 - cell_size.x,
@@ -973,15 +977,15 @@ impl View<Buffer> for EditorView {
     }
 }
 
-fn get_scrollbar_bounds(buffer: &Buffer, view_id: ViewId, bounds: Bounds) -> Rect<f32> {
+pub fn get_scrollbar_bounds(len_lines: usize, line_pos: f64, bounds: Bounds) -> Rect<f32> {
     let view_bounds = bounds.view_bounds();
     let cell_size = bounds.cell_size();
 
     let viewport_height = (view_bounds.height as f32 - cell_size.y).max(0.0);
-    let content_height = (buffer.len_lines() as f32 * cell_size.y + viewport_height - cell_size.y)
+    let content_height = (len_lines as f32 * cell_size.y + viewport_height - cell_size.y)
         .max(cell_size.y)
         - cell_size.y;
-    let content_offset = buffer.views[view_id].line_pos as f32 * cell_size.y;
+    let content_offset = line_pos as f32 * cell_size.y;
 
     let scrollbar_ratio = viewport_height / content_height;
     let scrollbar_pos_ratio = content_offset / content_height;
@@ -996,7 +1000,7 @@ fn get_scrollbar_bounds(buffer: &Buffer, view_id: ViewId, bounds: Bounds) -> Rec
     Rect::new(x, y, cell_size.x, thumb_heigh)
 }
 
-fn get_scrollbar_track(bounds: Bounds) -> Rect<f32> {
+pub fn get_scrollbar_track(bounds: Bounds) -> Rect<f32> {
     let view_bounds = bounds.view_bounds();
     let cell_size = bounds.cell_size();
     Rect::new(

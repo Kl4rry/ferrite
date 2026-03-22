@@ -31,6 +31,7 @@ use crate::{
     file_explorer::FileExplorer,
     focus::Focus,
     git::branch::BranchWatcher,
+    hex::{Hex, HexViewId},
     indent::Indentation,
     job_manager::{JobHandle, JobManager, Progress, Progressor},
     jobs::{SaveBufferJob, ShellJobHandle},
@@ -54,7 +55,7 @@ use crate::{
     theme::EditorTheme,
     timer::Timer,
     watcher::FileWatcher,
-    workspace::{BufferId, Workspace},
+    workspace::{BufferId, HexId, Workspace},
 };
 
 pub struct Engine {
@@ -392,14 +393,28 @@ impl Engine {
 
         // Its kinda hard to clean up all views created correctly. Here we just
         // find all views not connected to a pane and we just remove them.
-        for (buffer_id, buffer) in &mut self.workspace.buffers {
-            for view_id in buffer.views.keys().collect::<Vec<_>>() {
-                if !self
-                    .workspace
-                    .panes
-                    .contains(PaneKind::Buffer(buffer_id, view_id))
-                {
-                    buffer.views.remove(view_id);
+        {
+            for (buffer_id, buffer) in &mut self.workspace.buffers {
+                for view_id in buffer.views.keys().collect::<Vec<_>>() {
+                    if !self
+                        .workspace
+                        .panes
+                        .contains(PaneKind::Buffer(buffer_id, view_id))
+                    {
+                        buffer.views.remove(view_id);
+                    }
+                }
+            }
+
+            for (hex_buffer_id, hex_buffer) in &mut self.workspace.hex_buffers {
+                for hex_view_id in hex_buffer.views.keys().collect::<Vec<_>>() {
+                    if !self
+                        .workspace
+                        .panes
+                        .contains(PaneKind::HexBuffer(hex_buffer_id, hex_view_id))
+                    {
+                        hex_buffer.views.remove(hex_view_id);
+                    }
                 }
             }
         }
@@ -611,18 +626,20 @@ impl Engine {
                 self.cd(path);
             }
             Cmd::Split { direction } => {
-                let (buffer_id, view_id) = match self.workspace.panes.get_current_pane() {
+                let pane_kind = match self.workspace.panes.get_current_pane() {
                     PaneKind::Buffer(buffer_id, _) => {
                         let view_id = self.workspace.buffers[buffer_id].create_view();
                         self.load_view_data(buffer_id, view_id);
-                        (buffer_id, view_id)
+                        PaneKind::Buffer(buffer_id, view_id)
+                    }
+                    PaneKind::HexBuffer(hex_buffer_id, _) => {
+                        let hex_view_id = self.workspace.hex_buffers[hex_buffer_id].create_view();
+                        PaneKind::HexBuffer(hex_buffer_id, hex_view_id)
                     }
                     _ => self.get_next_buffer(),
                 };
 
-                self.workspace
-                    .panes
-                    .split(PaneKind::Buffer(buffer_id, view_id), direction);
+                self.workspace.panes.split(pane_kind, direction);
             }
             Cmd::RunShellCmd { args, pipe } => {
                 let cmd = args
@@ -642,6 +659,9 @@ impl Engine {
             }
             Cmd::OpenFile { path } => {
                 self.open_file(path, false);
+            }
+            Cmd::OpenHex { path } => {
+                self.open_hex(path);
             }
             Cmd::Save { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
@@ -798,7 +818,8 @@ impl Engine {
             Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
             Cmd::Logger => {
                 self.logger_state.lines_scrolled_up = 0.0;
-                self.workspace.panes.replace_current(PaneKind::Logger);
+                let old = self.workspace.panes.replace_current(PaneKind::Logger);
+                self.cleanup_pane(old);
             }
             Cmd::Theme { theme } => match theme {
                 Some(theme) =>
@@ -964,13 +985,7 @@ impl Engine {
                             .workspace
                             .panes
                             .replace_current(PaneKind::Buffer(choice.id, view_id));
-                        if let PaneKind::Buffer(id, view_id) = old {
-                            let buffer = &mut self.workspace.buffers[id];
-                            buffer.remove_view(view_id);
-                            if buffer.is_disposable() {
-                                self.workspace.buffers.remove(id);
-                            }
-                        }
+                        self.cleanup_pane(old);
                     }
                 } else if let Some(picker) = &mut self.global_search_picker {
                     let _ = picker.handle_input(input);
@@ -1007,6 +1022,13 @@ impl Engine {
                                 self.palette.set_error(err);
                             }
                         }
+                        PaneKind::HexBuffer(hex_buffer_id, hex_view_id) => {
+                            if let Err(err) = self.workspace.hex_buffers[hex_buffer_id]
+                                .handle_input(hex_view_id, input)
+                            {
+                                self.palette.set_error(err);
+                            }
+                        }
                         PaneKind::FileExplorer(file_explorer_id) => {
                             let cmd =
                                 self.workspace.file_explorers[file_explorer_id].handle_input(input);
@@ -1032,6 +1054,7 @@ impl Engine {
                     self.config.editor.case_insensitive_search,
                 );
             }
+            PaneKind::HexBuffer(..) => (),
             PaneKind::FileExplorer(file_explorer_id) => {
                 self.workspace.file_explorers[file_explorer_id].handle_search(text);
             }
@@ -1250,6 +1273,88 @@ impl Engine {
         }
     }
 
+    pub fn open_hex(&mut self, path: Option<impl AsRef<Path>>) -> bool {
+        let path = match path {
+            Some(path) => path.as_ref().to_path_buf(),
+            None => {
+                // TODO: open current text buffer as hex even if it has no path
+                if let Some((current_buffer, _)) = self.get_current_buffer() {
+                    let Some(path) = current_buffer.file() else {
+                        self.palette.set_error("Current buffer has no path");
+                        return false;
+                    };
+                    path.to_path_buf()
+                } else {
+                    self.palette
+                        .set_error("Cannot open this kind of buffer as hex");
+                    return false;
+                }
+            }
+        };
+
+        let real_path = match dunce::canonicalize(&path) {
+            Ok(path) => path,
+            Err(err) => {
+                self.palette.set_error(err);
+                return false;
+            }
+        };
+
+        match self
+            .workspace
+            .hex_buffers
+            .iter_mut()
+            .find(|(_, hex_buffer)| {
+                hex_buffer
+                    .file()
+                    .and_then(|path| dunce::canonicalize(path).ok())
+                    .as_deref()
+                    == Some(&real_path)
+            }) {
+            Some((hex_buffer_id, hex_buffer)) => {
+                let hex_view_id = hex_buffer.create_view();
+                let replaced = self
+                    .workspace
+                    .panes
+                    .replace_current(PaneKind::HexBuffer(hex_buffer_id, hex_view_id));
+                self.cleanup_pane(replaced);
+                true
+            }
+            None => match Hex::from_file(path) {
+                Ok(mut hex_buffer) => {
+                    let hex_view_id = hex_buffer.create_view();
+                    let (_hex_buffer_id, _hex_buffer) =
+                        self.insert_hex_buffer(hex_buffer, hex_view_id, true);
+                    true
+                }
+                Err(err) => {
+                    self.palette.set_error(err);
+                    false
+                }
+            },
+        }
+    }
+
+    pub fn cleanup_pane(&mut self, pane_kind: PaneKind) {
+        match pane_kind {
+            PaneKind::Buffer(buffer_id, view_id) => {
+                self.workspace.buffers[buffer_id].remove_view(view_id);
+                let buffer = &mut self.workspace.buffers[buffer_id];
+                buffer.remove_view(view_id);
+                if buffer.is_disposable() {
+                    self.workspace.buffers.remove(buffer_id);
+                }
+            }
+            PaneKind::HexBuffer(hex_buffer_id, hex_view_id) => {
+                self.workspace.hex_buffers[hex_buffer_id].remove_view(hex_view_id);
+            }
+            PaneKind::FileExplorer(file_explorer_id) => {
+                self.workspace.file_explorers.remove(file_explorer_id);
+            }
+            _ => (),
+        }
+    }
+
     pub fn open_file(&mut self, path: impl AsRef<Path>, create_file: bool) -> bool {
         let real_path = match dunce::canonicalize(&path) {
             Ok(path) => path,
@@ -1279,9 +1384,7 @@ impl Engine {
                     .workspace
                     .panes
                     .replace_current(PaneKind::Buffer(id, view_id));
-                if let PaneKind::Buffer(buffer_id, view_id) = replaced {
-                    self.workspace.buffers[buffer_id].remove_view(view_id);
-                }
+                self.cleanup_pane(replaced);
                 true
             }
             None => match Buffer::builder()
@@ -1507,15 +1610,7 @@ impl Engine {
             .workspace
             .panes
             .replace_current(PaneKind::FileExplorer(file_explorer_id));
-        match old {
-            PaneKind::Buffer(buffer_id, view_id) => {
-                self.workspace.buffers[buffer_id].remove_view(view_id);
-            }
-            PaneKind::FileExplorer(file_explorer_id) => {
-                self.workspace.file_explorers.remove(file_explorer_id);
-            }
-            PaneKind::Logger => (),
-        }
+        self.cleanup_pane(old);
     }
 
     pub fn close_current_buffer(&mut self) {
@@ -1553,32 +1648,34 @@ impl Engine {
     }
 
     /// Gets a buffer that can be used to replace the current pane with
-    fn get_next_buffer(&mut self) -> (BufferId, ViewId) {
+    fn get_next_buffer(&mut self) -> PaneKind {
         let mut next_buffer = None;
         let mut buffers: Vec<_> = self.workspace.buffers.iter_mut().collect();
         buffers.sort_by_key(|b| std::cmp::Reverse(b.1.get_last_interact()));
         for (buffer_id, buffer) in &mut buffers {
             if !self.workspace.panes.contains_buffer(*buffer_id) {
                 let view_id = buffer.create_view();
-                next_buffer = Some((*buffer_id, view_id));
+                next_buffer = Some(PaneKind::Buffer(*buffer_id, view_id));
                 break;
             }
         }
 
+        // TODO: add support for hex buffers
+
         if next_buffer.is_none()
             && let Some((buffer_id, buffer)) = buffers.first_mut()
         {
-            next_buffer = Some((*buffer_id, buffer.create_view()));
+            next_buffer = Some(PaneKind::Buffer(*buffer_id, buffer.create_view()));
         }
 
-        if let Some((buffer_id, view_id)) = next_buffer {
+        if let Some(PaneKind::Buffer(buffer_id, view_id)) = next_buffer {
             self.load_view_data(buffer_id, view_id);
         }
 
         next_buffer.unwrap_or_else(|| {
             let mut buffer = Buffer::new();
             let view_id = buffer.create_view();
-            (self.workspace.buffers.insert(buffer), view_id)
+            PaneKind::Buffer(self.workspace.buffers.insert(buffer), view_id)
         })
     }
 
@@ -1593,6 +1690,12 @@ impl Engine {
                     if self.workspace.buffers[buffer_id].is_disposable() {
                         self.workspace.buffers.remove(buffer_id);
                     }
+                }
+                PaneKind::HexBuffer(hex_buffer_id, hex_view_id) => {
+                    self.workspace.hex_buffers[hex_buffer_id].remove_view(hex_view_id);
+                    self.workspace
+                        .panes
+                        .remove_pane(PaneKind::HexBuffer(hex_buffer_id, hex_view_id));
                 }
                 PaneKind::FileExplorer(file_explorer_id) => {
                     self.workspace.file_explorers.remove(file_explorer_id);
@@ -1614,25 +1717,17 @@ impl Engine {
             }
             let buffer = self.workspace.buffers.remove(buffer_id).unwrap();
 
-            let (new_buffer_id, new_view_id) = self.get_next_buffer();
-            self.workspace
-                .panes
-                .replace_current(PaneKind::Buffer(new_buffer_id, new_view_id));
+            let pane_kind = self.get_next_buffer();
+            self.workspace.panes.replace_current(pane_kind);
 
             for (view_id, _) in buffer.views {
-                self.workspace.panes.replace(
-                    PaneKind::Buffer(buffer_id, view_id),
-                    PaneKind::Buffer(
-                        new_buffer_id,
-                        self.workspace.buffers[new_buffer_id].create_view(),
-                    ),
-                );
+                self.workspace
+                    .panes
+                    .replace(PaneKind::Buffer(buffer_id, view_id), pane_kind);
             }
         } else {
-            let (buffer_id, view_id) = self.get_next_buffer();
-            self.workspace
-                .panes
-                .replace_current(PaneKind::Buffer(buffer_id, view_id));
+            let pane_kind = self.get_next_buffer();
+            self.workspace.panes.replace_current(pane_kind);
         }
     }
 
@@ -1690,6 +1785,30 @@ impl Engine {
         Some((self.workspace.buffers.get_mut(buffer)?, view_id))
     }
 
+    pub fn insert_hex_buffer(
+        &mut self,
+        hex_buffer: Hex,
+        hex_view_id: HexViewId,
+        make_current: bool,
+    ) -> (HexId, &mut Hex) {
+        let hex_buffer_id = self.workspace.hex_buffers.insert(hex_buffer);
+        if make_current {
+            if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
+                self.workspace.buffers[buffer_id].remove_view(view_id);
+            }
+            let old = self
+                .workspace
+                .panes
+                .replace_current(PaneKind::HexBuffer(hex_buffer_id, hex_view_id));
+
+            self.cleanup_pane(old);
+        }
+        (
+            hex_buffer_id,
+            &mut self.workspace.hex_buffers[hex_buffer_id],
+        )
+    }
+
     pub fn insert_buffer(
         &mut self,
         buffer: Buffer,
@@ -1706,13 +1825,7 @@ impl Engine {
                 .panes
                 .replace_current(PaneKind::Buffer(buffer_id, view_id));
 
-            if let PaneKind::Buffer(id, view_id) = old {
-                let buffer = &mut self.workspace.buffers[id];
-                buffer.remove_view(view_id);
-                if buffer.is_disposable() {
-                    self.workspace.buffers.remove(id);
-                }
-            }
+            self.cleanup_pane(old);
         }
         (buffer_id, &mut self.workspace.buffers[buffer_id])
     }
@@ -1933,6 +2046,7 @@ impl Engine {
                 }
                 self.hide_pickers();
             }
+            PaneKind::HexBuffer(..) => (),
             PaneKind::FileExplorer(_) => {
                 self.palette.focus(
                     self.get_search_prompt(false),
@@ -2028,6 +2142,7 @@ impl Engine {
         }
         match self.workspace.panes.get_current_pane() {
             PaneKind::Buffer(..) => InputContext::Edit,
+            PaneKind::HexBuffer(..) => InputContext::Edit,
             PaneKind::Logger => InputContext::Edit,
             PaneKind::FileExplorer(_) => InputContext::FileExplorer,
         }

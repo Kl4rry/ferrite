@@ -4,7 +4,12 @@ use anyhow::bail;
 use serde::{Deserialize, Serialize};
 use slotmap::Key;
 
-use crate::{buffer::ViewId, file_explorer::FileExplorerId, workspace::BufferId};
+use crate::{
+    buffer::ViewId,
+    file_explorer::FileExplorerId,
+    hex::HexViewId,
+    workspace::{BufferId, HexId},
+};
 
 // TODO: Remove this
 pub type Rect = ferrite_geom::rect::Rect<usize>;
@@ -12,6 +17,7 @@ pub type Rect = ferrite_geom::rect::Rect<usize>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PaneKind {
     Buffer(BufferId, ViewId),
+    HexBuffer(HexId, HexViewId),
     FileExplorer(FileExplorerId),
     Logger,
 }
@@ -251,6 +257,7 @@ impl Pane {
         match self {
             Pane::Leaf(leaf) => match leaf {
                 PaneKind::Buffer(buffer_id, _) => *buffer_id == id,
+                PaneKind::HexBuffer(..) => false,
                 PaneKind::FileExplorer(_) => false,
                 PaneKind::Logger => false,
             },
@@ -511,7 +518,8 @@ pub mod layout {
     use crate::{
         buffer::{Buffer, cursor::Cursor},
         file_explorer::{FileExplorer, FileExplorerId},
-        workspace::BufferId,
+        hex::Hex,
+        workspace::{BufferId, HexId},
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -545,6 +553,7 @@ pub mod layout {
         fn from_pane_node(
             pane: &Pane,
             buffers: &SlotMap<BufferId, Buffer>,
+            hex_buffers: &SlotMap<HexId, Hex>,
             file_explorers: &SlotMap<FileExplorerId, FileExplorer>,
         ) -> Option<Self> {
             match pane {
@@ -558,6 +567,15 @@ pub mod layout {
                             cursors: view.cursors.clone(),
                             line_pos: view.line_pos_floored(),
                             col_pos: view.col_pos_floored(),
+                        }))
+                    }
+                    super::PaneKind::HexBuffer(hex_buffer_id, hex_view_id) => {
+                        let hex_buffer = hex_buffers.get(*hex_buffer_id)?;
+                        let path = hex_buffer.file()?.to_path_buf();
+                        Some(Self::Leaf(PaneKind::HexBuffer {
+                            path,
+                            line_pos: hex_buffers[*hex_buffer_id].views[*hex_view_id].line_pos
+                                as usize,
                         }))
                     }
                     super::PaneKind::FileExplorer(file_explorer_id) => {
@@ -575,8 +593,8 @@ pub mod layout {
                     split,
                     ratio,
                 } => {
-                    let left = Node::from_pane_node(left, buffers, file_explorers);
-                    let right = Node::from_pane_node(right, buffers, file_explorers);
+                    let left = Node::from_pane_node(left, buffers, hex_buffers, file_explorers);
+                    let right = Node::from_pane_node(right, buffers, hex_buffers, file_explorers);
                     match (left, right) {
                         (Some(left), Some(right)) => Some(Node::Internal {
                             left: Box::new(left),
@@ -595,6 +613,7 @@ pub mod layout {
         fn to_pane(
             &self,
             buffers: &mut SlotMap<BufferId, Buffer>,
+            hex_buffers: &mut SlotMap<HexId, Hex>,
             file_explorers: &mut SlotMap<FileExplorerId, FileExplorer>,
         ) -> Option<Pane> {
             match self {
@@ -621,6 +640,23 @@ pub mod layout {
                             buffer_id, view_id,
                         )))
                     }
+                    PaneKind::HexBuffer { path, line_pos } => {
+                        let (hex_buffer_id, hex_buffer) =
+                            hex_buffers
+                                .iter_mut()
+                                .find(|(_, buffer)| match buffer.file() {
+                                    Some(buffer_path) => buffer_path == path,
+                                    None => false,
+                                })?;
+                        let hex_view_id = hex_buffer.create_view();
+                        let view = &mut hex_buffer.views[hex_view_id];
+                        view.line_pos = *line_pos as f64;
+
+                        Some(super::Pane::Leaf(super::PaneKind::HexBuffer(
+                            hex_buffer_id,
+                            hex_view_id,
+                        )))
+                    }
                     PaneKind::FileExplorer { path, history } => {
                         Some(super::Pane::Leaf(super::PaneKind::FileExplorer({
                             let mut fe = FileExplorer::new(path.into());
@@ -636,8 +672,8 @@ pub mod layout {
                     split,
                     ratio,
                 } => {
-                    let left = left.to_pane(buffers, file_explorers);
-                    let right = right.to_pane(buffers, file_explorers);
+                    let left = left.to_pane(buffers, hex_buffers, file_explorers);
+                    let right = right.to_pane(buffers, hex_buffers, file_explorers);
                     match (left, right) {
                         (Some(left), Some(right)) => Some(super::Pane::Internal {
                             left: Box::new(left),
@@ -662,6 +698,10 @@ pub mod layout {
             line_pos: usize,
             col_pos: usize,
         },
+        HexBuffer {
+            path: PathBuf,
+            line_pos: usize,
+        },
         FileExplorer {
             path: PathBuf,
             history: HashMap<PathBuf, OsString>,
@@ -673,9 +713,13 @@ pub mod layout {
         pub fn to_panes(
             &self,
             buffers: &mut SlotMap<BufferId, Buffer>,
+            hex_buffers: &mut SlotMap<HexId, Hex>,
             file_explorers: &mut SlotMap<FileExplorerId, FileExplorer>,
         ) -> Option<super::Panes> {
-            let pane = self.node.as_ref()?.to_pane(buffers, file_explorers)?;
+            let pane = self
+                .node
+                .as_ref()?
+                .to_pane(buffers, hex_buffers, file_explorers)?;
             let pane_kind = match &self.current_pane {
                 Some(PaneKind::Buffer {
                     path,
@@ -694,6 +738,20 @@ pub mod layout {
                             view.line_pos = *line_pos as f64;
                             view.col_pos = *col_pos as f64;
                             super::PaneKind::Buffer(buffer_id, view_id)
+                        }
+                        None => pane.get_first_leaf(),
+                    }
+                }
+                Some(PaneKind::HexBuffer { path, line_pos }) => {
+                    match hex_buffers
+                        .iter_mut()
+                        .find(|(_, buffer)| buffer.file() == Some(path))
+                    {
+                        Some((hex_buffer_id, hex_buffer)) => {
+                            let hex_view_id = hex_buffer.create_view();
+                            let view = &mut hex_buffer.views[hex_view_id];
+                            view.line_pos = *line_pos as f64;
+                            super::PaneKind::HexBuffer(hex_buffer_id, hex_view_id)
                         }
                         None => pane.get_first_leaf(),
                     }
@@ -718,9 +776,10 @@ pub mod layout {
         pub fn from_panes(
             panes: &Panes,
             buffers: &SlotMap<BufferId, Buffer>,
+            hex_buffers: &SlotMap<HexId, Hex>,
             file_explorers: &SlotMap<FileExplorerId, FileExplorer>,
         ) -> Self {
-            let node = Node::from_pane_node(&panes.node, buffers, file_explorers);
+            let node = Node::from_pane_node(&panes.node, buffers, hex_buffers, file_explorers);
             let current_pane = match panes.current_pane {
                 super::PaneKind::Buffer(buffer_id, view_id) => {
                     let path = buffers[buffer_id].file();
@@ -733,6 +792,23 @@ pub mod layout {
                                     cursors: view.cursors.clone(),
                                     line_pos: view.line_pos_floored(),
                                     col_pos: view.col_pos_floored(),
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .flatten()
+                }
+                super::PaneKind::HexBuffer(hex_buffer_id, hex_view_id) => {
+                    let path = hex_buffers[hex_buffer_id].file();
+                    path.and_then(|path| {
+                        node.as_ref().map(|node| {
+                            if node.contains_path(path) {
+                                let view = &hex_buffers[hex_buffer_id].views[hex_view_id];
+                                Some(PaneKind::HexBuffer {
+                                    path: path.into(),
+                                    line_pos: view.line_pos as usize,
                                 })
                             } else {
                                 None

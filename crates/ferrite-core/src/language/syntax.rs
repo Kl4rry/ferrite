@@ -1030,10 +1030,8 @@ fn injection_for_match<'a>(
             // In addition to specifying the language name via the text of a
             // captured node, it can also be hard-coded via a `#set!` predicate
             // that sets the injection.language key.
-            "injection.language" => {
-                if language_name.is_none() {
-                    language_name = prop.value.as_ref().map(|s| s.as_ref().into())
-                }
+            "injection.language" if language_name.is_none() => {
+                language_name = prop.value.as_ref().map(|s| s.as_ref().into())
             }
 
             // By default, injections do not include the *children* of an

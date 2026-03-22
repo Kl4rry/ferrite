@@ -15,6 +15,7 @@ use crate::{
     buffer::{ViewId, cursor::Cursor},
     event_loop_proxy::{EventLoopProxy, UserEvent},
     file_explorer::{FileExplorer, FileExplorerId},
+    hex::Hex,
     indent::Indentation,
     layout::panes::{PaneKind, Panes, layout::Layout},
     watcher::{FileWatcher, TomlConfig},
@@ -22,6 +23,10 @@ use crate::{
 
 slotmap::new_key_type! {
     pub struct BufferId;
+}
+
+slotmap::new_key_type! {
+    pub struct HexId;
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -40,6 +45,7 @@ impl WorkspaceConfig {
 pub struct Workspace {
     pub buffers: SlotMap<BufferId, Buffer>,
     pub file_explorers: SlotMap<FileExplorerId, FileExplorer>,
+    pub hex_buffers: SlotMap<HexId, Hex>,
     pub buffer_extra_data: Vec<BufferData>,
     pub panes: Panes,
     pub config: WorkspaceConfig,
@@ -50,6 +56,7 @@ pub struct Workspace {
 pub struct WorkspaceData {
     buffers: Vec<BufferData>,
     open_buffers: Vec<PathBuf>,
+    open_hex_buffers: Vec<PathBuf>,
     layout: Layout,
 }
 
@@ -72,6 +79,7 @@ impl Default for Workspace {
         Self {
             buffers,
             file_explorers: SlotMap::with_key(),
+            hex_buffers: SlotMap::with_key(),
             buffer_extra_data: Vec::new(),
             panes: Panes::new(buffer_id, view_id),
             config: WorkspaceConfig::default(),
@@ -87,7 +95,13 @@ impl Workspace {
         let mut workspace_data = WorkspaceData {
             buffers: self.buffer_extra_data.clone(),
             open_buffers: Vec::new(),
-            layout: Layout::from_panes(&self.panes, &self.buffers, &self.file_explorers),
+            open_hex_buffers: Vec::new(),
+            layout: Layout::from_panes(
+                &self.panes,
+                &self.buffers,
+                &self.hex_buffers,
+                &self.file_explorers,
+            ),
         };
 
         for (path, buffer) in self
@@ -101,6 +115,15 @@ impl Workspace {
             }
 
             workspace_data.open_buffers.push(path.to_path_buf());
+        }
+
+        // TODO: use _hex to save line_pos
+        for (path, _hex) in self
+            .hex_buffers
+            .values()
+            .filter_map(|hex| hex.file().map(|path| (path, hex)))
+        {
+            workspace_data.open_hex_buffers.push(path.to_path_buf());
         }
 
         fs::create_dir_all(workspace_file.parent().unwrap())?;
@@ -117,6 +140,7 @@ impl Workspace {
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
     ) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
+        let mut hex_buffers: SlotMap<HexId, Hex> = SlotMap::with_key();
         let mut file_explorers: SlotMap<FileExplorerId, FileExplorer> = SlotMap::with_key();
 
         let workspace_dir = std::env::current_dir()?;
@@ -150,27 +174,56 @@ impl Workspace {
                     Err(err) => tracing::error!("Error loading buffer: {}", &err),
                 };
             }
+
+            for path in &workspace.open_hex_buffers {
+                let Ok(path) = dunce::canonicalize(path) else {
+                    continue;
+                };
+                // Avoid loading the same buffer twice as everthing assumes that buffers are unique
+                if hex_buffers
+                    .iter()
+                    .any(|(_, buffer)| buffer.file() == Some(&path))
+                {
+                    continue;
+                }
+                tracing::info!("Loaded workspace hex buffer: {}", path.display());
+                match Hex::from_file(path) {
+                    Ok(hex) => {
+                        hex_buffers.insert(hex);
+                    }
+                    Err(err) => tracing::error!("Error loading buffer: {}", &err),
+                };
+            }
         }
 
         let mut panes = workspace
             .layout
-            .to_panes(&mut buffers, &mut file_explorers)
+            .to_panes(&mut buffers, &mut hex_buffers, &mut file_explorers)
             // Its fine that these are ::null() as they are repaired below
             .unwrap_or_else(|| Panes::new(BufferId::null(), ViewId::null()));
 
-        if buffers.is_empty() {
-            let mut buffer = Buffer::new();
-            let view_id = buffer.create_view();
-            let buffer_id = buffers.insert(buffer);
-            panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
-        }
+        let current_buffer_valid = match panes.get_current_pane() {
+            PaneKind::Buffer(buffer_id, _) => buffers.get(buffer_id).is_some(),
+            PaneKind::HexBuffer(hex_buffer_id, _) => hex_buffers.get(hex_buffer_id).is_some(),
+            PaneKind::FileExplorer(file_explorer_id) => {
+                file_explorers.get(file_explorer_id).is_some()
+            }
+            PaneKind::Logger => true,
+        };
 
-        if let PaneKind::Buffer(buffer_id, _) = panes.get_current_pane()
-            && buffers.get(buffer_id).is_none()
-        {
-            let (buffer_id, buffer) = buffers.iter_mut().next().unwrap();
-            let view_id = buffer.create_view();
-            panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
+        if !current_buffer_valid {
+            if let Some((buffer_id, buffer)) = buffers.iter_mut().next() {
+                let view_id = buffer.create_view();
+                panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
+            } else if let Some((hex_buffer_id, hex_buffer)) = hex_buffers.iter_mut().next() {
+                let hex_view_id = hex_buffer.create_view();
+                panes.replace_current(PaneKind::HexBuffer(hex_buffer_id, hex_view_id));
+            } else {
+                let mut buffer = Buffer::new();
+                let view_id = buffer.create_view();
+                let buffer_id = buffers.insert(buffer);
+                panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
+            }
         }
 
         panes.ensure_current_pane_exists();
@@ -192,6 +245,7 @@ impl Workspace {
         Ok(Self {
             buffers,
             file_explorers,
+            hex_buffers,
             buffer_extra_data: workspace.buffers.clone(),
             panes,
             config,

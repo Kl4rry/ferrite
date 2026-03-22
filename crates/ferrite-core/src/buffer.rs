@@ -126,8 +126,8 @@ impl View {
             let mut removed = 0;
             for j in 0..new_cursors.len() {
                 if cursor.intersects(new_cursors[j - removed].1) {
-                    let (old_index, old) = new_cursors.remove(j - removed);
-                    i = old_index.min(0);
+                    let (_old_index, old) = new_cursors.remove(j - removed);
+                    i = 0;
                     cursor = cursor.coalesce(old);
                     removed += 1;
                 }
@@ -2430,7 +2430,7 @@ impl Buffer {
             self.views[view_id].cursors.first_mut().anchor =
                 self.views[view_id].cursors.first().position;
             if self.views[view_id].clamp_cursor {
-                self.scroll_main_cursor_into_view(view_id);
+                self.center_on_main_cursor(view_id);
             }
         }
     }

@@ -54,6 +54,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("open-file-explorer", Some(("path", CmdTemplateArg::Path)), true).build(|args| Cmd::OpenFileExplorer { path: args[0].take().map(|arg| arg.unwrap_path()) }),
         CmdBuilder::new("number", Some(("start", CmdTemplateArg::Int)), true).build(|args| Cmd::Number { start: args[0].take().map(|arg| arg.unwrap_int()) }),
         CmdBuilder::new("revert-buffer", None, true).add_alias("rb").build(|_| Cmd::RevertBuffer),
+        CmdBuilder::new("open-hex", Some(("path", CmdTemplateArg::Path)), true).add_alias("hx").build(|args| Cmd::OpenHex { path: args[0].take().map(|arg| arg.unwrap_path()) }),
         CmdBuilder::new("open", Some(("path", CmdTemplateArg::Path)), false).add_alias("o").build(|args| Cmd::OpenFile { path: args[0].take().unwrap().unwrap_path() }),
         CmdBuilder::new("cd", Some(("path", CmdTemplateArg::Path)), false).build(|args| Cmd::Cd { path: args[0].take().unwrap().unwrap_path() }),
         CmdBuilder::new("save", Some(("path", CmdTemplateArg::Path)), true).add_alias("s").build(|args| Cmd::Save {path: args[0].take().map(|arg| arg.unwrap_path()) }),
