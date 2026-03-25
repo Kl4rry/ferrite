@@ -89,7 +89,6 @@ where
         buffer.set_view_columns(view_id, area.width);
         buffer.views[view_id].cursors.clear();
         buffer.views[view_id].clamp_cursor = true;
-        let view = buffer.get_buffer_view(view_id);
 
         let mut left_prompt_width = 0;
         if let Some(left_prompt) = left_prompt {
@@ -112,10 +111,11 @@ where
                 height: 1,
             };
 
-            buf.draw_string(
-                text_area.x as u16,
-                text_area.y as u16,
-                view.lines[0].text.to_string(),
+            let string = buffer.rope().line(0).to_string(); // TODO: rm tmp alloc
+            buf.draw_string_i32(
+                text_area.x as i32 - buffer.views[view_id].col_pos_floored() as i32,
+                text_area.y as i32,
+                string,
                 text_area.into(),
                 self.theme.text,
             );

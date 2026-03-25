@@ -451,39 +451,6 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn get_buffer_view(&self, view_id: ViewId) -> BufferView {
-        let view = &self.views[view_id];
-        let end_line = cmp::min(
-            self.rope.len_lines(),
-            view.view_lines + view.line_pos_floored(),
-        );
-
-        let mut lines = Vec::new();
-        for line_idx in view.line_pos_floored()..end_line {
-            let Some(line) = self.rope.get_line(line_idx) else {
-                break;
-            };
-            let mut idx = 0;
-            let mut width = 0;
-            for grapheme in line.graphemes() {
-                if width >= view.col_pos_floored() {
-                    break;
-                }
-                width += grapheme.width(width);
-                idx += grapheme.len_bytes();
-            }
-            let line = line.byte_slice(idx..);
-            lines.push(ViewLine {
-                text: line,
-                col_start_offset: width.saturating_sub(view.col_pos_floored()),
-                text_start_col: self.rope.get_text_start_col(line_idx),
-                text_end_col: self.rope.get_text_end_col(line_idx),
-            });
-        }
-
-        BufferView { lines }
-    }
-
     pub fn rope(&self) -> &Rope {
         &self.rope
     }
@@ -2696,6 +2663,17 @@ impl Buffer {
         start..end
     }
 
+    pub fn view_range_lines(&self, view_id: ViewId) -> Range<usize> {
+        let view = &self.views[view_id];
+        let start_line = cmp::min(self.rope.len_lines(), view.line_pos_floored());
+        let end_line = cmp::min(
+            self.rope.len_lines(),
+            view.view_lines + view.line_pos_floored(),
+        );
+
+        start_line..end_line
+    }
+
     pub fn start_search(
         &mut self,
         view_id: ViewId,
@@ -3543,18 +3521,6 @@ impl Buffer {
 enum CompleterEvent {
     Insert,
     None,
-}
-
-#[derive(Debug)]
-pub struct ViewLine<'a> {
-    pub text: RopeSlice<'a>,
-    pub col_start_offset: usize,
-    pub text_start_col: usize,
-    pub text_end_col: usize,
-}
-
-pub struct BufferView<'a> {
-    pub lines: Vec<ViewLine<'a>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]

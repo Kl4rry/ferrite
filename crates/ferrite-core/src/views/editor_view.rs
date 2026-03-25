@@ -19,7 +19,6 @@ use rayon::{
     iter::IndexedParallelIterator,
     prelude::{IntoParallelRefIterator, ParallelIterator},
 };
-use ropey::RopeSlice;
 use tui::{prelude::Widget as _, widgets::Clear};
 use unicode_width::UnicodeWidthStr;
 
@@ -312,12 +311,10 @@ impl View<Buffer> for EditorView {
         // We have to overwrite all rendered whitespace with the correct color
         let mut dim_cells = Vec::new(); // TODO: tmp alloc
         let mut grapheme_buffer = ArenaString::with_capacity_in(100, &arena);
-        let view = buffer.get_buffer_view(view_id);
+        let view_line_range = buffer.view_range_lines(view_id);
         {
             profiling::scope!("render text");
-            for (i, (line, line_number)) in view
-                .lines
-                .iter()
+            for (i, (line_idx, line_number)) in view_line_range
                 .zip((buffer.line_pos(view_id) + 1)..=buffer.line_pos(view_id) + buffer.len_lines())
                 .enumerate()
             {
@@ -350,26 +347,15 @@ impl View<Buffer> for EditorView {
                         area.into(),
                         line_nr_theme,
                     );
-
-                    // TODO: rm temp alloc
-                    let start_offset = " ".repeat(line.col_start_offset);
-                    if text_area.width > 0 {
-                        buf.draw_string(
-                            text_area.x as u16,
-                            (text_area.y + i) as u16,
-                            &start_offset,
-                            text_area.into(),
-                            theme.text,
-                        );
-                    }
                 }
 
                 let mut current_width: usize = 0;
 
                 let mut render_text = |text: &str, style: Style, current_width: usize| -> usize {
-                    buf.draw_string(
-                        (text_area.x + current_width) as u16,
-                        (text_area.y + i) as u16,
+                    buf.draw_string_i32(
+                        (text_area.x + current_width) as i32
+                            - buffer.views[view_id].col_pos_floored() as i32,
+                        (text_area.y + i) as i32,
                         text,
                         text_area.into(),
                         style,
@@ -385,15 +371,17 @@ impl View<Buffer> for EditorView {
                     }
                 };
 
-                let text = line.text.line_without_line_ending(0);
+                let text = buffer.rope().line_without_line_ending(line_idx);
+                // let text_start_col = text.get_text_start_col(0); used by rulers tmp removed
+                let text_end_col = text.get_text_end_col(0);
                 for grapheme in text.graphemes() {
-                    if current_width >= text_area.width {
+                    if current_width >= text_area.width + buffer.views[view_id].col_pos_floored() {
                         break;
                     }
 
                     if grapheme.starts_with_char('\t') {
                         let tab_width = tab_width_at(current_width, TAB_WIDTH);
-                        if render_whitespace(current_width, line.text_end_col) {
+                        if render_whitespace(current_width, text_end_col) {
                             dim_cells.push((current_width, i));
                             grapheme_buffer.push('→');
                         } else {
@@ -411,7 +399,7 @@ impl View<Buffer> for EditorView {
                         current_width += render_text("�", theme.text, current_width);
                     } else if grapheme.is_whitespace() {
                         let width = grapheme.width(current_width);
-                        if render_whitespace(current_width, line.text_end_col) {
+                        if render_whitespace(current_width, text_end_col) {
                             dim_cells.push((current_width, i));
                             current_width += render_text("·", theme.dim_text, current_width);
                         } else {
@@ -429,7 +417,7 @@ impl View<Buffer> for EditorView {
                     }
                 }
             }
-            let mut ruler_cells = Vec::new();
+            /*let mut ruler_cells = Vec::new();
             if !view.lines.is_empty() && config.show_indent_rulers {
                 profiling::scope!("indent rulers");
                 // TODO fix empty line gaps in blocks using tree-sitter indent queries
@@ -462,7 +450,7 @@ impl View<Buffer> for EditorView {
                         ruler_cells.push((col, line));
                     }
                 }
-            }
+            }*/
 
             let mut draw_cursor_line = true;
 
@@ -614,11 +602,11 @@ impl View<Buffer> for EditorView {
                 }
             }
 
-            for (col, line) in ruler_cells {
+            /*for (col, line) in ruler_cells {
                 let cell = buf.cell_mut((col as u16, line as u16)).unwrap();
                 cell.set_char('│');
                 cell.set_style(theme.ruler);
-            }
+            }*/
 
             for rect in cursor_rects {
                 match config.gui.cursor_type {

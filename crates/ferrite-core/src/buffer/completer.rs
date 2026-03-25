@@ -92,10 +92,14 @@ impl Completer {
     }
 
     #[profiling::function]
-    pub fn update_query(&mut self, words: Arc<Mutex<Vec<String>>>, query: String) {
+    pub fn update_query(&mut self, words: Arc<Mutex<Vec<String>>>, mut query: String) {
         tracing::debug_span!("update_query");
         self.last_query.clear();
         self.last_query.push_str(&query);
+
+        if query.len() > 30 {
+            query = String::new();
+        }
 
         if query.is_empty() {
             self.matching_words.clear();

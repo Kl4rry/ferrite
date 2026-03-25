@@ -1,3 +1,4 @@
+use ferrite_geom::rect::{Rect, Vec2};
 use ropey::RopeSlice;
 use tui_core::style::Style;
 
@@ -14,13 +15,24 @@ pub trait TuiBufExt {
     ) where
         T: AsRef<str>,
         S: Into<Style>;
+
+    fn draw_string_i32<T, S>(
+        &mut self,
+        x: i32,
+        y: i32,
+        string: T,
+        area: tui_core::layout::Rect,
+        style: S,
+    ) where
+        T: AsRef<str>,
+        S: Into<Style>;
 }
 
 // TODO: switch coord type to i32
 impl TuiBufExt for tui_core::buffer::Buffer {
     fn draw_string<T, S>(
         &mut self,
-        mut x: u16,
+        x: u16,
         y: u16,
         string: T,
         area: tui_core::layout::Rect,
@@ -29,16 +41,30 @@ impl TuiBufExt for tui_core::buffer::Buffer {
         T: AsRef<str>,
         S: Into<Style>,
     {
+        self.draw_string_i32(x as i32, y as i32, string, area, style);
+    }
+
+    fn draw_string_i32<T, S>(
+        &mut self,
+        mut x: i32,
+        y: i32,
+        string: T,
+        area: tui_core::layout::Rect,
+        style: S,
+    ) where
+        T: AsRef<str>,
+        S: Into<Style>,
+    {
+        let area = Rect::new(
+            area.x as i32,
+            area.y as i32,
+            area.width as i32,
+            area.height as i32,
+        );
         let string = string.as_ref();
         if y < area.y || y >= area.y + area.height {
             return;
         }
-        let mut graphemes_to_skip = if x < area.x {
-            x.saturating_sub(area.x)
-        } else {
-            0
-        };
-        let mut remaining_width = area.width.saturating_sub(x.saturating_sub(area.x)) as usize;
         let rope = RopeSlice::from(string);
 
         let graphemes = rope
@@ -54,31 +80,29 @@ impl TuiBufExt for tui_core::buffer::Buffer {
 
         let style = style.into();
         for (symbol, width) in graphemes {
-            if graphemes_to_skip > width {
-                graphemes_to_skip -= width;
-                continue;
-            } else {
-                // Add some padding if the last grapheme is larger then 1 cell
-                x += graphemes_to_skip;
-            }
-
-            remaining_width = match remaining_width.checked_sub(width.into()) {
-                Some(remaining_width) => remaining_width,
-                None => break,
-            };
-
-            if let Some(cell) = self.cell_mut((x, y)) {
+            if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y))
+                && area.contains(Vec2::new(x.into(), y.into()))
+                && let Some(cell) = self.cell_mut((x, y))
+            {
                 cell.set_symbol(symbol.as_str().expect("rope slice should be contiguous"))
                     .set_style(style);
             }
-            let next_symbol = x + width;
+            let next_symbol = x + width as i32;
             x += 1;
             // Reset following cells if multi-width (they would be hidden by the grapheme)
             while x < next_symbol {
-                if let Some(cell) = self.cell_mut((x, y)) {
+                if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y))
+                    && area.contains(Vec2::new(x.into(), y.into()))
+                    && let Some(cell) = self.cell_mut((x, y))
+                {
                     cell.reset();
                 }
                 x += 1;
+            }
+
+            // Early exit optimization when we have a small area and very long string
+            if x > area.x + area.width {
+                break;
             }
         }
     }

@@ -63,8 +63,8 @@ where
     pub fn contains(&self, point: Vec2<T>) -> bool {
         point.x >= self.x
             && point.y >= self.y
-            && point.x <= self.x + self.width
-            && point.y <= self.y + self.height
+            && point.x < self.x + self.width
+            && point.y < self.y + self.height
     }
 
     pub fn area(&self) -> T {
