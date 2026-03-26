@@ -2790,17 +2790,23 @@ impl Buffer {
 
     pub fn guess_indent(&self, byte_index: usize) -> String {
         let line_idx = self.rope.byte_to_line(byte_index);
-        let line = self.rope.line(line_idx);
-
-        let mut indent = String::new();
-        for grapheme in line.graphemes() {
-            if !grapheme.is_whitespace() {
-                break;
+        for line_idx in (0..line_idx).rev() {
+            let line = self.rope.line_without_line_ending(line_idx);
+            if line.len_bytes() == 0 {
+                continue;
             }
-            indent.extend(grapheme.chunks());
-        }
 
-        self.indent.from_width(Rope::from_str(&indent).width(0))
+            let mut indent = String::new();
+            for grapheme in line.graphemes() {
+                if !grapheme.is_whitespace() {
+                    break;
+                }
+                indent.extend(grapheme.chunks());
+            }
+
+            return self.indent.from_width(Rope::from_str(&indent).width(0));
+        }
+        String::new()
     }
 
     pub fn sort_lines(&mut self, view_id: ViewId, asc: bool) {
