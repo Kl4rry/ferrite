@@ -145,7 +145,7 @@ impl Engine {
 
         let job_manager = JobManager::new(proxy.dup());
 
-        let workspace = match Workspace::load_workspace(true, proxy.dup()) {
+        let workspace = match Workspace::load_workspace(true, proxy.dup(), &mut palette.histories) {
             Ok(workspace) => workspace,
             Err(err) => {
                 tracing::error!("Error loading workspace: {err}");
@@ -1171,7 +1171,7 @@ impl Engine {
 
     fn cd(&mut self, path: impl AsRef<Path>) {
         let path = path.as_ref();
-        if let Err(err) = self.workspace.save_workspace() {
+        if let Err(err) = self.workspace.save_workspace(&self.palette.histories) {
             self.palette.set_error(err);
         }
         match env::set_current_dir(path) {
@@ -1192,7 +1192,11 @@ impl Engine {
                     }
                 }
 
-                self.workspace = match Workspace::load_workspace(true, self.proxy.dup()) {
+                self.workspace = match Workspace::load_workspace(
+                    true,
+                    self.proxy.dup(),
+                    &mut self.palette.histories,
+                ) {
                     Ok(workspace) => workspace,
                     Err(err) => {
                         let msg = format!("Error loading workspace: {err}");
@@ -2086,7 +2090,7 @@ fn get_exec(cmd: &str) -> Command {
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        if let Err(e) = self.workspace.save_workspace() {
+        if let Err(e) = self.workspace.save_workspace(&self.palette.histories) {
             tracing::error!("Error saving workspace: {e}");
         };
         for job in &mut self.shell_jobs {

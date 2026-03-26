@@ -19,9 +19,9 @@ use crate::{
 
 pub mod cmd_parser;
 pub mod completer;
-mod history;
+pub mod history;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum PaletteMode {
     Command,
@@ -92,7 +92,7 @@ pub enum PaletteState {
 pub struct CommandPalette {
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
     state: PaletteState,
-    histories: HashMap<PaletteMode, History>,
+    pub histories: HashMap<PaletteMode, History>,
 }
 
 impl CommandPalette {

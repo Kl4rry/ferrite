@@ -17,6 +17,7 @@ use crate::{
     file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,
     layout::panes::{PaneKind, Panes, layout::Layout},
+    palette::{PaletteMode, history::History},
     watcher::{FileWatcher, TomlConfig},
 };
 
@@ -51,6 +52,8 @@ pub struct WorkspaceData {
     buffers: Vec<BufferData>,
     open_buffers: Vec<PathBuf>,
     layout: Layout,
+    #[serde(default)] // Default as old data might not have this field
+    palette_histories: HashMap<PaletteMode, History>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,13 +84,14 @@ impl Default for Workspace {
 }
 
 impl Workspace {
-    pub fn save_workspace(&self) -> Result<()> {
+    pub fn save_workspace(&self, palette_histories: &HashMap<PaletteMode, History>) -> Result<()> {
         let workspace_dir = std::env::current_dir()?;
         let workspace_file = get_workspace_path(workspace_dir)?;
         let mut workspace_data = WorkspaceData {
             buffers: self.buffer_extra_data.clone(),
             open_buffers: Vec::new(),
             layout: Layout::from_panes(&self.panes, &self.buffers, &self.file_explorers),
+            palette_histories: palette_histories.clone(),
         };
 
         for (path, buffer) in self
@@ -115,6 +119,7 @@ impl Workspace {
     pub fn load_workspace(
         load_buffers: bool,
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
+        palette_histories: &mut HashMap<PaletteMode, History>,
     ) -> Result<Self> {
         let mut buffers: SlotMap<BufferId, Buffer> = SlotMap::with_key();
         let mut file_explorers: SlotMap<FileExplorerId, FileExplorer> = SlotMap::with_key();
@@ -188,6 +193,8 @@ impl Workspace {
             Ok(watcher) => config_watcher = Some(watcher),
             Err(err) => tracing::error!("Error starting language config watcher: {err}"),
         }
+
+        *palette_histories = workspace.palette_histories;
 
         Ok(Self {
             buffers,

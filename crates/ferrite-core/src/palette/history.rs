@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub struct History {
     entires: VecDeque<String>,
 }
