@@ -417,40 +417,6 @@ impl View<Buffer> for EditorView {
                     }
                 }
             }
-            /*let mut ruler_cells = Vec::new();
-            if !view.lines.is_empty() && config.show_indent_rulers {
-                profiling::scope!("indent rulers");
-                // TODO fix empty line gaps in blocks using tree-sitter indent queries
-                let mut last_text_start_col = 0;
-                'outer: for line in text_area.top()..text_area.bottom() {
-                    for col in text_area.left()..text_area.right() {
-                        let Some(view_line) = view.lines.get(line - text_area.y) else {
-                            break 'outer;
-                        };
-                        let text_start = if view_line.text.is_whitespace() {
-                            last_text_start_col
-                        } else {
-                            view_line.text_start_col
-                        };
-                        last_text_start_col = text_start;
-
-                        let visual_text_start = text_start + text_area.x;
-                        if col + buffer.col_pos(view_id) > visual_text_start || text_start == 0 {
-                            break;
-                        }
-
-                        let cell = buf.cell_mut((col as u16, line as u16)).unwrap();
-                        if !RopeSlice::from(cell.symbol()).is_whitespace()
-                            || (col - text_area.left() + buffer.col_pos(view_id))
-                                .is_multiple_of(buffer.indent.width())
-                        {
-                            continue;
-                        }
-
-                        ruler_cells.push((col, line));
-                    }
-                }
-            }*/
 
             let mut draw_cursor_line = true;
 
@@ -601,12 +567,6 @@ impl View<Buffer> for EditorView {
                     }
                 }
             }
-
-            /*for (col, line) in ruler_cells {
-                let cell = buf.cell_mut((col as u16, line as u16)).unwrap();
-                cell.set_char('│');
-                cell.set_style(theme.ruler);
-            }*/
 
             for rect in cursor_rects {
                 match config.gui.cursor_type {
