@@ -37,6 +37,9 @@ pub struct Args {
     /// enable profiling
     #[argh(switch, long = "profile")]
     pub profile: bool,
+    /// display version info
+    #[argh(switch, short = 'v', long = "version")]
+    pub version: bool,
 }
 
 pub fn parse() -> Args {

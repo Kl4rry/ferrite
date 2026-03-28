@@ -58,6 +58,13 @@ fn main() -> Result<ExitCode> {
 
     let args = ferrite_cli::parse();
 
+    if args.version {
+        let version = env!("CARGO_PKG_VERSION");
+        let name = env!("CARGO_PKG_NAME");
+        println!("{name} {version}");
+        return Ok(ExitCode::SUCCESS);
+    }
+
     if args.init {
         Editor::create_default_config(args.overwrite)?;
         eprintln!(
