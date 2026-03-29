@@ -27,10 +27,22 @@ static CLIPBOARD: Mutex<ClipboardState> = Mutex::new(ClipboardState::Nop);
 pub fn init(kind: ClipboardKind) {
     match kind {
         ClipboardKind::Terminal => {
-            *CLIPBOARD.lock().unwrap() = ClipboardState::Terminal(Clipboard::new().unwrap());
+            *CLIPBOARD.lock().unwrap() = match Clipboard::new() {
+                Ok(clipboard) => ClipboardState::Terminal(clipboard),
+                Err(err) => {
+                    tracing::error!("{err}");
+                    ClipboardState::Local(LocalClipboard::default())
+                }
+            };
         }
         ClipboardKind::System => {
-            *CLIPBOARD.lock().unwrap() = ClipboardState::System(Clipboard::new().unwrap());
+            *CLIPBOARD.lock().unwrap() = match Clipboard::new() {
+                Ok(clipboard) => ClipboardState::System(clipboard),
+                Err(err) => {
+                    tracing::error!("{err}");
+                    ClipboardState::Local(LocalClipboard::default())
+                }
+            };
         }
         ClipboardKind::Local => {
             *CLIPBOARD.lock().unwrap() = ClipboardState::Local(LocalClipboard::default());
