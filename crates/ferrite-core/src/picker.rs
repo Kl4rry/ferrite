@@ -167,27 +167,29 @@ where
         self.result.total
     }
 
+    pub fn move_up(&mut self) {
+        if self.selected == 0 {
+            self.selected = self.get_matches().len().saturating_sub(1);
+        } else {
+            self.selected = self.selected.saturating_sub(1);
+        }
+    }
+
+    pub fn move_down(&mut self) {
+        self.selected += 1;
+    }
+
     pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
         let view_id = self.search_field.buffer.get_first_view_or_create();
         let mut enter = false;
         match input {
-            Cmd::MoveUp { .. } => {
-                if self.selected == 0 {
-                    self.selected = self.get_matches().len().saturating_sub(1);
-                } else {
-                    self.selected = self.selected.saturating_sub(1);
-                }
-            }
-            Cmd::MoveDown { .. } | Cmd::TabOrIndent { .. } => self.selected += 1,
+            Cmd::MoveUp { .. } => self.move_up(),
+            Cmd::MoveDown { .. } | Cmd::TabOrIndent { .. } => self.move_down(),
             Cmd::VerticalScroll { distance } => {
                 if distance.is_sign_negative() {
-                    if self.selected == 0 {
-                        self.selected = self.get_matches().len().saturating_sub(1);
-                    } else {
-                        self.selected = self.selected.saturating_sub(1);
-                    }
+                    self.move_up();
                 } else {
-                    self.selected += 1;
+                    self.move_down()
                 }
             }
             Cmd::Insert { text } => {

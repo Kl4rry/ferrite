@@ -959,6 +959,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrite-lsp-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ferrite-runtime"
 version = "0.1.0"
 dependencies = [

@@ -2598,8 +2598,10 @@ impl Buffer {
             let end_col = start_col + self.views[view_id].view_columns;
 
             if cursor_col <= start_col {
+                eprintln!("{} {}", cursor_col, start_col);
                 self.horizontal_scroll(view_id, -((start_col - cursor_col) as f64));
             } else if cursor_col >= end_col {
+                eprintln!("{} {}", cursor_col, end_col);
                 self.horizontal_scroll(view_id, (cursor_col - end_col + 1) as f64);
             }
         }
@@ -2790,7 +2792,7 @@ impl Buffer {
 
     pub fn guess_indent(&self, byte_index: usize) -> String {
         let line_idx = self.rope.byte_to_line(byte_index);
-        for line_idx in (0..line_idx).rev() {
+        for line_idx in (0..=line_idx).rev() {
             let line = self.rope.line_without_line_ending(line_idx);
             if line.len_bytes() == 0 {
                 continue;
