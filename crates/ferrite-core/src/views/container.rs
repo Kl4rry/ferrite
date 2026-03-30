@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use ferrite_geom::rect::Rect;
-use ferrite_runtime::{Bounds, View};
+use ferrite_geom::rect::{Rect, Vec2};
+use ferrite_runtime::{Bounds, MouseInterction, View};
 
 pub struct Container<V, S> {
     inner: V,
@@ -35,13 +35,8 @@ where
         self.grid_alinged = grid_alinged;
         self
     }
-}
 
-impl<V, S> View<S> for Container<V, S>
-where
-    V: View<S> + 'static,
-{
-    fn render(&self, state: &mut S, bounds: Bounds, painter: &mut ferrite_runtime::Painter) {
+    fn get_inner_bounds(&self, bounds: Bounds) -> Bounds {
         let cell_size = bounds.cell_size();
 
         let (x, y, width, height) = if self.grid_alinged {
@@ -72,6 +67,34 @@ where
             cell_size,
             bounds.rounding,
         );
+        inner_bounds
+    }
+}
+
+impl<V, S> View<S> for Container<V, S>
+where
+    V: View<S> + 'static,
+{
+    fn handle_mouse(
+        &self,
+        state: &mut S,
+        bounds: Bounds,
+        mouse_interaction: MouseInterction,
+    ) -> bool {
+        let inner_bounds = self.get_inner_bounds(bounds);
+        if inner_bounds.contains(Vec2::new(
+            mouse_interaction.position.x,
+            mouse_interaction.position.y,
+        )) {
+            return self
+                .inner
+                .handle_mouse(state, inner_bounds, mouse_interaction);
+        }
+        false
+    }
+
+    fn render(&self, state: &mut S, bounds: Bounds, painter: &mut ferrite_runtime::Painter) {
+        let inner_bounds = self.get_inner_bounds(bounds);
         self.inner.render(state, inner_bounds, painter);
     }
 }

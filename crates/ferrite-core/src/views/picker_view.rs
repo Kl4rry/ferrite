@@ -1,6 +1,6 @@
 use std::{borrow::Cow, sync::Arc};
 
-use ferrite_runtime::{Bounds, Painter, View};
+use ferrite_runtime::{Bounds, MouseInterction, Painter, View};
 use ferrite_utility::{graphemes::RopeGraphemeExt, tui_buf_ext::TuiBufExt};
 use ropey::RopeSlice;
 use tui::{
@@ -53,6 +53,16 @@ impl<M> View<Picker<M>> for PickerView
 where
     M: Matchable,
 {
+    fn handle_mouse(
+        &self,
+        _picker: &mut Picker<M>,
+        _bounds: Bounds,
+        _mouse_interaction: MouseInterction,
+    ) -> bool {
+        // TODO: allow click on items and selecting text in buffer maybe
+        true
+    }
+
     fn render(&self, picker: &mut Picker<M>, bounds: Bounds, painter: &mut Painter) {
         let area = bounds.grid_bounds();
         let layer = painter.create_layer(picker.unique_id(), bounds);

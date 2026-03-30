@@ -98,7 +98,7 @@ pub fn layout(engine: &mut Engine) -> AnyView<Engine> {
     let m_x = 4;
     let m_y = 2;
     if engine.file_picker.is_some() {
-        profiling::scope!("render tui file picker");
+        profiling::scope!("layout tui file picker");
         let p = Lens::new(
             PickerView::new(theme.clone(), config.clone(), "Open file"),
             |engine: &mut Engine| engine.file_picker.as_mut().unwrap(),
@@ -107,7 +107,7 @@ pub fn layout(engine: &mut Engine) -> AnyView<Engine> {
             Container::new(p).margin(m_x, m_y).grid_alinged(true),
         ));
     } else if engine.buffer_picker.is_some() {
-        profiling::scope!("render tui buffer picker");
+        profiling::scope!("layout tui buffer picker");
         let p = Lens::new(
             PickerView::new(theme.clone(), config.clone(), "Open buffer"),
             |engine: &mut Engine| engine.buffer_picker.as_mut().unwrap(),
@@ -116,7 +116,7 @@ pub fn layout(engine: &mut Engine) -> AnyView<Engine> {
             Container::new(p).margin(m_x, m_y).grid_alinged(true),
         ));
     } else if engine.global_search_picker.is_some() {
-        profiling::scope!("render tui search picker");
+        profiling::scope!("layout tui search picker");
         let p = Lens::new(
             PickerView::new(theme.clone(), config.clone(), "Matches")
                 .set_text_align(TextAlign::Left),

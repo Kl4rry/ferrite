@@ -19,10 +19,10 @@ impl<S> View<S> for ZStack<S> {
     ) -> bool {
         for layer in self.seq.iter().rev() {
             if layer.handle_mouse(state, bounds, mouse_interaction) {
-                break;
+                return true;
             }
         }
-        true
+        false
     }
 
     fn render(&self, state: &mut S, bounds: Bounds, painter: &mut Painter) {
