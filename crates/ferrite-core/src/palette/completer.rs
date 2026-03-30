@@ -183,7 +183,7 @@ impl Completer {
                         } else if b.1.starts_with(&text) {
                             Ordering::Greater
                         } else {
-                            b.1.cmp(a.1)
+                            a.1.len().cmp(&b.1.len())
                         }
                     }
                     cmp => cmp,
@@ -238,7 +238,7 @@ impl Completer {
                                     } else if b.1.starts_with(text) {
                                         Ordering::Greater
                                     } else {
-                                        b.1.cmp(a.1)
+                                        a.1.len().cmp(&b.1.len())
                                     }
                                 }
                                 cmp => cmp,
@@ -270,7 +270,7 @@ impl Completer {
                                     } else if b.1.starts_with(text) {
                                         Ordering::Greater
                                     } else {
-                                        b.1.cmp(a.1)
+                                        a.1.len().cmp(&b.1.len())
                                     }
                                 }
                                 cmp => cmp,
@@ -302,7 +302,7 @@ impl Completer {
                                     } else if b.1.starts_with(text) {
                                         Ordering::Greater
                                     } else {
-                                        b.1.cmp(a.1)
+                                        a.1.len().cmp(&b.1.len())
                                     }
                                 }
                                 cmp => cmp,
