@@ -249,7 +249,24 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             .renderer
             .prepare(&state.device, &state.queue, &state.config, layers);
 
-        let output = state.surface.get_current_texture().unwrap();
+        let output: wgpu::SurfaceTexture = match state.surface.get_current_texture() {
+            Ok(surface) => surface,
+            Err(wgpu::SurfaceError::Timeout) => {
+                tracing::error!("Timeout acquiring surface");
+                state.window.request_redraw();
+                return;
+            }
+            Err(wgpu::SurfaceError::Outdated | wgpu::SurfaceError::Lost) => {
+                tracing::error!("Surface lost or outdated");
+                state.surface.configure(&state.device, &state.config);
+                state
+                    .renderer
+                    .resize(state.config.width as f32, state.config.height as f32);
+                state.window.request_redraw();
+                return;
+            }
+            Err(err) => panic!("{}", err),
+        };
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
