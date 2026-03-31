@@ -38,6 +38,7 @@ pub fn calculate_char_size(
         text,
         &Attrs::new().weight(font_weight).family(Family::Monospace),
         shaping,
+        None,
     );
     let layout = buffer.line_layout(font_system, 0).unwrap();
     let w = layout[0].w;

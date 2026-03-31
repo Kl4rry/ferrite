@@ -57,7 +57,7 @@ where
             )
         };
 
-        let inner_bounds = Bounds::new(
+        Bounds::new(
             Rect::new(
                 (x + self.margin_x as f32 * cell_size.x) as usize,
                 (y + self.margin_y as f32 * cell_size.y) as usize,
@@ -66,8 +66,7 @@ where
             ),
             cell_size,
             bounds.rounding,
-        );
-        inner_bounds
+        )
     }
 }
 

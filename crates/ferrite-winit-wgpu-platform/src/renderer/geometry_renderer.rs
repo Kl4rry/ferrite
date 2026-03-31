@@ -185,7 +185,7 @@ impl GeometryRenderer {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Geometry render pipeline layout"),
                 bind_group_layouts: &[&Uniform::get_bind_group_layout(device)],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let vertex = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -240,8 +240,8 @@ impl GeometryRenderer {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
             cache: None,
+            multiview_mask: None,
         });
 
         let vertex_buffer_len = 128;

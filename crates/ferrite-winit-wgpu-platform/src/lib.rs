@@ -275,10 +275,12 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
                         }),
                         store: wgpu::StoreOp::Store,
                     },
+                    depth_slice: None,
                 })],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
+                multiview_mask: None,
             });
             state.renderer.render(&mut rpass);
         }
@@ -394,6 +396,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             required_limits: wgpu::Limits::default(),
             memory_hints: wgpu::MemoryHints::Performance,
             trace: wgpu::Trace::Off,
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
         }))
         .unwrap();
 
