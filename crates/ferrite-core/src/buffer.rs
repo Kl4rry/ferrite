@@ -2598,10 +2598,8 @@ impl Buffer {
             let end_col = start_col + self.views[view_id].view_columns;
 
             if cursor_col <= start_col {
-                eprintln!("{} {}", cursor_col, start_col);
                 self.horizontal_scroll(view_id, -((start_col - cursor_col) as f64));
             } else if cursor_col >= end_col {
-                eprintln!("{} {}", cursor_col, end_col);
                 self.horizontal_scroll(view_id, (cursor_col - end_col + 1) as f64);
             }
         }
