@@ -100,7 +100,7 @@ impl Workspace {
             .filter_map(|(_, buffer)| buffer.file().map(|path| (path, buffer)))
         {
             let language = &buffer.language_name();
-            if language.starts_with("git-") && *language != "git-config" {
+            if language.starts_with("git-") {
                 continue;
             }
 

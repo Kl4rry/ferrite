@@ -27,13 +27,14 @@ impl TreeSitterConfig {
         injection_query: &str,
         locals_query: &str,
     ) -> Self {
+        let name = name.into();
         let config = tree_house::LanguageConfig::new(
             Grammar::try_from(grammar).unwrap(),
             highlight_query,
             injection_query,
             locals_query,
         )
-        .unwrap();
+        .expect(&name);
         let mut capture_names = Vec::new();
         let mut i = 0;
         config.configure(|s| {
@@ -43,7 +44,7 @@ impl TreeSitterConfig {
             Some(Highlight::new(idx))
         });
         Self {
-            name: name.into(),
+            name,
             language_config: Arc::new(config),
             capture_names,
         }
@@ -113,16 +114,12 @@ static LANGUAGES: LazyLock<Vec<(&str, u32, OnceLock<TreeSitterConfig>)>> = LazyL
         ("ini", get_id(), OnceLock::new()),
         #[cfg(feature = "lang-diff")]
         ("diff", get_id(), OnceLock::new()),
-        #[cfg(feature = "lang-git-config")]
-        (git - "config", get_id(), OnceLock::new()),
         #[cfg(feature = "lang-git-commit")]
-        (git - "commit", get_id(), OnceLock::new()),
-        #[cfg(feature = "lang-rebase")]
-        (git - "rebase", get_id(), OnceLock::new()),
+        ("git-rebase", get_id(), OnceLock::new()),
         #[cfg(feature = "lang-dockerfile")]
         ("dockerfile", get_id(), OnceLock::new()),
-        #[cfg(feature = "lang-protobuf")]
-        ("protobuf", get_id(), OnceLock::new()),
+        #[cfg(feature = "lang-proto")]
+        ("proto", get_id(), OnceLock::new()),
         #[cfg(feature = "lang-lua")]
         ("lua", get_id(), OnceLock::new()),
         #[cfg(feature = "lang-nu")]
@@ -176,7 +173,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-cmake")]
         "cmake" => TreeSitterConfig::new(
             "cmake",
-            ferrite_tree_sitter::tree_sitter_cmake::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_cmake::language(),
             include_str!("../../../queries/cmake/highlights.scm"),
             include_str!("../../../queries/cmake/injections.scm"),
             "",
@@ -192,7 +189,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-glsl")]
         "glsl" => TreeSitterConfig::new(
             "glsl",
-            ferrite_tree_sitter::tree_sitter_glsl::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_glsl::LANGUAGE_GLSL,
             include_str!("../../../queries/glsl/highlights.scm"),
             "",
             "",
@@ -224,7 +221,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-toml")]
         "toml" => TreeSitterConfig::new(
             "toml",
-            ferrite_tree_sitter::tree_sitter_toml::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_toml::language(),
             include_str!("../../../queries/toml/highlights.scm"),
             include_str!("../../../queries/toml/injections.scm"),
             "",
@@ -232,9 +229,9 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-xml")]
         "xml" => TreeSitterConfig::new(
             "xml",
-            ferrite_tree_sitter::tree_sitter_xml::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_xml::language(),
             include_str!("../../../queries/xml/highlights.scm"),
-            include_str!("../../../queries/xml/injections.scm"),
+            "",
             "",
         ),
         #[cfg(feature = "lang-yaml")]
@@ -256,7 +253,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-fish")]
         "fish" => TreeSitterConfig::new(
             "fish",
-            ferrite_tree_sitter::tree_sitter_fish::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_fish::language(),
             include_str!("../../../queries/fish/highlights.scm"),
             include_str!("../../../queries/fish/injections.scm"),
             "",
@@ -280,7 +277,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-ron")]
         "ron" => TreeSitterConfig::new(
             "ron",
-            ferrite_tree_sitter::tree_sitter_ron::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_ron::language(),
             include_str!("../../../queries/ron/highlights.scm"),
             include_str!("../../../queries/ron/injections.scm"),
             "",
@@ -296,7 +293,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-zig")]
         "zig" => TreeSitterConfig::new(
             "zig",
-            ferrite_tree_sitter::tree_sitter_zig::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_zig::language(),
             include_str!("../../../queries/zig/highlights.scm"),
             include_str!("../../../queries/zig/injections.scm"),
             "",
@@ -320,7 +317,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-typescript")]
         "typescript" => TreeSitterConfig::new(
             "typescript",
-            ferrite_tree_sitter::tree_sitter_typescript::language_typescript(),
+            ferrite_tree_sitter::tree_sitter_typescript::LANGUAGE_TYPESCRIPT,
             include_str!("../../../queries/typescript/highlights.scm"),
             include_str!("../../../queries/typescript/injections.scm"),
             include_str!("../../../queries/typescript/locals.scm"),
@@ -338,14 +335,6 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
             "diff",
             ferrite_tree_sitter::tree_sitter_diff::LANGUAGE,
             include_str!("../../../queries/diff/highlights.scm"),
-            "",
-            "",
-        ),
-        #[cfg(feature = "lang-git-config")]
-        "git-config" => TreeSitterConfig::new(
-            "git-config",
-            ferrite_tree_sitter::tree_sitter_git_config::language(),
-            include_str!("../../../queries/git-config/highlights.scm"),
             "",
             "",
         ),
@@ -368,17 +357,17 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-dockerfile")]
         "dockerfile" => TreeSitterConfig::new(
             "dockerfile",
-            ferrite_tree_sitter::tree_sitter_dockerfile::LANGUAGE,
+            ferrite_tree_sitter::tree_sitter_dockerfile::language(),
             include_str!("../../../queries/dockerfile/highlights.scm"),
             include_str!("../../../queries/dockerfile/injections.scm"),
             "",
         ),
-        #[cfg(feature = "lang-protobuf")]
-        "protobuf" => TreeSitterConfig::new(
-            "protobuf",
-            ferrite_tree_sitter::tree_sitter_protobuf::LANGUAGE,
-            include_str!("../../../queries/protobuf/highlights.scm"),
-            include_str!("../../../queries/protobuf/injections.scm"),
+        #[cfg(feature = "lang-proto")]
+        "proto" => TreeSitterConfig::new(
+            "proto",
+            ferrite_tree_sitter::tree_sitter_proto::LANGUAGE,
+            include_str!("../../../queries/proto/highlights.scm"),
+            include_str!("../../../queries/proto/injections.scm"),
             "",
         ),
         #[cfg(feature = "lang-lua")]
@@ -439,7 +428,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         (Suffix(".zig"), "zig"),
         (Suffix(".go"), "go"),
         (Suffix(".ts"), "ts"),
-        (Suffix(".proto"), "protobuf"),
+        (Suffix(".proto"), "proto"),
         (Suffix(".lua"), "lua"),
         (Suffix(".nu"), "nu"),
         (Name("hyprland.conf"), "hyprlang"),
@@ -517,6 +506,7 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         (Suffix(".directory"), "ini"),
         (Name(".editorconfig"), "ini"),
         (Name("rclone.conf"), "ini"),
+        (Name("git-config"), "ini"),
     ];
 
     let path = path.as_ref().file_name()?.to_string_lossy();

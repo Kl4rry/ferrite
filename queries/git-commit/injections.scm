@@ -1,8 +1,5 @@
-(((scissors)
-  (message) @injection.content)
- (#set! injection.include-children)
- (#set! injection.language "diff"))
+((diff) @injection.content
+  (#set! injection.language "diff"))
 
 ((rebase_command) @injection.content
- (#set! injection.include-children)
- (#set! injection.language "git-rebase"))
+  (#set! injection.language "git_rebase"))

@@ -19,7 +19,6 @@ use rayon::{
     iter::IndexedParallelIterator,
     prelude::{IntoParallelRefIterator, ParallelIterator},
 };
-use ropey::RopeSlice;
 use tree_house::highlighter::{Highlight, HighlightEvent};
 use tui::{prelude::Widget as _, widgets::Clear};
 use unicode_width::UnicodeWidthStr;

@@ -20,8 +20,6 @@ pub use tree_sitter_dockerfile;
 pub use tree_sitter_fish;
 #[cfg(feature = "lang-fortran")]
 pub use tree_sitter_fortran;
-#[cfg(feature = "lang-git-config")]
-pub use tree_sitter_git_config;
 #[cfg(feature = "lang-git-commit")]
 pub use tree_sitter_gitcommit;
 #[cfg(feature = "lang-glsl")]
@@ -44,8 +42,8 @@ pub use tree_sitter_lua;
 pub use tree_sitter_md;
 #[cfg(feature = "lang-nu")]
 pub use tree_sitter_nu;
-#[cfg(feature = "lang-protobuf")]
-pub use tree_sitter_protobuf;
+#[cfg(feature = "lang-proto")]
+pub use tree_sitter_proto;
 #[cfg(feature = "lang-python")]
 pub use tree_sitter_python;
 #[cfg(feature = "lang-rebase")]

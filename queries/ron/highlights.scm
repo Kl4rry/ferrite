@@ -1,44 +1,44 @@
+; Structs
+;------------
 
-(enum_variant) @constant
-(struct_entry (identifier) @variable.other.member)
-(struct_entry (enum_variant (identifier) @constant))
+(enum_variant) @type.variant
+(struct_entry (_) @keyword ":")
 (struct_name (identifier)) @type
 
-(unit_struct) @type.builtin
+
+; Literals
+;------------
+
+(string) @string
+(boolean) @constant.boolean
+(integer) @constant.numeric
+(float) @constant.numeric
+(char) @constant.character
+
+
+; Comments
+;------------
+
+(line_comment) @comment.line
+(block_comment) @comment.block
+
+
+; Punctuation
+;------------
+
+"," @punctuation.delimiter
+":" @punctuation.delimiter
+
+"(" @punctuation.bracket
+")" @punctuation.bracket
+"[" @punctuation.bracket
+"]" @punctuation.bracket
+"{" @punctuation.bracket
+"}" @punctuation.bracket
+
+
+; Special
+;------------
 
 (escape_sequence) @constant.character.escape
-(integer) @constant.numeric.integer
-(float) @constant.numeric.float
-(char) @constant.character
-(boolean) @constant.boolean
-[
-  (string)
-  (raw_string)
-] @string
-[
-  (line_comment)
-  (block_comment)
-] @comment
-
-; ---
-; Extraneous
-; ---
-
-(enum_variant (identifier) @type.enum.variant)
-
-; ---
-; Punctuation
-; ---
-
-["{" "}"] @punctuation.bracket
-
-["(" ")"] @punctuation.bracket
-
-["[" "]"] @punctuation.bracket
-
-[
-  ","
-  ":"
-] @punctuation.delimiter
-
 (ERROR) @error
