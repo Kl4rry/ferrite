@@ -2,7 +2,7 @@
   (container_doc_comment)
   (doc_comment)
   (line_comment)
-] @comment @spell
+] @comment
 
 [
   variable: (IDENTIFIER)
@@ -14,7 +14,7 @@ parameter: (IDENTIFIER) @parameter
 [
   field_member: (IDENTIFIER)
   field_access: (IDENTIFIER)
-] @field
+] @variable.other.member
 
 ;; assume TitleCase is a type
 (
@@ -75,9 +75,9 @@ field_constant: (IDENTIFIER) @constant
 ((BUILTINIDENTIFIER) @include
   (#any-of? @include "@import" "@cImport"))
 
-(INTEGER) @number
+(INTEGER) @constant.numeric
 
-(FLOAT) @float
+(FLOAT) @constant.numeric
 
 [
   "true"
@@ -87,7 +87,7 @@ field_constant: (IDENTIFIER) @constant
 [
   (LINESTRING)
   (STRINGLITERALSINGLE)
-] @string @spell
+] @string
 
 (CHAR_LITERAL) @character
 (EscapeSequence) @string.escape
@@ -141,16 +141,16 @@ field_constant: (IDENTIFIER) @constant
   "while"
   "break"
   "continue"
-] @repeat
+] @keyword
 
 [
   "usingnamespace"
-] @include
+] @keyword
 
 [
   "try"
   "catch"
-] @exception
+] @keyword
 
 [
   "anytype"

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bookstore>
+<!-- A bunch of books -->
+<book category="fiction">
+    <title>GFG</title>
+    <author>Fictional book </author>
+    <year>2002</year>
+    <price>5000</price>
+</book>
+    <book category="non-fiction">
+    <title>GFG 2 </title>
+    <author>non fictional book </author>
+    <year>2020</year>
+    <price>1000</price>
+    </book>
+</bookstore>

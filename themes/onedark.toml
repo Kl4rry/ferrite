@@ -75,9 +75,6 @@
 "diff.delta" = { fg = "gold" }
 "diff.minus" = { fg = "red" }
 
-# Special case for languages
-"type.builtin.rust" = { fg = "yellow" }
-
 [palette]
 yellow = "#e5c07b"
 blue = "#61afef"

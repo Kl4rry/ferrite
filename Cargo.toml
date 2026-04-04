@@ -110,13 +110,14 @@ talloc = ["dep:ferrite-talloc", "ferrite-core/talloc"]
 opt-level = 3
 
 [profile.test]
-#opt-level = 3
+opt-level = 3
 
 [profile.dev]
 panic = "abort"
 
 [profile.release]
 panic = "abort"
+codegen-units = 1
 opt-level = "s"
 lto = "thin"
 

@@ -2,13 +2,13 @@
 
 "xml" @keyword
 
-[ "version" "encoding" "standalone" ] @property
+[ "version" "encoding" "standalone" ] @attribute
 
 (EncName) @string.special
 
 (VersionNum) @number
 
-[ "yes" "no" ] @boolean
+[ "yes" "no" ] @constant.builtin.boolean
 
 ;; Processing instructions
 
@@ -23,7 +23,7 @@
   (Name) @tag)
 
 (contentspec
-  (_ (Name) @property))
+  (_ (Name) @attribute))
 
 "#PCDATA" @type.builtin
 
@@ -68,7 +68,7 @@
   "ATTLIST" @keyword
   (Name) @tag)
 
-(AttDef (Name) @property)
+(AttDef (Name) @attribute)
 
 (AttDef (Enumeration (Nmtoken) @string))
 
@@ -113,7 +113,7 @@
 
 (StyleSheetPI "xml-stylesheet" @keyword)
 
-(PseudoAtt (Name) @property)
+(PseudoAtt (Name) @attribute)
 
 (PseudoAtt (PseudoAttValue) @string)
 
@@ -133,7 +133,7 @@
 
 ;; Attributes
 
-(Attribute (Name) @property)
+(Attribute (Name) @attribute)
 
 (Attribute (AttValue) @string)
 

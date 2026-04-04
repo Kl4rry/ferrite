@@ -113,16 +113,14 @@
 
 (escape_sequence) @string.escape
 
-(int_lit) @number
+(int_lit) @constant.numeric
 
-(float_lit) @number.float
+(float_lit) @constant.numeric
 
 [
   (true)
   (false)
 ] @boolean
-
-(comment) @spell
 
 (comment) @comment
 

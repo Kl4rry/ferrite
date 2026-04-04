@@ -153,16 +153,23 @@ impl EditorTheme {
         })
     }
 
-    pub fn get_syntax(&self, name: &str) -> style::Style {
+    pub fn try_get_syntax(&self, name: &str) -> Option<style::Style> {
         let mut name = name;
         loop {
             match self.syntax.get(name) {
-                Some(style) => return *style,
+                Some(style) => return Some(*style),
                 None => match memrchr(b'.', name.as_bytes()) {
                     Some(i) => name = &name[..i],
                     None => break,
                 },
             }
+        }
+        return None;
+    }
+
+    pub fn get_syntax(&self, name: &str) -> style::Style {
+        if let Some(style) = self.try_get_syntax(name) {
+            return style;
         }
 
         thread_local! {

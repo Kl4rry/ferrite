@@ -12,6 +12,7 @@ use tree_sitter_language::LanguageFn;
 
 pub mod detect;
 pub mod syntax;
+mod test;
 
 pub struct TreeSitterConfig {
     pub name: String,
@@ -573,17 +574,5 @@ impl tree_house::LanguageLoader for LanguageLoader {
             }
         }
         None
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn language_load() {
-        for (name, _, _) in LANGUAGES.iter() {
-            println!("{name}");
-            assert!(get_lang_config(*name).is_some())
-        }
     }
 }

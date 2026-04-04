@@ -13,16 +13,16 @@
 
 (arrow) @punctuation.delimiter
 
-(subject) @markup.heading @spell
+(subject) @markup.heading
 
 (subject
-  (subject_prefix) @function @nospell)
+  (subject_prefix) @function)
 
 (prefix
-  (type) @keyword @nospell)
+  (type) @keyword)
 
 (prefix
-  (scope) @variable.parameter @nospell)
+  (scope) @variable.parameter)
 
 (prefix
   [
@@ -34,8 +34,6 @@
 (prefix
   "!" @punctuation.special)
 
-(message) @spell
-
 (trailer
   (token) @label)
 
@@ -44,6 +42,6 @@
   (token) @comment.error)
 
 (breaking_change
-  (value) @none @spell)
+  (value) @none)
 
 (scissor) @comment
