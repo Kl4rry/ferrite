@@ -77,7 +77,7 @@ fn parse_framing(reader: &mut (impl Read + BufRead)) -> anyhow::Result<String> {
     Ok(buf)
 }
 
-fn parse_json_rpc(text: &str) {
+fn parse_json_rpc(_text: &str) {
     #[derive(Serialize)]
     struct JsonRpc {
         jsonrpc: &'static str,

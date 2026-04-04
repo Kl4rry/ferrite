@@ -21,7 +21,7 @@ fn format(formatter: &str, rope: Rope) -> Result<(String, String), PopenError> {
         .stderr(Redirection::Pipe)
         .popen()?;
 
-    let mut input = Vec::new();
+    let mut input = Vec::new(); // TODO: rm tmp alloc
     for chunk in rope.chunks() {
         input.extend_from_slice(chunk.as_bytes());
     }
@@ -79,7 +79,7 @@ fn format_selection(
         .stderr(Redirection::Pipe)
         .popen()?;
 
-    let mut input = Vec::new();
+    let mut input = Vec::new(); // TODO: rm tmp alloc
     for chunk in rope.chunks() {
         input.extend_from_slice(chunk.as_bytes());
     }
