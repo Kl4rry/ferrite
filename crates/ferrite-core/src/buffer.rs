@@ -2651,14 +2651,13 @@ impl Buffer {
     }
 
     pub fn view_range(&self, view_id: ViewId) -> Range<usize> {
-        let start = self
-            .rope
-            .line_to_byte(self.views[view_id].line_pos_floored());
+        let start_line = self.views[view_id]
+            .line_pos_floored()
+            .min(self.rope.len_lines().saturating_sub(1));
+        let start = self.rope.line_to_byte(start_line);
         let end = self
             .rope
-            .try_line_to_byte(
-                self.views[view_id].line_pos_floored() + self.views[view_id].view_lines,
-            )
+            .try_line_to_byte(start_line + self.views[view_id].view_lines)
             .unwrap_or_else(|_| self.rope.len_bytes());
         start..end
     }
