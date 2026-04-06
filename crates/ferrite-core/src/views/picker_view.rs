@@ -1,6 +1,8 @@
 use std::{borrow::Cow, sync::Arc};
 
-use ferrite_runtime::{Bounds, MouseInterction, Painter, View};
+use ferrite_runtime::{
+    Bounds, MouseButton, MouseInterction, MouseInterctionKind, Painter, View, painter::CursorIcon,
+};
 use ferrite_utility::{graphemes::RopeGraphemeExt, tui_buf_ext::TuiBufExt};
 use ropey::RopeSlice;
 use tui::{
@@ -55,11 +57,41 @@ where
 {
     fn handle_mouse(
         &self,
-        _picker: &mut Picker<M>,
-        _bounds: Bounds,
-        _mouse_interaction: MouseInterction,
+        picker: &mut Picker<M>,
+        bounds: Bounds,
+        mouse_interaction: MouseInterction,
     ) -> bool {
-        // TODO: allow click on items and selecting text in buffer maybe
+        if !bounds.contains(mouse_interaction.position) {
+            return false;
+        }
+        let area = bounds.grid_bounds();
+        let area: Rect = tui::layout::Rect::from(area)
+            .inner(Margin {
+                horizontal: 1,
+                vertical: 1,
+            })
+            .into();
+        let (result_area, _preview_area) =
+            get_preview_and_result_area(area.into(), picker.has_previewer());
+        let result_bounds =
+            Bounds::from_grid_bounds(result_area.into(), bounds.cell_size(), bounds.rounding);
+        if !result_bounds.contains(mouse_interaction.position) {
+            return true;
+        }
+        let cell_position = mouse_interaction.cell_position(result_bounds.view_bounds().position());
+        let selected = picker.selected();
+        let start_page = selected / result_area.height as usize;
+        let new_index = start_page * result_area.height as usize + cell_position.y;
+
+        match mouse_interaction.kind {
+            MouseInterctionKind::Click(1) if mouse_interaction.button == MouseButton::Left => {
+                picker.set_selected(new_index);
+            }
+            MouseInterctionKind::Click(2) if mouse_interaction.button == MouseButton::Left => {
+                picker.set_choice(new_index);
+            }
+            _ => (),
+        }
         true
     }
 
@@ -68,6 +100,8 @@ where
         let layer = painter.create_layer(picker.unique_id(), bounds);
         let mut layer = layer.lock().unwrap();
         let buf = &mut layer.buf;
+
+        painter.push_cursor_zone(CursorIcon::default(), bounds.view_bounds());
 
         let main_block = Block::default()
             .title(self.title)
@@ -135,36 +169,19 @@ where
             return;
         }
 
-        let (result_area, preview_area) = {
-            let mut result_area = inner_area;
-            result_area.y += 2;
-            result_area.height -= 2;
-
-            if inner_area.width > 60 && picker.has_previewer() {
-                let total_width = result_area.width;
-                result_area.width /= 2;
-                let rem = total_width - result_area.width * 2;
-                let mut preview_area = result_area;
-                preview_area.x += result_area.width + 1;
-                if rem == 0 {
-                    preview_area.width -= 1;
-                }
-                (result_area, preview_area)
-            } else {
-                (result_area, Rect::new(0, 0, 0, 0))
-            }
-        };
+        let (result_area, preview_area) =
+            get_preview_and_result_area(inner_area, picker.has_previewer());
 
         {
             let selected = picker.selected();
             let result = picker.get_matches();
 
-            let start = selected / result_area.height as usize;
+            let start_page = selected / result_area.height as usize;
             let cursor_pos = selected % result_area.height as usize;
 
             for (i, (fuzzy_match, _)) in result
                 .iter()
-                .skip(start * result_area.height as usize)
+                .skip(start_page * result_area.height as usize)
                 .take(result_area.height as usize)
                 .enumerate()
             {
@@ -377,5 +394,25 @@ where
                 _ => (),
             }
         }
+    }
+}
+
+fn get_preview_and_result_area(inner_area: Rect, has_previewer: bool) -> (Rect, Rect) {
+    let mut result_area = inner_area;
+    result_area.y += 2;
+    result_area.height -= 2;
+
+    if inner_area.width > 60 && has_previewer {
+        let total_width = result_area.width;
+        result_area.width /= 2;
+        let rem = total_width - result_area.width * 2;
+        let mut preview_area = result_area;
+        preview_area.x += result_area.width + 1;
+        if rem == 0 {
+            preview_area.width -= 1;
+        }
+        (result_area, preview_area)
+    } else {
+        (result_area, Rect::new(0, 0, 0, 0))
     }
 }

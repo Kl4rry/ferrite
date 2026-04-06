@@ -147,6 +147,20 @@ where
         self.selected
     }
 
+    pub fn set_selected(&mut self, index: usize) {
+        self.selected = index.min(self.get_matches().len());
+    }
+
+    pub fn set_choice(&mut self, index: usize) {
+        self.set_selected(index);
+        let selected = self.selected;
+        self.choice = self
+            .get_matches()
+            .get(selected)
+            .map(|(FuzzyMatch { item, .. }, _)| item)
+            .cloned();
+    }
+
     pub fn get_choice(&mut self) -> Option<M> {
         self.choice.take()
     }
@@ -213,7 +227,6 @@ where
             Cmd::Enter => {
                 enter = true;
             }
-
             input => {
                 self.search_field.buffer.handle_input(view_id, input)?;
                 let _ = self.tx.send(self.search_field.buffer.to_string());
@@ -225,12 +238,7 @@ where
         }
 
         if enter {
-            let selected = self.selected;
-            self.choice = self
-                .get_matches()
-                .get(selected)
-                .map(|(FuzzyMatch { item, .. }, _)| item)
-                .cloned();
+            self.set_choice(self.selected);
         }
         Ok(())
     }

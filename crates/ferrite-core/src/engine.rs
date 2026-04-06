@@ -290,6 +290,8 @@ impl Engine {
             }
         }
 
+        self.poll_pickers();
+
         let mut new_buffers = Vec::new();
         for (_, buffer) in &mut self.workspace.buffers {
             if let Some(path) = buffer.file() {
@@ -946,58 +948,10 @@ impl Engine {
                     let _ = self.palette.handle_input(input);
                 } else if let Some(picker) = &mut self.file_picker {
                     let _ = picker.handle_input(input);
-                    if let Some(path) = picker.get_choice() {
-                        self.hide_pickers();
-                        self.open_file(path, false);
-                    }
                 } else if let Some(picker) = &mut self.buffer_picker {
                     let _ = picker.handle_input(input);
-                    if let Some(choice) = picker.get_choice() {
-                        self.workspace.buffers[choice.id].update_interact(None);
-                        self.buffer_picker = None;
-
-                        let buffer = &mut self.workspace.buffers[choice.id];
-                        let view_id = buffer.create_view();
-                        self.load_view_data(choice.id, view_id);
-
-                        let old = self
-                            .workspace
-                            .panes
-                            .replace_current(PaneKind::Buffer(choice.id, view_id));
-                        if let PaneKind::Buffer(id, view_id) = old {
-                            let buffer = &mut self.workspace.buffers[id];
-                            buffer.remove_view(view_id);
-                            if buffer.is_disposable() {
-                                self.workspace.buffers.remove(id);
-                            }
-                        }
-                    }
                 } else if let Some(picker) = &mut self.global_search_picker {
                     let _ = picker.handle_input(input);
-                    if let Some(choice) = picker.get_choice() {
-                        self.global_search_picker = None;
-                        let guard = choice.buffer.lock().unwrap();
-                        if let Some(file) = guard.file()
-                            && self.open_file(file, false)
-                        {
-                            let view_id = guard.get_first_view().unwrap();
-                            let cursor_line = guard.cursor_line_idx(view_id, 0);
-                            let cursor_col = guard.cursor_grapheme_column(view_id, 0);
-                            let anchor_line = guard.anchor_line_idx(view_id, 0);
-                            let anchor_col = guard.anchor_grapheme_column(view_id, 0);
-                            if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                                buffer.select_area(
-                                    view_id,
-                                    Point::new(cursor_col, cursor_line),
-                                    Point::new(anchor_col, anchor_line),
-                                );
-                                // A buffers default amount of lines when newly opened is too large
-                                // and the view will not jump to it.
-                                buffer.set_view_lines(view_id, 10);
-                                buffer.center_on_main_cursor(view_id);
-                            }
-                        }
-                    }
                 } else {
                     match self.workspace.panes.get_current_pane() {
                         PaneKind::Buffer(buffer_id, view_id) => {
@@ -1016,6 +970,61 @@ impl Engine {
                             self.handle_single_input_command(cmd, control_flow);
                         }
                         PaneKind::Logger => self.logger_state.handle_input(input),
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn poll_pickers(&mut self) {
+        if let Some(picker) = &mut self.file_picker {
+            if let Some(path) = picker.get_choice() {
+                self.hide_pickers();
+                self.open_file(path, false);
+            }
+        } else if let Some(picker) = &mut self.buffer_picker {
+            if let Some(choice) = picker.get_choice() {
+                self.workspace.buffers[choice.id].update_interact(None);
+                self.buffer_picker = None;
+
+                let buffer = &mut self.workspace.buffers[choice.id];
+                let view_id = buffer.create_view();
+                self.load_view_data(choice.id, view_id);
+
+                let old = self
+                    .workspace
+                    .panes
+                    .replace_current(PaneKind::Buffer(choice.id, view_id));
+                if let PaneKind::Buffer(id, view_id) = old {
+                    let buffer = &mut self.workspace.buffers[id];
+                    buffer.remove_view(view_id);
+                    if buffer.is_disposable() {
+                        self.workspace.buffers.remove(id);
+                    }
+                }
+            }
+        } else if let Some(picker) = &mut self.global_search_picker {
+            if let Some(choice) = picker.get_choice() {
+                self.global_search_picker = None;
+                let guard = choice.buffer.lock().unwrap();
+                if let Some(file) = guard.file()
+                    && self.open_file(file, false)
+                {
+                    let view_id = guard.get_first_view().unwrap();
+                    let cursor_line = guard.cursor_line_idx(view_id, 0);
+                    let cursor_col = guard.cursor_grapheme_column(view_id, 0);
+                    let anchor_line = guard.anchor_line_idx(view_id, 0);
+                    let anchor_col = guard.anchor_grapheme_column(view_id, 0);
+                    if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                        buffer.select_area(
+                            view_id,
+                            Point::new(cursor_col, cursor_line),
+                            Point::new(anchor_col, anchor_line),
+                        );
+                        // A buffers default amount of lines when newly opened is too large
+                        // and the view will not jump to it.
+                        buffer.set_view_lines(view_id, 10);
+                        buffer.center_on_main_cursor(view_id);
                     }
                 }
             }
