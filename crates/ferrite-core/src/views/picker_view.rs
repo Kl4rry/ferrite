@@ -12,14 +12,12 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-use super::{
-    centered_text_view::CenteredTextView, editor_view::EditorView,
-    one_line_input_view::OneLineInputView,
-};
+use super::{centered_text_view::CenteredTextView, editor_view::EditorView};
 use crate::{
     config::editor::Editor,
     picker::{Matchable, Picker, Preview},
     theme::EditorTheme,
+    views::mini_buffer_view::MiniBufferView,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,14 +63,12 @@ where
             return false;
         }
         let area = bounds.grid_bounds();
-        let area: Rect = tui::layout::Rect::from(area)
-            .inner(Margin {
-                horizontal: 1,
-                vertical: 1,
-            })
-            .into();
+        let area: Rect = tui::layout::Rect::from(area).inner(Margin {
+            horizontal: 1,
+            vertical: 1,
+        });
         let (result_area, _preview_area) =
-            get_preview_and_result_area(area.into(), picker.has_previewer());
+            get_preview_and_result_area(area, picker.has_previewer());
         let result_bounds =
             Bounds::from_grid_bounds(result_area.into(), bounds.cell_size(), bounds.rounding);
         if !result_bounds.contains(mouse_interaction.position) {
@@ -152,7 +148,7 @@ where
 
             let right_prompt = format!("{}/{}", picker.get_matches().len(), picker.get_total());
             picker.search_field().set_right_prompt(right_prompt);
-            OneLineInputView::new(
+            MiniBufferView::new(
                 self.theme.clone(),
                 self.config.clone(),
                 true,
@@ -297,7 +293,7 @@ where
                     // TODO: load buffer view pos
                     let view_id = buffer.get_first_view_or_create();
                     let mut preview = EditorView::new(
-                        view_id,
+                        Some(view_id),
                         self.config.clone(),
                         self.theme.clone(),
                         false,
@@ -324,7 +320,7 @@ where
                     }
                     let view_id = guard.get_first_view_or_create();
                     let mut preview = EditorView::new(
-                        view_id,
+                        Some(view_id),
                         self.config.clone(),
                         self.theme.clone(),
                         false,

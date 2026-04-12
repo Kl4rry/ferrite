@@ -223,6 +223,7 @@ pub enum Cmd {
     Duplicate,
     OpenRename,
     Blame,
+    EditPalette,
 }
 
 impl Cmd {
@@ -366,6 +367,7 @@ impl Cmd {
             Duplicate => "Duplicate file",
             OpenRename => "Open rename",
             Blame => "Toggle blame",
+            EditPalette => "Edit command palette content",
         }
     }
 
@@ -488,6 +490,7 @@ impl Cmd {
             Duplicate => false,
             OpenRename => false,
             Blame => false,
+            EditPalette => false,
         }
     }
 }

@@ -7,15 +7,13 @@ use std::{
 
 use cb::select;
 use ferrite_runtime::unique_id::UniqueId;
-use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
-use ropey::RopeSlice;
 
 use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{Buffer, error::BufferError};
 use crate::{
     cmd::Cmd,
     event_loop_proxy::{EventLoopProxy, UserEvent},
-    views::one_line_input_view::OneLineInputState,
+    mini_buffer::MiniBuffer,
 };
 
 pub mod buffer_picker;
@@ -44,7 +42,7 @@ pub struct PickerResult<M: Matchable> {
 }
 
 pub struct Picker<M: Matchable> {
-    search_field: OneLineInputState,
+    search_field: MiniBuffer,
     selected: usize,
     previewer: Option<Box<dyn Previewer<M>>>,
     result: PickerResult<M>,
@@ -120,7 +118,7 @@ where
         });
 
         Self {
-            search_field: OneLineInputState::new(),
+            search_field: MiniBuffer::new(),
             selected: 0,
             choice: None,
             previewer,
@@ -139,7 +137,7 @@ impl<M> Picker<M>
 where
     M: Matchable,
 {
-    pub fn search_field(&mut self) -> &mut OneLineInputState {
+    pub fn search_field(&mut self) -> &mut MiniBuffer {
         &mut self.search_field
     }
 
@@ -194,11 +192,10 @@ where
     }
 
     pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
-        let view_id = self.search_field.buffer.get_first_view_or_create();
         let mut enter = false;
         match input {
-            Cmd::MoveUp { .. } => self.move_up(),
-            Cmd::MoveDown { .. } | Cmd::TabOrIndent { .. } => self.move_down(),
+            Cmd::MoveUp { .. } | Cmd::TabOrIndent { back: true } => self.move_up(),
+            Cmd::MoveDown { .. } | Cmd::TabOrIndent { back: false } => self.move_down(),
             Cmd::VerticalScroll { distance } => {
                 if distance.is_sign_negative() {
                     self.move_up();
@@ -206,32 +203,9 @@ where
                     self.move_down()
                 }
             }
-            Cmd::Insert { text } => {
-                let rope = RopeSlice::from(text.as_str());
-                let line = rope.line_without_line_ending(0);
-                self.search_field.buffer.handle_input(
-                    view_id,
-                    Cmd::Insert {
-                        text: line.to_string(),
-                    },
-                )?;
-                if line.len_bytes() != rope.len_bytes() {
-                    enter = true;
-                } else {
-                    let _ = self.tx.send(self.search_field.buffer.to_string());
-                }
-            }
-            Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
-                enter = true;
-            }
-            Cmd::Enter => {
-                enter = true;
-            }
-            input => {
-                self.search_field.buffer.handle_input(view_id, input)?;
-                let _ = self.tx.send(self.search_field.buffer.to_string());
-            }
+            input => enter |= self.search_field.handle_input(input)?,
         }
+        let _ = self.tx.send(self.search_field.buffer.to_string());
 
         if self.selected >= self.get_matches().len() {
             self.selected = 0;

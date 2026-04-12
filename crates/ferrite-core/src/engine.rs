@@ -514,6 +514,19 @@ impl Engine {
             Cmd::Quit => {
                 self.quit(control_flow);
             }
+            Cmd::EditPalette => {
+                self.hide_pickers();
+                self.palette.focus(
+                    "",
+                    PaletteMode::Edit,
+                    CompleterContext::new(
+                        self.themes.keys().cloned().collect(),
+                        self.get_action_names(),
+                        false,
+                        None,
+                    ),
+                );
+            }
             Cmd::FocusPalette if !self.palette.has_focus() => {
                 self.hide_pickers();
                 self.palette.focus(
@@ -1057,6 +1070,7 @@ impl Engine {
                 _ => (),
             },
             UserEvent::PaletteFinished { mode, content } => match mode {
+                PaletteMode::Edit => (),
                 PaletteMode::Command => match cmd_parser::parse_cmd(&content) {
                     Ok(cmd) => {
                         self.palette.reset();
@@ -1891,7 +1905,7 @@ impl Engine {
                                 {
                                     if let Err(err) = rustix::process::kill_process_group(
                                         rustix::process::Pid::from_raw(child.id() as i32).unwrap(),
-                                        rustix::process::Signal::Term,
+                                        rustix::process::Signal::TERM,
                                     ) {
                                         tracing::error!("Error killing child: {err}");
                                     }

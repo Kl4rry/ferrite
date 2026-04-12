@@ -159,6 +159,12 @@ pub fn get_default_chords() -> Vec<(Key, Cmd, bool, InputContext)> {
             false,
             InputContext::Edit,
         ),
+        (
+            Key::new(KeyCode::Char('e'), KeyModifiers::CONTROL),
+            Cmd::EditPalette,
+            false,
+            InputContext::Edit,
+        ),
     ]
 }
 

@@ -93,7 +93,7 @@ where
     T: Add<Output = T> + std::ops::Sub<Output = T> + Mul<Output = T> + PartialOrd + Copy + Ord,
 {
     pub fn margin_left(&self, margin: T) -> Self {
-        let margin = margin.max(self.width);
+        let margin = margin.min(self.width);
         Self {
             x: self.x + margin,
             y: self.y,
@@ -103,7 +103,7 @@ where
     }
 
     pub fn margin_right(&self, margin: T) -> Self {
-        let margin = margin.max(self.width);
+        let margin = margin.min(self.width);
         Self {
             x: self.x,
             y: self.y,
@@ -113,7 +113,7 @@ where
     }
 
     pub fn margin_top(&self, margin: T) -> Self {
-        let margin = margin.max(self.width);
+        let margin = margin.min(self.width);
         Self {
             x: self.x,
             y: self.y + margin,
@@ -123,7 +123,7 @@ where
     }
 
     pub fn margin_bottom(&self, margin: T) -> Self {
-        let margin = margin.max(self.width);
+        let margin = margin.min(self.width);
         Self {
             x: self.x,
             y: self.y,

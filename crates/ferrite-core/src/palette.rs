@@ -5,16 +5,15 @@ use std::{
     path::PathBuf,
 };
 
-use ferrite_utility::{graphemes::RopeGraphemeExt, line_ending::LineEnding};
+use ferrite_utility::line_ending::LineEnding;
 use history::History;
-use ropey::RopeSlice;
 
 use self::completer::{Completer, CompleterContext};
 use super::buffer::error::BufferError;
 use crate::{
     cmd::Cmd,
     event_loop_proxy::{EventLoopProxy, UserEvent},
-    views::one_line_input_view::OneLineInputState,
+    mini_buffer::MiniBuffer,
 };
 
 pub mod cmd_parser;
@@ -24,12 +23,13 @@ pub mod history;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[repr(u8)]
 pub enum PaletteMode {
+    Edit,
     Command,
+    Shell,
     Goto,
     Search,
     Replace,
     GlobalSearch,
-    Shell,
     Rename { path: PathBuf },
 }
 
@@ -68,7 +68,7 @@ pub enum SelectedPrompt {
 
 pub enum PaletteState {
     Input {
-        input_state: Box<OneLineInputState>,
+        input_state: Box<MiniBuffer>,
         prompt: String,
         mode: PaletteMode,
         focused: bool,
@@ -125,18 +125,30 @@ impl CommandPalette {
     }
 
     pub fn focus(&mut self, prompt: impl Into<String>, mode: PaletteMode, ctx: CompleterContext) {
-        if let PaletteState::Input {
-            mode: input_mode,
-            focused,
-            ..
-        } = &mut self.state
-            && *input_mode == mode
-        {
-            *focused = true;
-            return;
-        }
+        let content = match &mut self.state {
+            PaletteState::Input {
+                mode: input_mode,
+                input_state,
+                focused,
+                ..
+            } if *input_mode == mode => {
+                *focused = true;
+                return;
+            }
+            PaletteState::Input { input_state, .. } => input_state.buffer.rope().to_string(), // TODO: rm tmp alloc
+            PaletteState::Message(msg) => msg.clone(), // TODO: rm tmp alloc
+            PaletteState::Error(msg) => msg.clone(),   // TODO: rm tmp alloc
+            _ => String::new(),
+        };
 
-        let input_state = OneLineInputState::new();
+        let mut input_state = MiniBuffer::new();
+        input_state.buffer.set_text(&content);
+        input_state
+            .handle_input(Cmd::Eof {
+                expand_selection: false,
+            })
+            .unwrap();
+        input_state.one_line = false;
         self.histories.entry(mode.clone()).or_default();
         self.state = PaletteState::Input {
             prompt: prompt.into(),
@@ -236,9 +248,15 @@ impl CommandPalette {
                 .lines()
                 .count(),
             PaletteState::Input {
-                mode: PaletteMode::Search | PaletteMode::Replace,
+                mode: PaletteMode::Command | PaletteMode::Shell | PaletteMode::Edit,
+                input_state,
                 ..
-            } => 2,
+            } => input_state.buffer.len_lines(),
+            PaletteState::Input {
+                mode: PaletteMode::Search | PaletteMode::Replace,
+                input_state,
+                ..
+            } => input_state.buffer.len_lines() + 1,
             _ => 1,
         }
         .max(1)
@@ -260,25 +278,6 @@ impl CommandPalette {
                 let mut enter = false;
                 input_state.buffer.mark_clean();
                 match input {
-                    Cmd::Insert { text } => {
-                        let rope = RopeSlice::from(text.as_str());
-                        let line = rope.line_without_line_ending(0);
-                        input_state.buffer.handle_input(
-                            view_id,
-                            Cmd::Insert {
-                                text: line.to_string(),
-                            },
-                        )?;
-                        if line.len_bytes() != rope.len_bytes() {
-                            enter = true;
-                        }
-                    }
-                    Cmd::Char { ch } if LineEnding::from_char(ch).is_some() => {
-                        enter = true;
-                    }
-                    Cmd::Enter => {
-                        enter = true;
-                    }
                     Cmd::TabOrIndent { back }
                         if *mode == PaletteMode::Command || *mode == PaletteMode::Shell =>
                     {
@@ -299,8 +298,10 @@ impl CommandPalette {
                         }
                     }
                     Cmd::MoveUp { .. } => {
-                        if let Some(history) = self.histories.get(mode)
-                            && history.len() > 0
+                        if *mode == PaletteMode::Edit {
+                            enter = input_state.handle_input(input)?;
+                        } else if let Some(history) = self.histories.get(mode)
+                            && !history.is_empty()
                         {
                             *history_index += 1;
                             *history_index = (*history_index).min(history.len());
@@ -320,7 +321,9 @@ impl CommandPalette {
                         }
                     }
                     Cmd::MoveDown { .. } => {
-                        if *history_index <= 1 {
+                        if *mode == PaletteMode::Edit {
+                            enter = input_state.handle_input(input)?;
+                        } else if *history_index <= 1 {
                             input_state.buffer.replace(
                                 view_id,
                                 0..input_state.buffer.rope().len_bytes(),
@@ -340,12 +343,12 @@ impl CommandPalette {
                                 &string,
                             );
                             input_state.buffer.eof(view_id, false);
+                        } else {
+                            enter = input_state.handle_input(input)?;
                         }
                     }
                     input => {
-                        input_state.buffer.handle_input(view_id, input)?;
-                        // Make sure there is only a single cursor
-                        input_state.buffer.views[view_id].cursors.clear();
+                        enter = input_state.handle_input(input)?;
                     }
                 }
 

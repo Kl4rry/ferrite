@@ -23,6 +23,10 @@ impl History {
         self.entires.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entires.is_empty()
+    }
+
     pub fn get(&self, index: usize) -> Option<&str> {
         self.entires.get(index).map(|s| s.as_str())
     }

@@ -27,7 +27,7 @@ impl PaneView {
                     match pane_kind {
                         PaneKind::Buffer(buffer_id, view_id) => AnyView::new(Lens::new(
                             EditorView::new(
-                                view_id,
+                                Some(view_id),
                                 engine.config.editor.clone(),
                                 engine.themes[&engine.config.editor.theme].clone(),
                                 engine.get_focus()

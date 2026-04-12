@@ -329,12 +329,12 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
     ) {
         {
             std::panic::set_hook(Box::new(move |info| {
-                println!();
+                eprintln!();
                 let _ = std::fs::write("./panic.txt", format!("{info:?}"));
                 let backtrace = std::backtrace::Backtrace::force_capture();
                 let panic_info = format!("{backtrace}\n{info}");
                 let _ = std::fs::write("panic.txt", &panic_info);
-                println!("{panic_info}");
+                eprintln!("{panic_info}");
             }));
         }
 

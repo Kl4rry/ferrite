@@ -119,11 +119,11 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 terminal::LeaveAlternateScreen,
             );
             _ = terminal::disable_raw_mode();
-            println!();
+            eprintln!();
             let backtrace = std::backtrace::Backtrace::force_capture();
             let panic_info = format!("{backtrace}\n{info}");
             let _ = std::fs::write("panic.txt", &panic_info);
-            println!("{panic_info}");
+            eprintln!("{panic_info}");
         }));
 
         self.runtime.drawing_backend = String::from("terminal");

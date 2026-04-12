@@ -47,7 +47,7 @@ fn intersects(start1: usize, end1: usize, start2: usize, end2: usize) -> bool {
 }
 
 pub struct EditorView {
-    view_id: ViewId,
+    view_id: Option<ViewId>,
     config: Arc<Editor>,
     theme: Arc<EditorTheme>,
     has_focus: bool,
@@ -58,11 +58,12 @@ pub struct EditorView {
     pub draw_rulers: bool,
     pub ceil_surface_size: bool,
     pub scrollbar: bool,
+    pub highlight_cursor_line: bool,
 }
 
 impl EditorView {
     pub fn new(
-        view_id: ViewId,
+        view_id: Option<ViewId>,
         config: Arc<Editor>,
         theme: Arc<EditorTheme>,
         has_focus: bool,
@@ -81,6 +82,7 @@ impl EditorView {
             draw_rulers: true,
             ceil_surface_size: false,
             scrollbar: false,
+            highlight_cursor_line: true,
         }
     }
 
@@ -102,6 +104,10 @@ impl View<Buffer> for EditorView {
         bounds: Bounds,
         mouse_interaction: MouseInterction,
     ) -> bool {
+        let view_id = match self.view_id {
+            Some(view_id) => view_id,
+            None => buffer.get_first_view_or_create(),
+        };
         let cell_position = mouse_interaction.cell_position(bounds.view_bounds().position());
         let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
         match mouse_interaction.kind {
@@ -110,7 +116,7 @@ impl View<Buffer> for EditorView {
                     // TODO: handle clicks on scrollbar
                 } else {
                     buffer.handle_click(
-                        self.view_id,
+                        view_id,
                         clicks,
                         mouse_interaction.modifiers == KeyModifiers::ALT,
                         cell_position.x.saturating_sub(left_offset),
@@ -124,24 +130,24 @@ impl View<Buffer> for EditorView {
                     line: cell_position.y,
                 };
                 // NOTE: Should never panic
-                buffer.handle_input(self.view_id, cmd).unwrap();
+                buffer.handle_input(view_id, cmd).unwrap();
             }
             MouseInterctionKind::Drag {
                 drag_start: _,
                 last_pos,
             } if mouse_interaction.button == MouseButton::Left => {
-                match buffer.views[self.view_id].drag {
+                match buffer.views[view_id].drag {
                     ViewDrag::Text => {
                         let cmd = Cmd::DragCell {
                             column: cell_position.x.saturating_sub(left_offset),
                             line: cell_position.y,
                         };
                         // NOTE: Should never panic
-                        buffer.handle_input(self.view_id, cmd).unwrap();
+                        buffer.handle_input(view_id, cmd).unwrap();
                     }
                     ViewDrag::Scrollbar => {
                         let moved_distance = last_pos.y - mouse_interaction.position.y;
-                        let content_height = buffer.get_view_lines(self.view_id);
+                        let content_height = buffer.get_view_lines(view_id);
                         let len_lines = (buffer.len_lines() + content_height) - 1;
                         let scrollbar_ratio = content_height as f32 / len_lines as f32;
                         let line_distance =
@@ -151,15 +157,15 @@ impl View<Buffer> for EditorView {
                             distance: -line_distance as f64,
                         };
                         // NOTE: Should never panic
-                        buffer.handle_input(self.view_id, cmd).unwrap();
+                        buffer.handle_input(view_id, cmd).unwrap();
                     }
                     ViewDrag::None => {
                         if get_scrollbar_track(bounds).contains(mouse_interaction.position) {
-                            buffer.views[self.view_id].drag = ViewDrag::Scrollbar;
+                            buffer.views[view_id].drag = ViewDrag::Scrollbar;
 
                             // NOTE: everything in this branch is copy pasted from the scrollbar branch
                             let moved_distance = last_pos.y - mouse_interaction.position.y;
-                            let content_height = buffer.get_view_lines(self.view_id);
+                            let content_height = buffer.get_view_lines(view_id);
                             let len_lines = (buffer.len_lines() + content_height) - 1;
                             let scrollbar_ratio = content_height as f32 / len_lines as f32;
                             let line_distance =
@@ -169,22 +175,22 @@ impl View<Buffer> for EditorView {
                                 distance: -line_distance as f64,
                             };
                             // NOTE: Should never panic
-                            buffer.handle_input(self.view_id, cmd).unwrap();
+                            buffer.handle_input(view_id, cmd).unwrap();
                         } else {
-                            buffer.views[self.view_id].drag = ViewDrag::Text;
+                            buffer.views[view_id].drag = ViewDrag::Text;
                             let cmd = Cmd::DragCell {
                                 column: cell_position.x.saturating_sub(left_offset),
                                 line: cell_position.y,
                             };
                             // NOTE: Should never panic
-                            buffer.handle_input(self.view_id, cmd).unwrap();
+                            buffer.handle_input(view_id, cmd).unwrap();
                         }
                     }
                 }
             }
             MouseInterctionKind::DragStop if mouse_interaction.button == MouseButton::Left => {
-                buffer.copy_selection_to_primary(self.view_id);
-                buffer.views[self.view_id].drag = ViewDrag::None;
+                buffer.copy_selection_to_primary(view_id);
+                buffer.views[view_id].drag = ViewDrag::None;
             }
             _ => (),
         }
@@ -209,12 +215,18 @@ impl View<Buffer> for EditorView {
             draw_rulers,
             ceil_surface_size,
             scrollbar,
+            highlight_cursor_line,
         } = self;
         let view_id = *view_id;
         let has_focus = *has_focus;
         let line_nr = *line_nr;
         let info_line = *info_line;
         let draw_rulers = *draw_rulers;
+
+        let view_id = match view_id {
+            Some(view_id) => view_id,
+            None => buffer.get_first_view_or_create(),
+        };
 
         let unique_id = buffer.views[view_id].unique_id();
         let rounding = if *ceil_surface_size && bounds.cell_size() != Vec2::new(1.0, 1.0) {
@@ -423,7 +435,7 @@ impl View<Buffer> for EditorView {
             let cursor_view_pos =
                 buffer.cursors_view_pos(view_id, text_area.width, text_area.height);
 
-            if cursor_view_pos.len() > 1 {
+            if !highlight_cursor_line || cursor_view_pos.len() > 1 {
                 draw_cursor_line = false;
             }
 
@@ -783,6 +795,7 @@ impl View<Buffer> for EditorView {
                         .completer
                         .matching_words
                         .iter()
+                        .take(15)
                         .enumerate()
                     {
                         let rect =

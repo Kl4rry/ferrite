@@ -19,6 +19,7 @@ pub mod language;
 pub mod layout;
 pub mod logger;
 pub mod malloc;
+pub mod mini_buffer;
 pub mod palette;
 pub mod picker;
 pub mod promise;

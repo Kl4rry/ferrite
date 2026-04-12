@@ -3,13 +3,13 @@ use std::sync::Arc;
 use ferrite_runtime::{Bounds, Painter, View, any_view::AnyView};
 use ferrite_utility::tui_buf_ext::TuiBufExt;
 
-use super::one_line_input_view::OneLineInputView;
 use crate::{
     config::{editor::Editor, keymap::Keymap},
     palette::{CommandPalette, PaletteMode, PaletteState},
     theme::EditorTheme,
     views::{
-        completer_view::CompleterView, nullview::NullView, search_palette_view::SearchPaletteView,
+        completer_view::CompleterView, mini_buffer_view::MiniBufferView, nullview::NullView,
+        search_palette_view::SearchPaletteView,
     },
 };
 
@@ -17,7 +17,7 @@ pub struct PaletteView {
     theme: Arc<EditorTheme>,
     keymap: Arc<Keymap>,
     focused: bool,
-    input_view: OneLineInputView<&'static str>,
+    input_view: MiniBufferView<&'static str>,
 }
 
 impl PaletteView {
@@ -28,7 +28,7 @@ impl PaletteView {
         focused: bool,
     ) -> Self {
         Self {
-            input_view: OneLineInputView::new(
+            input_view: MiniBufferView::new(
                 theme.clone(),
                 config.clone(),
                 focused,
@@ -78,13 +78,17 @@ impl View<CommandPalette> for PaletteView {
 
                 view.render(&mut (), palette_bounds.top_lines(1), painter);
                 input_state.set_left_prompt(format!(" {}", prompt));
-                self.input_view
-                    .render(input_state, palette_bounds.bottom_lines(1), painter);
+                self.input_view.render(
+                    input_state,
+                    palette_bounds.bottom_lines(input_state.buffer.len_lines()),
+                    painter,
+                );
 
                 if self.focused && (*mode == PaletteMode::Command || *mode == PaletteMode::Shell) {
                     let mut completer_bounds = total_view_bounds;
-                    completer_bounds.height =
-                        completer_bounds.height.saturating_sub(cell_size.y as usize);
+                    completer_bounds.height = completer_bounds.height.saturating_sub(
+                        (cell_size.y * input_state.buffer.len_lines() as f32) as usize,
+                    );
 
                     CompleterView::new(self.theme.clone()).render(
                         completer,

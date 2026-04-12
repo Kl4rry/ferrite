@@ -187,9 +187,12 @@ pub fn search_rope(
 
     let mut matches = Vec::new();
 
+    let query_lines = RopeSlice::from(query.as_str()).len_lines();
+    let multi_line = query_lines > 1;
+
     let matcher = RegexMatcherBuilder::new()
         .fixed_strings(true)
-        .multi_line(false)
+        .multi_line(multi_line)
         .case_insensitive(case_insensitive)
         .build(&query)
         .unwrap();
@@ -198,15 +201,16 @@ pub fn search_rope(
 
     if let Err(err) = SearcherBuilder::new()
         .max_matches(max_matches)
+        .multi_line(multi_line)
         .build()
         .search_reader(
             &matcher,
             RopeReader::new(rope),
             UTF8(|line_number, line| {
                 if let Some(mymatch) = matcher.find(line.as_bytes())? {
-                    let line_number = line_number as usize - 1;
-                    let rope_line = rope.line(line_number);
-                    let line_start_byte = rope.line_to_byte(line_number);
+                    let line_idx = line_number as usize - 1;
+                    let rope_line = rope.line(line_idx);
+                    let line_start_byte = rope.line_to_byte(line_idx);
 
                     let start_byte = mymatch.start();
                     let end_byte = mymatch.end();
@@ -215,8 +219,10 @@ pub fn search_rope(
                     matches.push(SearchMatch {
                         start_byte: start_byte + line_start_byte,
                         end_byte: end_byte + line_start_byte,
-                        start: Point::new(start_col, line_number),
-                        end: Point::new(end_col, line_number),
+                        start: Point::new(start_col, line_idx),
+                        // This feels like a hack. It also makes rendering of multiline matches weird
+                        // TODO: make it so multiline matches look right when endered
+                        end: Point::new(end_col, line_idx + query_lines - 1),
                     });
                 }
                 Ok(true)
