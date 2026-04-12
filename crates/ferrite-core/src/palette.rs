@@ -142,7 +142,7 @@ impl CommandPalette {
         };
 
         let mut input_state = MiniBuffer::new();
-        input_state.buffer.set_text(&content);
+        input_state.buffer.set_text(content.trim_end());
         input_state
             .handle_input(Cmd::Eof {
                 expand_selection: false,
