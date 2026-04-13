@@ -136,8 +136,8 @@ impl CommandPalette {
                 return;
             }
             PaletteState::Input { input_state, .. } if mode == PaletteMode::Edit => {
-                input_state.buffer.rope().to_string()
-            } // TODO: rm tmp alloc
+                input_state.buffer.rope().to_string() // TODO: rm tmp alloc
+            }
             PaletteState::Message(msg) if mode == PaletteMode::Edit => msg.clone(), // TODO: rm tmp alloc
             PaletteState::Error(msg) if mode == PaletteMode::Edit => msg.clone(), // TODO: rm tmp alloc
             _ => String::new(),
