@@ -224,6 +224,8 @@ pub enum Cmd {
     OpenRename,
     Blame,
     EditPalette,
+    JumpBack,
+    JumpForward,
 }
 
 impl Cmd {
@@ -368,6 +370,8 @@ impl Cmd {
             OpenRename => "Open rename",
             Blame => "Toggle blame",
             EditPalette => "Edit command palette content",
+            JumpBack => "Jump back",
+            JumpForward => "Jump forward",
         }
     }
 
@@ -491,6 +495,8 @@ impl Cmd {
             OpenRename => false,
             Blame => false,
             EditPalette => false,
+            JumpBack => true,
+            JumpForward => true,
         }
     }
 }

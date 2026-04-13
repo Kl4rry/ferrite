@@ -34,6 +34,7 @@ use crate::{
     indent::Indentation,
     job_manager::{JobHandle, JobManager, Progress, Progressor},
     jobs::{SaveBufferJob, ShellJobHandle},
+    jump_list::{JumpList, JumpPoint},
     keymap::InputContext,
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
@@ -62,6 +63,7 @@ pub struct Engine {
     pub themes: HashMap<String, Arc<EditorTheme>>,
     pub config: Config,
     pub palette: CommandPalette,
+    pub jump_list: JumpList,
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
@@ -176,6 +178,7 @@ impl Engine {
             themes,
             config,
             palette,
+            jump_list: JumpList::new(),
             file_picker: None,
             buffer_picker: None,
             global_search_picker: None,
@@ -474,6 +477,7 @@ impl Engine {
                 if let Some((buffer, _)) = self.get_current_buffer() {
                     match buffer.get_next_file() {
                         Ok(file) => {
+                            self.save_jump_point();
                             self.open_file(file, false);
                         }
                         Err(err) => self.palette.set_error(err),
@@ -483,7 +487,10 @@ impl Engine {
             Cmd::Repeat => {
                 self.repeat = Some(String::new());
             }
-            Cmd::ReopenBuffer => self.reopen_last_closed_buffer(),
+            Cmd::ReopenBuffer => {
+                self.save_jump_point();
+                self.reopen_last_closed_buffer()
+            }
             Cmd::UrlOpen => self.open_selected_url(),
             Cmd::OpenShellPalette => {
                 self.hide_pickers();
@@ -656,6 +663,7 @@ impl Engine {
                 }
             }
             Cmd::OpenFile { path } => {
+                self.save_jump_point();
                 self.open_file(path, false);
             }
             Cmd::Save { path } => {
@@ -801,6 +809,7 @@ impl Engine {
                 else {
                     return;
                 };
+                self.save_jump_point();
                 self.workspace.buffers[buffer_id].goto(view_id, line);
             }
             Cmd::Case { case } => {
@@ -839,13 +848,34 @@ impl Engine {
                 }
                 self.open_file_picker();
             }
-            Cmd::OpenConfig => self.open_config(),
-            Cmd::DefaultConfig => self.open_default_config(),
-            Cmd::OpenLanguages => self.open_languages(),
-            Cmd::DefaultLanguages => self.open_default_languages(),
-            Cmd::OpenKeymap => self.open_keymap(),
-            Cmd::DefaultKeymap => self.open_default_keymap(),
-            Cmd::OpenWorkspaceConfig => self.open_workspace_config(),
+            Cmd::OpenConfig => {
+                self.save_jump_point();
+                self.open_config();
+            }
+            Cmd::DefaultConfig => {
+                self.save_jump_point();
+                self.open_default_config();
+            }
+            Cmd::OpenLanguages => {
+                self.save_jump_point();
+                self.open_languages();
+            }
+            Cmd::DefaultLanguages => {
+                self.save_jump_point();
+                self.open_default_languages();
+            }
+            Cmd::OpenKeymap => {
+                self.save_jump_point();
+                self.open_keymap();
+            }
+            Cmd::DefaultKeymap => {
+                self.save_jump_point();
+                self.open_default_keymap();
+            }
+            Cmd::OpenWorkspaceConfig => {
+                self.save_jump_point();
+                self.open_workspace_config();
+            }
             Cmd::ForceClose => self.force_close_current_buffer(),
             Cmd::Close => self.close_current_buffer(),
             Cmd::ClosePane => self.close_pane(),
@@ -956,6 +986,12 @@ impl Engine {
                     }
                 }
             }
+            Cmd::JumpBack => {
+                self.jump_back();
+            }
+            Cmd::JumpForward => {
+                self.jump_forward();
+            }
             input => {
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);
@@ -992,11 +1028,13 @@ impl Engine {
     pub fn poll_pickers(&mut self) {
         if let Some(picker) = &mut self.file_picker {
             if let Some(path) = picker.get_choice() {
+                self.save_jump_point();
                 self.hide_pickers();
                 self.open_file(path, false);
             }
         } else if let Some(picker) = &mut self.buffer_picker {
             if let Some(choice) = picker.get_choice() {
+                self.save_jump_point();
                 self.workspace.buffers[choice.id].update_interact(None);
                 self.buffer_picker = None;
 
@@ -1018,6 +1056,7 @@ impl Engine {
             }
         } else if let Some(picker) = &mut self.global_search_picker {
             if let Some(choice) = picker.get_choice() {
+                self.save_jump_point();
                 self.global_search_picker = None;
                 let guard = choice.buffer.lock().unwrap();
                 if let Some(file) = guard.file()
@@ -1086,6 +1125,7 @@ impl Engine {
                         else {
                             return;
                         };
+                        self.save_jump_point();
                         self.workspace.buffers[buffer_id].goto(view_id, line);
                     }
                 }
@@ -2081,6 +2121,107 @@ impl Engine {
             return Focus::Picker;
         }
         Focus::Pane(self.workspace.panes.get_current_pane())
+    }
+
+    fn get_jump_point(&self) -> JumpPoint {
+        match self.workspace.panes.get_current_pane() {
+            PaneKind::Buffer(buffer_id, view_id) => {
+                let buffer = &self.workspace.buffers[buffer_id];
+                let view = &buffer.views[view_id];
+                match buffer.file() {
+                    Some(file) => JumpPoint::File {
+                        file: file.to_path_buf(),
+                        cursors: view.cursors.clone(),
+                        line_pos: view.line_pos,
+                        col_pos: view.col_pos,
+                    },
+                    None => JumpPoint::Buffer {
+                        buffer_id,
+                        cursors: view.cursors.clone(),
+                        line_pos: view.line_pos,
+                        col_pos: view.col_pos,
+                    },
+                }
+            }
+            PaneKind::FileExplorer(file_explorer_id) => JumpPoint::FileExplorer(
+                self.workspace.file_explorers[file_explorer_id]
+                    .directory()
+                    .to_path_buf(),
+            ),
+            PaneKind::Logger => JumpPoint::Logger,
+        }
+    }
+
+    pub fn save_jump_point(&mut self) {
+        self.jump_list.push(self.get_jump_point());
+    }
+
+    pub fn jump_back(&mut self) {
+        let Some(jump_point) = self.jump_list.jump_back(self.get_jump_point()) else {
+            return;
+        };
+        self.jump_to_point(jump_point);
+    }
+
+    pub fn jump_forward(&mut self) {
+        let Some(jump_point) = self.jump_list.jump_forward(self.get_jump_point()) else {
+            return;
+        };
+        self.jump_to_point(jump_point);
+    }
+
+    fn jump_to_point(&mut self, jump_point: JumpPoint) {
+        match jump_point {
+            JumpPoint::Buffer {
+                buffer_id,
+                line_pos,
+                col_pos,
+                cursors,
+            } => {
+                let buffer = &mut self.workspace.buffers[buffer_id];
+                let view_id = buffer.create_view();
+
+                let old = self
+                    .workspace
+                    .panes
+                    .replace_current(PaneKind::Buffer(buffer_id, view_id));
+                if let PaneKind::Buffer(id, view_id) = old {
+                    let buffer = &mut self.workspace.buffers[id];
+                    buffer.remove_view(view_id);
+                    if buffer.is_disposable() {
+                        self.workspace.buffers.remove(id);
+                    }
+                }
+
+                let buffer = &mut self.workspace.buffers[buffer_id];
+                buffer.vertical_scroll_to(view_id, line_pos);
+                buffer.horizontal_scroll_to(view_id, col_pos);
+                let view = &mut buffer.views[view_id];
+                view.cursors = cursors;
+                buffer.ensure_every_cursor_is_valid();
+            }
+            JumpPoint::File {
+                file,
+                line_pos,
+                col_pos,
+                cursors,
+            } => {
+                if self.open_file(file, false) {
+                    if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
+                        let buffer = &mut self.workspace.buffers[buffer_id];
+                        buffer.vertical_scroll_to(view_id, line_pos);
+                        buffer.horizontal_scroll_to(view_id, col_pos);
+                        let view = &mut buffer.views[view_id];
+                        view.cursors = cursors;
+                        buffer.ensure_every_cursor_is_valid();
+                    }
+                }
+            }
+            JumpPoint::FileExplorer(file) => self.open_file_explorer(Some(file)),
+            JumpPoint::Logger => {
+                self.workspace.panes.replace_current(PaneKind::Logger);
+            }
+        }
     }
 }
 

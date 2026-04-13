@@ -14,6 +14,7 @@ pub mod git;
 pub mod indent;
 pub mod job_manager;
 pub mod jobs;
+pub mod jump_list;
 pub mod keymap;
 pub mod language;
 pub mod layout;

@@ -348,6 +348,30 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
             InputContext::Edit,
         ),
         (
+            Key::new(KeyCode::Char(','), KeyModifiers::CONTROL),
+            Cmd::JumpBack,
+            false,
+            InputContext::All,
+        ),
+        (
+            Key::new(KeyCode::Char('.'), KeyModifiers::CONTROL),
+            Cmd::JumpForward,
+            false,
+            InputContext::All,
+        ),
+        (
+            Key::new(KeyCode::Char(','), KeyModifiers::ALT),
+            Cmd::JumpBack,
+            false,
+            InputContext::All,
+        ),
+        (
+            Key::new(KeyCode::Char('.'), KeyModifiers::ALT),
+            Cmd::JumpForward,
+            false,
+            InputContext::All,
+        ),
+        (
             Key::new(KeyCode::Tab, KeyModifiers::empty()),
             Cmd::TabOrIndent { back: false },
             false,
