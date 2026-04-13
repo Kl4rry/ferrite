@@ -135,9 +135,11 @@ impl CommandPalette {
                 *focused = true;
                 return;
             }
-            PaletteState::Input { input_state, .. } => input_state.buffer.rope().to_string(), // TODO: rm tmp alloc
-            PaletteState::Message(msg) => msg.clone(), // TODO: rm tmp alloc
-            PaletteState::Error(msg) => msg.clone(),   // TODO: rm tmp alloc
+            PaletteState::Input { input_state, .. } if mode == PaletteMode::Edit => {
+                input_state.buffer.rope().to_string()
+            } // TODO: rm tmp alloc
+            PaletteState::Message(msg) if mode == PaletteMode::Edit => msg.clone(), // TODO: rm tmp alloc
+            PaletteState::Error(msg) if mode == PaletteMode::Edit => msg.clone(), // TODO: rm tmp alloc
             _ => String::new(),
         };
 
