@@ -195,7 +195,6 @@ pub enum Cmd {
     InputMode {
         name: String,
     },
-    ReopenBuffer,
     RotateFile,
     ForceRedraw,
     SwitchPane {
@@ -309,7 +308,6 @@ impl Cmd {
             Split {
                 direction: Direction::Down,
             } => "Split down",
-            ReopenBuffer => "Reopen buffer",
             New { .. } => "New",
             RotateFile => "Rotate file",
             OpenFile { .. } => "Open file",
@@ -440,7 +438,6 @@ impl Cmd {
             RunShellCmd { .. } => false,
             OpenShellPalette => false,
             Split { .. } => false,
-            ReopenBuffer => false,
             RotateFile => false,
             OpenFile { .. } => false,
             Cd { .. } => false,

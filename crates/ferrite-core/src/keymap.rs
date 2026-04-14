@@ -177,15 +177,6 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
             InputContext::All,
         ),
         (
-            Key::new(
-                KeyCode::Char('t'),
-                KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-            ),
-            Cmd::ReopenBuffer,
-            false,
-            InputContext::All,
-        ),
-        (
             Key::new(KeyCode::Char('r'), KeyModifiers::empty()),
             Cmd::OpenRename,
             false,

@@ -78,7 +78,6 @@ pub struct Engine {
     pub repeat: Option<String>,
     pub last_render_time: Duration,
     pub start_of_events: Instant,
-    pub closed_buffers: Vec<PathBuf>,
     pub branch_watcher: BranchWatcher,
     pub buffer_watcher: Option<BufferWatcher>,
     pub buffer_area: Rect,
@@ -194,7 +193,6 @@ impl Engine {
             logger_state: LoggerState::new(recv),
             last_render_time: Duration::ZERO,
             start_of_events: Instant::now(),
-            closed_buffers: Vec::new(),
             buffer_watcher,
             buffer_area: Rect {
                 x: 0,
@@ -486,10 +484,6 @@ impl Engine {
             }
             Cmd::Repeat => {
                 self.repeat = Some(String::new());
-            }
-            Cmd::ReopenBuffer => {
-                self.save_jump_point();
-                self.reopen_last_closed_buffer()
             }
             Cmd::UrlOpen => self.open_selected_url(),
             Cmd::OpenShellPalette => {
@@ -1685,9 +1679,6 @@ impl Engine {
 
     pub fn force_close_current_buffer(&mut self) {
         if let Some((buffer_id, _)) = self.get_current_buffer_id() {
-            if let Some(path) = self.workspace.buffers[buffer_id].file() {
-                self.insert_removed_buffer(path.to_path_buf());
-            }
             let buffer = self.workspace.buffers.remove(buffer_id).unwrap();
 
             let (new_buffer_id, new_view_id) = self.get_next_buffer();
@@ -1710,23 +1701,6 @@ impl Engine {
                 .panes
                 .replace_current(PaneKind::Buffer(buffer_id, view_id));
         }
-    }
-
-    pub fn reopen_last_closed_buffer(&mut self) {
-        while let Some(path) = self.closed_buffers.pop() {
-            if let Some((buffer, _)) = self.get_current_buffer()
-                && buffer.file() == Some(&path)
-            {
-                continue;
-            }
-            self.open_file(path, false);
-            break;
-        }
-    }
-
-    fn insert_removed_buffer(&mut self, new: PathBuf) {
-        self.closed_buffers.retain(|path| &new != path);
-        self.closed_buffers.push(new);
     }
 
     pub fn get_search_prompt(&self, global: bool) -> String {
