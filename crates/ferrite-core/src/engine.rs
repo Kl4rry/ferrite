@@ -1289,6 +1289,7 @@ impl Engine {
             "man" => self.open_manpage(body),
             _ => {
                 if scheme == "file" && (!open_with_os || is_text_file(body).unwrap_or(false)) {
+                    self.save_jump_point();
                     self.open_file(body, create_file);
                     return;
                 }
