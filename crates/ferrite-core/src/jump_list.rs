@@ -4,7 +4,7 @@ use ferrite_utility::vec1::Vec1;
 
 use crate::{buffer::cursor::Cursor, workspace::BufferId};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum JumpPoint {
     Buffer {
         buffer_id: BufferId,
@@ -36,8 +36,11 @@ impl JumpList {
     }
 
     pub fn push(&mut self, jump_point: JumpPoint) {
-        // TODO: check if jump point is the same as the last one
-        // and don't save it if they are too similar
+        // Check if jump point is the same as the last one and don't save it if they are too similar
+        // TODO: The comparison might have to be fuzzy
+        if Some(&jump_point) == self.stack.get((self.current_point + 1) as usize) {
+            return;
+        }
         self.stack.truncate((self.current_point + 1) as usize);
         self.stack.push(jump_point);
         self.current_point += 1;
@@ -66,6 +69,22 @@ impl JumpList {
     pub fn remove_current(&mut self) {
         if let Ok(current_point) = (self.current_point + 1).try_into() {
             self.stack.remove(current_point);
+        }
+    }
+
+    // These functions should only be used for persistance
+    pub fn as_slice(&self) -> &[JumpPoint] {
+        &self.stack
+    }
+
+    pub fn current_point(&self) -> i64 {
+        self.current_point
+    }
+
+    pub fn from(jump_points: Vec<JumpPoint>, current_point: i64) -> Self {
+        Self {
+            current_point: current_point.clamp(-1, jump_points.len() as i64 - 1),
+            stack: jump_points,
         }
     }
 }

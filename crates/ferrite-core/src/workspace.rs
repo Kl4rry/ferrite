@@ -16,6 +16,7 @@ use crate::{
     event_loop_proxy::{EventLoopProxy, UserEvent},
     file_explorer::{FileExplorer, FileExplorerId},
     indent::Indentation,
+    jump_list::{JumpList, JumpPoint},
     layout::panes::{PaneKind, Panes, layout::Layout},
     palette::{PaletteMode, history::History},
     watcher::{FileWatcher, TomlConfig},
@@ -41,6 +42,7 @@ impl WorkspaceConfig {
 pub struct Workspace {
     pub buffers: SlotMap<BufferId, Buffer>,
     pub file_explorers: SlotMap<FileExplorerId, FileExplorer>,
+    pub jump_list: JumpList,
     pub buffer_extra_data: Vec<BufferData>,
     pub panes: Panes,
     pub config: WorkspaceConfig,
@@ -54,6 +56,26 @@ pub struct WorkspaceData {
     layout: Layout,
     #[serde(default)] // Default as old data might not have this field
     palette_histories: HashMap<PaletteMode, History>,
+    #[serde(default)] // Default as old data might not have this field
+    jump_list: JumpListData,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+pub struct JumpListData {
+    stack: Vec<JumpPointData>,
+    current_point: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum JumpPointData {
+    File {
+        file: PathBuf,
+        cursors: Vec1<Cursor>,
+        line_pos: f64,
+        col_pos: f64,
+    },
+    FileExplorer(PathBuf),
+    Logger,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +97,7 @@ impl Default for Workspace {
         Self {
             buffers,
             file_explorers: SlotMap::with_key(),
+            jump_list: JumpList::default(),
             buffer_extra_data: Vec::new(),
             panes: Panes::new(buffer_id, view_id),
             config: WorkspaceConfig::default(),
@@ -92,6 +115,7 @@ impl Workspace {
             open_buffers: Vec::new(),
             layout: Layout::from_panes(&self.panes, &self.buffers, &self.file_explorers),
             palette_histories: palette_histories.clone(),
+            jump_list: JumpListData::default(),
         };
 
         for (path, buffer) in self
@@ -105,6 +129,26 @@ impl Workspace {
             }
 
             workspace_data.open_buffers.push(path.to_path_buf());
+        }
+
+        workspace_data.jump_list.current_point = self.jump_list.current_point();
+        for jump_point in self.jump_list.as_slice() {
+            workspace_data.jump_list.stack.push(match jump_point {
+                JumpPoint::Buffer { .. } => continue,
+                JumpPoint::File {
+                    file,
+                    cursors,
+                    line_pos,
+                    col_pos,
+                } => JumpPointData::File {
+                    file: file.clone(),
+                    cursors: cursors.clone(),
+                    line_pos: *line_pos,
+                    col_pos: *col_pos,
+                },
+                JumpPoint::FileExplorer(file) => JumpPointData::FileExplorer(file.clone()),
+                JumpPoint::Logger => JumpPointData::Logger,
+            });
         }
 
         fs::create_dir_all(workspace_file.parent().unwrap())?;
@@ -196,9 +240,29 @@ impl Workspace {
 
         *palette_histories = workspace.palette_histories;
 
+        let mut jump_points = Vec::new();
+        for jump_point in workspace.jump_list.stack {
+            jump_points.push(match jump_point {
+                JumpPointData::File {
+                    file,
+                    cursors,
+                    line_pos,
+                    col_pos,
+                } => JumpPoint::File {
+                    file,
+                    cursors,
+                    line_pos,
+                    col_pos,
+                },
+                JumpPointData::FileExplorer(file) => JumpPoint::FileExplorer(file),
+                JumpPointData::Logger => JumpPoint::Logger,
+            });
+        }
+
         Ok(Self {
             buffers,
             file_explorers,
+            jump_list: JumpList::from(jump_points, workspace.jump_list.current_point),
             buffer_extra_data: workspace.buffers.clone(),
             panes,
             config,

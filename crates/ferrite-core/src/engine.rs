@@ -34,7 +34,7 @@ use crate::{
     indent::Indentation,
     job_manager::{JobHandle, JobManager, Progress, Progressor},
     jobs::{SaveBufferJob, ShellJobHandle},
-    jump_list::{JumpList, JumpPoint},
+    jump_list::JumpPoint,
     keymap::InputContext,
     layout::panes::{PaneKind, Panes, Rect},
     logger::{LogMessage, LoggerState},
@@ -63,7 +63,6 @@ pub struct Engine {
     pub themes: HashMap<String, Arc<EditorTheme>>,
     pub config: Config,
     pub palette: CommandPalette,
-    pub jump_list: JumpList,
     pub file_picker: Option<Picker<String>>,
     pub buffer_picker: Option<Picker<BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
@@ -177,7 +176,6 @@ impl Engine {
             themes,
             config,
             palette,
-            jump_list: JumpList::new(),
             file_picker: None,
             buffer_picker: None,
             global_search_picker: None,
@@ -2137,16 +2135,16 @@ impl Engine {
     }
 
     pub fn save_jump_point(&mut self) {
-        self.jump_list.push(self.get_jump_point());
+        self.workspace.jump_list.push(self.get_jump_point());
     }
 
     pub fn jump_back(&mut self) {
         loop {
-            let Some(jump_point) = self.jump_list.jump_back(self.get_jump_point()) else {
+            let Some(jump_point) = self.workspace.jump_list.jump_back(self.get_jump_point()) else {
                 return;
             };
             if !self.jump_point_is_valid(&jump_point) {
-                self.jump_list.remove_current();
+                self.workspace.jump_list.remove_current();
                 continue;
             }
             self.jump_to_point(jump_point);
@@ -2156,11 +2154,12 @@ impl Engine {
 
     pub fn jump_forward(&mut self) {
         loop {
-            let Some(jump_point) = self.jump_list.jump_forward(self.get_jump_point()) else {
+            let Some(jump_point) = self.workspace.jump_list.jump_forward(self.get_jump_point())
+            else {
                 return;
             };
             if !self.jump_point_is_valid(&jump_point) {
-                self.jump_list.remove_current();
+                self.workspace.jump_list.remove_current();
                 continue;
             }
             self.jump_to_point(jump_point);
