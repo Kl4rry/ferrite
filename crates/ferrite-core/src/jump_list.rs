@@ -62,6 +62,12 @@ impl JumpList {
         std::mem::swap(point, &mut jump_point);
         Some(jump_point)
     }
+
+    pub fn remove_current(&mut self) {
+        if let Ok(current_point) = (self.current_point + 1).try_into() {
+            self.stack.remove(current_point);
+        }
+    }
 }
 
 impl Default for JumpList {

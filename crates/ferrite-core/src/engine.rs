@@ -876,9 +876,18 @@ impl Engine {
                 self.save_jump_point();
                 self.open_workspace_config();
             }
-            Cmd::ForceClose => self.force_close_current_buffer(),
-            Cmd::Close => self.close_current_buffer(),
-            Cmd::ClosePane => self.close_pane(),
+            Cmd::ForceClose => {
+                self.save_jump_point();
+                self.force_close_current_buffer();
+            }
+            Cmd::Close => {
+                self.save_jump_point();
+                self.close_current_buffer();
+            }
+            Cmd::ClosePane => {
+                self.save_jump_point();
+                self.close_pane();
+            }
             Cmd::RevertBuffer => {
                 let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane()
                 else {
@@ -2157,17 +2166,40 @@ impl Engine {
     }
 
     pub fn jump_back(&mut self) {
-        let Some(jump_point) = self.jump_list.jump_back(self.get_jump_point()) else {
+        loop {
+            let Some(jump_point) = self.jump_list.jump_back(self.get_jump_point()) else {
+                return;
+            };
+            if !self.jump_point_is_valid(&jump_point) {
+                self.jump_list.remove_current();
+                continue;
+            }
+            self.jump_to_point(jump_point);
             return;
-        };
-        self.jump_to_point(jump_point);
+        }
     }
 
     pub fn jump_forward(&mut self) {
-        let Some(jump_point) = self.jump_list.jump_forward(self.get_jump_point()) else {
+        loop {
+            let Some(jump_point) = self.jump_list.jump_forward(self.get_jump_point()) else {
+                return;
+            };
+            if !self.jump_point_is_valid(&jump_point) {
+                self.jump_list.remove_current();
+                continue;
+            }
+            self.jump_to_point(jump_point);
             return;
-        };
-        self.jump_to_point(jump_point);
+        }
+    }
+
+    fn jump_point_is_valid(&self, jump_point: &JumpPoint) -> bool {
+        match jump_point {
+            JumpPoint::Buffer { buffer_id, .. } => self.workspace.buffers.get(*buffer_id).is_some(),
+            JumpPoint::File { .. } => true,
+            JumpPoint::FileExplorer(..) => true,
+            JumpPoint::Logger => true,
+        }
     }
 
     fn jump_to_point(&mut self, jump_point: JumpPoint) {
@@ -2178,7 +2210,11 @@ impl Engine {
                 col_pos,
                 cursors,
             } => {
-                let buffer = &mut self.workspace.buffers[buffer_id];
+                let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) else {
+                    self.palette
+                        .set_error("Unable to jump to closed buffer try again");
+                    return;
+                };
                 let view_id = buffer.create_view();
 
                 let old = self
