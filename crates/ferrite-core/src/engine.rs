@@ -608,6 +608,27 @@ impl Engine {
                     .palette
                     .set_error("No path has been set for the current buffer"),
             },
+            Cmd::RelativePath => match self.try_get_current_buffer_path() {
+                Some(path) => {
+                    let cwd = match std::env::current_dir() {
+                        Ok(cwd) => cwd,
+                        Err(err) => {
+                            self.palette.set_error(err);
+                            return;
+                        }
+                    };
+                    let file = path.to_string_lossy();
+                    let cwd = cwd.to_string_lossy();
+                    self.palette.set_msg(
+                        file.strip_prefix(&*cwd)
+                            .map(|path| path.trim_start_matches(std::path::MAIN_SEPARATOR))
+                            .unwrap_or(&file),
+                    );
+                }
+                None => self
+                    .palette
+                    .set_error("No path has been set for the current buffer"),
+            },
             Cmd::About => {
                 self.palette.set_msg(format!(
                     "ferrite\nVersion: {}\nCommit: {}\nDrawing backend: {}\nWindow platform: {}",
@@ -1055,30 +1076,30 @@ impl Engine {
                     }
                 }
             }
-        } else if let Some(picker) = &mut self.global_search_picker {
-            if let Some(choice) = picker.get_choice() {
-                self.save_jump_point();
-                self.global_search_picker = None;
-                let guard = choice.buffer.lock().unwrap();
-                if let Some(file) = guard.file()
-                    && self.open_file(file, false)
-                {
-                    let view_id = guard.get_first_view().unwrap();
-                    let cursor_line = guard.cursor_line_idx(view_id, 0);
-                    let cursor_col = guard.cursor_grapheme_column(view_id, 0);
-                    let anchor_line = guard.anchor_line_idx(view_id, 0);
-                    let anchor_col = guard.anchor_grapheme_column(view_id, 0);
-                    if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                        buffer.select_area(
-                            view_id,
-                            Point::new(cursor_col, cursor_line),
-                            Point::new(anchor_col, anchor_line),
-                        );
-                        // A buffers default amount of lines when newly opened is too large
-                        // and the view will not jump to it.
-                        buffer.set_view_lines(view_id, 10);
-                        buffer.center_on_main_cursor(view_id);
-                    }
+        } else if let Some(picker) = &mut self.global_search_picker
+            && let Some(choice) = picker.get_choice()
+        {
+            self.save_jump_point();
+            self.global_search_picker = None;
+            let guard = choice.buffer.lock().unwrap();
+            if let Some(file) = guard.file()
+                && self.open_file(file, false)
+            {
+                let view_id = guard.get_first_view().unwrap();
+                let cursor_line = guard.cursor_line_idx(view_id, 0);
+                let cursor_col = guard.cursor_grapheme_column(view_id, 0);
+                let anchor_line = guard.anchor_line_idx(view_id, 0);
+                let anchor_col = guard.anchor_grapheme_column(view_id, 0);
+                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                    buffer.select_area(
+                        view_id,
+                        Point::new(cursor_col, cursor_line),
+                        Point::new(anchor_col, anchor_line),
+                    );
+                    // A buffers default amount of lines when newly opened is too large
+                    // and the view will not jump to it.
+                    buffer.set_view_lines(view_id, 10);
+                    buffer.center_on_main_cursor(view_id);
                 }
             }
         }
@@ -2216,15 +2237,15 @@ impl Engine {
                 col_pos,
                 cursors,
             } => {
-                if self.open_file(file, false) {
-                    if let Some((buffer_id, view_id)) = self.get_current_buffer_id() {
-                        let buffer = &mut self.workspace.buffers[buffer_id];
-                        buffer.vertical_scroll_to(view_id, line_pos);
-                        buffer.horizontal_scroll_to(view_id, col_pos);
-                        let view = &mut buffer.views[view_id];
-                        view.cursors = cursors;
-                        buffer.ensure_every_cursor_is_valid();
-                    }
+                if self.open_file(file, false)
+                    && let Some((buffer_id, view_id)) = self.get_current_buffer_id()
+                {
+                    let buffer = &mut self.workspace.buffers[buffer_id];
+                    buffer.vertical_scroll_to(view_id, line_pos);
+                    buffer.horizontal_scroll_to(view_id, col_pos);
+                    let view = &mut buffer.views[view_id];
+                    view.cursors = cursors;
+                    buffer.ensure_every_cursor_is_valid();
                 }
             }
             JumpPoint::FileExplorer(file) => self.open_file_explorer(Some(file)),

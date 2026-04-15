@@ -18,6 +18,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("search", None, true).build(|_| Cmd::Search),
         CmdBuilder::new("about", None, true).build(|_| Cmd::About),
         CmdBuilder::new("path", None, true).build(|_| Cmd::Path),
+        CmdBuilder::new("relative-path", None, true).build(|_| Cmd::RelativePath),
         CmdBuilder::new("git-reload", None, true).build(|_| Cmd::GitReload),
         CmdBuilder::new("reload", None, true).build(|_| Cmd::Reload),
         CmdBuilder::new("reload-all", None, true).build(|_| Cmd::ReloadAll),
