@@ -1015,6 +1015,18 @@ impl Engine {
                 self.jump_forward();
             }
             input => {
+                if matches!(
+                    input,
+                    Cmd::NextMatch
+                        | Cmd::PrevMatch
+                        | Cmd::Start { .. }
+                        | Cmd::Replace
+                        | Cmd::Eof { .. }
+                        | Cmd::SelectAll
+                ) {
+                    self.save_jump_point();
+                }
+
                 if self.palette.has_focus() {
                     let _ = self.palette.handle_input(input);
                 } else if let Some(picker) = &mut self.file_picker {
