@@ -76,7 +76,7 @@ fn calculate_bounds(engine: &mut Engine, bounds: Bounds) -> Bounds {
         view_bounds.left(),
         view_bounds.top(),
         view_bounds.width,
-        view_bounds.height - palette_height,
+        view_bounds.height.saturating_sub(palette_height),
     );
     Bounds::new(pane_pixel_area, cell_size, bounds.rounding)
 }
