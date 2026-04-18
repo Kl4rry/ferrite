@@ -28,6 +28,9 @@ left = ["file", "matches"]
 right = ["branch", "position", "encoding", "language", "size", "spinner"]
 padding = 1
 
+[git]
+inline_blame = true
+
 [gui]
 font_family = "FiraCode Nerd Font Mono"
 font_weight = "normal"

@@ -21,6 +21,7 @@
 "editor.file_explorer.link" = { fg = "cyan" }
 "editor.conflict.current" = { bg = "conflict-current" }
 "editor.conflict.incoming" = { bg = "conflict-incoming" }
+"editor.blame.cursor_line" = { fg = "line-fg" }
 
 [syntax]
 "attribute" = { fg = "text" }

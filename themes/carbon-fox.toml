@@ -2,7 +2,7 @@
 "editor.line_nr" = { fg = "fg3" }
 "editor.current_line_nr" = { fg = "yellow" }
 "editor.text" = { fg = "fg1" }
-"editor.dim_text" = { fg = "bg2" }
+"editor.dim_text" = { fg = "bg4" }
 "editor.info_line" = { fg = "fg2", bg = "bg0" }
 "editor.info_line.unfocused" = { fg = "fg3", bg = "bg0" }
 "editor.background" = { bg = "bg1", fg = "fg1" }
@@ -22,6 +22,7 @@
 "editor.file_explorer.link" = { fg = "yellow" }
 "editor.conflict.current" = { bg = "conflict-current" }
 "editor.conflict.incoming" = { bg = "conflict-incoming" }
+"editor.blame.cursor_line" = { fg = "fg3" }
 
 [syntax]
 "markup.raw" = { fg = "magenta" } # Code block in Markdown.

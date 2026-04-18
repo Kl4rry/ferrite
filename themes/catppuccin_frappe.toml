@@ -21,6 +21,7 @@
 "editor.file_explorer.link" = { fg = "teal" }
 "editor.conflict.current" = { bg = "conflict-current" }
 "editor.conflict.incoming" = { bg = "conflict-incoming" }
+"editor.blame.cursor_line" = { fg = "surface0" }
 
 [syntax]
 "type" = { fg = "yellow" }

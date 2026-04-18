@@ -1,4 +1,4 @@
-use std::{ops::Add, sync::Arc};
+use std::{ops::Add, sync::Arc, time::SystemTime};
 
 use ferrite_ctx::{ArenaString, ArenaVec};
 use ferrite_geom::{
@@ -13,6 +13,7 @@ use ferrite_runtime::{
 use ferrite_style::Style;
 use ferrite_utility::{
     graphemes::{RopeGraphemeExt, TAB_WIDTH, tab_width_at},
+    time::format_duration_approx,
     tui_buf_ext::TuiBufExt,
 };
 use rayon::{
@@ -610,7 +611,7 @@ impl View<Buffer> for EditorView {
                 let end_line =
                     buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
 
-                if line_idx > start_line && line_idx < end_line {
+                if line_idx >= start_line && line_idx < end_line {
                     let cursor_line_area = Rect::new(
                         text_area.x,
                         text_area.y + (line_idx - start_line),
@@ -626,6 +627,7 @@ impl View<Buffer> for EditorView {
                 .as_ref()
                 .map(|searcher| searcher.get_matches());
             if let Some(matches) = matches {
+                profiling::scope!("draw search matches");
                 let matches = matches.lock().unwrap();
                 let matches = &*matches.0;
 
@@ -656,10 +658,24 @@ impl View<Buffer> for EditorView {
             }
 
             'block: {
+                if !config.git.inline_blame {
+                    break 'block;
+                }
                 profiling::scope!("draw blame");
+
+                let cursor_line_idx = buffer.cursor_line_idx(view_id, 0);
+                let start_line = buffer.views[view_id].line_pos_floored();
+                let end_line =
+                    buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
+
+                if !(cursor_line_idx >= start_line && cursor_line_idx < end_line) {
+                    break 'block;
+                }
+
                 let rope = buffer.rope().clone();
                 let blame = buffer.blame.get_blame();
                 let line_pos = buffer.views[view_id].line_pos_floored();
+
                 let mut hunk_iter = blame.iter();
                 let Some(mut current_hunk) = hunk_iter.next() else {
                     break 'block;
@@ -670,34 +686,48 @@ impl View<Buffer> for EditorView {
                     if line_idx >= rope.len_lines() {
                         break;
                     }
-                    while line_idx > current_hunk.start_line + current_hunk.len_lines {
+                    while line_idx >= current_hunk.start_line + current_hunk.len_lines {
                         match hunk_iter.next() {
                             Some(hunk) => current_hunk = hunk,
                             None => break 'block,
                         }
                     }
+
+                    if cursor_line_idx != line_idx {
+                        continue;
+                    }
+
                     let width = if line_idx >= rope.len_lines() {
-                        0
+                        continue;
                     } else {
                         rope.line_without_line_ending(line_idx).width(0)
                     };
-                    let Some(x) = (text_area.x + width + 4)
+
+                    let Some(x) = (text_area.x + width + 6)
                         .checked_sub(buffer.views[view_id].col_pos_floored())
                     else {
                         continue;
                     };
 
+                    let mut time_str = ArenaString::new_in(&arena);
+                    format_duration_approx(
+                        &mut time_str,
+                        &SystemTime::now()
+                            .duration_since(current_hunk.author_time)
+                            .unwrap(),
+                    );
+
                     buf.draw_string(
                         x as u16,
                         (i + text_area.y) as u16,
-                        &ferrite_ctx::format!(in &arena, "{} {} {} {}", current_hunk.author,
-                            "",//humantime::format_rfc3339(current_hunk.author_time),
-                            &current_hunk.commit[..8],
-                            &current_hunk.summary,
+                        &ferrite_ctx::format!(in &arena, "{} {} ago",
+                            current_hunk.author,
+                            time_str,
                         ),
                         text_area.into(),
-                        theme.dim_text,
+                        theme.blame_cursor_line,
                     );
+                    break;
                 }
             }
 

@@ -22,6 +22,7 @@
 "editor.file_explorer.link" = { fg = "aqua0" }
 "editor.conflict.current" = { bg = "conflict-current" }
 "editor.conflict.incoming" = { bg = "conflict-incoming" }
+"editor.blame.cursor_line" = { fg = "ruler" }
 
 [syntax]
 "tag" = { fg = "red1" }

@@ -110,6 +110,7 @@ pub struct EditorTheme {
     pub file_explorer_link: style::Style,
     pub conflict_current: style::Style,
     pub conflict_incoming: style::Style,
+    pub blame_cursor_line: style::Style,
     // syntax styles
     syntax: HashMap<String, style::Style>,
 }
@@ -142,6 +143,7 @@ impl EditorTheme {
             file_explorer_link: theme.get_style("editor.file_explorer.link")?,
             conflict_current: theme.get_style("editor.conflict.current")?,
             conflict_incoming: theme.get_style("editor.conflict.incoming")?,
+            blame_cursor_line: theme.get_style("editor.blame.cursor_line")?,
 
             syntax: {
                 let mut syntax = HashMap::new();

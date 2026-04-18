@@ -30,7 +30,6 @@ grep-regex = { workspace = true }
 grep-searcher = { workspace = true }
 heck = { workspace = true }
 humansize = { workspace = true }
-humantime = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 linkify = { workspace = true }

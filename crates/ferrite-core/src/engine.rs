@@ -85,7 +85,6 @@ pub struct Engine {
     pub trim_timer: Timer,
     pub drawing_backend: String,
     pub window_backend: String,
-    pub blame: bool,
 }
 
 #[profiling::all_functions]
@@ -145,14 +144,6 @@ impl Engine {
 
         let job_manager = JobManager::new(proxy.dup());
 
-        let workspace = match Workspace::load_workspace(true, proxy.dup(), &mut palette.histories) {
-            Ok(workspace) => workspace,
-            Err(err) => {
-                tracing::error!("Error loading workspace: {err}");
-                Workspace::default()
-            }
-        };
-
         let branch_watcher = BranchWatcher::new(proxy.dup())?;
 
         let buffer_watcher = if config.watch_open_files {
@@ -169,6 +160,14 @@ impl Engine {
             languages_path,
             languages_watcher,
             keymap: Arc::new(keymap),
+        };
+
+        let workspace = match Workspace::load_workspace(true, proxy.dup(), &mut palette.histories) {
+            Ok(workspace) => workspace,
+            Err(err) => {
+                tracing::error!("Error loading workspace: {err}");
+                Workspace::default()
+            }
         };
 
         let mut engine = Self {
@@ -203,7 +202,6 @@ impl Engine {
             trim_timer: Timer::default(),
             drawing_backend: String::from("unknown"),
             window_backend: String::from("unknown"),
-            blame: false,
         };
 
         let mut files_from_args = false;
@@ -325,9 +323,7 @@ impl Engine {
                     Ok(job) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(job.buffer_id) {
                             if job.last_edit <= buffer.get_last_edit() {
-                                if self.blame {
-                                    buffer.try_update_blame();
-                                }
+                                buffer.try_update_blame();
                                 buffer.mark_saved();
                             } else {
                                 buffer.mark_history_dirty();
@@ -996,18 +992,7 @@ impl Engine {
                 );
                 self.palette.set_line(path.to_string_lossy());
             }
-            Cmd::Blame => {
-                self.blame = !self.blame;
-                if self.blame {
-                    for buffer in self.workspace.buffers.values_mut() {
-                        buffer.try_update_blame();
-                    }
-                } else {
-                    for buffer in self.workspace.buffers.values_mut() {
-                        buffer.blame.reset();
-                    }
-                }
-            }
+            Cmd::Blame => (),
             Cmd::JumpBack => {
                 self.jump_back();
             }
@@ -1387,7 +1372,7 @@ impl Engine {
                 true
             }
             None => match Buffer::builder()
-                .with_blame(self.blame)
+                .with_blame(true)
                 .from_file(&real_path)
                 .build()
             {
@@ -1400,7 +1385,7 @@ impl Engine {
                 Err(err) => match err.kind() {
                     io::ErrorKind::NotFound if create_file => {
                         match Buffer::builder()
-                            .with_blame(self.blame)
+                            .with_blame(true)
                             .with_path(path.as_ref())
                             .build()
                         {

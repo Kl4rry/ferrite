@@ -22,6 +22,7 @@
 "editor.file_explorer.link" = { fg = "cyan" }
 "editor.conflict.current" = { bg = "conflict-current" }
 "editor.conflict.incoming" = { bg = "conflict-incoming" }
+"editor.blame.cursor_line" = { fg = "faint_gray" }
 
 [syntax]
 "tag" = { fg = "red" }

@@ -259,6 +259,10 @@ impl Workspace {
             });
         }
 
+        for buffer in buffers.values_mut() {
+            buffer.try_update_blame();
+        }
+
         Ok(Self {
             buffers,
             file_explorers,

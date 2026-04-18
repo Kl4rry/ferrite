@@ -69,6 +69,8 @@ pub struct Editor {
     #[serde(default)]
     pub info_line: InfoLineConfig,
     #[serde(default)]
+    pub git: Git,
+    #[serde(default)]
     pub gui: Gui,
     #[serde(default)]
     pub keymap: IndexMap<Key, KeymapAndMetadata>,
@@ -104,6 +106,12 @@ pub enum LineNumber {
     Absolute,
     None,
     Relative,
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub struct Git {
+    pub inline_blame: bool,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Copy, Debug, PartialEq, Eq)]
