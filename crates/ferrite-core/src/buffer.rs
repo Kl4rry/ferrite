@@ -3391,7 +3391,7 @@ impl Buffer {
         let rope = self.rope.clone();
         rayon::spawn(move || {
             let start = Instant::now();
-            // TODO: rm temp alloc
+            // TODO: rm tmp alloc
             let mut conflicts = Vec::new();
             enum Stage {
                 Searching,

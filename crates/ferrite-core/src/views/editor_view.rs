@@ -204,6 +204,7 @@ impl View<Buffer> for EditorView {
         mut bounds: Bounds,
         painter: &mut ferrite_runtime::Painter,
     ) {
+        profiling::scope!("render editor");
         let Self {
             view_id,
             config,
@@ -431,7 +432,9 @@ impl View<Buffer> for EditorView {
                     }
                 }
             }
+        }
 
+        {
             let mut draw_cursor_line = true;
 
             let cursor_view_pos =
@@ -441,7 +444,7 @@ impl View<Buffer> for EditorView {
                 draw_cursor_line = false;
             }
 
-            let mut cursor_rects = Vec::new();
+            let mut cursor_rects = ArenaVec::new_in(&arena);
             if has_focus {
                 for (column, row) in cursor_view_pos {
                     cursor_rects.push(Rect {
@@ -456,7 +459,7 @@ impl View<Buffer> for EditorView {
             let range = buffer.view_range(view_id);
             let col_pos = buffer.col_pos(view_id);
             let line_pos = buffer.line_pos(view_id);
-            let mut highlights = Vec::new();
+            let mut highlights = ArenaVec::new_in(&arena);
             let mut syntax_rope = None;
             {
                 // TODO do this async on syntax thread
@@ -465,7 +468,7 @@ impl View<Buffer> for EditorView {
                     && let Some((rope, events)) = &*syntax.get_highlight_events()
                 {
                     syntax_rope = Some(rope.clone());
-                    let mut highlight_stack: Vec<Highlight> = Vec::new();
+                    let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
                     for event in events {
                         match event {
                             HighlightEvent::Source { start, end } => {
@@ -493,6 +496,7 @@ impl View<Buffer> for EditorView {
             // Apply highlight
             if let Some(rope) = syntax_rope {
                 profiling::scope!("apply highlights");
+                // TODO: rm tmp alloc
                 let highlights: Vec<_> = {
                     profiling::scope!("take highlight events");
                     tracing::debug!("taking highlight events");
