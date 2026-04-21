@@ -1,4 +1,4 @@
-use std::{ops::Add, sync::Arc, time::SystemTime};
+use std::{fmt::Write, ops::Add, sync::Arc, time::SystemTime};
 
 use ferrite_ctx::{ArenaString, ArenaVec};
 use ferrite_geom::{
@@ -322,7 +322,7 @@ impl View<Buffer> for EditorView {
         let cursor_line_number = buffer.cursor_line_idx(view_id, 0) + 1;
 
         // We have to overwrite all rendered whitespace with the correct color
-        let mut dim_cells = Vec::new(); // TODO: tmp alloc
+        let mut dim_cells = ArenaVec::new_in(&arena);
         let mut grapheme_buffer = ArenaString::with_capacity_in(100, &arena);
         let view_line_range = buffer.view_range_lines(view_id);
         {
@@ -340,13 +340,14 @@ impl View<Buffer> for EditorView {
                         } else {
                             (line_number as i64 - cursor_line_number as i64).unsigned_abs() as usize
                         };
-                    let line_number_str = line_number.to_string();
-                    let line_number_str = ferrite_ctx::format!(in &arena,
-                        "{}{}",
-                        // TODO: rm temp alloc
-                        " ".repeat(line_number_max_width - line_number_str.len()),
-                        line_number
-                    );
+                    let mut line_number_str = ArenaString::new_in(&arena);
+                    write!(
+                        line_number_str,
+                        "{:width$}",
+                        line_number,
+                        width = line_number_max_width
+                    )
+                    .unwrap();
                     let line_nr_theme = if is_current_line {
                         theme.current_line_nr
                     } else {
