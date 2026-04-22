@@ -24,6 +24,7 @@ impl LoggerView {
 
 impl View<LoggerState> for LoggerView {
     fn render(&self, state: &mut LoggerState, bounds: Bounds, painter: &mut Painter) {
+        let arena = ferrite_ctx::Ctx::arena();
         let layer = painter.create_layer("logger", bounds);
         let mut layer = layer.lock().unwrap();
         let buf = &mut layer.buf;
@@ -40,7 +41,7 @@ impl View<LoggerState> for LoggerView {
                 .get(y + state.lines_scrolled_up.floor() as usize)
             {
                 Some(msg) => {
-                    let string = format!("{:>5} {} {}", msg.level, msg.target, msg.fields.message);
+                    let string = ferrite_ctx::format!(in &arena, "{:>5} {} {}", msg.level, msg.target, msg.fields.message);
                     buf.draw_string(
                         area.x as u16,
                         (area.top() + area.height - y - 2) as u16, // TODO fix this - 2
@@ -81,9 +82,9 @@ impl View<LoggerState> for LoggerView {
 
             buf.set_style(line_area.into(), style);
             #[cfg(not(feature = "talloc"))]
-            let line = format!(" Frame time: {:?}", self.render_time);
+            let line = ferrite_ctx::format!(in &arena, " Frame time: {:?}", self.render_time);
             #[cfg(feature = "talloc")]
-            let line = format!(
+            let line = ferrite_ctx::format!(in &arena,
                 " Frame time: {:?} Heap memory usage: {} Heap allocations: {}, Frame allocations: {}",
                 self.render_time,
                 crate::byte_size::format_byte_size(ferrite_talloc::Talloc::total_memory_allocated()),
