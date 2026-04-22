@@ -330,6 +330,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         }
         {
             profiling::scope!("present");
+            state.window.pre_present_notify();
             output.present();
         }
 
