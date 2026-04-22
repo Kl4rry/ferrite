@@ -249,7 +249,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             .renderer
             .prepare(&state.device, &state.queue, &state.config, layers);
 
-        let output: wgpu::SurfaceTexture = match state.surface.get_current_texture() {
+        /*let output: wgpu::SurfaceTexture = match state.surface.get_current_texture() {
             Ok(surface) => surface,
             Err(wgpu::SurfaceError::Timeout) => {
                 tracing::error!("Timeout acquiring surface");
@@ -266,7 +266,29 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
                 return;
             }
             Err(err) => panic!("{}", err),
+        };*/
+        let output: wgpu::SurfaceTexture = match state.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(surface) => surface,
+            wgpu::CurrentSurfaceTexture::Occluded => return,
+            wgpu::CurrentSurfaceTexture::Timeout => {
+                tracing::error!("Timeout acquiring surface");
+                state.window.request_redraw();
+                return;
+            }
+            wgpu::CurrentSurfaceTexture::Suboptimal(_)
+            | wgpu::CurrentSurfaceTexture::Outdated
+            | wgpu::CurrentSurfaceTexture::Lost => {
+                tracing::error!("Surface lost or outdated");
+                state.surface.configure(&state.device, &state.config);
+                state
+                    .renderer
+                    .resize(state.config.width as f32, state.config.height as f32);
+                state.window.request_redraw();
+                return;
+            }
+            e => panic!("{:?}", e),
         };
+
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -394,10 +416,13 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
 
         let instance_descriptor = wgpu::InstanceDescriptor {
             backends,
-            ..Default::default()
+            flags: wgpu::InstanceFlags::empty(),
+            backend_options: wgpu::BackendOptions::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+            display: Some(Box::new(window.clone())),
         };
 
-        let instance = wgpu::Instance::new(&instance_descriptor);
+        let instance = wgpu::Instance::new(instance_descriptor);
 
         let surface = instance.create_surface(window.clone()).unwrap();
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {

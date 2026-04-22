@@ -184,7 +184,7 @@ impl GeometryRenderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Geometry render pipeline layout"),
-                bind_group_layouts: &[&Uniform::get_bind_group_layout(device)],
+                bind_group_layouts: &[Some(&Uniform::get_bind_group_layout(device))],
                 immediate_size: 0,
             });
 
