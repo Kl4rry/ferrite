@@ -31,7 +31,6 @@ use crate::{
         self,
         editor::{CursorType, Editor, LineNumber},
     },
-    language::syntax::{Highlight, HighlightEvent},
     theme::EditorTheme,
 };
 
@@ -462,33 +461,27 @@ impl View<Buffer> for EditorView {
             let mut highlights = ArenaVec::new_in(&arena);
             let mut syntax_rope = None;
             {
-                // TODO do this async on syntax thread
                 profiling::scope!("collect syntax events");
                 if let Some(syntax) = buffer.get_syntax()
-                    && let Some((rope, events)) = &*syntax.get_highlight_events()
+                    && let Some((rope, sum_tree)) = &*syntax.get_highlight_events()
                 {
                     syntax_rope = Some(rope.clone());
-                    let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
-                    for event in events {
-                        match event {
-                            HighlightEvent::Source { start, end } => {
-                                if intersects(*start, *end, range.start, range.end) {
-                                    let mut style = theme.text;
-                                    if let Some(highlight) = highlight_stack.last()
-                                        && let Some(name) = highlight
-                                            .query
-                                            .capture_names()
-                                            .get(highlight.capture_index)
-                                    {
-                                        style = theme.get_syntax(name);
-                                    }
-
-                                    highlights.push((*start, *end, style));
-                                }
-                            }
-                            HighlightEvent::HighlightStart(h) => highlight_stack.push(*h),
-                            HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
+                    for ((start, end), highlight) in sum_tree.iter_from(&(range.start, range.start))
+                    {
+                        if *start > range.end {
+                            break;
                         }
+                        if !intersects(*start, *end, range.start, range.end) {
+                            continue;
+                        }
+                        let mut style = theme.text;
+                        if let Some(name) =
+                            highlight.query.capture_names().get(highlight.capture_index)
+                        {
+                            style = theme.get_syntax(name);
+                        }
+
+                        highlights.push((*start, *end, style));
                     }
                 }
             }
@@ -496,10 +489,11 @@ impl View<Buffer> for EditorView {
             // Apply highlight
             if let Some(rope) = syntax_rope {
                 profiling::scope!("apply highlights");
+                tracing::warn!("highlights: {}", highlights.len());
                 // TODO: rm tmp alloc
                 let highlights: Vec<_> = {
-                    profiling::scope!("take highlight events");
-                    tracing::debug!("taking highlight events");
+                    profiling::scope!("take highlights");
+                    tracing::debug!("taking highlights");
                     highlights
                         .par_iter()
                         .take(10000)

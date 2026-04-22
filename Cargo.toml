@@ -38,6 +38,7 @@ ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
 ferrite-utility = { path = "crates/ferrite-utility" }
 ferrite-winit-wgpu-platform = { path = "crates/ferrite-winit-wgpu-platform" }
 glyphon = "0.10.0"
+gpui_sum_tree = "0.2.2"
 grep-matcher = "0.1.7"
 grep-regex = "0.1.13"
 grep-searcher = "0.1.14"

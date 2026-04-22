@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use cb::Sender;
+use ferrite_ctx::ArenaVec;
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
@@ -17,7 +18,8 @@ use tree_sitter::{
 use super::{TreeSitterConfig, get_tree_sitter_language};
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
-type HighlightResult = Arc<Mutex<Option<(Rope, Vec<HighlightEvent>)>>>;
+type HighlightResult =
+    Arc<Mutex<Option<(Rope, gpui_sum_tree::TreeMap<(usize, usize), Highlight>)>>>;
 
 struct SyntaxProvider {
     pub language: &'static TreeSitterConfig,
@@ -52,16 +54,31 @@ impl SyntaxProvider {
                     continue;
                 }
 
+                let mut arena = ferrite_ctx::Ctx::arena_mut();
+
                 let time = Instant::now();
                 if let Ok(iterator) =
                     highlighter.highlight(&highlight_config.clone(), rope.slice(..), |name| {
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
                     })
                 {
-                    *result.lock().unwrap() = Some((
-                        rope.clone(),
-                        iterator.filter_map(|event| event.ok()).collect(),
-                    ));
+                    let mut sum_tree: gpui_sum_tree::TreeMap<(usize, usize), Highlight> =
+                        gpui_sum_tree::TreeMap::default();
+
+                    let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
+                    for event in iterator.filter_map(|event| event.ok()) {
+                        match event {
+                            HighlightEvent::Source { start, end } => {
+                                if let Some(highlight) = highlight_stack.last() {
+                                    sum_tree.insert((start, end), *highlight);
+                                }
+                            }
+                            HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
+                            HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
+                        }
+                    }
+
+                    *result.lock().unwrap() = Some((rope.clone(), sum_tree));
                     proxy.request_render("syntax update parsed");
                 }
                 tracing::debug!(
@@ -69,6 +86,7 @@ impl SyntaxProvider {
                     time.elapsed().as_micros(),
                     time.elapsed().as_millis()
                 );
+                arena.reset();
             }
 
             tracing::info!("Syntax provider thread exit");
@@ -126,7 +144,9 @@ impl Syntax {
         }
     }
 
-    pub fn get_highlight_events(&self) -> MutexGuard<Option<(Rope, Vec<HighlightEvent>)>> {
+    pub fn get_highlight_events(
+        &self,
+    ) -> MutexGuard<Option<(Rope, gpui_sum_tree::TreeMap<(usize, usize), Highlight>)>> {
         self.result.lock().unwrap()
     }
 }
