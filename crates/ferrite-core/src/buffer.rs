@@ -64,6 +64,14 @@ pub enum ViewDrag {
     None,
 }
 
+#[derive(Default)]
+pub struct HighlightCache {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub history_epoch: usize,
+    pub highlights: Vec<(Point<usize>, Point<usize>, ferrite_style::Style)>,
+}
+
 pub struct View {
     pub cursors: Vec1<Cursor>,
     pub line_pos: f64,
@@ -76,6 +84,7 @@ pub struct View {
     last_word_selected: Option<usize>,
     pub completer: Completer,
     pub drag: ViewDrag,
+    pub highlight_cache: HighlightCache,
     unique_id: UniqueId,
 }
 
@@ -88,11 +97,12 @@ impl Default for View {
             clamp_cursor: true,
             searcher: None,
             replacement: None,
-            view_lines: 100,   // semi resonable default
-            view_columns: 100, // semi resonable default
+            view_lines: 100,   // semi resonable default for first frame
+            view_columns: 100, // semi resonable default for first frame
             last_word_selected: None,
             completer: Completer::new(),
             drag: ViewDrag::default(),
+            highlight_cache: HighlightCache::default(),
             unique_id: UniqueId::new(),
         }
     }
@@ -112,6 +122,7 @@ impl Clone for View {
             last_word_selected: self.last_word_selected,
             completer: self.completer.clone(),
             drag: self.drag,
+            highlight_cache: HighlightCache::default(), // Not cloned as it is easily recreated
             unique_id: UniqueId::new(),
         }
     }
@@ -175,7 +186,7 @@ pub struct Buffer {
     completion_source: CompletionSource,
     // syntax highlight
     syntax: Option<Syntax>,
-    history: History,
+    pub history: History,
 }
 
 impl Clone for Buffer {
@@ -355,6 +366,7 @@ impl Buffer {
     }
 
     pub fn set_text(&mut self, text: &str) {
+        self.history.next_epoch();
         self.rope = Rope::from(text);
         if let Some(ref mut syntax) = self.syntax {
             syntax.update_text(self.rope.clone());
@@ -365,6 +377,7 @@ impl Buffer {
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
     pub fn replace_rope(&mut self, rope: Rope) {
+        self.history.next_epoch();
         let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
         let mut map = SecondaryMap::new();
         for view_id in self.views.keys() {

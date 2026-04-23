@@ -489,11 +489,22 @@ impl View<Buffer> for EditorView {
             // Apply highlight
             if let Some(rope) = syntax_rope {
                 profiling::scope!("apply highlights");
-                tracing::warn!("highlights: {}", highlights.len());
-                // TODO: rm tmp alloc
-                let highlights: Vec<_> = {
+
+                let epoch = buffer.history.epoch();
+                let highlight_cache = &mut buffer.views[view_id].highlight_cache;
+
+                let highlights = if range.start == highlight_cache.start_byte
+                    && range.end == highlight_cache.end_byte
+                    && epoch == highlight_cache.history_epoch
+                {
+                    profiling::scope!("get cached highlights");
+                    &highlight_cache.highlights
+                } else {
                     profiling::scope!("take highlights");
                     tracing::debug!("taking highlights");
+                    highlight_cache.start_byte = range.start;
+                    highlight_cache.end_byte = range.end;
+                    highlight_cache.history_epoch = epoch;
                     highlights
                         .par_iter()
                         .take(10000)
@@ -501,9 +512,10 @@ impl View<Buffer> for EditorView {
                             let start_point = rope.byte_to_point((*start).min(rope.len_bytes()));
                             let end_point = rope.byte_to_point((*end).min(rope.len_bytes()));
 
-                            (start_point, end_point, style)
+                            (start_point, end_point, *style)
                         })
-                        .collect()
+                        .collect_into_vec(&mut highlight_cache.highlights);
+                    &highlight_cache.highlights
                 };
 
                 for (start_point, end_point, style) in highlights {
