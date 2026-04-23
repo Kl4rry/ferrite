@@ -2391,6 +2391,7 @@ impl Buffer {
 
         self.history.finish();
         self.on_file_changed(None);
+        self.try_update_blame();
 
         self.ensure_every_cursor_is_valid();
         self.update_completer(None, CompleterEvent::None);
