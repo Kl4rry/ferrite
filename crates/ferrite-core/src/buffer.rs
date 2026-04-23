@@ -2028,6 +2028,13 @@ impl Buffer {
 
     fn select_line_raw(&mut self, view_id: ViewId, cursor_idx: usize) {
         {
+            let cursor = self.views[view_id].cursors[cursor_idx].position;
+            let anchor = self.views[view_id].cursors[cursor_idx].anchor;
+            self.views[view_id].cursors[cursor_idx].position = cursor.max(anchor);
+            self.views[view_id].cursors[cursor_idx].anchor = cursor.min(anchor);
+        }
+
+        {
             let line_idx = self.cursor_line_idx(view_id, cursor_idx);
             let line_start = self.rope.line_to_byte(line_idx + 1);
             self.views[view_id].cursors[cursor_idx].position = line_start;
