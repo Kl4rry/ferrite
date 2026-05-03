@@ -98,7 +98,6 @@ struct Frame {
 pub struct History {
     stack: Vec<Frame>,
     current_frame: i64,
-    epoch: usize,
 }
 
 impl Default for History {
@@ -106,14 +105,12 @@ impl Default for History {
         Self {
             stack: Vec::new(),
             current_frame: -1,
-            epoch: 0,
         }
     }
 }
 
 impl History {
     fn edit(&mut self, rope: &mut Rope, edit: EditKind) {
-        self.next_epoch();
         match self.stack.last_mut() {
             Some(frame) => {
                 frame.edit_class = edit.get_class();
@@ -185,8 +182,6 @@ impl History {
             return;
         }
 
-        self.next_epoch();
-
         let mut last_class = None;
 
         while let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize) {
@@ -225,8 +220,6 @@ impl History {
         dirty: &mut bool,
     ) {
         let mut last_class = None;
-
-        self.next_epoch();
 
         loop {
             if self.current_frame + 1 >= self.stack.len() as i64 {
@@ -272,13 +265,5 @@ impl History {
         for frame in &mut self.stack {
             frame.dirty = true;
         }
-    }
-
-    pub fn next_epoch(&mut self) {
-        self.epoch += 1;
-    }
-
-    pub fn epoch(&self) -> usize {
-        self.epoch
     }
 }

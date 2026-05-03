@@ -366,7 +366,6 @@ impl Buffer {
     }
 
     pub fn set_text(&mut self, text: &str) {
-        self.history.next_epoch();
         self.rope = Rope::from(text);
         if let Some(ref mut syntax) = self.syntax {
             syntax.update_text(self.rope.clone());
@@ -377,7 +376,6 @@ impl Buffer {
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
     pub fn replace_rope(&mut self, rope: Rope) {
-        self.history.next_epoch();
         let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
         let mut map = SecondaryMap::new();
         for view_id in self.views.keys() {

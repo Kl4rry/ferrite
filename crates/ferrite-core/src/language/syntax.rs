@@ -18,8 +18,15 @@ use tree_sitter::{
 use super::{TreeSitterConfig, get_tree_sitter_language};
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
-type HighlightResult =
-    Arc<Mutex<Option<(Rope, gpui_sum_tree::TreeMap<(usize, usize), Highlight>)>>>;
+type HighlightResult = Arc<
+    Mutex<
+        Option<(
+            usize,
+            Rope,
+            gpui_sum_tree::TreeMap<(usize, usize), Highlight>,
+        )>,
+    >,
+>;
 
 struct SyntaxProvider {
     pub language: &'static TreeSitterConfig,
@@ -41,6 +48,8 @@ impl SyntaxProvider {
             let mut highlighter = Highlighter::default();
             let mut rope;
 
+            let mut epoch = 0;
+
             loop {
                 rope = match rope_rx.recv() {
                     Ok(rope) => rope,
@@ -49,6 +58,8 @@ impl SyntaxProvider {
                         break;
                     }
                 };
+
+                epoch += 1;
 
                 if !rope_rx.is_empty() {
                     continue;
@@ -78,7 +89,7 @@ impl SyntaxProvider {
                         }
                     }
 
-                    *result.lock().unwrap() = Some((rope.clone(), sum_tree));
+                    *result.lock().unwrap() = Some((epoch, rope.clone(), sum_tree));
                     proxy.request_render("syntax update parsed");
                 }
                 tracing::debug!(
@@ -146,7 +157,13 @@ impl Syntax {
 
     pub fn get_highlight_events(
         &self,
-    ) -> MutexGuard<Option<(Rope, gpui_sum_tree::TreeMap<(usize, usize), Highlight>)>> {
+    ) -> MutexGuard<
+        Option<(
+            usize,
+            Rope,
+            gpui_sum_tree::TreeMap<(usize, usize), Highlight>,
+        )>,
+    > {
         self.result.lock().unwrap()
     }
 }

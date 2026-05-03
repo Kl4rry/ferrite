@@ -459,13 +459,13 @@ impl View<Buffer> for EditorView {
             let col_pos = buffer.col_pos(view_id);
             let line_pos = buffer.line_pos(view_id);
             let mut highlights = ArenaVec::new_in(&arena);
-            let mut syntax_rope = None;
+            let mut syntax_data = None;
             {
                 profiling::scope!("collect syntax events");
                 if let Some(syntax) = buffer.get_syntax()
-                    && let Some((rope, sum_tree)) = &*syntax.get_highlight_events()
+                    && let Some((epoch, rope, sum_tree)) = &*syntax.get_highlight_events()
                 {
-                    syntax_rope = Some(rope.clone());
+                    syntax_data = Some((*epoch, rope.clone()));
                     for ((start, end), highlight) in sum_tree.iter_from(&(range.start, range.start))
                     {
                         if *start > range.end {
@@ -487,10 +487,9 @@ impl View<Buffer> for EditorView {
             }
 
             // Apply highlight
-            if let Some(rope) = syntax_rope {
+            if let Some((epoch, rope)) = syntax_data {
                 profiling::scope!("apply highlights");
 
-                let epoch = buffer.history.epoch();
                 let highlight_cache = &mut buffer.views[view_id].highlight_cache;
 
                 let highlights = if range.start == highlight_cache.start_byte
