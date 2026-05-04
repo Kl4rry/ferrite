@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn count_words_test() {
-        let text = Rope::from_str("oof doof bbb\naaa oof oof choo_f moo-o");
+        let text = Rope::from_str("oof doof bbb\naaa oof oof choo_f moo-o 111");
         let mut words = HashMap::new();
         count_words(&mut words, &text);
         assert_eq!(words[&RopeSlice::from("oof")], 3);

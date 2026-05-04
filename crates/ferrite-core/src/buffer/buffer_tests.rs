@@ -34,22 +34,22 @@ fn read_write_utf8() {
 fn insert_random_ascii() {
     crate::event_loop_proxy::set_proxy(Box::new(crate::event_loop_proxy::NoopEventLoop));
     for _ in 0..100 {
-        use rand::Rng;
+        use rand::RngExt;
         fn get_random_text() -> String {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let mut output = Vec::new();
-            for _ in 0..rng.gen_range(0..100) {
-                output.push(rng.gen_range(0..128));
+            for _ in 0..rng.random_range(0..100) {
+                output.push(rng.random_range(0..128));
             }
             unsafe { String::from_utf8_unchecked(output) }
         }
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut buffer = Buffer::new();
         let view_id = buffer.get_first_view_or_create();
 
         for _ in 0..1000 {
-            match rng.gen_range(0..5) {
+            match rng.random_range(0..5) {
                 0 => {
                     buffer.move_left_char(view_id, false);
                 }
@@ -74,15 +74,15 @@ fn insert_random_ascii() {
 
 #[test]
 fn coalesce_random() {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
+    use rand::RngExt;
+    let mut rng = rand::rng();
 
     for _ in 0..10 {
         let mut cursors = Vec::new();
 
         for _ in 0..1000 {
-            let position = rng.gen_range(0..100);
-            let anchor = rng.gen_range(0..100);
+            let position = rng.random_range(0..100);
+            let anchor = rng.random_range(0..100);
             let cursor = Cursor {
                 position,
                 anchor,
