@@ -207,7 +207,7 @@ pub fn search_rope(
             &matcher,
             RopeReader::new(rope),
             UTF8(|line_number, line| {
-                if let Some(mymatch) = matcher.find(line.as_bytes())? {
+                matcher.find_iter(line.as_bytes(), |mymatch| {
                     let line_idx = line_number as usize - 1;
                     let rope_line = rope.line(line_idx);
                     let line_start_byte = rope.line_to_byte(line_idx);
@@ -224,7 +224,8 @@ pub fn search_rope(
                         // TODO: make it so multiline matches look right when endered
                         end: Point::new(end_col, line_idx + query_lines - 1),
                     });
-                }
+                    true
+                })?;
                 Ok(true)
             }),
         )
