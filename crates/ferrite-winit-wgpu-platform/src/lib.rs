@@ -289,9 +289,9 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: srgb_to_linear(bg.r) as f64,
-                            g: srgb_to_linear(bg.g) as f64,
-                            b: srgb_to_linear(bg.b) as f64,
+                            r: crate::srgb::srgb_to_linear(bg.r) as f64,
+                            g: crate::srgb::srgb_to_linear(bg.g) as f64,
+                            b: crate::srgb::srgb_to_linear(bg.b) as f64,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -868,14 +868,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             state.terminals_changed = false;
             state.window.request_redraw();
         }
-    }
-}
-
-pub fn srgb_to_linear(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
     }
 }
 
