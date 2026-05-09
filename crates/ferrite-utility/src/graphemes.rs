@@ -639,14 +639,10 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         for i in 0..s.len() {
             let prefix_byte = s.as_bytes()[i];
             match rope_bytes.next() {
-                Some(rope_byte) => {
-                    if rope_byte == prefix_byte {
-                        continue;
-                    } else {
-                        return false;
-                    }
+                Some(rope_byte) if rope_byte == prefix_byte => {
+                    continue;
                 }
-                None => return false,
+                _ => return false,
             }
         }
         true
