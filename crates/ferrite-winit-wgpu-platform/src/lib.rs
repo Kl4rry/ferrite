@@ -6,6 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ferrite_ctx::ArenaVec;
 use ferrite_geom::rect::{Rect, Vec2};
 use ferrite_runtime::{
     Bounds, Input, Layout, MouseButton, MouseInterction, MouseInterctionKind, MouseState, Painter,
@@ -210,6 +211,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
 
     #[profiling::function]
     fn render(&mut self) {
+        let arena = ferrite_ctx::Ctx::arena();
         self.dirty = false;
         let state = self.state.as_mut().unwrap();
 
@@ -220,15 +222,13 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             }
         }
 
-        // TODO: tmp alloc
-        let mut terminals: Vec<_> = state.terminals.iter_mut().collect();
+        let mut terminals = ArenaVec::from_iter_in(state.terminals.iter_mut(), &arena);
         // Sort into correct render order
         {
             profiling::scope!("sort layers");
             terminals.sort_by_cached_key(|(k, _v)| state.touched.iter().position(|i| i == *k));
         }
-        // TODO: tmp alloc
-        let mut layers = Vec::new();
+        let mut layers = ArenaVec::new_in(&arena);
         for (_, terminal) in terminals {
             let backend = terminal.backend_mut();
             let view_bounds = backend.bounds().view_bounds();

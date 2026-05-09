@@ -8,7 +8,7 @@ pub type ArenaString<'a> = bumpalo::collections::String<'a>;
 pub type ArenaVec<'a, T> = bumpalo::collections::Vec<'a, T>;
 pub type Arena = bumpalo::Bump;
 
-pub use bumpalo::format;
+pub use bumpalo::{collections::CollectIn, format};
 
 thread_local!(static CTX: Ctx = Ctx(Rc::new(Inner { arena_alloc: RefCell::new(bumpalo::Bump::new()) })));
 

@@ -11,6 +11,7 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
+use ferrite_ctx::ArenaVec;
 use ferrite_geom::point::Point;
 use ferrite_utility::{line_ending, trim::trim_path, url};
 use linkify::{LinkFinder, LinkKind};
@@ -683,7 +684,8 @@ impl Engine {
                 self.save_buffer(buffer_id, path);
             }
             Cmd::SaveAll => {
-                let mut buffers_to_save = Vec::new();
+                let arena = ferrite_ctx::Ctx::arena();
+                let mut buffers_to_save = ArenaVec::new_in(&arena);
                 for (buffer_id, buffer) in &self.workspace.buffers {
                     if buffer.file().is_some() {
                         buffers_to_save.push(buffer_id);

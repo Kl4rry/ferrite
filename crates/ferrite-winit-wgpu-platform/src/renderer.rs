@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use ferrite_ctx::ArenaVec;
 use ferrite_geom::rect::Rect;
 use geometry_renderer::{Geometry, GeometryRenderer};
 use glyphon::{
@@ -74,7 +75,7 @@ impl Renderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         config: &wgpu::SurfaceConfiguration,
-        layers: Vec<Layer>,
+        layers: ArenaVec<Layer>,
     ) {
         self.geometry_renderer.clear();
         self.viewport.update(

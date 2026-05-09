@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ferrite_ctx::ArenaVec;
 use ferrite_geom::rect::{Rect, Vec2};
 use ferrite_runtime::{Bounds, MouseInterction, View, any_view::AnyView};
 use ferrite_style::Color;
@@ -116,14 +117,14 @@ impl View<Engine> for PaneView {
     }
 
     fn render(&self, engine: &mut Engine, bounds: Bounds, painter: &mut ferrite_runtime::Painter) {
+        let arena = ferrite_ctx::Ctx::arena();
         if painter.has_painter2d() {
             engine.workspace.panes.padding = 0;
         } else {
             engine.workspace.panes.padding = 1;
         }
         let theme: Arc<_> = engine.themes[&engine.config.editor.theme].clone();
-        // TODO: rm tmp alloc
-        let mut lines = Vec::new();
+        let mut lines = ArenaVec::new_in(&arena);
 
         let pane_bounds = engine.workspace.panes.get_pane_bounds(bounds.view_bounds());
         for (pane_kind, pane_bound) in pane_bounds {

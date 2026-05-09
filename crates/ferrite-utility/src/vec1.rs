@@ -33,6 +33,15 @@ impl<T> Vec1<T> {
         }
     }
 
+    pub fn replace_with_iter(&mut self, mut iter: impl Iterator<Item = T>) {
+        let Some(first) = iter.next() else {
+            return;
+        };
+        self.inner.clear();
+        self.inner.push(first);
+        self.inner.extend(iter);
+    }
+
     pub fn clear(&mut self) {
         self.inner.drain(1..);
     }

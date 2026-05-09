@@ -12,6 +12,7 @@ use std::{
 
 use cursor::{Cursor, Selection};
 use encoding_rs::Encoding;
+use ferrite_ctx::{ArenaVec, CollectIn};
 use ferrite_geom::point::Point;
 use ferrite_runtime::unique_id::UniqueId;
 use ferrite_utility::{
@@ -131,14 +132,15 @@ impl Clone for View {
 impl View {
     pub fn coalesce_cursors(&mut self) {
         // This function is messy :(
-        let mut new_cursors: Vec<(usize, Cursor)> = Vec::new();
+        let arena = ferrite_ctx::Ctx::arena();
+        let mut new_cursors: ArenaVec<(usize, Cursor)> = ArenaVec::new_in(&arena);
 
         for (mut i, mut cursor) in self.cursors.iter().copied().enumerate() {
             let mut removed = 0;
             for j in 0..new_cursors.len() {
                 if cursor.intersects(new_cursors[j - removed].1) {
-                    let (old_index, old) = new_cursors.remove(j - removed);
-                    i = old_index.min(0);
+                    let (_old_index, old) = new_cursors.remove(j - removed);
+                    i = 0;
                     cursor = cursor.coalesce(old);
                     removed += 1;
                 }
@@ -146,7 +148,9 @@ impl View {
             new_cursors.push((i, cursor));
         }
 
-        self.cursors = Vec1::from_vec(new_cursors.into_iter().map(|(_, c)| c).collect()).unwrap();
+        self.cursors.clear();
+        self.cursors
+            .replace_with_iter(new_cursors.into_iter().map(|(_, c)| c));
     }
 
     pub fn line_pos_floored(&self) -> usize {
@@ -376,6 +380,7 @@ impl Buffer {
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
     pub fn replace_rope(&mut self, rope: Rope) {
+        let arena = ferrite_ctx::Ctx::arena();
         let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
         let mut map = SecondaryMap::new();
         for view_id in self.views.keys() {
@@ -393,7 +398,7 @@ impl Buffer {
             syntax.update_text(self.rope.clone());
         }
         self.find_conflicts();
-        for view_id in self.views.keys().collect::<Vec<_>>().into_iter() {
+        for view_id in ArenaVec::from_iter_in(self.views.keys(), &arena).into_iter() {
             if let Some(scroll) = map.get(view_id) {
                 self.vertical_scroll(view_id, *scroll as f64);
             }
@@ -2832,6 +2837,7 @@ impl Buffer {
     }
 
     pub fn sort_lines(&mut self, view_id: ViewId, asc: bool) {
+        let arena = ferrite_ctx::Ctx::arena();
         if self.views[view_id].cursors.len() > 1 {
             return;
         }
@@ -2866,10 +2872,10 @@ impl Buffer {
         let end_byte = self.rope.end_of_line_byte(end);
 
         let cloned_rope = self.rope.clone();
-        let mut lines: Vec<RopeSlice> = cloned_rope
+        let mut lines: ArenaVec<RopeSlice> = cloned_rope
             .byte_slice(start_byte..end_byte)
             .lines()
-            .collect();
+            .collect_in(&*arena);
         lines.sort_by(|lhs, rhs| {
             let lhs = lhs.trim_start_whitespace();
             let rhs = rhs.trim_start_whitespace();
@@ -3043,7 +3049,8 @@ impl Buffer {
     }
 
     pub fn ensure_every_cursor_is_valid(&mut self) {
-        let view_ids = self.views.keys().collect::<Vec<_>>();
+        let arena = ferrite_ctx::Ctx::arena();
+        let view_ids: ArenaVec<_> = self.views.keys().collect_in(&*arena);
         for view_id in view_ids {
             self.ensure_cursors_are_valid(view_id);
             let view = &mut self.views[view_id];
@@ -3105,6 +3112,7 @@ impl Buffer {
     }
 
     pub fn trim_trailing_whitespace(&mut self) {
+        let arena = ferrite_ctx::Ctx::arena();
         // TODO: Make this a valid ViewId
         let view_id = ViewId::null();
         self.history
@@ -3151,7 +3159,7 @@ impl Buffer {
 
         self.restore_cursor_positions(cursor_positions);
 
-        for view_id in self.views.keys().collect::<Vec<_>>() {
+        for view_id in self.views.keys().collect_in::<ArenaVec<_>>(&*arena) {
             if self.views[view_id].clamp_cursor {
                 self.center_on_main_cursor(view_id);
             }
@@ -3409,9 +3417,9 @@ impl Buffer {
         let proxy = get_proxy();
         let rope = self.rope.clone();
         rayon::spawn(move || {
+            let arena = ferrite_ctx::Ctx::arena();
             let start = Instant::now();
-            // TODO: rm tmp alloc
-            let mut conflicts = Vec::new();
+            let mut conflicts = ArenaVec::new_in(&arena);
             enum Stage {
                 Searching,
                 Current(usize),
@@ -3449,11 +3457,19 @@ impl Buffer {
                     }
                 }
             }
-            conflicts_ptr.lock().unwrap().clone_from(&conflicts);
+            {
+                let mut guard = conflicts_ptr.lock().unwrap();
+                guard.clear();
+                guard.extend_from_slice(&conflicts);
+            }
             tracing::debug!(
                 "Finding conflicts took: {:?}",
                 Instant::now().duration_since(start)
             );
+
+            drop(conflicts);
+            drop(arena);
+            ferrite_ctx::Ctx::arena_mut().reset();
             proxy.request_render("parsing of git conflic done");
         });
     }
