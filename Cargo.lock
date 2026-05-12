@@ -931,6 +931,7 @@ dependencies = [
  "ferrite-talloc",
  "ferrite-tree-sitter",
  "ferrite-utility",
+ "frizbee",
  "gpui_sum_tree",
  "grep-matcher",
  "grep-regex",
@@ -953,7 +954,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "slotmap",
- "sublime_fuzzy",
  "subprocess",
  "tempdir",
  "toml",
@@ -1186,6 +1186,16 @@ name = "foreign-types-shared"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
+
+[[package]]
+name = "frizbee"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca1f7b0dce1c25254457f2edcfcf611bf207113564b96f90659a3f54506016b2"
+dependencies = [
+ "itertools 0.14.0",
+ "raw-cpuid",
+]
 
 [[package]]
 name = "fsevent-sys"
@@ -2764,6 +2774,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "raw-cpuid"
+version = "11.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "498cd0dc59d73224351ee52a95fee0f1a617a2eae0e7d9d720cc622c73a54186"
+dependencies = [
+ "bitflags 2.11.1",
+]
+
+[[package]]
 name = "raw-window-handle"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3257,12 +3276,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "sublime_fuzzy"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa7986063f7c0ab374407e586d7048a3d5aac94f103f751088bf398e07cd5400"
 
 [[package]]
 name = "subprocess"

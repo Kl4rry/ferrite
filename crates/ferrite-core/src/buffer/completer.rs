@@ -3,10 +3,9 @@ use std::{
     time::Duration,
 };
 
+use ferrite_ctx::ArenaVec;
 use ferrite_utility::words;
-use rayon::prelude::*;
 use ropey::Rope;
-use sublime_fuzzy::{FuzzySearch, Scoring};
 
 use crate::timer::Timer;
 
@@ -92,14 +91,11 @@ impl Completer {
     }
 
     #[profiling::function]
-    pub fn update_query(&mut self, words: Arc<Mutex<Vec<String>>>, mut query: String) {
+    pub fn update_query(&mut self, words: Arc<Mutex<Vec<String>>>, query: String) {
         tracing::debug_span!("update_query");
+        let arena = ferrite_ctx::Ctx::arena();
         self.last_query.clear();
         self.last_query.push_str(&query);
-
-        if query.len() > 30 {
-            query = String::new();
-        }
 
         if query.is_empty() {
             self.matching_words.clear();
@@ -107,30 +103,18 @@ impl Completer {
             return;
         }
 
-        let scoring = Scoring::emphasize_word_starts();
         let guard = words.lock().unwrap();
-        let mut matches: Vec<(isize, &str)> = {
+        let mut matches = ArenaVec::new_in(&arena);
+        {
             profiling::scope!("fuzzy search");
             tracing::debug!("fuzzy searching {} words", guard.len());
-            guard
-                .par_iter()
-                .filter_map(|word| {
-                    if *word == query {
-                        return None;
-                    }
-                    FuzzySearch::new(&query, word)
-                        .score_with(&scoring)
-                        .best_match()
-                        .map(|m| (m.score(), word.as_str()))
-                })
-                .collect()
-        };
+            for m in frizbee::match_list(query, &guard, &Default::default()) {
+                matches.push(guard[m.index as usize].clone());
+            }
+        }
         tracing::debug!("fuzzy match done");
-        matches.sort_by_key(|a| a.0);
-        matches.reverse();
         self.matching_words.clear();
-        self.matching_words
-            .extend(matches.into_iter().map(|(_, s)| s.to_string()));
+        self.matching_words.extend(matches.into_iter());
         self.index = 0;
         if self.matching_words.is_empty() {
             self.visible = false;

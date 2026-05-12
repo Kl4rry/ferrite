@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, path::PathBuf};
 
+use ferrite_ctx::ArenaVec;
 use ferrite_utility::line_ending::LineEnding;
-use sublime_fuzzy::{FuzzySearch, Scoring};
 
 use self::path_completer::complete_file_path;
 use super::cmd_parser::{
@@ -149,6 +149,7 @@ impl Completer {
                     return;
                 }
 
+                // TODO: rm tmp alloc
                 let cmds: Vec<_> = if self.ctx.external && !cmd.text.is_empty() {
                     executable_finder::unique_executables()
                         .unwrap_or_default()
@@ -164,35 +165,10 @@ impl Completer {
                     Vec::new()
                 };
 
-                let mut alternatives = cmds
-                    .iter()
-                    .filter_map(|alternative| {
-                        if text.is_empty() {
-                            return Some((0, alternative));
-                        }
-                        FuzzySearch::new(&cmd.text, alternative)
-                            .score_with(&Scoring::emphasize_distance())
-                            .best_match()
-                            .map(|m| (m.score(), alternative))
-                    })
-                    .collect::<Vec<_>>();
-                alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
-                    std::cmp::Ordering::Equal => {
-                        if a.1.starts_with(&text) {
-                            Ordering::Less
-                        } else if b.1.starts_with(&text) {
-                            Ordering::Greater
-                        } else {
-                            a.1.len().cmp(&b.1.len())
-                        }
-                    }
-                    cmp => cmp,
-                });
-
                 self.options.extend(
-                    alternatives
+                    fuzzy_match(&cmd.text, cmds.into_iter())
                         .into_iter()
-                        .map(|(_, s)| Box::new(s.to_string()) as Box<dyn CompletionOption>),
+                        .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
                 );
 
                 if self.options.is_empty() {
@@ -217,100 +193,43 @@ impl Completer {
                                     .into_iter()
                                     .map(|path| Box::new(path) as Box<dyn CompletionOption>),
                             );
+
+                            if self.options.is_empty() {
+                                self.index = None;
+                            }
                         }
                         CmdTemplateArg::Alternatives(alternatives) => {
-                            let mut alternatives = alternatives
-                                .iter()
-                                .filter_map(|alternative| {
-                                    if text.is_empty() {
-                                        return Some((0, alternative));
-                                    }
-                                    FuzzySearch::new(text, alternative)
-                                        .score_with(&Scoring::emphasize_distance())
-                                        .best_match()
-                                        .map(|m| (m.score(), alternative))
-                                })
-                                .collect::<Vec<_>>();
-                            alternatives.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => {
-                                    if a.1.starts_with(text) {
-                                        Ordering::Less
-                                    } else if b.1.starts_with(text) {
-                                        Ordering::Greater
-                                    } else {
-                                        a.1.len().cmp(&b.1.len())
-                                    }
-                                }
-                                cmp => cmp,
-                            });
+                            self.options.extend(
+                                fuzzy_match(text, alternatives.iter())
+                                    .into_iter()
+                                    .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
+                            );
 
-                            self.options.extend(alternatives.into_iter().map(|(_, s)| {
-                                Box::new(s.to_string()) as Box<dyn CompletionOption>
-                            }));
+                            if self.options.is_empty() {
+                                self.index = None;
+                            }
                         }
                         CmdTemplateArg::Theme => {
-                            let mut themes = self
-                                .ctx
-                                .themes
-                                .iter()
-                                .filter_map(|alternative| {
-                                    if text.is_empty() {
-                                        return Some((0, alternative));
-                                    }
-                                    FuzzySearch::new(text, alternative)
-                                        .score_with(&Scoring::emphasize_distance())
-                                        .best_match()
-                                        .map(|m| (m.score(), alternative))
-                                })
-                                .collect::<Vec<_>>();
-                            themes.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => {
-                                    if a.1.starts_with(text) {
-                                        Ordering::Less
-                                    } else if b.1.starts_with(text) {
-                                        Ordering::Greater
-                                    } else {
-                                        a.1.len().cmp(&b.1.len())
-                                    }
-                                }
-                                cmp => cmp,
-                            });
+                            self.options.extend(
+                                fuzzy_match(text, self.ctx.themes.iter())
+                                    .into_iter()
+                                    .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
+                            );
 
-                            self.options.extend(themes.into_iter().map(|(_, s)| {
-                                Box::new(s.to_string()) as Box<dyn CompletionOption>
-                            }));
+                            if self.options.is_empty() {
+                                self.index = None;
+                            }
                         }
                         CmdTemplateArg::Action => {
-                            let mut actions = self
-                                .ctx
-                                .actions
-                                .iter()
-                                .filter_map(|alternative| {
-                                    if text.is_empty() {
-                                        return Some((0, alternative));
-                                    }
-                                    FuzzySearch::new(text, alternative)
-                                        .score_with(&Scoring::emphasize_distance())
-                                        .best_match()
-                                        .map(|m| (m.score(), alternative))
-                                })
-                                .collect::<Vec<_>>();
-                            actions.sort_by(|a, b| match b.0.cmp(&a.0) {
-                                std::cmp::Ordering::Equal => {
-                                    if a.1.starts_with(text) {
-                                        Ordering::Less
-                                    } else if b.1.starts_with(text) {
-                                        Ordering::Greater
-                                    } else {
-                                        a.1.len().cmp(&b.1.len())
-                                    }
-                                }
-                                cmp => cmp,
-                            });
+                            self.options.extend(
+                                fuzzy_match(text, self.ctx.actions.iter())
+                                    .into_iter()
+                                    .map(|s| Box::new(s.to_string()) as Box<dyn CompletionOption>),
+                            );
 
-                            self.options.extend(actions.into_iter().map(|(_, s)| {
-                                Box::new(s.to_string()) as Box<dyn CompletionOption>
-                            }));
+                            if self.options.is_empty() {
+                                self.index = None;
+                            }
                         }
                         _ => (),
                     }
@@ -401,4 +320,44 @@ fn get_completion_type(text: &str, tokens: &[Token]) -> CompletionType {
     } else {
         CompletionType::Arg
     }
+}
+
+fn fuzzy_match<S: AsRef<str> + Clone + std::fmt::Debug + std::cmp::Ord>(
+    needle: &str,
+    haystack: impl Iterator<Item = S>,
+) -> Vec<S> {
+    let arena = ferrite_ctx::Ctx::arena();
+    let mut tmp = ArenaVec::new_in(&arena);
+    tmp.extend(haystack);
+
+    if needle.is_empty() {
+        return tmp.to_vec();
+    }
+
+    let mut matches = frizbee::match_list(needle, &tmp, &Default::default());
+
+    matches.sort_by(|a, b| match b.score.cmp(&a.score) {
+        Ordering::Equal => {
+            if tmp[a.index as usize].as_ref().starts_with(needle) {
+                Ordering::Less
+            } else if tmp[b.index as usize].as_ref().starts_with(needle) {
+                Ordering::Greater
+            } else {
+                tmp[a.index as usize]
+                    .as_ref()
+                    .len()
+                    .cmp(&tmp[b.index as usize].as_ref().len())
+            }
+        }
+        Ordering::Greater => Ordering::Greater,
+        Ordering::Less => Ordering::Less,
+    });
+
+    let mut output = Vec::new();
+
+    for m in matches {
+        output.push(tmp[m.index as usize].clone());
+    }
+
+    output
 }

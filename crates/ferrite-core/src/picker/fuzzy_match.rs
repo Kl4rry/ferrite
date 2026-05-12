@@ -1,7 +1,6 @@
 use std::{cmp, path::Path};
 
 use rayon::prelude::*;
-use sublime_fuzzy::{ContinuousMatch, FuzzySearch, Scoring};
 
 use super::Matchable;
 
@@ -17,15 +16,6 @@ pub struct FuzzyMatch<T: Matchable> {
 pub struct MatchIndex {
     pub start: usize,
     pub len: usize,
-}
-
-impl From<ContinuousMatch> for MatchIndex {
-    fn from(value: ContinuousMatch) -> Self {
-        Self {
-            start: value.start(),
-            len: value.len(),
-        }
-    }
 }
 
 impl<T: Matchable> PartialEq for FuzzyMatch<T> {
@@ -60,7 +50,7 @@ impl<T: Matchable> Ord for FuzzyMatch<T> {
 }
 
 pub fn fuzzy_match<'a, T>(
-    term: &str,
+    needle: &str,
     items: &'a boxcar::Vec<T>,
     path: Option<&Path>,
 ) -> Vec<(FuzzyMatch<T>, usize)>
@@ -68,13 +58,12 @@ where
     &'a T: Send + Sync,
     T: Matchable + Send + Sync,
 {
-    let scoring = Scoring::emphasize_distance();
     let mut matches: Vec<_> = items
         .iter()
         .par_bridge()
         .filter_map(|(i, item)| {
             let item = item.clone();
-            if term.is_empty() {
+            if needle.is_empty() {
                 return Some((
                     FuzzyMatch {
                         score: 0,
@@ -120,16 +109,20 @@ where
             let mut score = 0;
             let mut matches = Vec::new();
 
-            for term in term.split_ascii_whitespace() {
-                if term.is_empty() {
+            for needle in needle.split_ascii_whitespace() {
+                if needle.is_empty() {
                     continue;
                 }
-                if let Some(m) = FuzzySearch::new(term, &item.as_match_str())
-                    .score_with(&scoring)
-                    .best_match()
+                let mut matcher = frizbee::Matcher::new(needle, &Default::default());
+                if let Some(m) = matcher
+                    .match_list_indices(&[item.as_match_str()])
+                    .into_iter()
+                    .next()
                 {
-                    score += m.score() as i64;
-                    matches.extend(m.continuous_matches().map(MatchIndex::from));
+                    score += m.score as i64;
+                    for idx in m.indices {
+                        matches.push(MatchIndex { start: idx, len: 1 });
+                    }
                 } else {
                     return None;
                 }

@@ -5,8 +5,6 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
-use sublime_fuzzy::{FuzzySearch, Scoring};
-
 #[cfg(any(windows, target_os = "macos"))]
 fn normalize(s: &str) -> Cow<str> {
     // case insensitive
@@ -69,15 +67,14 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
     }
 
     let mut entries: Vec<(isize, bool, PathBuf)> = Vec::new();
-    let scoring = Scoring::emphasize_word_starts();
 
     if let Ok(read_dir) = dir.read_dir() {
         let file_name = normalize(file_name);
         for entry in read_dir.flatten() {
-            if let Some(s) = entry.file_name().to_str() {
+            if let Some(haystack) = entry.file_name().to_str() {
                 if file_name.is_empty() {
                     if let Ok(metadata) = fs::metadata(entry.path()) {
-                        let mut path = String::from(dir_name) + s;
+                        let mut path = String::from(dir_name) + haystack;
                         if metadata.is_dir() {
                             path.push(sep);
                         }
@@ -87,19 +84,25 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
                         }
                     }
                 } else {
-                    let ns = normalize(s);
-                    if let Some(m) = FuzzySearch::new(&file_name, &ns)
-                        .score_with(&scoring)
-                        .best_match()
+                    let normalized_haystack = normalize(haystack);
+                    let mut matcher = frizbee::Matcher::new(&file_name, &Default::default());
+                    if let Some(m) = matcher
+                        .match_list_indices(&[&normalized_haystack])
+                        .into_iter()
+                        .next()
                         && let Ok(metadata) = fs::metadata(entry.path())
                     {
-                        let mut path = String::from(dir_name) + s;
+                        let mut path = String::from(dir_name) + haystack;
                         if metadata.is_dir() {
                             path.push(sep);
                         }
 
                         if !executable_only || is_executable(&metadata) || metadata.is_dir() {
-                            entries.push((m.score(), ns.starts_with(&*file_name), path.into()));
+                            entries.push((
+                                m.score as isize,
+                                normalized_haystack.starts_with(&*file_name),
+                                path.into(),
+                            ));
                         }
                     }
                 }
