@@ -2961,6 +2961,7 @@ impl Buffer {
     }
 
     pub fn get_next_file(&self) -> Result<PathBuf, anyhow::Error> {
+        let arena = ferrite_ctx::Ctx::arena();
         let Some(file) = &self.file else {
             anyhow::bail!("Cannot rotate buffer has no path");
         };
@@ -2983,7 +2984,7 @@ impl Buffer {
             anyhow::bail!("Cannot rotate path has no parent directory");
         };
 
-        let mut entries = Vec::new();
+        let mut entries = ArenaVec::new_in(&arena);
 
         for entry in fs::read_dir(parent)? {
             let Ok(entry) = entry else {
