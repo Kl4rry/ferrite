@@ -255,7 +255,7 @@ impl CommandPalette {
                 ..
             } => input_state.buffer.len_lines(),
             PaletteState::Input {
-                mode: PaletteMode::Search | PaletteMode::Replace,
+                mode: PaletteMode::Search | PaletteMode::Replace | PaletteMode::GlobalSearch,
                 input_state,
                 ..
             } => input_state.buffer.len_lines() + 1,
