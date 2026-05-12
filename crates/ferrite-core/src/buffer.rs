@@ -1299,6 +1299,8 @@ impl Buffer {
             })
         }
 
+        let text_as_rope = Rope::from_str(text);
+
         let (inserted_bytes, finish) = if self.views[view_id].cursors[cursor_index].has_selection()
         {
             let start_byte_idx = self.views[view_id].cursors[cursor_index].start();
@@ -1317,12 +1319,12 @@ impl Buffer {
                     self.views[view_id].cursors[cursor_index].position;
             }
             (text.len(), true)
-        } else if auto_indent {
+        } else if auto_indent && text_as_rope.len_lines() > 1 {
             let indent = self.guess_indent(self.views[view_id].cursors[cursor_index].position);
             let min_indent_width = Rope::from_str(&indent).width(0);
 
             let mut smallest_indent_width = usize::MAX;
-            for line in Rope::from_str(text).lines() {
+            for line in text_as_rope.lines() {
                 if line.is_whitespace() {
                     continue;
                 }
@@ -1339,7 +1341,7 @@ impl Buffer {
 
             let mut input = String::new();
             let mut first = true;
-            for line in Rope::from_str(text).lines() {
+            for line in text_as_rope.lines() {
                 let line_text_start_col = line.get_text_start_col(0);
                 let extra_indent_width = line_text_start_col.saturating_sub(smallest_indent_width);
                 let string = line.to_string();
