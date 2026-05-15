@@ -8,17 +8,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
-
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
       - name: Vendor
         run: cargo vendor
-
       - name: Package all sources
         run: tar -czvf ferrite-vendored-source.tar.gz *
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -35,9 +32,10 @@ jobs:
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
+      - name: Vendor
+        run: cargo vendor
       - name: Build
         run: cargo build --release --all-features
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -49,14 +47,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
-
       - name: Install system deps
         run: cargo install cross
-
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
+      - name: Vendor
+        run: cargo vendor
       - name: Build
         run: cross build --target=x86_64-unknown-linux-musl --release
 
@@ -104,6 +102,8 @@ jobs:
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
+      - name: Vendor
+        run: cargo vendor
       - name: Build
         run: cargo build --release --all-features
 
