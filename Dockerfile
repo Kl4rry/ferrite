@@ -10,7 +10,6 @@ WORKDIR /ferrite
 
 COPY . .
 
-RUN cargo fetch
 RUN cargo build --release
 
 FROM ubuntu:latest
