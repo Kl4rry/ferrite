@@ -1,0 +1,134 @@
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/MDeiml/tree-sitter-markdown?rev=272e080bca0efd19a06a7f4252d746417224959e"]
+git = "https://github.com/MDeiml/tree-sitter-markdown"
+rev = "272e080bca0efd19a06a7f4252d746417224959e"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/Mathspy/tree-sitter-toml"]
+git = "https://github.com/Mathspy/tree-sitter-toml"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/RenjiSann/tree-sitter-xml?rev=422528a43630db6dcc1e222d1c5ee3babd559473"]
+git = "https://github.com/RenjiSann/tree-sitter-xml"
+rev = "422528a43630db6dcc1e222d1c5ee3babd559473"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/amaanq/tree-sitter-ron?rev=ce6086b2c9e8e71065b8129d6c2289c5f66d1879"]
+git = "https://github.com/amaanq/tree-sitter-ron"
+rev = "ce6086b2c9e8e71065b8129d6c2289c5f66d1879"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/camdencheek/tree-sitter-dockerfile?rev=8ee3a0f7587b2bd8c45c8cb7d28bd414604aec62"]
+git = "https://github.com/camdencheek/tree-sitter-dockerfile"
+rev = "8ee3a0f7587b2bd8c45c8cb7d28bd414604aec62"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/justinmk/tree-sitter-ini?rev=4d247fb876b4ae6b347687de4a179511bf67fcbc"]
+git = "https://github.com/justinmk/tree-sitter-ini"
+rev = "4d247fb876b4ae6b347687de4a179511bf67fcbc"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/maxxnino/tree-sitter-zig?rev=0d08703e4c3f426ec61695d7617415fff97029bd"]
+git = "https://github.com/maxxnino/tree-sitter-zig"
+rev = "0d08703e4c3f426ec61695d7617415fff97029bd"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/nushell/tree-sitter-nu?rev=358c4f509eb97f0148bbd25ad36acc729819b9c1"]
+git = "https://github.com/nushell/tree-sitter-nu"
+rev = "358c4f509eb97f0148bbd25ad36acc729819b9c1"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/panekj/tree-sitter-yaml?rev=80c8d76847f03e772c5c524cf29bafb56858a8d1"]
+git = "https://github.com/panekj/tree-sitter-yaml"
+rev = "80c8d76847f03e772c5c524cf29bafb56858a8d1"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/ram02z/tree-sitter-fish?rev=6675b56266b3f615fb112205b6b83a79315309c4"]
+git = "https://github.com/ram02z/tree-sitter-fish"
+rev = "6675b56266b3f615fb112205b6b83a79315309c4"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/stadelmanma/tree-sitter-fortran?rev=f73d473e3530862dee7cbb38520f28824e7804f6"]
+git = "https://github.com/stadelmanma/tree-sitter-fortran"
+rev = "f73d473e3530862dee7cbb38520f28824e7804f6"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/stsewd/tree-sitter-comment?rev=94c99a66bb5051d8321b5900aee92b76450c50ce"]
+git = "https://github.com/stsewd/tree-sitter-comment"
+rev = "94c99a66bb5051d8321b5900aee92b76450c50ce"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/syntacti/tree-sitter-css?rev=397aa132b9982fcdd2d473ed69343762a557f10a"]
+git = "https://github.com/syntacti/tree-sitter-css"
+rev = "397aa132b9982fcdd2d473ed69343762a557f10a"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/the-mikedavis/tree-sitter-diff?rev=fd74c78fa88a20085dbc7bbeaba066f4d1692b63"]
+git = "https://github.com/the-mikedavis/tree-sitter-diff"
+rev = "fd74c78fa88a20085dbc7bbeaba066f4d1692b63"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/the-mikedavis/tree-sitter-git-commit?rev=6f193a66e9aa872760823dff020960c6cedc37b3"]
+git = "https://github.com/the-mikedavis/tree-sitter-git-commit"
+rev = "6f193a66e9aa872760823dff020960c6cedc37b3"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/the-mikedavis/tree-sitter-git-config?rev=9c2a1b7894e6d9eedfe99805b829b4ecd871375e"]
+git = "https://github.com/the-mikedavis/tree-sitter-git-config"
+rev = "9c2a1b7894e6d9eedfe99805b829b4ecd871375e"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/the-mikedavis/tree-sitter-git-rebase?rev=d8a4207ebbc47bd78bacdf48f883db58283f9fd8"]
+git = "https://github.com/the-mikedavis/tree-sitter-git-rebase"
+rev = "d8a4207ebbc47bd78bacdf48f883db58283f9fd8"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/theHamsta/tree-sitter-glsl?rev=74329feb2605deccd32b1c644af507daa6fb82f1"]
+git = "https://github.com/theHamsta/tree-sitter-glsl"
+rev = "74329feb2605deccd32b1c644af507daa6fb82f1"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter-grammars/tree-sitter-hyprlang?rev=27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3"]
+git = "https://github.com/tree-sitter-grammars/tree-sitter-hyprlang"
+rev = "27af9b74acf89fa6bed4fb8cb8631994fcb2e6f3"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter-grammars/tree-sitter-lua?rev=88e446476a1e97a8724dff7a23e2d709855077f2"]
+git = "https://github.com/tree-sitter-grammars/tree-sitter-lua"
+rev = "88e446476a1e97a8724dff7a23e2d709855077f2"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter/tree-sitter-c-sharp?rev=5b60f99545fea00a33bbfae5be956f684c4c69e2"]
+git = "https://github.com/tree-sitter/tree-sitter-c-sharp"
+rev = "5b60f99545fea00a33bbfae5be956f684c4c69e2"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter/tree-sitter-cpp?rev=a90f170f92d5d70e7c2d4183c146e61ba5f3a457"]
+git = "https://github.com/tree-sitter/tree-sitter-cpp"
+rev = "a90f170f92d5d70e7c2d4183c146e61ba5f3a457"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter/tree-sitter-go?rev=64457ea6b73ef5422ed1687178d4545c3e91334a"]
+git = "https://github.com/tree-sitter/tree-sitter-go"
+rev = "64457ea6b73ef5422ed1687178d4545c3e91334a"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter/tree-sitter-javascript?rev=f772967f7b7bc7c28f845be2420a38472b16a8ee"]
+git = "https://github.com/tree-sitter/tree-sitter-javascript"
+rev = "f772967f7b7bc7c28f845be2420a38472b16a8ee"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/tree-sitter/tree-sitter-typescript?rev=b1bf4825d9eaa0f3bdeb1e52f099533328acfbdf"]
+git = "https://github.com/tree-sitter/tree-sitter-typescript"
+rev = "b1bf4825d9eaa0f3bdeb1e52f099533328acfbdf"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/yusdacra/tree-sitter-protobuf?rev=19c211a01434d9f03efff99f85e19f967591b175"]
+git = "https://github.com/yusdacra/tree-sitter-protobuf"
+rev = "19c211a01434d9f03efff99f85e19f967591b175"
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
