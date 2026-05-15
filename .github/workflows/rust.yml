@@ -19,7 +19,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ubuntu-build-artifacts
+          name: vendored-source
           path: ferrite-vendored-source.tar.gz
 
   build-linux:
