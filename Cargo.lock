@@ -948,6 +948,7 @@ dependencies = [
  "rand 0.10.1",
  "ratatui",
  "rayon",
+ "regex",
  "ropey",
  "rustix 1.1.4",
  "serde",
