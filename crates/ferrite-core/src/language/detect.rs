@@ -156,6 +156,7 @@ pub fn detect_language(inital_guess: Option<&str>, text: Rope) -> Option<&'stati
     tracing::debug!("inital_guess: {inital_guess:?}");
 
     let (language, score) = score_languages(&text);
+    tracing::debug!("top scoring language: {} {}", language, score);
     match inital_guess {
         Some(_) if score >= 8 => Some(language),
         None if score >= 5 => Some(language),
