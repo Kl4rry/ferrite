@@ -117,7 +117,7 @@ const LANGUAGES: &[(&str, &[(&str, i32)])] = {
     ]
 };
 
-/// returs language with highest score
+/// returns language with highest score
 #[profiling::function]
 fn score_languages(text: &Rope) -> (&'static str, i32) {
     let arena = ferrite_ctx::Ctx::arena();
