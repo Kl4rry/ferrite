@@ -6,18 +6,23 @@ use ferrite_utility::tui_buf_ext::TuiBufExt;
 
 use crate::{cmd::Cmd, config::keymap::Keymap, theme::EditorTheme};
 
+// TODO this function could be made way more general
+// it could just take a number of keybinds and just show them
+// but it might also all be rewritten with a new gui system
 pub struct SearchPaletteView {
     theme: Arc<EditorTheme>,
     keymap: Arc<Keymap>,
     replace: bool,
+    global: bool,
 }
 
 impl SearchPaletteView {
-    pub fn new(theme: Arc<EditorTheme>, keymap: Arc<Keymap>, replace: bool) -> Self {
+    pub fn new(theme: Arc<EditorTheme>, keymap: Arc<Keymap>, replace: bool, global: bool) -> Self {
         Self {
             theme,
             keymap,
             replace,
+            global,
         }
     }
 }
@@ -37,14 +42,14 @@ impl View<()> for SearchPaletteView {
         let mut replace_match = ArenaString::new_in(&arena);
         for keymapping in &self.keymap.normal {
             match keymapping.cmd {
-                Cmd::NextMatch => {
+                Cmd::NextMatch if !self.global => {
                     next = format!(in &*arena,
                         " Next match ({}{})",
                         keymapping.key.modifiers,
                         keymapping.key.keycode.to_string(),
                     )
                 }
-                Cmd::PrevMatch => {
+                Cmd::PrevMatch if !self.global => {
                     prev = format!(in &*arena,
                         " Prev match ({}{})",
                         keymapping.key.modifiers,
@@ -58,7 +63,7 @@ impl View<()> for SearchPaletteView {
                         keymapping.key.keycode.to_string(),
                     )
                 }
-                Cmd::Replace if !self.replace => {
+                Cmd::Replace if !self.replace && !self.global => {
                     replace = format!(in &*arena,
                         " Replace ({}{})",
                         keymapping.key.modifiers,

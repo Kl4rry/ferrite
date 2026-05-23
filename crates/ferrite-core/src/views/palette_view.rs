@@ -67,10 +67,18 @@ impl View<CommandPalette> for PaletteView {
                         self.theme.clone(),
                         self.keymap.clone(),
                         false,
+                        false,
                     )),
                     PaletteMode::Replace => AnyView::new(SearchPaletteView::new(
                         self.theme.clone(),
                         self.keymap.clone(),
+                        true,
+                        false,
+                    )),
+                    PaletteMode::GlobalSearch => AnyView::new(SearchPaletteView::new(
+                        self.theme.clone(),
+                        self.keymap.clone(),
+                        false,
                         true,
                     )),
                     _ => NullView::any(),

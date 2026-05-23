@@ -40,8 +40,7 @@ impl FilePreviewer {
 
 impl Previewer<String> for FilePreviewer {
     fn request_preview(&mut self, m: &String) -> Preview {
-        if let Entry::Occupied(mut entry) = self.loading.entry(m.clone())
-        {
+        if let Entry::Occupied(mut entry) = self.loading.entry(m.clone()) {
             match entry.get_mut().poll() {
                 Some(result) => {
                     let (k, _) = entry.remove_entry();
