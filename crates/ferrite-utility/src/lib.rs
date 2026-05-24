@@ -1,4 +1,5 @@
 #![allow(mismatched_lifetime_syntaxes)]
+pub mod actor;
 pub mod chars;
 pub mod graphemes;
 pub mod line_ending;

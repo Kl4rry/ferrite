@@ -2,13 +2,12 @@ use std::{
     borrow::Cow,
     fmt, iter, mem, ops,
     sync::{Arc, Mutex, MutexGuard},
-    thread,
     time::Instant,
 };
 
 use anyhow::{Result, bail};
-use cb::Sender;
 use ferrite_ctx::ArenaVec;
+use ferrite_utility::actor::{Actor, Consumption};
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
@@ -28,91 +27,80 @@ type HighlightResult = Arc<
     >,
 >;
 
-struct SyntaxProvider {
-    pub language: &'static TreeSitterConfig,
-    pub rope_tx: Sender<Rope>,
+struct SyntaxActorState {
+    epoch: usize,
+    highlight_config: Arc<HighlightConfiguration>,
+    highlighter: Highlighter,
+    result: HighlightResult,
+    proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
 
-impl SyntaxProvider {
+struct SyntaxActor {
+    pub language: &'static TreeSitterConfig,
+    pub actor: Actor<SyntaxActorState, Rope, ()>,
+}
+
+impl SyntaxActor {
     pub fn new(
         language: &'static TreeSitterConfig,
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
         result: HighlightResult,
     ) -> Result<Self> {
-        let (rope_tx, rope_rx) = cb::unbounded::<Rope>();
+        let state = SyntaxActorState {
+            epoch: 0,
+            highlight_config: language.highlight_config.clone(),
+            highlighter: Highlighter::default(),
+            result: result,
+            proxy: proxy.dup(),
+        };
 
-        let highlight_config = language.highlight_config.clone();
-        let name = language.name.clone();
-        thread::spawn(move || {
-            tracing::info!("Highlight thread started for `{name}`");
-            let mut highlighter = Highlighter::default();
-            let mut rope;
+        let actor = Actor::new(Consumption::Latest, state, |state, rope: Rope| {
+            state.epoch += 1;
+            let mut arena = ferrite_ctx::Ctx::arena_mut();
 
-            let mut epoch = 0;
+            let time = Instant::now();
+            if let Ok(iterator) = state.highlighter.highlight(
+                &state.highlight_config.clone(),
+                rope.slice(..),
+                |name| get_tree_sitter_language(name).map(|language| &*language.highlight_config),
+            ) {
+                let mut sum_tree: gpui_sum_tree::TreeMap<(usize, usize), Highlight> =
+                    gpui_sum_tree::TreeMap::default();
 
-            loop {
-                rope = match rope_rx.recv() {
-                    Ok(rope) => rope,
-                    Err(err) => {
-                        tracing::info!("Exiting highlight thread: {err}");
-                        break;
-                    }
-                };
-
-                epoch += 1;
-
-                if !rope_rx.is_empty() {
-                    continue;
-                }
-
-                let mut arena = ferrite_ctx::Ctx::arena_mut();
-
-                let time = Instant::now();
-                if let Ok(iterator) =
-                    highlighter.highlight(&highlight_config.clone(), rope.slice(..), |name| {
-                        get_tree_sitter_language(name).map(|language| &*language.highlight_config)
-                    })
-                {
-                    let mut sum_tree: gpui_sum_tree::TreeMap<(usize, usize), Highlight> =
-                        gpui_sum_tree::TreeMap::default();
-
-                    let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
-                    for event in iterator.filter_map(|event| event.ok()) {
-                        match event {
-                            HighlightEvent::Source { start, end } => {
-                                if let Some(highlight) = highlight_stack.last() {
-                                    sum_tree.insert((start, end), *highlight);
-                                }
+                let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
+                for event in iterator.filter_map(|event| event.ok()) {
+                    match event {
+                        HighlightEvent::Source { start, end } => {
+                            if let Some(highlight) = highlight_stack.last() {
+                                sum_tree.insert((start, end), *highlight);
                             }
-                            HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
-                            HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
                         }
+                        HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
+                        HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
                     }
-
-                    *result.lock().unwrap() = Some((epoch, rope.clone(), sum_tree));
-                    proxy.request_render("syntax update parsed");
                 }
-                tracing::debug!(
-                    "highlight took: {}us or {}ms",
-                    time.elapsed().as_micros(),
-                    time.elapsed().as_millis()
-                );
-                arena.reset();
-            }
 
-            tracing::info!("Syntax provider thread exit");
+                *state.result.lock().unwrap() = Some((state.epoch, rope.clone(), sum_tree));
+                state.proxy.request_render("syntax update parsed");
+            }
+            tracing::debug!(
+                "highlight took: {}us or {}ms",
+                time.elapsed().as_micros(),
+                time.elapsed().as_millis()
+            );
+            arena.reset();
         });
 
-        Ok(Self { language, rope_tx })
+        Ok(Self { language, actor })
     }
 
-    pub fn update_text(&self, rope: Rope) {
-        let _ = self.rope_tx.send(rope);
+    pub fn update_text(&mut self, rope: Rope) {
+        self.actor.send(rope);
     }
 }
 
 pub struct Syntax {
-    syntax_provder: Option<SyntaxProvider>,
+    syntax_provder: Option<SyntaxActor>,
     result: HighlightResult,
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
@@ -133,7 +121,7 @@ impl Syntax {
         match get_tree_sitter_language(language) {
             Some(lang) => {
                 tracing::info!("set lang to `{language}`");
-                self.syntax_provder = Some(SyntaxProvider::new(
+                self.syntax_provder = Some(SyntaxActor::new(
                     lang,
                     self.proxy.dup(),
                     self.result.clone(),
@@ -149,8 +137,8 @@ impl Syntax {
         Some(&self.syntax_provder.as_ref()?.language.name)
     }
 
-    pub fn update_text(&self, rope: Rope) {
-        if let Some(syntax) = &self.syntax_provder {
+    pub fn update_text(&mut self, rope: Rope) {
+        if let Some(syntax) = &mut self.syntax_provder {
             syntax.update_text(rope);
         }
     }

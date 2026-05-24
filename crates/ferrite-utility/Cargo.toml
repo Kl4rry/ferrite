@@ -8,6 +8,7 @@ edition = "2024"
 ferrite-ctx = { workspace = true }
 ferrite-geom = { workspace = true }
 num-traits = { workspace = true }
+rayon = { workspace = true }
 regex = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true }

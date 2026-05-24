@@ -1073,6 +1073,7 @@ dependencies = [
  "ferrite-geom",
  "num-traits",
  "ratatui-core",
+ "rayon",
  "regex",
  "ropey",
  "serde",
