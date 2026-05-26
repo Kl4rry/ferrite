@@ -9,13 +9,17 @@ pub enum ArenaUtf32<'a> {
 
 impl<'a> ArenaUtf32<'a> {
     pub fn from_str_in(s: &'a str, arena: &'a Arena) -> Self {
-        if s.is_ascii() {
+        // TODO: This causes crash in nucleo for some reason
+        /*if s.is_ascii() {
             ArenaUtf32::Ascii(s.as_bytes())
         } else {
             let mut buffer = ArenaVec::new_in(arena);
             buffer.extend(s.chars());
             ArenaUtf32::Unicode(buffer)
-        }
+        }*/
+        let mut buffer = ArenaVec::new_in(arena);
+        buffer.extend(s.chars());
+        ArenaUtf32::Unicode(buffer)
     }
 
     pub fn as_utf32_str(&self) -> nucleo::Utf32Str {
