@@ -1,5 +1,4 @@
 #![allow(mismatched_lifetime_syntaxes)]
-pub mod worker;
 pub mod chars;
 pub mod graphemes;
 pub mod line_ending;
@@ -12,3 +11,4 @@ pub mod url;
 pub mod utf32;
 pub mod vec1;
 pub mod words;
+pub mod worker;

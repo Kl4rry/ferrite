@@ -89,11 +89,13 @@ pub fn file_injector(
                 return None;
             }
 
-            if show_only_text_files {
-                return get_text_file_path(entry.into_path());
-            }
+            let path = if show_only_text_files {
+                get_text_file_path(entry.into_path())?
+            } else {
+                entry.into_path()
+            };
 
-            Some(trim_path(&path_str, &entry.into_path()).into())
+            Some(trim_path(&path_str, &path))
         });
 
     |injector, _running| {
@@ -105,8 +107,7 @@ pub fn file_injector(
                     });
                 }
             } else {
-                for item in iterator {
-                    let string: String = item.to_string_lossy().into();
+                for string in iterator {
                     if let Some(cache) = &target_file_cache {
                         cache.push(string.clone());
                     }

@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use ferrite_ctx::ArenaVec;
-use ferrite_utility::worker::{Worker, Consumption};
+use ferrite_utility::worker::{Consumption, Worker};
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
