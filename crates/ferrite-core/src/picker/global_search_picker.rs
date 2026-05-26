@@ -14,51 +14,28 @@ use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{Searcher, sinks::UTF8};
 use ignore::{WalkBuilder, WalkState};
 
-use super::{Matchable, PickerOptionProvider, file_previewer::is_text_file};
+use super::{Matchable, file_previewer::is_text_file};
 use crate::{
     buffer::Buffer,
     config::editor::PickerConfig,
-    picker::{Preview, Previewer},
+    event_loop_proxy::get_proxy,
+    picker::{Preview, Previewer, file_picker::filter_picker_entry},
 };
 
-pub struct GlobalSearchProvider {
-    output: Arc<boxcar::Vec<GlobalSearchMatch>>,
-    config: PickerConfig,
-    case_insensitive: bool,
+pub fn global_search_injector(
     query: String,
-    running: Arc<AtomicBool>,
-}
+    config: &PickerConfig,
+    case_insensitive: bool,
+) -> impl FnOnce(nucleo::Injector<GlobalSearchMatch>, Arc<AtomicBool>) {
+    let show_hidden = config.show_hidden;
+    let follow_ignore = config.follow_ignore;
+    let follow_git_global = config.follow_git_global;
+    let follow_gitignore = config.follow_gitignore;
+    let follow_git_exclude = config.follow_git_exclude;
 
-impl GlobalSearchProvider {
-    pub fn new(query: String, config: PickerConfig, case_insensitive: bool) -> Self {
-        Self {
-            output: Arc::new(boxcar::Vec::new()),
-            config,
-            case_insensitive,
-            query,
-            running: Arc::new(AtomicBool::new(true)),
-        }
-    }
-}
-
-impl Drop for GlobalSearchProvider {
-    fn drop(&mut self) {
-        self.running.store(false, Ordering::Relaxed)
-    }
-}
-
-impl PickerOptionProvider for GlobalSearchProvider {
-    type Matchable = GlobalSearchMatch;
-
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>> {
-        let running = self.running.clone();
-        let (tx, rx) = cb::unbounded();
-        let case_insensitive = self.case_insensitive;
-        let query = self.query.clone();
-        let config = self.config;
-        let output = self.output.clone();
-
+    move |injector, running| {
         thread::spawn(move || {
+            let root = std::env::current_dir().unwrap();
             let matcher = RegexMatcherBuilder::new()
                 .fixed_strings(true)
                 .multi_line(false)
@@ -69,20 +46,19 @@ impl PickerOptionProvider for GlobalSearchProvider {
             let mut builder = WalkBuilder::new(std::env::current_dir().unwrap());
             let walk_parallel = builder
                 .follow_links(false)
-                .hidden(!config.show_hidden)
-                .ignore(config.follow_ignore)
-                .git_global(config.follow_git_global)
-                .git_ignore(config.follow_gitignore)
-                .git_exclude(config.follow_git_exclude)
-                .overrides(config.overrides())
+                .hidden(!show_hidden)
+                .ignore(follow_ignore)
+                .git_global(follow_git_global)
+                .git_ignore(follow_gitignore)
+                .git_exclude(follow_git_exclude)
+                .filter_entry(move |entry| filter_picker_entry(entry, &root, true))
                 .build_parallel();
 
             walk_parallel.run(move || {
                 let matcher = matcher.clone();
-                let output = output.clone();
-                let tx = tx.clone();
 
                 let running = running.clone();
+                let injector = injector.clone();
                 Box::new(move |result| {
                     if !running.load(Ordering::Relaxed) {
                         tracing::debug!("Shutting down global file searcher");
@@ -123,16 +99,21 @@ impl PickerOptionProvider for GlobalSearchProvider {
                                 let rope_line = rope.line(lnum);
                                 let start_col = rope_line.byte_to_col(mymatch.start());
                                 let end_col = rope_line.byte_to_col(mymatch.end());
-                                output.push(GlobalSearchMatch {
-                                    buffer: buffer.clone(),
-                                    name: name.clone(),
-                                    line: rope_line.trim_start_whitespace().to_string(),
-                                    match_location: (
-                                        Point::new(start_col, lnum),
-                                        Point::new(end_col, lnum),
-                                    ),
-                                });
-                                let _ = tx.send(output.clone());
+                                injector.push(
+                                    GlobalSearchMatch {
+                                        buffer: buffer.clone(),
+                                        name: name.clone(),
+                                        line: rope_line.trim_start_whitespace().to_string(),
+                                        match_location: (
+                                            Point::new(start_col, lnum),
+                                            Point::new(end_col, lnum),
+                                        ),
+                                    },
+                                    |item, utf32_string| {
+                                        let string: String = item.display().into();
+                                        utf32_string[0] = nucleo::Utf32String::from(string)
+                                    },
+                                );
                             }
                             Ok(true)
                         }),
@@ -143,9 +124,9 @@ impl PickerOptionProvider for GlobalSearchProvider {
                     WalkState::Continue
                 })
             });
-        });
 
-        rx
+            get_proxy().request_render("global search injector done");
+        });
     }
 }
 

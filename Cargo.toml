@@ -24,6 +24,7 @@ directories = "6.0.0"
 dunce = "1.0.4"
 encoding_rs = "0.8.31"
 executable-finder = "0.3.0"
+ferrite-style = { path = "crates/ferrite-style" }
 ferrite-blame = { path = "crates/ferrite-blame" }
 ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-clipboard = { path = "crates/ferrite-clipboard" }
@@ -31,13 +32,11 @@ ferrite-core = { path = "crates/ferrite-core" }
 ferrite-ctx = { path = "crates/ferrite-ctx" }
 ferrite-geom = { path = "crates/ferrite-geom" }
 ferrite-runtime = { path = "crates/ferrite-runtime" }
-ferrite-style = { path = "crates/ferrite-style" }
 ferrite-talloc = { path = "crates/ferrite-talloc" }
 ferrite-term-platform = { path = "crates/ferrite-term-platform" }
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
 ferrite-utility = { path = "crates/ferrite-utility" }
 ferrite-winit-wgpu-platform = { path = "crates/ferrite-winit-wgpu-platform" }
-frizbee = "0.9.0"
 glyphon = "0.11.0"
 gpui_sum_tree = "0.2.2"
 grep-matcher = "0.1.7"
@@ -48,8 +47,10 @@ humansize = "2.1.3"
 ignore = "0.4.20"
 indexmap = "2.7.0"
 linkify = "0.11.0"
+lru = "0.16.0"
 memchr = "2.5.0"
 notify-debouncer-full = "0.7.0"
+nucleo = "0.5.0"
 num-traits = "0.2.15"
 opener = "0.8.4"
 pollster = "0.4.0"

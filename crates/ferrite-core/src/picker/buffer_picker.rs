@@ -1,23 +1,29 @@
-use std::{borrow::Cow, sync::Arc, time::Instant};
+use std::{
+    borrow::Cow,
+    sync::{Arc, atomic::AtomicBool},
+    time::Instant,
+};
 
 use slotmap::SlotMap;
 
-use super::{Matchable, PickerOptionProvider};
+use super::Matchable;
 use crate::{
     buffer::Buffer,
+    event_loop_proxy::get_proxy,
     picker::{Preview, Previewer},
     workspace::BufferId,
 };
 
-pub struct BufferFindProvider(pub Arc<boxcar::Vec<BufferItem>>);
-
-impl PickerOptionProvider for BufferFindProvider {
-    type Matchable = BufferItem;
-
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>> {
-        let (tx, rx) = cb::bounded(1);
-        let _ = tx.send(self.0.clone());
-        rx
+pub fn buffer_injector(
+    buffers: Vec<BufferItem>,
+) -> impl FnOnce(nucleo::Injector<BufferItem>, Arc<AtomicBool>) {
+    |injector, _running| {
+        for buffer in buffers {
+            injector.push(buffer, |item, utf32_string| {
+                utf32_string[0] = nucleo::Utf32String::from(item.name.clone());
+            });
+        }
+        get_proxy().request_render("buffer injector done");
     }
 }
 

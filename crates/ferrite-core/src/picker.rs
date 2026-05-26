@@ -1,14 +1,14 @@
 use std::{
     borrow::Cow,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    thread,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
-use cb::select;
 use ferrite_runtime::unique_id::UniqueId;
+use nucleo::Nucleo;
 
-use self::fuzzy_match::FuzzyMatch;
 use super::buffer::{Buffer, error::BufferError};
 use crate::{
     cmd::Cmd,
@@ -19,8 +19,6 @@ use crate::{
 pub mod buffer_picker;
 pub mod file_picker;
 pub mod file_previewer;
-pub mod file_scanner;
-pub mod fuzzy_match;
 pub mod global_search_picker;
 
 pub enum Preview<'a> {
@@ -36,19 +34,13 @@ pub trait Previewer<M: Matchable> {
     fn request_preview(&mut self, m: &M) -> Preview;
 }
 
-pub struct PickerResult<M: Matchable> {
-    matches: Vec<(FuzzyMatch<M>, usize)>,
-    total: usize,
-}
-
-pub struct Picker<M: Matchable> {
+pub struct Picker<M: Matchable + Send + Sync + Clone + 'static> {
     search_field: MiniBuffer,
     selected: usize,
     previewer: Option<Box<dyn Previewer<M>>>,
-    result: PickerResult<M>,
     choice: Option<M>,
-    tx: cb::Sender<String>,
-    rx: cb::Receiver<PickerResult<M>>,
+    nucleo: Nucleo<M>,
+    running: Arc<AtomicBool>,
     unique_id: UniqueId,
 }
 
@@ -56,78 +48,24 @@ impl<M> Picker<M>
 where
     M: Matchable + Send + Sync + Clone + 'static,
 {
-    pub fn new<T: PickerOptionProvider<Matchable = M> + Send + Sync + 'static>(
-        option_provder: T,
+    pub fn new(
         previewer: Option<Box<dyn Previewer<M>>>,
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
-        path: Option<PathBuf>,
     ) -> Self {
-        let (search_tx, search_rx): (_, cb::Receiver<String>) = cb::unbounded();
-        let (result_tx, result_rx): (_, cb::Receiver<PickerResult<M>>) = cb::unbounded();
-
-        thread::spawn(move || {
-            let mut options = Arc::new(boxcar::Vec::new());
-            let mut query = String::new();
-            let options_recv = option_provder.get_options_reciver();
-
-            loop {
-                select! {
-                    recv(search_rx) -> new_query => {
-                        match new_query {
-                            Ok(new_query) => {
-                                query = new_query;
-                            }
-                            Err(_) => break,
-                        }
-                    }
-                    recv(options_recv) -> new_options => {
-                        match new_options {
-                            Ok(new_options) => {
-                                options = new_options;
-                            }
-                            Err(_) => {
-                                match search_rx.recv() {
-                                    Ok(new_query) => {
-                                        query = new_query;
-                                    }
-                                    Err(_) => break,
-                                }
-                            },
-                        }
-                    }
-                }
-
-                if !search_rx.is_empty() || !options_recv.is_empty() {
-                    proxy.request_render("picker result empty");
-                    continue;
-                }
-
-                {
-                    let output = fuzzy_match::fuzzy_match::<M>(&query, &*options, path.as_deref());
-                    let result = PickerResult {
-                        matches: output,
-                        total: options.count(),
-                    };
-                    if result_tx.send(result).is_err() {
-                        break;
-                    }
-                }
-
-                proxy.request_render("picker result ready");
-            }
-        });
+        let nucleo_proxy = proxy.dup();
 
         Self {
             search_field: MiniBuffer::new(),
             selected: 0,
             choice: None,
             previewer,
-            tx: search_tx,
-            rx: result_rx,
-            result: PickerResult {
-                matches: Vec::new(),
-                total: 0,
-            },
+            nucleo: Nucleo::new(
+                nucleo::Config::DEFAULT,
+                Arc::new(move || nucleo_proxy.request_render("picker result recv")),
+                None,
+                1,
+            ),
+            running: Arc::new(AtomicBool::new(true)),
             unique_id: UniqueId::new(),
         }
     }
@@ -135,7 +73,7 @@ where
 
 impl<M> Picker<M>
 where
-    M: Matchable,
+    M: Matchable + Send + Sync + Clone + 'static,
 {
     pub fn search_field(&mut self) -> &mut MiniBuffer {
         &mut self.search_field
@@ -146,16 +84,16 @@ where
     }
 
     pub fn set_selected(&mut self, index: usize) {
-        self.selected = index.min(self.get_matches().len());
+        self.selected = index.min(self.get_snapshot().matched_item_count() as usize);
     }
 
     pub fn set_choice(&mut self, index: usize) {
         self.set_selected(index);
         let selected = self.selected;
         self.choice = self
-            .get_matches()
-            .get(selected)
-            .map(|(FuzzyMatch { item, .. }, _)| item)
+            .get_snapshot()
+            .get_matched_item(selected as u32)
+            .map(|item| item.data)
             .cloned();
     }
 
@@ -163,25 +101,19 @@ where
         self.choice.take()
     }
 
-    fn poll_rx(&mut self) {
-        while let Ok(result) = self.rx.try_recv() {
-            self.result = result;
-        }
+    pub fn tick(&mut self) {
+        self.nucleo.tick(10);
     }
 
-    pub fn get_matches(&mut self) -> &[(FuzzyMatch<M>, usize)] {
-        self.poll_rx();
-        &self.result.matches
-    }
-
-    pub fn get_total(&mut self) -> usize {
-        self.poll_rx();
-        self.result.total
+    pub fn get_snapshot(&self) -> &nucleo::Snapshot<M> {
+        self.nucleo.snapshot()
     }
 
     pub fn move_up(&mut self) {
+        self.get_snapshot();
         if self.selected == 0 {
-            self.selected = self.get_matches().len().saturating_sub(1);
+            let count = self.get_snapshot().matched_item_count() as usize;
+            self.selected = count.saturating_sub(1);
         } else {
             self.selected = self.selected.saturating_sub(1);
         }
@@ -192,7 +124,9 @@ where
     }
 
     pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
+        self.nucleo.tick(10);
         let mut enter = false;
+        let append = false;
         match input {
             Cmd::MoveUp { .. } | Cmd::TabOrIndent { back: true } => self.move_up(),
             Cmd::MoveDown { .. } | Cmd::TabOrIndent { back: false } => self.move_down(),
@@ -203,12 +137,25 @@ where
                     self.move_down()
                 }
             }
+            Cmd::Char { .. } => {
+                // TODO check if cursor is at end
+                // settings append to true makes nucleo faster
+                self.search_field.handle_input(input)?;
+            }
             input => enter |= self.search_field.handle_input(input)?,
         }
-        let _ = self.tx.send(self.search_field.buffer.to_string());
+        self.nucleo.pattern.reparse(
+            0,
+            &self.search_field.buffer.to_string(),
+            nucleo::pattern::CaseMatching::Ignore,
+            nucleo::pattern::Normalization::Smart,
+            append,
+        );
+        self.nucleo.tick(10);
 
-        if self.selected >= self.get_matches().len() {
-            self.selected = 0;
+        let count = self.get_snapshot().matched_item_count() as usize;
+        if self.selected >= count {
+            self.selected = count.saturating_sub(1);
         }
 
         if enter {
@@ -218,10 +165,9 @@ where
     }
 
     pub fn get_current_preview(&mut self) -> Option<Preview> {
-        let selected = self.selected;
-        let (choice, _) = &self.result.matches.get(selected)?;
-        let choice = &choice.item;
-        Some(self.previewer.as_mut()?.request_preview(choice))
+        let snapshot = self.nucleo.snapshot();
+        let item = snapshot.get_item(self.selected as u32)?;
+        Some(self.previewer.as_mut()?.request_preview(item.data))
     }
 
     pub fn has_previewer(&self) -> bool {
@@ -231,16 +177,21 @@ where
     pub fn unique_id(&self) -> UniqueId {
         self.unique_id
     }
+
+    pub fn set_injector<F: FnOnce(nucleo::Injector<M>, Arc<AtomicBool>)>(&self, f: F) {
+        (f)(self.nucleo.injector(), self.running.clone())
+    }
+}
+
+impl<M: Matchable + Send + Sync + 'static> Drop for Picker<M> {
+    fn drop(&mut self) {
+        self.running.store(true, Ordering::Relaxed);
+    }
 }
 
 pub trait Matchable: Clone {
     fn as_match_str(&self) -> Cow<str>;
     fn display(&self) -> Cow<str>;
-}
-
-pub trait PickerOptionProvider {
-    type Matchable: Matchable;
-    fn get_options_reciver(&self) -> cb::Receiver<Arc<boxcar::Vec<Self::Matchable>>>;
 }
 
 impl Matchable for String {

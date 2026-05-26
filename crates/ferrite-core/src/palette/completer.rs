@@ -1,7 +1,7 @@
 use std::{borrow::Cow, cmp::Ordering, path::PathBuf};
 
 use ferrite_ctx::ArenaVec;
-use ferrite_utility::line_ending::LineEnding;
+use ferrite_utility::{line_ending::LineEnding, utf32::ArenaUtf32};
 
 use self::path_completer::complete_file_path;
 use super::cmd_parser::{
@@ -327,37 +327,39 @@ fn fuzzy_match<S: AsRef<str> + Clone + std::fmt::Debug + std::cmp::Ord>(
     haystack: impl Iterator<Item = S>,
 ) -> Vec<S> {
     let arena = ferrite_ctx::Ctx::arena();
-    let mut tmp = ArenaVec::new_in(&arena);
-    tmp.extend(haystack);
 
     if needle.is_empty() {
-        return tmp.to_vec();
+        return haystack.collect();
     }
 
-    let mut matches = frizbee::match_list(needle, &tmp, &Default::default());
+    let mut matches = ArenaVec::new_in(&arena);
+    {
+        let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+        let needle = ArenaUtf32::from_str_in(needle, &arena);
+        for haystack in haystack {
+            let haystack_utf32 = ArenaUtf32::from_str_in(haystack.as_ref(), &arena);
+            if let Some(score) =
+                matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
+            {
+                drop(haystack_utf32);
+                matches.push((score, haystack));
+            }
+        }
+    }
 
-    matches.sort_by(|a, b| match b.score.cmp(&a.score) {
+    matches.sort_by(|a, b| match b.0.cmp(&a.0) {
         Ordering::Equal => {
-            if tmp[a.index as usize].as_ref().starts_with(needle) {
+            if a.1.as_ref().starts_with(needle) {
                 Ordering::Less
-            } else if tmp[b.index as usize].as_ref().starts_with(needle) {
+            } else if b.1.as_ref().starts_with(needle) {
                 Ordering::Greater
             } else {
-                tmp[a.index as usize]
-                    .as_ref()
-                    .len()
-                    .cmp(&tmp[b.index as usize].as_ref().len())
+                a.1.as_ref().len().cmp(&b.1.as_ref().len())
             }
         }
         Ordering::Greater => Ordering::Greater,
         Ordering::Less => Ordering::Less,
     });
 
-    let mut output = Vec::new();
-
-    for m in matches {
-        output.push(tmp[m.index as usize].clone());
-    }
-
-    output
+    matches.into_iter().map(|(_, m)| m).collect()
 }

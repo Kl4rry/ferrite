@@ -159,10 +159,10 @@ impl Default for Gui {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct PickerConfig {
+    #[serde(default = "get_false")]
+    pub follow_symlinks: bool,
     #[serde(default = "get_true")]
     pub show_hidden: bool,
-    #[serde(default = "get_false")]
-    pub show_git_folder: bool,
     #[serde(default = "get_true")]
     pub follow_gitignore: bool,
     #[serde(default = "get_true")]
@@ -175,16 +175,6 @@ pub struct PickerConfig {
     pub show_only_text_files: bool,
     #[serde(default = "get_true")]
     pub file_picker_auto_reload: bool,
-}
-
-impl PickerConfig {
-    pub fn overrides(&self) -> ignore::overrides::Override {
-        let mut builder = ignore::overrides::OverrideBuilder::new(std::env::current_dir().unwrap());
-        if !self.show_git_folder {
-            builder.add("!.git/").unwrap();
-        }
-        builder.build().unwrap()
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -212,8 +202,8 @@ impl Default for InfoLineConfig {
 impl Default for PickerConfig {
     fn default() -> Self {
         Self {
+            follow_symlinks: false,
             show_hidden: true,
-            show_git_folder: false,
             follow_gitignore: true,
             follow_git_exclude: true,
             follow_ignore: true,

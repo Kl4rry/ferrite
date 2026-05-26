@@ -931,7 +931,6 @@ dependencies = [
  "ferrite-talloc",
  "ferrite-tree-sitter",
  "ferrite-utility",
- "frizbee",
  "gpui_sum_tree",
  "grep-matcher",
  "grep-regex",
@@ -941,8 +940,10 @@ dependencies = [
  "ignore",
  "indexmap",
  "linkify",
+ "lru",
  "memchr",
  "notify-debouncer-full",
+ "nucleo",
  "opener",
  "profiling",
  "rand 0.10.1",
@@ -1071,6 +1072,7 @@ version = "0.1.0"
 dependencies = [
  "ferrite-ctx",
  "ferrite-geom",
+ "nucleo",
  "num-traits",
  "ratatui-core",
  "rayon",
@@ -1188,16 +1190,6 @@ name = "foreign-types-shared"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
-
-[[package]]
-name = "frizbee"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca1f7b0dce1c25254457f2edcfcf611bf207113564b96f90659a3f54506016b2"
-dependencies = [
- "itertools 0.14.0",
- "raw-cpuid",
-]
 
 [[package]]
 name = "fsevent-sys"
@@ -2020,6 +2012,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "nucleo"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5262af4c94921c2646c5ac6ff7900c2af9cbb08dc26a797e18130a7019c039d4"
+dependencies = [
+ "nucleo-matcher",
+ "parking_lot",
+ "rayon",
+]
+
+[[package]]
+name = "nucleo-matcher"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
+dependencies = [
+ "memchr",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "num-conv"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2773,15 +2786,6 @@ dependencies = [
  "time",
  "unicode-segmentation",
  "unicode-width",
-]
-
-[[package]]
-name = "raw-cpuid"
-version = "11.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "498cd0dc59d73224351ee52a95fee0f1a617a2eae0e7d9d720cc622c73a54186"
-dependencies = [
- "bitflags 2.11.1",
 ]
 
 [[package]]

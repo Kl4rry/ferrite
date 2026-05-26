@@ -9,5 +9,6 @@ pub mod time;
 pub mod trim;
 pub mod tui_buf_ext;
 pub mod url;
+pub mod utf32;
 pub mod vec1;
 pub mod words;

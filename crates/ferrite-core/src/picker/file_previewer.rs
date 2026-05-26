@@ -2,8 +2,11 @@ use std::{
     collections::{HashMap, hash_map::Entry},
     fs::{self, File},
     io::{self, Read},
+    num::NonZeroUsize,
     path::Path,
 };
+
+use lru::LruCache;
 
 use crate::{
     buffer::Buffer,
@@ -23,7 +26,7 @@ pub fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
 }
 
 pub struct FilePreviewer {
-    files: HashMap<String, Result<Option<Buffer>, io::Error>>,
+    files: LruCache<String, Result<Option<Buffer>, io::Error>>,
     loading: HashMap<String, Promise<Result<Option<Buffer>, io::Error>>>,
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
@@ -31,7 +34,7 @@ pub struct FilePreviewer {
 impl FilePreviewer {
     pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
-            files: HashMap::new(),
+            files: LruCache::new(NonZeroUsize::new(5).unwrap()),
             loading: HashMap::new(),
             proxy,
         }
@@ -44,7 +47,7 @@ impl Previewer<String> for FilePreviewer {
             match entry.get_mut().poll() {
                 Some(result) => {
                     let (k, _) = entry.remove_entry();
-                    self.files.insert(k, result);
+                    self.files.push(k, result);
                 }
                 None => {
                     return Preview::Loading;

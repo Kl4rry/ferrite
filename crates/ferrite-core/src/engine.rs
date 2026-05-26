@@ -45,12 +45,10 @@ use crate::{
         completer::CompleterContext,
     },
     picker::{
-        Picker,
-        buffer_picker::{BufferFindProvider, BufferItem},
-        file_picker::FileFindProvider,
+        Picker, buffer_picker, file_picker,
         file_previewer::{FilePreviewer, is_text_file},
-        file_scanner::FileScanner,
-        global_search_picker::{GlobalSearchMatch, GlobalSearchPreviewer, GlobalSearchProvider},
+        global_search_picker,
+        global_search_picker::{GlobalSearchMatch, GlobalSearchPreviewer},
     },
     spinner::Spinner,
     theme::EditorTheme,
@@ -64,11 +62,11 @@ pub struct Engine {
     pub themes: HashMap<String, Arc<EditorTheme>>,
     pub config: Config,
     pub palette: CommandPalette,
+    pub file_cache: Option<Arc<boxcar::Vec<String>>>,
     pub file_picker: Option<Picker<String>>,
-    pub buffer_picker: Option<Picker<BufferItem>>,
+    pub buffer_picker: Option<Picker<buffer_picker::BufferItem>>,
     pub global_search_picker: Option<Picker<GlobalSearchMatch>>,
     pub proxy: Box<dyn EventLoopProxy<UserEvent>>,
-    pub file_scanner: Option<FileScanner>,
     pub job_manager: JobManager,
     pub save_jobs: Vec<(BufferId, JobHandle<Result<SaveBufferJob>>)>,
     pub shell_jobs: Vec<(Option<BufferId>, ShellJobHandle)>,
@@ -176,12 +174,12 @@ impl Engine {
             themes,
             config,
             palette,
+            file_cache: None,
             file_picker: None,
             buffer_picker: None,
             global_search_picker: None,
             branch_watcher,
             proxy,
-            file_scanner: None,
             job_manager,
             save_jobs: Default::default(),
             shell_jobs: Default::default(),
@@ -236,8 +234,8 @@ impl Engine {
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
         self.logger_state.update();
 
-        if self.config.editor.picker.file_picker_auto_reload && self.file_picker.is_none() {
-            self.file_scanner = None;
+        if self.config.editor.picker.file_picker_auto_reload {
+            self.file_cache = None;
         }
 
         if !self.config.editor.watch_open_files {
@@ -584,10 +582,7 @@ impl Engine {
             Cmd::OpenBufferPicker => self.open_buffer_picker(),
             Cmd::OpenFileExplorer { path } => self.open_file_explorer(path),
             Cmd::FilePickerReload => {
-                self.file_scanner = Some(FileScanner::new(
-                    env::current_dir().unwrap_or(PathBuf::from(".")),
-                    &self.config.editor,
-                ));
+                self.file_cache = None;
             }
             Cmd::ReplaceAll { text } => {
                 if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
@@ -850,15 +845,7 @@ impl Engine {
                 }
             },
             Cmd::BufferPickerOpen => self.open_buffer_picker(),
-            Cmd::FilePickerOpen => {
-                if self.config.editor.picker.file_picker_auto_reload {
-                    self.file_scanner = Some(FileScanner::new(
-                        env::current_dir().unwrap_or(PathBuf::from(".")),
-                        &self.config.editor,
-                    ));
-                }
-                self.open_file_picker();
-            }
+            Cmd::FilePickerOpen => self.open_file_picker(),
             Cmd::OpenConfig => {
                 self.save_jump_point();
                 self.open_config();
@@ -1166,17 +1153,14 @@ impl Engine {
                 }
                 PaletteMode::GlobalSearch => {
                     self.palette.unfocus();
-                    let global_search_provider = GlobalSearchProvider::new(
+                    let picker =
+                        Picker::new(Some(Box::new(GlobalSearchPreviewer)), self.proxy.dup());
+                    picker.set_injector(global_search_picker::global_search_injector(
                         content,
-                        self.config.editor.picker,
+                        &self.config.editor.picker,
                         self.config.editor.case_insensitive_search,
-                    );
-                    self.global_search_picker = Some(Picker::new(
-                        global_search_provider,
-                        Some(Box::new(GlobalSearchPreviewer)),
-                        self.proxy.dup(),
-                        None,
                     ));
+                    self.global_search_picker = Some(picker);
                 }
                 PaletteMode::Shell => {
                     self.palette.reset();
@@ -1262,10 +1246,7 @@ impl Engine {
             Ok(_) => {
                 self.hide_pickers();
 
-                self.file_scanner = Some(FileScanner::new(
-                    env::current_dir().unwrap_or(PathBuf::from(".")),
-                    &self.config.editor,
-                ));
+                self.file_cache = None;
 
                 match BranchWatcher::new(self.proxy.dup()) {
                     Ok(branch_watcher) => self.branch_watcher = branch_watcher,
@@ -1464,7 +1445,7 @@ impl Engine {
             .workspace
             .buffers
             .iter()
-            .map(|(id, buffer)| BufferItem {
+            .map(|(id, buffer)| buffer_picker::BufferItem {
                 id,
                 dirty: buffer.is_dirty(),
                 name: {
@@ -1480,31 +1461,47 @@ impl Engine {
             .collect();
 
         buffers.sort_by_key(|b| std::cmp::Reverse(b.order));
-        let buffers: boxcar::Vec<_> = buffers.into_iter().collect();
+        let buffers: Vec<_> = buffers.into_iter().collect();
 
-        self.buffer_picker = Some(Picker::new(
-            BufferFindProvider(Arc::new(buffers)),
+        let picker = Picker::new(
             Some(Box::new(self.workspace.buffers.clone())),
             self.proxy.dup(),
-            self.try_get_current_buffer_path(),
-        ));
+        );
+        picker.set_injector(buffer_picker::buffer_injector(buffers));
+        self.buffer_picker = Some(picker);
     }
 
     pub fn open_file_picker(&mut self) {
         self.palette.reset();
         self.buffer_picker = None;
-        if self.file_scanner.is_none() || self.config.editor.picker.file_picker_auto_reload {
-            self.file_scanner = Some(FileScanner::new(
-                env::current_dir().unwrap_or(PathBuf::from(".")),
-                &self.config.editor,
-            ));
-        }
-        self.file_picker = Some(Picker::new(
-            FileFindProvider(self.file_scanner.as_ref().unwrap().subscribe()),
+        let picker = Picker::new(
             Some(Box::new(FilePreviewer::new(self.proxy.dup()))),
             self.proxy.dup(),
-            self.try_get_current_buffer_path(),
-        ));
+        );
+
+        if self.config.editor.picker.file_picker_auto_reload {
+            self.file_cache = None;
+            picker.set_injector(file_picker::file_injector(
+                &self.config.editor.picker,
+                None,
+                None,
+            ));
+        } else if let Some(cache) = &self.file_cache {
+            picker.set_injector(file_picker::file_injector(
+                &self.config.editor.picker,
+                Some(cache.clone()),
+                None,
+            ));
+        } else {
+            let cache = Arc::new(boxcar::Vec::new());
+            picker.set_injector(file_picker::file_injector(
+                &self.config.editor.picker,
+                None,
+                Some(cache.clone()),
+            ));
+            self.file_cache = Some(cache);
+        }
+        self.file_picker = Some(picker);
     }
 
     pub fn open_config(&mut self) {

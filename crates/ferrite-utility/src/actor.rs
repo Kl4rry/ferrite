@@ -58,9 +58,10 @@ where
 
     pub fn send(&mut self, input: Input) {
         let _ = self.tx.send(input);
-        if let Ok(_) =
-            self.running
-                .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        if self
+            .running
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
         {
             let state = self.state.clone();
             let running = self.running.clone();
@@ -85,7 +86,7 @@ where
                         },
                     };
                     let output = (guard.closure)(&mut guard.state, input);
-                    if let Err(_) = guard.tx.send(output) {
+                    if guard.tx.send(output).is_err() {
                         break;
                     }
                 }

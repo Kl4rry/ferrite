@@ -5,6 +5,8 @@ use std::{
     path::{self, Path, PathBuf},
 };
 
+use ferrite_utility::utf32::ArenaUtf32;
+
 #[cfg(any(windows, target_os = "macos"))]
 fn normalize(s: &str) -> Cow<str> {
     // case insensitive
@@ -17,6 +19,7 @@ fn normalize(s: &str) -> Cow<str> {
 }
 
 pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
+    let arena = ferrite_ctx::Ctx::arena();
     #[cfg(unix)]
     let path = path.to_string();
 
@@ -85,12 +88,14 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
                     }
                 } else {
                     let normalized_haystack = normalize(haystack);
-                    let mut matcher = frizbee::Matcher::new(&file_name, &Default::default());
-                    if let Some(m) = matcher
-                        .match_list_indices(&[&normalized_haystack])
-                        .into_iter()
-                        .next()
-                        && let Ok(metadata) = fs::metadata(entry.path())
+                    let normalized_haystack_utf32 =
+                        ArenaUtf32::from_str_in(&normalized_haystack, &arena);
+                    let file_name_utf32 = ArenaUtf32::from_str_in(&file_name, &arena);
+                    let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+                    if let Some(score) = matcher.fuzzy_match(
+                        normalized_haystack_utf32.as_utf32_str(),
+                        file_name_utf32.as_utf32_str(),
+                    ) && let Ok(metadata) = fs::metadata(entry.path())
                     {
                         let mut path = String::from(dir_name) + haystack;
                         if metadata.is_dir() {
@@ -99,7 +104,7 @@ pub fn complete_file_path(path: &str, executable_only: bool) -> Vec<PathBuf> {
 
                         if !executable_only || is_executable(&metadata) || metadata.is_dir() {
                             entries.push((
-                                m.score as isize,
+                                score as isize,
                                 normalized_haystack.starts_with(&*file_name),
                                 path.into(),
                             ));

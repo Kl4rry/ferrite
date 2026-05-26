@@ -15,17 +15,16 @@ directories = { workspace = true }
 dunce = { workspace = true }
 encoding_rs = { workspace = true }
 executable-finder = { workspace = true }
+ferrite-runtime = { workspace = true }
 ferrite-blame = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-clipboard = { workspace = true }
 ferrite-ctx = { workspace = true }
 ferrite-geom = { workspace = true }
-ferrite-runtime = { workspace = true }
 ferrite-style = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-tree-sitter = { workspace = true }
 ferrite-utility = { workspace = true }
-frizbee = { workspace = true }
 gpui_sum_tree = { workspace = true }
 grep-matcher = { workspace = true }
 grep-regex = { workspace = true }
@@ -35,8 +34,10 @@ humansize = { workspace = true }
 ignore = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 linkify = { workspace = true }
+lru = { workspace = true }
 memchr = { workspace = true }
 notify-debouncer-full = { workspace = true }
+nucleo = { workspace = true }
 opener = { workspace = true }
 profiling = { workspace = true }
 rayon = { workspace = true }

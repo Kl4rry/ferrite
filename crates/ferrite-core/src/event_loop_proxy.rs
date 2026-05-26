@@ -14,6 +14,10 @@ pub fn get_proxy() -> Box<dyn EventLoopProxy<UserEvent>> {
     PROXY.get().unwrap().dup()
 }
 
+pub fn request_render(reason: &'static str) {
+    PROXY.get().unwrap().request_render(reason);
+}
+
 #[derive(Debug)]
 pub enum UserEvent {
     PaletteFinished { mode: PaletteMode, content: String },

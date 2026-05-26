@@ -1,20 +1,16 @@
 use std::{
-    borrow::Cow,
     collections::HashMap,
     ffi::OsString,
     fs::{self, FileType, Metadata},
     path::{Path, PathBuf},
 };
 
+use ferrite_ctx::ArenaVec;
 use ferrite_runtime::unique_id::UniqueId;
-use ferrite_utility::line_ending::LineEnding;
+use ferrite_utility::{line_ending::LineEnding, utf32::ArenaUtf32};
 use ropey::{Rope, RopeSlice};
 
-use crate::{
-    buffer::Buffer,
-    cmd::Cmd,
-    picker::{Matchable, fuzzy_match},
-};
+use crate::{buffer::Buffer, cmd::Cmd};
 
 slotmap::new_key_type! {
     pub struct FileExplorerId;
@@ -26,16 +22,6 @@ pub struct DirEntry {
     pub file_type: FileType,
     pub metadata: Metadata,
     pub link: Option<PathBuf>,
-}
-
-impl Matchable for DirEntry {
-    fn as_match_str(&self) -> Cow<str> {
-        self.path.file_name().unwrap().to_string_lossy()
-    }
-
-    fn display(&self) -> Cow<str> {
-        self.path.file_name().unwrap().to_string_lossy()
-    }
 }
 
 pub struct FileExplorer {
@@ -148,11 +134,25 @@ impl FileExplorer {
     }
 
     pub fn handle_search(&mut self, query: String) {
+        let arena = ferrite_ctx::Ctx::arena();
+        let mut matches = ArenaVec::new_in(&arena);
         if !query.is_empty() {
-            let output = fuzzy_match::fuzzy_match::<DirEntry>(&query, &self.entries, None);
+            let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+            let needle = ArenaUtf32::from_str_in(&query, &arena);
+            for (_i, entry) in &self.entries {
+                let haystack = entry.path.file_name().unwrap().to_string_lossy();
+                let haystack_utf32 = ArenaUtf32::from_str_in(&haystack, &arena);
+                if let Some(score) =
+                    matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
+                {
+                    matches.push((score, entry));
+                }
+            }
+            matches.sort_by_key(|(score, _)| *score);
+
             self.matching_entries.clear();
             self.matching_entries
-                .extend(output.into_iter().map(|m| m.0.item));
+                .extend(matches.into_iter().map(|(_, m)| m).cloned());
         } else {
             self.matching_entries.clear();
             self.matching_entries

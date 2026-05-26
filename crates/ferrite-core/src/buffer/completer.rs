@@ -4,7 +4,7 @@ use std::{
 };
 
 use ferrite_ctx::ArenaVec;
-use ferrite_utility::words;
+use ferrite_utility::{utf32::ArenaUtf32, words};
 use ropey::Rope;
 
 use crate::timer::Timer;
@@ -108,13 +108,22 @@ impl Completer {
         {
             profiling::scope!("fuzzy search");
             tracing::debug!("fuzzy searching {} words", guard.len());
-            for m in frizbee::match_list(query, &guard, &Default::default()) {
-                matches.push(guard[m.index as usize].clone());
+            let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+            let needle = ArenaUtf32::from_str_in(&query, &arena);
+            for haystack in &*guard {
+                let haystack_utf32 = ArenaUtf32::from_str_in(haystack, &arena);
+                if let Some(score) =
+                    matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
+                {
+                    matches.push((score, haystack));
+                }
             }
         }
+        matches.sort_by_key(|(score, _)| *score);
         tracing::debug!("fuzzy match done");
         self.matching_words.clear();
-        self.matching_words.extend(matches.into_iter());
+        self.matching_words
+            .extend(matches.into_iter().map(|(_, m)| m.clone()));
         self.index = 0;
         if self.matching_words.is_empty() {
             self.visible = false;

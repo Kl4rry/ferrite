@@ -50,7 +50,7 @@ impl SyntaxActor {
             epoch: 0,
             highlight_config: language.highlight_config.clone(),
             highlighter: Highlighter::default(),
-            result: result,
+            result,
             proxy: proxy.dup(),
         };
 

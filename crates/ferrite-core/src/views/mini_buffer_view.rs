@@ -1,5 +1,6 @@
 use std::{hash::Hash, sync::Arc};
 
+use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, Painter, View};
 use ferrite_utility::tui_buf_ext::TuiBufExt;
 use unicode_width::UnicodeWidthStr;
@@ -81,15 +82,12 @@ where
             None => bounds.view_bounds(),
         };
 
-        let text_bounds = Bounds::new(view_bounds, bounds.cell_size(), bounds.rounding);
-
-        self.editor_view.render(buffer, text_bounds, painter);
-
-        // TODO: right prompt is currently covered
+        let mut right_prompt_width_px = 0;
         if let Some(right_prompt) = right_prompt {
             let right_prompt_width = right_prompt.width();
-
             if area.width > (right_prompt_width * 2 + 2) {
+                right_prompt_width_px =
+                    ((right_prompt_width + 2) as f32 * bounds.cell_size().x) as usize;
                 buf.draw_string(
                     (area.x + area.width - right_prompt_width) as u16 - 1,
                     area.y as u16,
@@ -99,5 +97,17 @@ where
                 );
             }
         }
+
+        let text_bounds = Bounds::new(
+            Rect::new(
+                view_bounds.x,
+                view_bounds.y,
+                view_bounds.width.saturating_sub(right_prompt_width_px),
+                view_bounds.height,
+            ),
+            bounds.cell_size(),
+            bounds.rounding,
+        );
+        self.editor_view.render(buffer, text_bounds, painter);
     }
 }

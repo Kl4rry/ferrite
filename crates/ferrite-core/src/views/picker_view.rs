@@ -1,9 +1,10 @@
 use std::{borrow::Cow, sync::Arc};
 
+use ferrite_ctx::ArenaVec;
 use ferrite_runtime::{
     Bounds, MouseButton, MouseInterction, MouseInterctionKind, Painter, View, painter::CursorIcon,
 };
-use ferrite_utility::{graphemes::RopeGraphemeExt, tui_buf_ext::TuiBufExt};
+use ferrite_utility::{graphemes::RopeGraphemeExt, tui_buf_ext::TuiBufExt, utf32::ArenaUtf32};
 use ropey::RopeSlice;
 use tui::{
     layout::{Margin, Rect},
@@ -51,7 +52,7 @@ impl PickerView {
 
 impl<M> View<Picker<M>> for PickerView
 where
-    M: Matchable,
+    M: Matchable + Send + Sync + Clone + 'static,
 {
     fn handle_mouse(
         &self,
@@ -92,6 +93,7 @@ where
     }
 
     fn render(&self, picker: &mut Picker<M>, bounds: Bounds, painter: &mut Painter) {
+        let arena = ferrite_ctx::Ctx::arena();
         let area = bounds.grid_bounds();
         let layer = painter.create_layer(picker.unique_id(), bounds);
         let mut layer = layer.lock().unwrap();
@@ -115,7 +117,7 @@ where
         if buf.area.width < 8 {
             return;
         }
-        // TODO: display to small text
+        // TODO: display too small text
 
         let search_field_block = Block::default()
             .borders(Borders::BOTTOM)
@@ -127,6 +129,8 @@ where
         search_field_area.height = 2;
         search_field_block.render(search_field_area, buf);
         search_field_area.height = 1;
+
+        picker.tick();
 
         {
             const PROMPT: &str = " > ";
@@ -146,19 +150,29 @@ where
                 height: 1,
             };
 
-            let right_prompt = format!("{}/{}", picker.get_matches().len(), picker.get_total());
+            let snapshot = picker.get_snapshot();
+            let item_count = snapshot.item_count();
+            let matched_item_count = snapshot.matched_item_count();
+
+            let right_prompt = format!("{}/{}", matched_item_count, item_count);
             picker.search_field().set_right_prompt(right_prompt);
             MiniBufferView::new(
                 self.theme.clone(),
                 self.config.clone(),
                 true,
-                (picker.unique_id(), "input field"),
+                (picker.unique_id(), "picker input field"),
             )
             .render(
                 picker.search_field(),
                 Bounds::from_grid_bounds(input_area.into(), bounds.cell_size(), bounds.rounding),
                 painter,
             );
+        }
+
+        let query = picker.search_field().buffer.rope().to_string();
+        let mut needles = ArenaVec::new_in(&arena);
+        for word in query.split_whitespace() {
+            needles.push(ArenaUtf32::from_str_in(word, &arena));
         }
 
         if inner_area.height < 3 {
@@ -169,18 +183,20 @@ where
             get_preview_and_result_area(inner_area, picker.has_previewer());
 
         {
+            let snapshot = picker.get_snapshot();
+            let matched_item_count = snapshot.matched_item_count();
+
             let selected = picker.selected();
-            let result = picker.get_matches();
 
             let start_page = selected / result_area.height as usize;
             let cursor_pos = selected % result_area.height as usize;
 
-            for (i, (fuzzy_match, _)) in result
-                .iter()
-                .skip(start_page * result_area.height as usize)
-                .take(result_area.height as usize)
-                .enumerate()
-            {
+            let start = start_page as u32 * result_area.height as u32;
+            let end = (start + result_area.height as u32).min(matched_item_count);
+
+            let mut indicies = Vec::new();
+
+            for (i, item) in snapshot.matched_items(start..end).enumerate() {
                 let padding: usize = 1;
                 let width = (result_area.width as usize).saturating_sub(padding);
 
@@ -188,10 +204,10 @@ where
                 let elipsies_len = elipsies.len();
 
                 let mut diff = 0;
-                let result = if fuzzy_match.item.display().width() > width - 3
+                let result = if item.data.display().width() > width - 3
                     && self.text_align == TextAlign::Right
                 {
-                    let display = fuzzy_match.item.display();
+                    let display = item.data.display();
                     let rope = RopeSlice::from(display.as_ref());
                     let slice = rope.last_n_columns(width - 4);
                     let mut shorted = String::with_capacity(slice.len_bytes() + elipsies_len);
@@ -205,10 +221,10 @@ where
 
                     Cow::Owned(shorted)
                 } else {
-                    fuzzy_match.item.display()
+                    item.data.display()
                 };
 
-                let prompt = if i == cursor_pos {
+                let cursor = if i == cursor_pos {
                     " > ".to_string()
                 } else {
                     "   ".to_string()
@@ -217,16 +233,47 @@ where
                 buf.draw_string(
                     result_area.x,
                     result_area.y + i as u16,
-                    &prompt,
+                    &cursor,
                     result_area,
                     self.theme.text,
                 );
 
+                let match_str = item.data.as_match_str();
+                let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+                let haystack = ArenaUtf32::from_str_in(&match_str, &arena);
+
+                indicies.clear();
+                for needle in &needles {
+                    matcher.fuzzy_indices(
+                        haystack.as_utf32_str(),
+                        needle.as_utf32_str(),
+                        &mut indicies,
+                    );
+                }
+                indicies.sort();
+                indicies.dedup();
+
+                #[derive(Debug, Clone, Copy)]
+                pub struct MatchIndex {
+                    pub start: usize,
+                    pub len: usize,
+                }
+
+                let mut matches = ArenaVec::new_in(&arena);
+                for index in &indicies {
+                    matches.push(MatchIndex {
+                        start: *index as usize,
+                        len: 1,
+                    });
+                }
+
                 let mut spans = Vec::new();
                 let mut current_idx = 0;
                 let chars: Vec<_> = result.chars().collect();
-                for i in 0..fuzzy_match.matches.len() {
-                    let m = fuzzy_match.matches[i];
+                // TODO: Clean up this. It was written for the older picker index format
+                // that had a start and len instead of just a list of indicies
+                for i in 0..matches.len() {
+                    let m = matches[i];
                     let start = (m.start as i64).saturating_sub(diff).max(0) as usize;
                     if start > current_idx {
                         let s: String = chars[current_idx..start].iter().collect();
@@ -256,10 +303,10 @@ where
                 }
 
                 buf.set_line(
-                    result_area.x + prompt.width() as u16,
+                    result_area.x + cursor.width() as u16,
                     result_area.y + i as u16,
                     &Line::from(spans),
-                    (width - prompt.width()) as u16,
+                    (width - cursor.width()) as u16,
                 );
 
                 if i == cursor_pos {
