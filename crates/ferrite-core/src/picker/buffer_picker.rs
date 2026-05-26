@@ -20,7 +20,7 @@ pub fn buffer_injector(
     |injector, _running| {
         for buffer in buffers {
             injector.push(buffer, |item, utf32_string| {
-                utf32_string[0] = nucleo::Utf32String::from(item.name.clone());
+                utf32_string[0] = nucleo::Utf32String::from(item.name.as_str());
             });
         }
         get_proxy().request_render("buffer injector done");

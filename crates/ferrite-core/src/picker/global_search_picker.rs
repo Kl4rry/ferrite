@@ -110,8 +110,8 @@ pub fn global_search_injector(
                                         ),
                                     },
                                     |item, utf32_string| {
-                                        let string: String = item.display().into();
-                                        utf32_string[0] = nucleo::Utf32String::from(string)
+                                        utf32_string[0] =
+                                            nucleo::Utf32String::from(&*item.display())
                                     },
                                 );
                             }

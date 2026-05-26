@@ -101,7 +101,7 @@ pub fn file_injector(
             if let Some(cache) = source_file_cache {
                 for (_, string) in cache.iter() {
                     injector.push(string.clone(), |item, utf32_string| {
-                        utf32_string[0] = nucleo::Utf32String::from(item.clone())
+                        utf32_string[0] = nucleo::Utf32String::from(item.as_str())
                     });
                 }
             } else {
@@ -111,7 +111,7 @@ pub fn file_injector(
                         cache.push(string.clone());
                     }
                     injector.push(string, |item, utf32_string| {
-                        utf32_string[0] = nucleo::Utf32String::from(item.clone())
+                        utf32_string[0] = nucleo::Utf32String::from(item.as_str())
                     });
                 }
             }
