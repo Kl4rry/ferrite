@@ -68,7 +68,6 @@ where
             rayon::spawn(move || {
                 let mut guard = state.lock().unwrap();
                 loop {
-                    // TODO: fix cannot ctrl + d select all inputs starting from the top
                     let input = match guard.consumption {
                         Consumption::Latest => {
                             let mut latest = None;

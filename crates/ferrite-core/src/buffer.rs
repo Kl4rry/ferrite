@@ -904,7 +904,8 @@ impl Buffer {
                     false,
                     true,
                 )
-                .pop()
+                .into_iter()
+                .next()
             } {
                 new_cursor = Some(Cursor {
                     anchor: m.start_byte + search_start,
@@ -923,7 +924,8 @@ impl Buffer {
                     false,
                     true,
                 )
-                .pop();
+                .into_iter()
+                .next();
                 if let Some(m) = m {
                     new_cursor = Some(Cursor {
                         anchor: m.start_byte + search_start,
@@ -938,7 +940,8 @@ impl Buffer {
                     false,
                     true,
                 )
-                .pop();
+                .into_iter()
+                .next();
                 if let Some(m) = m {
                     new_cursor = Some(Cursor {
                         anchor: m.start_byte,
