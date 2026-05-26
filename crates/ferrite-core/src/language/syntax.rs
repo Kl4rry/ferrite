@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::{Result, bail};
 use ferrite_ctx::ArenaVec;
-use ferrite_utility::actor::{Actor, Consumption};
+use ferrite_utility::worker::{Worker, Consumption};
 use ropey::{Rope, RopeSlice};
 use tree_sitter::{
     Language, Node, Parser, Point, Query, QueryCaptures, QueryCursor, QueryError, QueryMatch,
@@ -37,7 +37,7 @@ struct SyntaxActorState {
 
 struct SyntaxActor {
     pub language: &'static TreeSitterConfig,
-    pub actor: Actor<SyntaxActorState, Rope, ()>,
+    pub worker: Worker<SyntaxActorState, Rope, ()>,
 }
 
 impl SyntaxActor {
@@ -54,7 +54,7 @@ impl SyntaxActor {
             proxy: proxy.dup(),
         };
 
-        let actor = Actor::new(Consumption::Latest, state, |state, rope: Rope| {
+        let worker = Worker::new(Consumption::Latest, state, |state, rope: Rope| {
             state.epoch += 1;
             let mut arena = ferrite_ctx::Ctx::arena_mut();
 
@@ -91,11 +91,11 @@ impl SyntaxActor {
             arena.reset();
         });
 
-        Ok(Self { language, actor })
+        Ok(Self { language, worker })
     }
 
     pub fn update_text(&mut self, rope: Rope) {
-        self.actor.send(rope);
+        self.worker.send(rope);
     }
 }
 

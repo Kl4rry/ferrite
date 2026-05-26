@@ -21,14 +21,14 @@ struct InternalState<State, Input, Output> {
     consumption: Consumption,
 }
 
-pub struct Actor<State, Input, Output> {
+pub struct Worker<State, Input, Output> {
     state: Arc<Mutex<InternalState<State, Input, Output>>>,
     running: Arc<AtomicBool>,
     tx: mpsc::Sender<Input>,
     rx: mpsc::Receiver<Output>,
 }
 
-impl<State, Input, Output> Actor<State, Input, Output>
+impl<State, Input, Output> Worker<State, Input, Output>
 where
     State: Send + 'static,
     Input: Send + 'static,
