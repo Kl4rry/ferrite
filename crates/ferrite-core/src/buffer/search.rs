@@ -209,20 +209,17 @@ pub fn search_rope(
             UTF8(|line_number, line| {
                 matcher.find_iter(line.as_bytes(), |mymatch| {
                     let line_idx = line_number as usize - 1;
-                    let rope_line = rope.line(line_idx);
                     let line_start_byte = rope.line_to_byte(line_idx);
 
                     let start_byte = mymatch.start();
                     let end_byte = mymatch.end();
-                    let start_col = rope_line.byte_to_col(start_byte);
-                    let end_col = rope_line.byte_to_col(end_byte);
+                    let start_point = rope.byte_to_point(start_byte + line_start_byte);
+                    let end_point = rope.byte_to_point(end_byte + line_start_byte);
                     matches.push(SearchMatch {
                         start_byte: start_byte + line_start_byte,
                         end_byte: end_byte + line_start_byte,
-                        start: Point::new(start_col, line_idx),
-                        // This feels like a hack. It also makes rendering of multiline matches weird
-                        // TODO: make it so multiline matches look right when endered
-                        end: Point::new(end_col, line_idx + query_lines - 1),
+                        start: start_point,
+                        end: end_point,
                     });
                     true
                 })?;

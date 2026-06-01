@@ -641,28 +641,45 @@ impl View<Buffer> for EditorView {
                 let matches = matches.lock().unwrap();
                 let matches = &*matches.0;
 
+                let view_start = buffer.line_pos(view_id);
+                let view_end = view_start + buffer.get_view_lines(view_id);
+
                 for SearchMatch { start, end, .. } in matches {
-                    if start.line >= buffer.line_pos(view_id)
-                        && end.line < buffer.line_pos(view_id) + buffer.get_view_lines(view_id)
-                    {
-                        // TODO: remove this nasty hack when switch to singed coordinates
-                        let x = start.column as i64 + text_area.left() as i64
-                            - buffer.col_pos(view_id) as i64;
-                        if x < 0 {
-                            continue;
+                    if start.line >= view_start && end.line < view_end {
+                        for line_idx in start.line..=end.line {
+                            // skip lines which are outside of view
+                            if !(line_idx >= view_start && line_idx < view_end) {
+                                continue;
+                            }
+                            let first = start.line == line_idx;
+                            let last = end.line == line_idx;
+
+                            let start_column = if first { start.column } else { 0 };
+                            let end_column = if last {
+                                end.column
+                            } else {
+                                buffer.rope().line_without_line_ending(line_idx).width(0) + 1
+                            };
+
+                            // TODO: remove this nasty hack when switch to singed coordinates
+                            let x = start_column as i64 + text_area.left() as i64
+                                - buffer.col_pos(view_id) as i64;
+                            if x < 0 {
+                                continue;
+                            }
+
+                            let highlight_area = Rect {
+                                x: x as usize,
+                                y: (line_idx + text_area.top() - buffer.line_pos(view_id)),
+                                width: (end_column - start_column),
+                                height: 1,
+                            };
+
+                            buf.set_style(
+                                highlight_area.clamp_within(text_area).into(),
+                                theme.search_match,
+                            );
                         }
-
-                        let highlight_area = Rect {
-                            x: x as usize,
-                            y: (start.line + text_area.top() - buffer.line_pos(view_id)),
-                            width: (end.column - start.column),
-                            height: (end.line - start.line + 1),
-                        };
-
-                        buf.set_style(
-                            highlight_area.clamp_within(text_area).into(),
-                            theme.search_match,
-                        );
                     }
                 }
             }

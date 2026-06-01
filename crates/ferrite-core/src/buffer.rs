@@ -2559,6 +2559,18 @@ impl Buffer {
         self.hide_completers();
     }
 
+    pub fn select_byte_range(&mut self, view_id: ViewId, cursor: usize, anchor: usize) {
+        self.views[view_id].cursors.clear();
+
+        self.views[view_id].cursors[0].position = cursor;
+        self.views[view_id].cursors[0].anchor = anchor;
+
+        self.ensure_every_cursor_is_valid();
+        self.update_affinity(view_id);
+        self.history.finish();
+        self.hide_completers();
+    }
+
     pub fn copy_selection_to_primary(&mut self, _view_id: ViewId) {
         #[cfg(target_os = "linux")]
         {
@@ -2732,7 +2744,7 @@ impl Buffer {
         if let Some(searcher) = &mut self.views[view_id].searcher
             && let Some(search_match) = searcher.get_next_match()
         {
-            self.select_area(view_id, search_match.end, search_match.start);
+            self.select_byte_range(view_id, search_match.end_byte, search_match.start_byte);
             self.center_on_main_cursor(view_id);
         }
     }
@@ -2741,7 +2753,7 @@ impl Buffer {
         if let Some(searcher) = &mut self.views[view_id].searcher
             && let Some(search_match) = searcher.get_prev_match()
         {
-            self.select_area(view_id, search_match.end, search_match.start);
+            self.select_byte_range(view_id, search_match.end_byte, search_match.start_byte);
             self.center_on_main_cursor(view_id);
         }
     }
@@ -3027,7 +3039,7 @@ impl Buffer {
         if let (Some(searcher), Some(replacement)) = (&mut view.searcher, view.replacement.clone())
         {
             if let Some(search_match) = searcher.get_current_match() {
-                self.select_area(view_id, search_match.end, search_match.start);
+                self.select_byte_range(view_id, search_match.end_byte, search_match.start_byte);
                 self.insert_text(view_id, &replacement, false);
             } else {
                 searcher.get_next_match();

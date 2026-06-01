@@ -699,6 +699,8 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         text_width
     }
 
+    /// Warning this function assumes that self is a single line
+    /// TODO: Maybe it should grab the line that byte_idx is actually in to get a more accurate column
     fn byte_to_col(&self, byte_idx: usize) -> usize {
         let mut bytes = 0;
         let mut width = 0;
