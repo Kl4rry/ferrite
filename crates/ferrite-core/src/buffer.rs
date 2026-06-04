@@ -304,20 +304,26 @@ impl Buffer {
             }
             builder::Source::Bytes(bytes) => {
                 let (encoding, rope) = read::read(*bytes)?;
-                (encoding, rope, builder.path.clone(), None, false)
+                (
+                    encoding,
+                    rope,
+                    builder.path.clone(),
+                    builder.name.clone(),
+                    false,
+                )
             }
             builder::Source::Text(text) => (
                 encoding_rs::UTF_8,
                 Rope::from_str(text),
                 builder.path.clone(),
-                None,
+                builder.name.clone(),
                 false,
             ),
             builder::Source::Empty => (
                 encoding_rs::UTF_8,
                 Rope::new(),
                 builder.path.clone(),
-                None,
+                builder.name.clone(),
                 false,
             ),
         };
