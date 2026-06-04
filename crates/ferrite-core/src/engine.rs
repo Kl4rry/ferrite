@@ -669,7 +669,7 @@ impl Engine {
             }
             Cmd::OpenFile { path } => {
                 self.save_jump_point();
-                self.open_file(path, false);
+                self.open_url(path, false, false);
             }
             Cmd::Save { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
