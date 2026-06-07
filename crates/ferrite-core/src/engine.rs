@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     env,
     fmt::Write,
-    io::{self, Read},
+    io::{self, IsTerminal, Read},
     num::NonZeroUsize,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -233,6 +233,20 @@ impl Engine {
             let buffer = &mut engine.workspace.buffers[current_buffer_id];
             buffer.goto(view_id, args.line as i64);
             engine.workspace.panes = Panes::new(current_buffer_id, view_id);
+        }
+
+        if !std::io::stdin().is_terminal() {
+            let mut buf = Vec::new();
+            std::io::stdin().read_to_end(&mut buf)?;
+            if !buf.is_empty() {
+                let mut buffer = Buffer::builder()
+                    .with_bytes(&buf)
+                    .with_name("stdin")
+                    .build()?;
+                let view_id = buffer.create_view();
+                let buffer_id = engine.workspace.buffers.insert(buffer);
+                engine.make_current_pane(PaneKind::Buffer(buffer_id, view_id));
+            }
         }
 
         Ok(engine)

@@ -24,10 +24,10 @@ static GLOBAL: ferrite_talloc::Talloc = ferrite_talloc::Talloc;
 compile_error!("You must enable either tui or gui");
 
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "tui")]
+#[cfg(feature = "gui")]
 fn maybe_disown(args: &ferrite_cli::Args) {
     use std::{env, io::IsTerminal, process};
-    if args.wait || !std::io::stdout().is_terminal() {
+    if args.wait || !std::io::stdin().is_terminal() {
         return;
     }
     if let Ok(current_exe) = env::current_exe() {
