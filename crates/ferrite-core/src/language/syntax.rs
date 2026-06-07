@@ -143,6 +143,7 @@ impl Syntax {
         }
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn get_highlight_events(
         &self,
     ) -> MutexGuard<
