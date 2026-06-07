@@ -363,7 +363,7 @@ impl Engine {
                     Progress::End(Ok((buffer_id, rope))) => {
                         if let Some(buffer_id) = buffer_id {
                             if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
-                                buffer.replace_rope(rope, true);
+                                buffer.replace_rope(rope);
                                 dirty_buffer_id = Some(buffer_id);
                             }
                         } else {
@@ -373,7 +373,7 @@ impl Engine {
                     Progress::End(Err(e)) => self.palette.set_error(e),
                     Progress::Progress((buffer_id, rope)) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
-                            buffer.replace_rope(rope, true);
+                            buffer.replace_rope(rope);
                             dirty_buffer_id = Some(buffer_id);
                         }
                     }
@@ -407,11 +407,11 @@ impl Engine {
             );
             for (_buffer_id, buffer) in &mut self.workspace.buffers {
                 if buffer.name() == "editor://perf" {
-                    buffer.replace_rope(Rope::from(&*string), false);
+                    buffer.replace_rope(Rope::from(&*string));
                 }
 
                 if buffer.name() == "editor://logger" {
-                    buffer.replace_rope(self.logger_state.rope.clone(), false);
+                    buffer.replace_rope(self.logger_state.rope.clone());
                 }
             }
         }

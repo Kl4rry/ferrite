@@ -386,7 +386,7 @@ impl Buffer {
     }
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
-    pub fn replace_rope(&mut self, rope: Rope, scroll_to_eof: bool) {
+    pub fn replace_rope(&mut self, rope: Rope) {
         let arena = ferrite_ctx::Ctx::arena();
         let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
         let mut map = SecondaryMap::new();
@@ -400,27 +400,28 @@ impl Buffer {
             }
         }
 
+        let before_len_bytes = self.rope.len_bytes();
         self.rope = rope;
-        if let Some(ref mut syntax) = self.syntax {
-            syntax.update_text(self.rope.clone());
-        }
-        self.find_conflicts();
-        // TODO fix auto scrolling to work like a terrminal where it is autoscrolled only
-        // if the end of the file is visible on the screen before the new text is inserted
         for view_id in ArenaVec::from_iter_in(self.views.keys(), &arena).into_iter() {
             if let Some(scroll) = map.get(view_id) {
                 self.vertical_scroll(view_id, *scroll as f64);
             }
-            if scroll_to_eof {
+            if self.views[view_id].cursors.len() == 1
+                && self.views[view_id].cursors.first().position >= before_len_bytes
+            {
                 // Disable cursor clamping here so pipe from shell command works
                 let before = self.views[view_id].clamp_cursor;
                 self.views[view_id].clamp_cursor = false;
                 self.eof(view_id, false);
                 self.views[view_id].clamp_cursor = before;
-            } else {
                 self.ensure_every_cursor_is_valid();
             }
         }
+
+        if let Some(ref mut syntax) = self.syntax {
+            syntax.update_text(self.rope.clone());
+        }
+        self.find_conflicts();
         self.hide_completers();
     }
 
