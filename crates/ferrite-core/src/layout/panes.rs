@@ -13,7 +13,6 @@ pub type Rect = ferrite_geom::rect::Rect<usize>;
 pub enum PaneKind {
     Buffer(BufferId, ViewId),
     FileExplorer(FileExplorerId),
-    Logger,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -252,7 +251,6 @@ impl Pane {
             Pane::Leaf(leaf) => match leaf {
                 PaneKind::Buffer(buffer_id, _) => *buffer_id == id,
                 PaneKind::FileExplorer(_) => false,
-                PaneKind::Logger => false,
             },
             Pane::Internal { left, right, .. } => {
                 left.contains_buffer(id) || right.contains_buffer(id)
@@ -567,7 +565,6 @@ pub mod layout {
                             history: file_explorer.history.clone(),
                         }))
                     }
-                    super::PaneKind::Logger => Some(Self::Leaf(PaneKind::Logger)),
                 },
                 Pane::Internal {
                     left,
@@ -628,7 +625,6 @@ pub mod layout {
                             file_explorers.insert(fe)
                         })))
                     }
-                    PaneKind::Logger => Some(super::Pane::Leaf(super::PaneKind::Logger)),
                 },
                 Node::Internal {
                     left,
@@ -666,7 +662,6 @@ pub mod layout {
             path: PathBuf,
             history: HashMap<PathBuf, OsString>,
         },
-        Logger,
     }
 
     impl Layout {
@@ -704,7 +699,6 @@ pub mod layout {
                     let file_explorer_id = file_explorers.insert(fe);
                     super::PaneKind::FileExplorer(file_explorer_id)
                 }
-                Some(PaneKind::Logger) => super::PaneKind::Logger,
                 None => pane.get_first_leaf(),
             };
             let current_pane = pane_kind;
@@ -749,7 +743,6 @@ pub mod layout {
                         history: fe.history.clone(),
                     })
                 }
-                super::PaneKind::Logger => Some(PaneKind::Logger),
             };
             Self { node, current_pane }
         }

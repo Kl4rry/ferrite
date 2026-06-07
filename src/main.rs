@@ -9,7 +9,7 @@ use ferrite_core::{
     config::{editor::Editor, languages::Languages},
     engine::Engine,
     event_loop_proxy::UserEvent,
-    logger::{LogMessage, LoggerSink},
+    logger::LoggerSink,
     ui::{input, layout, update},
 };
 use ferrite_runtime::Runtime;
@@ -151,7 +151,9 @@ fn main() -> Result<ExitCode> {
         )
         .with(
             fmt::layer()
-                .json()
+                .compact()
+                .without_time()
+                .with_ansi(false)
                 .with_writer(Mutex::new(logger))
                 .with_filter(filter::LevelFilter::from_level(log_level)),
         );
@@ -233,7 +235,7 @@ fn main() -> Result<ExitCode> {
 }
 
 #[cfg(feature = "tui")]
-fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<String>) -> Result<()> {
     ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::System);
     let (event_loop, proxy) = ferrite_term_platform::create_event_loop::<UserEvent>();
     let engine = Engine::new(args, proxy, rx)?;
@@ -244,7 +246,7 @@ fn run_tui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<(
 }
 
 #[cfg(feature = "gui")]
-fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<()> {
+fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<String>) -> Result<()> {
     #[cfg(not(target_os = "windows"))]
     maybe_disown(args);
     ferrite_clipboard::init(ferrite_clipboard::ClipboardKind::System);
@@ -256,9 +258,15 @@ fn run_gui(args: &ferrite_cli::Args, rx: mpsc::Receiver<LogMessage>) -> Result<(
     Ok(())
 }
 
-fn start_of_frame(_: &mut Runtime<Engine>) {
+fn start_of_frame(_runtime: &mut Runtime<Engine>) {
     #[cfg(feature = "talloc")]
-    ferrite_talloc::Talloc::reset_phase_allocations();
+    {
+        _runtime.state.total_memory_allocated = ferrite_talloc::Talloc::total_memory_allocated();
+        _runtime.state.num_allocations = ferrite_talloc::Talloc::num_allocations();
+        _runtime.state.phase_allocations = ferrite_talloc::Talloc::phase_allocations();
+        ferrite_talloc::Talloc::reset_phase_allocations();
+    }
+
     profiling::finish_frame!();
     ferrite_ctx::Ctx::arena_mut().reset();
 }

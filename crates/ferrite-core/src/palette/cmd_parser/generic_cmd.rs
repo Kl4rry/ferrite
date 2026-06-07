@@ -9,6 +9,7 @@ pub enum CmdTemplateArg {
     Int,
     String,
     Path,
+    Url,
     Theme,
     Action,
 }
@@ -27,7 +28,7 @@ impl CmdTemplateArg {
             CmdTemplateArg::String => Ok(CommandArg::String(token)),
             CmdTemplateArg::Theme => Ok(CommandArg::String(token)),
             CmdTemplateArg::Action => Ok(CommandArg::String(token)),
-            CmdTemplateArg::Path => {
+            CmdTemplateArg::Path | CmdTemplateArg::Url => {
                 let home_dir = if let Some(directories) = directories::UserDirs::new() {
                     directories.home_dir().into()
                 } else {
@@ -38,7 +39,12 @@ impl CmdTemplateArg {
                 if token.starts_with("~") {
                     token.replace_range(..1, &home_dir.to_string_lossy());
                 }
-                Ok(CommandArg::Path(token.into()))
+
+                match self {
+                    CmdTemplateArg::Path => Ok(CommandArg::Path(token.into())),
+                    CmdTemplateArg::Url => Ok(CommandArg::Url(token.into())),
+                    _ => unreachable!(),
+                }
             }
         }
     }
@@ -180,6 +186,7 @@ pub enum CommandArg {
     Int(i64),
     String(String),
     Path(PathBuf),
+    Url(PathBuf),
 }
 
 impl CommandArg {

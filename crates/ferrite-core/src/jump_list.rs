@@ -19,7 +19,6 @@ pub enum JumpPoint {
         col_pos: f64,
     },
     FileExplorer(PathBuf),
-    Logger,
 }
 
 pub struct JumpList {

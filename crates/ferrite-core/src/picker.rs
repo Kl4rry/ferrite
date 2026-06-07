@@ -166,7 +166,7 @@ where
 
     pub fn get_current_preview(&mut self) -> Option<Preview> {
         let snapshot = self.nucleo.snapshot();
-        let item = snapshot.get_item(self.selected as u32)?;
+        let item = snapshot.get_matched_item(self.selected as u32)?;
         Some(self.previewer.as_mut()?.request_preview(item.data))
     }
 

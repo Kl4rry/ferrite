@@ -75,7 +75,6 @@ pub enum JumpPointData {
         col_pos: f64,
     },
     FileExplorer(PathBuf),
-    Logger,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,7 +127,15 @@ impl Workspace {
                 continue;
             }
 
-            workspace_data.open_buffers.push(path.to_path_buf());
+            let name = buffer.name();
+            // TODO: replace this with a more general handling of non file schemes
+            if name.starts_with("editor://") || name.starts_with("man://") {
+                workspace_data
+                    .open_buffers
+                    .push(Path::new(name).to_path_buf());
+            } else {
+                workspace_data.open_buffers.push(path.to_path_buf());
+            }
         }
 
         workspace_data.jump_list.current_point = self.jump_list.current_point();
@@ -147,7 +154,6 @@ impl Workspace {
                     col_pos: *col_pos,
                 },
                 JumpPoint::FileExplorer(file) => JumpPointData::FileExplorer(file.clone()),
-                JumpPoint::Logger => JumpPointData::Logger,
             });
         }
 
@@ -174,6 +180,12 @@ impl Workspace {
 
         if load_buffers {
             for path in &workspace.open_buffers {
+                // TODO: replace this with a more general handling of non file schemes
+                if path.starts_with("editor://") || path.starts_with("man://") {
+                    // TODO: correctly load non file schemes
+                    continue;
+                }
+
                 let Ok(path) = dunce::canonicalize(path) else {
                     continue;
                 };
@@ -255,7 +267,6 @@ impl Workspace {
                     col_pos,
                 },
                 JumpPointData::FileExplorer(file) => JumpPoint::FileExplorer(file),
-                JumpPointData::Logger => JumpPoint::Logger,
             });
         }
 

@@ -332,6 +332,7 @@ impl Buffer {
             indent: Indentation::detect_indent_rope(rope.slice(..)),
             rope,
             read_only_file,
+            read_only: builder.read_only,
             name: name.unwrap_or_else(|| SCRATCH_NAME.to_string()),
             file: path,
             encoding,
@@ -356,7 +357,7 @@ impl Buffer {
         if self.syntax.is_none() {
             self.syntax = Some(Syntax::new(get_proxy()));
         }
-        if let Some(path) = self.file()
+        if let Some(path) = self.file().or_else(|| Some(Path::new(self.name())))
             && let Some(language) = get_language_from_path(path)
             && let Err(err) = self.syntax.as_mut().unwrap().set_language(language)
         {
@@ -385,7 +386,7 @@ impl Buffer {
     }
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
-    pub fn replace_rope(&mut self, rope: Rope) {
+    pub fn replace_rope(&mut self, rope: Rope, scroll_to_eof: bool) {
         let arena = ferrite_ctx::Ctx::arena();
         let added_lines = rope.len_lines().saturating_sub(self.rope.len_lines());
         let mut map = SecondaryMap::new();
@@ -404,15 +405,21 @@ impl Buffer {
             syntax.update_text(self.rope.clone());
         }
         self.find_conflicts();
+        // TODO fix auto scrolling to work like a terrminal where it is autoscrolled only
+        // if the end of the file is visible on the screen before the new text is inserted
         for view_id in ArenaVec::from_iter_in(self.views.keys(), &arena).into_iter() {
             if let Some(scroll) = map.get(view_id) {
                 self.vertical_scroll(view_id, *scroll as f64);
             }
-            // Disable cursor clamping here so pipe from shell command works
-            let before = self.views[view_id].clamp_cursor;
-            self.views[view_id].clamp_cursor = false;
-            self.eof(view_id, false);
-            self.views[view_id].clamp_cursor = before;
+            if scroll_to_eof {
+                // Disable cursor clamping here so pipe from shell command works
+                let before = self.views[view_id].clamp_cursor;
+                self.views[view_id].clamp_cursor = false;
+                self.eof(view_id, false);
+                self.views[view_id].clamp_cursor = before;
+            } else {
+                self.ensure_every_cursor_is_valid();
+            }
         }
         self.hide_completers();
     }

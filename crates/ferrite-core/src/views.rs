@@ -6,7 +6,6 @@ pub mod editor_view;
 pub mod file_explorer_view;
 pub mod info_line_view;
 pub mod lens;
-pub mod logger_view;
 pub mod main_view;
 pub mod mini_buffer_view;
 pub mod nullview;

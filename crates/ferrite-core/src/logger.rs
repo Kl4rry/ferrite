@@ -1,15 +1,11 @@
 use std::{
-    collections::VecDeque,
     io::Write,
     sync::{Mutex, mpsc},
 };
 
-use serde::Deserialize;
+use ropey::Rope;
 
-use crate::{
-    cmd::Cmd,
-    event_loop_proxy::{EventLoopProxy, UserEvent},
-};
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
 
 static PROXY: Mutex<Option<Box<dyn EventLoopProxy<UserEvent>>>> = Mutex::new(None);
 
@@ -19,11 +15,11 @@ pub fn set_proxy(proxy: Box<dyn EventLoopProxy<UserEvent>>) {
 
 pub struct LoggerSink {
     bytes: Vec<u8>,
-    sender: mpsc::Sender<LogMessage>,
+    sender: mpsc::Sender<String>,
 }
 
 impl LoggerSink {
-    pub fn new(sender: mpsc::Sender<LogMessage>) -> Self {
+    pub fn new(sender: mpsc::Sender<String>) -> Self {
         Self {
             bytes: Vec::new(),
             sender,
@@ -43,8 +39,8 @@ impl Write for LoggerSink {
 
         let mut last_line_start = 0;
         for line_start in line_starts {
-            if let Ok(msg) = serde_json::from_slice(&self.bytes[last_line_start..line_start]) {
-                let _ = self.sender.send(msg);
+            if let Ok(string) = str::from_utf8(&self.bytes[last_line_start..line_start]) {
+                let _ = self.sender.send(string.to_string());
             }
 
             last_line_start = line_start;
@@ -66,56 +62,24 @@ impl Write for LoggerSink {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct LogMessage {
-    pub timestamp: String,
-    pub level: String,
-    pub target: String,
-    pub fields: Fields,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Fields {
-    pub message: String,
-}
-
 #[derive(Debug)]
 pub struct LoggerState {
-    pub lines_scrolled_up: f64,
-    pub messages: VecDeque<LogMessage>,
-    recv: mpsc::Receiver<LogMessage>,
+    pub rope: Rope,
+    recv: mpsc::Receiver<String>,
 }
 
 impl LoggerState {
-    pub fn new(recv: mpsc::Receiver<LogMessage>) -> Self {
+    pub fn new(recv: mpsc::Receiver<String>) -> Self {
         Self {
-            lines_scrolled_up: 0.0,
-            messages: VecDeque::new(),
+            rope: Rope::new(),
             recv,
         }
     }
 
     pub fn update(&mut self) {
-        while let Ok(msg) = self.recv.try_recv() {
-            self.messages.push_front(msg);
-            if self.lines_scrolled_up != 0.0 {
-                self.lines_scrolled_up += 1.0;
-            }
-        }
-
-        while self.messages.len() > 5000 {
-            self.messages.pop_back();
-        }
-    }
-
-    pub fn handle_input(&mut self, input: Cmd) {
-        match input {
-            Cmd::VerticalScroll { distance } => {
-                self.lines_scrolled_up = (self.lines_scrolled_up - distance).max(0.0);
-            }
-            Cmd::End { .. } => self.lines_scrolled_up = 0.0,
-            Cmd::Escape => self.lines_scrolled_up = 0.0,
-            _ => (),
+        while let Ok(string) = self.recv.try_recv() {
+            let len = self.rope.len_chars();
+            self.rope.insert(len, &string);
         }
     }
 }

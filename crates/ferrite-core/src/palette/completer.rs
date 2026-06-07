@@ -187,6 +187,18 @@ impl Completer {
                     };
 
                     match input_type {
+                        CmdTemplateArg::Url => {
+                            // TODO add all schemes to completer like manpages and editor://
+                            self.options.extend(
+                                complete_file_path(text, false)
+                                    .into_iter()
+                                    .map(|path| Box::new(path) as Box<dyn CompletionOption>),
+                            );
+
+                            if self.options.is_empty() {
+                                self.index = None;
+                            }
+                        }
                         CmdTemplateArg::Path => {
                             self.options.extend(
                                 complete_file_path(text, false)

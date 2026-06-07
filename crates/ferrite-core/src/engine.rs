@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     env,
+    fmt::Write,
     io::{self, Read},
     num::NonZeroUsize,
     path::{Path, PathBuf},
@@ -11,7 +12,7 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_ctx::ArenaVec;
+use ferrite_ctx::{ArenaString, ArenaVec};
 use ferrite_geom::point::Point;
 use ferrite_utility::{line_ending, trim::trim_path, url};
 use linkify::{LinkFinder, LinkKind};
@@ -38,7 +39,7 @@ use crate::{
     jump_list::JumpPoint,
     keymap::InputContext,
     layout::panes::{PaneKind, Panes, Rect},
-    logger::{LogMessage, LoggerState},
+    logger::LoggerState,
     palette::{
         CommandPalette, PaletteMode, PalettePromptEvent,
         cmd_parser::{self, generic_cmd::CmdTemplateArg},
@@ -84,6 +85,9 @@ pub struct Engine {
     pub trim_timer: Timer,
     pub drawing_backend: String,
     pub window_backend: String,
+    pub total_memory_allocated: usize,
+    pub num_allocations: usize,
+    pub phase_allocations: usize,
 }
 
 #[profiling::all_functions]
@@ -91,7 +95,7 @@ impl Engine {
     pub fn new(
         args: &Args,
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
-        recv: mpsc::Receiver<LogMessage>,
+        recv: mpsc::Receiver<String>,
     ) -> Result<Self> {
         set_proxy(proxy.dup());
         let mut palette = CommandPalette::new(proxy.dup());
@@ -201,6 +205,9 @@ impl Engine {
             trim_timer: Timer::default(),
             drawing_backend: String::from("unknown"),
             window_backend: String::from("unknown"),
+            num_allocations: 0,
+            phase_allocations: 0,
+            total_memory_allocated: 0,
         };
 
         let mut files_from_args = false;
@@ -232,6 +239,7 @@ impl Engine {
     }
 
     pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
+        let arena = ferrite_ctx::Ctx::arena();
         self.logger_state.update();
 
         if self.config.editor.picker.file_picker_auto_reload {
@@ -355,7 +363,7 @@ impl Engine {
                     Progress::End(Ok((buffer_id, rope))) => {
                         if let Some(buffer_id) = buffer_id {
                             if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
-                                buffer.replace_rope(rope);
+                                buffer.replace_rope(rope, true);
                                 dirty_buffer_id = Some(buffer_id);
                             }
                         } else {
@@ -365,7 +373,7 @@ impl Engine {
                     Progress::End(Err(e)) => self.palette.set_error(e),
                     Progress::Progress((buffer_id, rope)) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
-                            buffer.replace_rope(rope);
+                            buffer.replace_rope(rope, true);
                             dirty_buffer_id = Some(buffer_id);
                         }
                     }
@@ -383,6 +391,28 @@ impl Engine {
                 && !self.workspace.buffers.contains_key(*buffer_id)
             {
                 job.kill();
+            }
+        }
+
+        {
+            let mut string = ArenaString::new_in(&arena);
+            let _ = write!(string, "Frame time: {:?}", self.last_render_time);
+            #[cfg(feature = "talloc")]
+            let _ = write!(
+                string,
+                "\nHeap memory usage: {}\nHeap allocations: {}\nFrame allocations: {}",
+                crate::byte_size::format_byte_size(self.total_memory_allocated),
+                self.num_allocations,
+                self.phase_allocations,
+            );
+            for (_buffer_id, buffer) in &mut self.workspace.buffers {
+                if buffer.name() == "editor://perf" {
+                    buffer.replace_rope(Rope::from(&*string), false);
+                }
+
+                if buffer.name() == "editor://logger" {
+                    buffer.replace_rope(self.logger_state.rope.clone(), false);
+                }
             }
         }
 
@@ -827,8 +857,7 @@ impl Engine {
             }
             Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
             Cmd::Logger => {
-                self.logger_state.lines_scrolled_up = 0.0;
-                self.workspace.panes.replace_current(PaneKind::Logger);
+                self.open_url("editor://logger", false, false);
             }
             Cmd::Theme { theme } => match theme {
                 Some(theme) =>
@@ -964,10 +993,6 @@ impl Engine {
                             None => return,
                         }
                     }
-                    _ => {
-                        self.palette.set_error("Only buffers are renameable");
-                        return;
-                    }
                 };
                 self.palette.focus(
                     "rename: ",
@@ -1026,7 +1051,6 @@ impl Engine {
                             }
                             self.handle_single_input_command(cmd, control_flow);
                         }
-                        PaneKind::Logger => self.logger_state.handle_input(input),
                     }
                 }
             }
@@ -1050,17 +1074,7 @@ impl Engine {
                 let view_id = buffer.create_view();
                 self.load_view_data(choice.id, view_id);
 
-                let old = self
-                    .workspace
-                    .panes
-                    .replace_current(PaneKind::Buffer(choice.id, view_id));
-                if let PaneKind::Buffer(id, view_id) = old {
-                    let buffer = &mut self.workspace.buffers[id];
-                    buffer.remove_view(view_id);
-                    if buffer.is_disposable() {
-                        self.workspace.buffers.remove(id);
-                    }
-                }
+                self.make_current_pane(PaneKind::Buffer(choice.id, view_id));
             }
         } else if let Some(picker) = &mut self.global_search_picker
             && let Some(choice) = picker.get_choice()
@@ -1084,7 +1098,7 @@ impl Engine {
                     );
                     // A buffers default amount of lines when newly opened is too large
                     // and the view will not jump to it.
-                    buffer.set_view_lines(view_id, 10);
+                    buffer.set_view_lines(view_id, 50);
                     buffer.center_on_main_cursor(view_id);
                 }
             }
@@ -1104,7 +1118,6 @@ impl Engine {
             PaneKind::FileExplorer(file_explorer_id) => {
                 self.workspace.file_explorers[file_explorer_id].handle_search(text);
             }
-            PaneKind::Logger => (),
         }
     }
 
@@ -1278,22 +1291,72 @@ impl Engine {
         }
     }
 
-    fn open_url(&mut self, url: impl AsRef<Path>, open_with_os: bool, create_file: bool) {
+    /// This is an internal function for creating empty singleton buffers that are used
+    /// by non file schemes to display or let you edit non text file data
+    fn create_unique_empty_editor_scheme_buffer(&mut self, name: &str) {
+        if let Some((buffer_id, buffer)) = self
+            .workspace
+            .buffers
+            .iter_mut()
+            .find(|(_, buffer)| buffer.name() == name)
+        {
+            let view_id = buffer.create_view();
+            self.make_current_pane(PaneKind::Buffer(buffer_id, view_id));
+            return;
+        }
+
+        let mut buffer = Buffer::builder()
+            .with_name(name)
+            .simple(true)
+            .read_only(true)
+            .build()
+            .unwrap();
+        let view_id = buffer.create_view();
+        let (_buffer_id, _) = self.insert_buffer(buffer, view_id, true);
+    }
+
+    fn open_editor_scheme(&mut self, body: &str) -> bool {
+        match body {
+            "perf" => {
+                self.create_unique_empty_editor_scheme_buffer("editor://perf");
+                true
+            }
+            "logger" => {
+                self.create_unique_empty_editor_scheme_buffer("editor://logger");
+                true
+            }
+            _ => {
+                self.palette
+                    .set_error(format!("Internal page {body} not found"));
+                false
+            }
+        }
+    }
+
+    fn open_url(&mut self, url: impl AsRef<Path>, open_with_os: bool, create_file: bool) -> bool {
         let url = url.as_ref();
         let url_str = url.to_string_lossy();
         let (scheme, body) = url::parse_scheme(&url_str);
         tracing::info!("Opening url: {}://{}", scheme, body);
 
         match scheme {
-            "man" => self.open_manpage(body),
+            "man" => {
+                self.open_manpage(body);
+                // TODO: figure out if this return true is wrong
+                true
+            }
+            "editor" => self.open_editor_scheme(body),
             _ => {
                 if scheme == "file" && (!open_with_os || is_text_file(body).unwrap_or(false)) {
                     self.save_jump_point();
-                    self.open_file(body, create_file);
-                    return;
+                    return self.open_file(body, create_file);
                 }
-                if let Err(err) = opener::open(url) {
-                    self.palette.set_error(err);
+                match opener::open(url) {
+                    Ok(_) => true,
+                    Err(err) => {
+                        self.palette.set_error(err);
+                        false
+                    }
                 }
             }
         }
@@ -1345,13 +1408,7 @@ impl Engine {
                 buffer.update_interact(None);
                 let view_id = buffer.create_view();
                 self.load_view_data(id, view_id);
-                let replaced = self
-                    .workspace
-                    .panes
-                    .replace_current(PaneKind::Buffer(id, view_id));
-                if let PaneKind::Buffer(buffer_id, view_id) = replaced {
-                    self.workspace.buffers[buffer_id].remove_view(view_id);
-                }
+                self.make_current_pane(PaneKind::Buffer(id, view_id));
                 true
             }
             None => match Buffer::builder()
@@ -1600,7 +1657,6 @@ impl Engine {
             PaneKind::FileExplorer(file_explorer_id) => {
                 self.workspace.file_explorers.remove(file_explorer_id);
             }
-            PaneKind::Logger => (),
         }
     }
 
@@ -1686,9 +1742,6 @@ impl Engine {
                         .panes
                         .remove_pane(PaneKind::FileExplorer(file_explorer_id));
                 }
-                PaneKind::Logger => {
-                    self.workspace.panes.remove_pane(PaneKind::Logger);
-                }
             }
         }
     }
@@ -1756,6 +1809,23 @@ impl Engine {
         Some((self.workspace.buffers.get_mut(buffer)?, view_id))
     }
 
+    pub fn make_current_pane(&mut self, pane_kind: PaneKind) {
+        // TODO: maybe handle other kinds of buffers if they need cleanup
+        // if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
+        //     self.workspace.buffers[buffer_id].remove_view(view_id);
+        // }
+
+        let old = self.workspace.panes.replace_current(pane_kind);
+
+        if let PaneKind::Buffer(id, view_id) = old {
+            let buffer = &mut self.workspace.buffers[id];
+            buffer.remove_view(view_id);
+            if buffer.is_disposable() {
+                self.workspace.buffers.remove(id);
+            }
+        }
+    }
+
     pub fn insert_buffer(
         &mut self,
         buffer: Buffer,
@@ -1764,21 +1834,7 @@ impl Engine {
     ) -> (BufferId, &mut Buffer) {
         let buffer_id = self.workspace.buffers.insert(buffer);
         if make_current {
-            if let PaneKind::Buffer(buffer_id, view_id) = self.workspace.panes.get_current_pane() {
-                self.workspace.buffers[buffer_id].remove_view(view_id);
-            }
-            let old = self
-                .workspace
-                .panes
-                .replace_current(PaneKind::Buffer(buffer_id, view_id));
-
-            if let PaneKind::Buffer(id, view_id) = old {
-                let buffer = &mut self.workspace.buffers[id];
-                buffer.remove_view(view_id);
-                if buffer.is_disposable() {
-                    self.workspace.buffers.remove(id);
-                }
-            }
+            self.make_current_pane(PaneKind::Buffer(buffer_id, view_id));
         }
         (buffer_id, &mut self.workspace.buffers[buffer_id])
     }
@@ -2012,7 +2068,6 @@ impl Engine {
                 );
                 self.hide_pickers();
             }
-            PaneKind::Logger => (),
         }
     }
 
@@ -2094,7 +2149,6 @@ impl Engine {
         }
         match self.workspace.panes.get_current_pane() {
             PaneKind::Buffer(..) => InputContext::Edit,
-            PaneKind::Logger => InputContext::Edit,
             PaneKind::FileExplorer(_) => InputContext::FileExplorer,
         }
     }
@@ -2147,7 +2201,6 @@ impl Engine {
                     .directory()
                     .to_path_buf(),
             ),
-            PaneKind::Logger => JumpPoint::Logger,
         }
     }
 
@@ -2189,7 +2242,6 @@ impl Engine {
             JumpPoint::Buffer { buffer_id, .. } => self.workspace.buffers.get(*buffer_id).is_some(),
             JumpPoint::File { .. } => true,
             JumpPoint::FileExplorer(..) => true,
-            JumpPoint::Logger => true,
         }
     }
 
@@ -2208,17 +2260,7 @@ impl Engine {
                 };
                 let view_id = buffer.create_view();
 
-                let old = self
-                    .workspace
-                    .panes
-                    .replace_current(PaneKind::Buffer(buffer_id, view_id));
-                if let PaneKind::Buffer(id, view_id) = old {
-                    let buffer = &mut self.workspace.buffers[id];
-                    buffer.remove_view(view_id);
-                    if buffer.is_disposable() {
-                        self.workspace.buffers.remove(id);
-                    }
-                }
+                self.make_current_pane(PaneKind::Buffer(buffer_id, view_id));
 
                 let buffer = &mut self.workspace.buffers[buffer_id];
                 buffer.vertical_scroll_to(view_id, line_pos);
@@ -2233,7 +2275,7 @@ impl Engine {
                 col_pos,
                 cursors,
             } => {
-                if self.open_file(file, false)
+                if self.open_url(file, false, false)
                     && let Some((buffer_id, view_id)) = self.get_current_buffer_id()
                 {
                     let buffer = &mut self.workspace.buffers[buffer_id];
@@ -2245,9 +2287,6 @@ impl Engine {
                 }
             }
             JumpPoint::FileExplorer(file) => self.open_file_explorer(Some(file)),
-            JumpPoint::Logger => {
-                self.workspace.panes.replace_current(PaneKind::Logger);
-            }
         }
     }
 }

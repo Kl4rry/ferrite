@@ -9,10 +9,7 @@ use crate::{
     engine::Engine,
     focus::Focus,
     layout::panes::PaneKind,
-    views::{
-        editor_view::EditorView, file_explorer_view::FileExplorerView, lens::Lens,
-        logger_view::LoggerView,
-    },
+    views::{editor_view::EditorView, file_explorer_view::FileExplorerView, lens::Lens},
 };
 
 pub struct PaneView {
@@ -50,14 +47,6 @@ impl PaneView {
                             move |engine: &mut Engine| {
                                 &mut engine.workspace.file_explorers[file_explorer_id]
                             },
-                        )),
-                        PaneKind::Logger => AnyView::new(Lens::new(
-                            LoggerView::new(
-                                engine.themes[&engine.config.editor.theme].clone(),
-                                engine.last_render_time,
-                                engine.get_focus() == Focus::Pane(PaneKind::Logger),
-                            ),
-                            move |engine: &mut Engine| &mut engine.logger_state,
                         )),
                     },
                 )

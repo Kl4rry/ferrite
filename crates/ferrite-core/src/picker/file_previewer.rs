@@ -34,7 +34,7 @@ pub struct FilePreviewer {
 impl FilePreviewer {
     pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
-            files: LruCache::new(NonZeroUsize::new(5).unwrap()),
+            files: LruCache::new(NonZeroUsize::new(10).unwrap()),
             loading: HashMap::new(),
             proxy,
         }
