@@ -397,7 +397,7 @@ impl Engine {
             if let Some(buffer_id) = dirty_buffer_id
                 && let Some(buffer) = self.workspace.buffers.get_mut(buffer_id)
             {
-                buffer.auto_detect_language();
+                buffer.auto_detect_language(false, true);
                 buffer.queue_syntax_update();
             }
 

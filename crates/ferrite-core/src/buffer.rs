@@ -348,28 +348,35 @@ impl Buffer {
             }
         }
         if builder.syntax {
-            new.auto_detect_language();
+            new.auto_detect_language(true, true);
         }
         Ok(new)
     }
 
-    pub fn auto_detect_language(&mut self) {
+    pub fn auto_detect_language(&mut self, from_name: bool, from_content: bool) {
         if self.syntax.is_none() {
             self.syntax = Some(Syntax::new(get_proxy()));
         }
-        if let Some(path) = self.file().or_else(|| Some(Path::new(self.name())))
-            && let Some(language) = get_language_from_path(path)
-            && let Err(err) = self.syntax.as_mut().unwrap().set_language(language)
-        {
-            tracing::error!("Error setting language: {err}");
+        if from_name {
+            if let Some(path) = self.file().or_else(|| Some(Path::new(self.name())))
+                && let Some(language) = get_language_from_path(path)
+                && let Err(err) = self.syntax.as_mut().unwrap().set_language(language)
+            {
+                tracing::error!("Error setting language: {err}");
+            }
+            let syntax = self.syntax.as_mut().unwrap();
+            syntax.update_text(self.rope.clone());
         }
-        let syntax = self.syntax.as_mut().unwrap();
-        if let Some(language) = detect_language(syntax.get_language_name(), self.rope.clone())
-            && let Err(err) = syntax.set_language(language)
-        {
-            tracing::error!("Error setting language: {err}");
+
+        if from_content {
+            let syntax = self.syntax.as_mut().unwrap();
+            if let Some(language) = detect_language(syntax.get_language_name(), self.rope.clone())
+                && let Err(err) = syntax.set_language(language)
+            {
+                tracing::error!("Error setting language: {err}");
+            }
+            syntax.update_text(self.rope.clone());
         }
-        syntax.update_text(self.rope.clone());
     }
 
     pub fn has_syntax(&self) -> bool {
@@ -2803,7 +2810,7 @@ impl Buffer {
         self.dirty = false;
         self.history.save();
         if self.language_name() == "text" {
-            self.auto_detect_language();
+            self.auto_detect_language(true, false);
         }
     }
 
