@@ -411,18 +411,19 @@ impl Buffer {
             if let Some(scroll) = map.get(view_id) {
                 self.vertical_scroll(view_id, *scroll as f64);
             }
+            let first_cursor = self.views[view_id].cursors.first();
             if self.views[view_id].cursors.len() == 1
-                && self.views[view_id].cursors.first().position >= before_len_bytes
+                && first_cursor.position >= before_len_bytes
+                && first_cursor.anchor >= before_len_bytes
             {
                 // Disable cursor clamping here so pipe from shell command works
                 let before = self.views[view_id].clamp_cursor;
                 self.views[view_id].clamp_cursor = false;
                 self.eof(view_id, false);
                 self.views[view_id].clamp_cursor = before;
-                self.ensure_every_cursor_is_valid();
             }
         }
-
+        self.ensure_every_cursor_is_valid();
         self.queue_syntax_update();
         self.find_conflicts();
         self.hide_completers();
