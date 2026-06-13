@@ -385,9 +385,7 @@ impl Buffer {
 
     pub fn set_text(&mut self, text: &str) {
         self.rope = Rope::from(text);
-        if let Some(ref mut syntax) = self.syntax {
-            syntax.update_text(self.rope.clone());
-        }
+        self.queue_syntax_update();
         self.find_conflicts();
         self.hide_completers();
     }
@@ -425,9 +423,7 @@ impl Buffer {
             }
         }
 
-        if let Some(ref mut syntax) = self.syntax {
-            syntax.update_text(self.rope.clone());
-        }
+        self.queue_syntax_update();
         self.find_conflicts();
         self.hide_completers();
     }
