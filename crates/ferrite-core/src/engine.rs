@@ -219,7 +219,9 @@ impl Engine {
                 && file.is_dir()
             {
                 engine.cd(body);
-                engine.open_file_picker();
+                if !args.no_picker {
+                    engine.open_file_picker();
+                }
                 continue;
             }
 

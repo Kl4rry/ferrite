@@ -37,6 +37,9 @@ pub struct Args {
     /// enable profiling
     #[argh(switch, long = "profile")]
     pub profile: bool,
+    /// do not open picker when launching with a directory as argument
+    #[argh(switch, long = "no-picker")]
+    pub no_picker: bool,
     /// display version info
     #[argh(switch, short = 'v', long = "version")]
     pub version: bool,
