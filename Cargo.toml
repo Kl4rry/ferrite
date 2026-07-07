@@ -24,14 +24,15 @@ directories = "6.0.0"
 dunce = "1.0.4"
 encoding_rs = "0.8.31"
 executable-finder = "0.3.0"
-ferrite-style = { path = "crates/ferrite-style" }
 ferrite-blame = { path = "crates/ferrite-blame" }
 ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-clipboard = { path = "crates/ferrite-clipboard" }
 ferrite-core = { path = "crates/ferrite-core" }
 ferrite-ctx = { path = "crates/ferrite-ctx" }
 ferrite-geom = { path = "crates/ferrite-geom" }
+ferrite-imtui = { path = "crates/ferrite-imtui" }
 ferrite-runtime = { path = "crates/ferrite-runtime" }
+ferrite-style = { path = "crates/ferrite-style" }
 ferrite-talloc = { path = "crates/ferrite-talloc" }
 ferrite-term-platform = { path = "crates/ferrite-term-platform" }
 ferrite-tree-sitter = { path = "crates/ferrite-tree-sitter" }
