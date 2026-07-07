@@ -1106,6 +1106,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrite_imtui"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "bitflags 2.11.1",
+ "ferrite-geom",
+ "ferrite-style",
+ "ferrite-utility",
+ "ratatui-core",
+ "serde",
+]
+
+[[package]]
 name = "file-id"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

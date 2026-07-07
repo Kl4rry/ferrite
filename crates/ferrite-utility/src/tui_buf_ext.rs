@@ -16,14 +16,8 @@ pub trait TuiBufExt {
         T: AsRef<str>,
         S: Into<Style>;
 
-    fn draw_string_i32<T, S>(
-        &mut self,
-        x: i32,
-        y: i32,
-        string: T,
-        area: tui_core::layout::Rect,
-        style: S,
-    ) where
+    fn draw_string_i32<T, S>(&mut self, x: i32, y: i32, string: T, area: Rect<i32>, style: S)
+    where
         T: AsRef<str>,
         S: Into<Style>;
 }
@@ -41,17 +35,22 @@ impl TuiBufExt for tui_core::buffer::Buffer {
         T: AsRef<str>,
         S: Into<Style>,
     {
-        self.draw_string_i32(x as i32, y as i32, string, area, style);
+        self.draw_string_i32(
+            x as i32,
+            y as i32,
+            string,
+            Rect::new(
+                area.x as i32,
+                area.y as i32,
+                area.width as i32,
+                area.height as i32,
+            ),
+            style,
+        );
     }
 
-    fn draw_string_i32<T, S>(
-        &mut self,
-        mut x: i32,
-        y: i32,
-        string: T,
-        area: tui_core::layout::Rect,
-        style: S,
-    ) where
+    fn draw_string_i32<T, S>(&mut self, mut x: i32, y: i32, string: T, area: Rect<i32>, style: S)
+    where
         T: AsRef<str>,
         S: Into<Style>,
     {
