@@ -1,0 +1,14 @@
+[package]
+name = "ferrite_imtui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+ahash = { workspace = true }
+bitflags = { workspace = true }
+ferrite-geom = { workspace = true }
+ferrite-style = { workspace = true }
+ferrite-utility = { workspace = true }
+serde = { workspace = true }
+tui-core = { workspace = true }
