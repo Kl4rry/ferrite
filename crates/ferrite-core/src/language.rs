@@ -18,6 +18,7 @@ pub struct TreeSitterConfig {
 }
 
 impl TreeSitterConfig {
+    #[profiling::function]
     pub fn new(
         name: impl Into<String>,
         grammar: Language,
@@ -42,6 +43,7 @@ impl TreeSitterConfig {
 
 static LANGUAGES: LazyLock<HashMap<&'static str, OnceLock<TreeSitterConfig>>> =
     LazyLock::new(|| {
+        profiling::scope!("lazy init languages hashmap");
         let mut langs = HashMap::new();
         #[cfg(feature = "lang-rust")]
         langs.insert("rust", OnceLock::new());
@@ -112,6 +114,7 @@ static LANGUAGES: LazyLock<HashMap<&'static str, OnceLock<TreeSitterConfig>>> =
         langs
     });
 
+#[profiling::function]
 fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
     tracing::info!("Loading tree-sitter syntax for: `{name}`");
     Some(match name {
@@ -509,12 +512,14 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         .copied()
 }
 
+#[profiling::function]
 pub fn get_tree_sitter_language(language: &str) -> Option<&'static TreeSitterConfig> {
     LANGUAGES
         .get(language)
         .map(|cell| cell.get_or_init(|| get_lang_config(language).unwrap()))
 }
 
+#[profiling::function]
 pub fn get_available_languages() -> Vec<&'static str> {
     LANGUAGES.keys().copied().collect()
 }

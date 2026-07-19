@@ -358,6 +358,7 @@ impl Buffer {
             self.syntax = Some(Syntax::new(get_proxy()));
         }
         if from_name {
+            profiling::scope!("from name");
             if let Some(path) = self.file().or_else(|| Some(Path::new(self.name())))
                 && let Some(language) = get_language_from_path(path)
                 && let Err(err) = self.syntax.as_mut().unwrap().set_language(language)
@@ -369,6 +370,7 @@ impl Buffer {
         }
 
         if from_content {
+            profiling::scope!("from content");
             let syntax = self.syntax.as_mut().unwrap();
             if let Some(language) = detect_language(syntax.get_language_name(), self.rope.clone())
                 && let Err(err) = syntax.set_language(language)

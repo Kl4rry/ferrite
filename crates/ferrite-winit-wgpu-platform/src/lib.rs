@@ -470,6 +470,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 adapter.get_info().backend.to_string();
         }
 
+        profiling::finish_frame!();
+
         self.state = Some(State {
             surface,
             device,

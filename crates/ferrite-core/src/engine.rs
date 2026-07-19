@@ -111,6 +111,7 @@ impl Engine {
 
         let mut config_watcher = None;
         if let Some(ref config_path) = config_path {
+            profiling::scope!("create file watcher");
             match FileWatcher::new(config_path, proxy.dup()) {
                 Ok(watcher) => config_watcher = Some(watcher),
                 Err(err) => tracing::error!("Error starting editor config watcher: {err}"),
@@ -118,16 +119,20 @@ impl Engine {
         }
 
         let languages_path = Languages::get_default_location().ok();
-        let languages = match Languages::load_from_default_location() {
-            Ok(languages) => languages,
-            Err(err) => {
-                palette.set_error(err);
-                Languages::default()
+        let languages = {
+            profiling::scope!("create load languages");
+            match Languages::load_from_default_location() {
+                Ok(languages) => languages,
+                Err(err) => {
+                    palette.set_error(err);
+                    Languages::default()
+                }
             }
         };
 
         let mut languages_watcher = None;
         if let Some(ref languages_path) = languages_path {
+            profiling::scope!("watch language config");
             match FileWatcher::new(languages_path, proxy.dup()) {
                 Ok(watcher) => languages_watcher = Some(watcher),
                 Err(err) => tracing::error!("Error starting language config watcher: {err}"),
@@ -150,6 +155,7 @@ impl Engine {
         let branch_watcher = BranchWatcher::new(proxy.dup())?;
 
         let buffer_watcher = if config.watch_open_files {
+            profiling::scope!("start buffer watcher");
             BufferWatcher::new(proxy.dup()).ok()
         } else {
             None
@@ -165,11 +171,14 @@ impl Engine {
             keymap: Arc::new(keymap),
         };
 
-        let workspace = match Workspace::load_workspace(true, proxy.dup(), &mut palette.histories) {
-            Ok(workspace) => workspace,
-            Err(err) => {
-                tracing::error!("Error loading workspace: {err}");
-                Workspace::default()
+        let workspace = {
+            profiling::scope!("load workspace");
+            match Workspace::load_workspace(true, proxy.dup(), &mut palette.histories) {
+                Ok(workspace) => workspace,
+                Err(err) => {
+                    tracing::error!("Error loading workspace: {err}");
+                    Workspace::default()
+                }
             }
         };
 
@@ -238,6 +247,7 @@ impl Engine {
         }
 
         if !std::io::stdin().is_terminal() {
+            profiling::scope!("read input from stdin");
             let mut buf = Vec::new();
             std::io::stdin().read_to_end(&mut buf)?;
             if !buf.is_empty() {

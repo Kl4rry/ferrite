@@ -114,6 +114,7 @@ impl Syntax {
         }
     }
 
+    #[profiling::function]
     pub fn set_language(&mut self, language: &str) -> Result<()> {
         if language == "text" {
             return Ok(());
@@ -345,6 +346,7 @@ impl HighlightConfiguration {
     ///   definitions and references. This can be empty if local variable tracking is not needed.
     ///
     /// Returns a `HighlightConfiguration` that can then be used with the `highlight` method.
+    #[profiling::function]
     pub fn new(
         language: Language,
         highlights_query: &str,
