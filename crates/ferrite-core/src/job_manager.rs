@@ -5,6 +5,7 @@ use std::{
         mpsc,
     },
     thread::{self, JoinHandle},
+    time::Instant,
 };
 
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
@@ -14,6 +15,7 @@ pub struct JobHandle<T, P = ()> {
     progress_recv: mpsc::Receiver<P>,
     finished: bool,
     killed: Arc<AtomicBool>,
+    start_time: Instant,
 }
 
 pub enum Progress<T, P> {
@@ -46,6 +48,10 @@ impl<T, P> JobHandle<T, P> {
 
     pub fn is_finished(&self) -> bool {
         self.finished
+    }
+
+    pub fn start_time(&self) -> Instant {
+        self.start_time
     }
 }
 
@@ -117,6 +123,7 @@ impl JobManager {
             progress_recv: progress_rx,
             finished: false,
             killed,
+            start_time: Instant::now(),
         }
     }
 }

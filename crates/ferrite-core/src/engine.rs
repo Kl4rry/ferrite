@@ -12,7 +12,7 @@ use std::{
 
 use anyhow::Result;
 use ferrite_cli::Args;
-use ferrite_ctx::{ArenaString, ArenaVec};
+use ferrite_ctx::{ArenaString, ArenaVec, CollectIn};
 use ferrite_geom::point::Point;
 use ferrite_utility::{line_ending, trim::trim_path, url};
 use linkify::{LinkFinder, LinkKind};
@@ -382,7 +382,7 @@ impl Engine {
             let mut dirty_buffer_id = None;
             while let Ok(result) = job.poll_progress() {
                 i += 1;
-                if i > 10 {
+                if i > 1000 {
                     break;
                 }
                 match result {
@@ -391,6 +391,17 @@ impl Engine {
                             if let Some(buffer) = self.workspace.buffers.get_mut(buffer_id) {
                                 buffer.replace_rope(rope);
                                 dirty_buffer_id = Some(buffer_id);
+                                // If a command finished fast we jump to the top of the buffer this
+                                // is so commands like git diff and git log start att top like a pager
+                                let execution_time =
+                                    Instant::now().duration_since(job.start_time());
+                                if execution_time < Duration::from_secs(1) {
+                                    for view_id in
+                                        buffer.views.keys().collect_in::<ArenaVec<_>>(&arena)
+                                    {
+                                        buffer.goto(view_id, 0);
+                                    }
+                                }
                             }
                         } else {
                             self.palette.set_msg(rope.to_string());
@@ -419,6 +430,7 @@ impl Engine {
                 job.kill();
             }
         }
+        self.shell_jobs.retain(|job| !job.1.is_finished());
 
         {
             let mut string = ArenaString::new_in(&arena);
@@ -455,8 +467,6 @@ impl Engine {
                 }
             }
         }
-
-        self.shell_jobs.retain(|job| !job.1.is_finished());
 
         self.job_manager.poll_jobs();
 
