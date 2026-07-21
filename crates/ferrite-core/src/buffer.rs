@@ -971,16 +971,11 @@ impl Buffer {
                 }
             }
 
-            if let Some(cursor) = new_cursor.and_then(|cursor| {
-                if self.views[view_id]
+            if let Some(cursor) = new_cursor.filter(|&cursor| {
+                !self.views[view_id]
                     .cursors
                     .iter()
                     .any(|c| c.start() == cursor.start() && c.end() == cursor.end())
-                {
-                    None
-                } else {
-                    Some(cursor)
-                }
             }) {
                 self.views[view_id].cursors.push(cursor);
                 self.center_on_cursor(view_id, self.views[view_id].cursors.len() - 1);
