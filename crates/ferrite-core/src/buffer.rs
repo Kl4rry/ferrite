@@ -1001,11 +1001,7 @@ impl Buffer {
     }
 
     pub fn select_all_matching(&mut self, view_id: ViewId) {
-        self.views[view_id].coalesce_cursors();
-        let cursors = self.get_cursors_sorted(view_id);
-        self.views[view_id]
-            .cursors
-            .swap(0, cursors.first().unwrap().1);
+        self.views[view_id].cursors.clear();
 
         if !self.views[view_id].cursors.first().has_selection() {
             self.select_word_raw(view_id, 0);
@@ -1021,7 +1017,13 @@ impl Buffer {
             });
         }
 
-        self.views[view_id].coalesce_cursors();
+        // TODO: make it so coalesce_cursors does not reorder cursors
+        // currently the first cursor gets resuffled when coalesce_cursors
+        // and if escape is pressed to delete all cursors we jump the view
+        // to the first match. This coalesce_cursors should not be needed
+        // as search rope should never yield overlapping ranges but lets
+        // make sure it never happes by coalescing cursors
+        // self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
         self.hide_completers();
