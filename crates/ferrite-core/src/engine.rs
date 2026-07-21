@@ -1423,9 +1423,15 @@ impl Engine {
         let real_path = match dunce::canonicalize(&path) {
             Ok(path) => path,
             Err(err) => match err.kind() {
-                // NOTE: it might be broken that we do not canonicalize this file path as some code
-                // assumes that all paths are absolute
-                io::ErrorKind::NotFound if create_file => path.as_ref().to_path_buf(),
+                io::ErrorKind::NotFound if create_file => {
+                    match std::path::absolute(&path) {
+                        Ok(path) => path,
+                        Err(err) => {
+                            self.palette.set_error(err);
+                            return false;
+                        }
+                    }
+                }
                 _ => {
                     self.palette.set_error(err);
                     return false;
