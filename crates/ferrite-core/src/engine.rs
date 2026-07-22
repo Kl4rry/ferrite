@@ -38,7 +38,7 @@ use crate::{
     jobs::{SaveBufferJob, ShellJobHandle},
     jump_list::JumpPoint,
     keymap::InputContext,
-    layout::panes::{PaneKind, Panes, Rect},
+    layout::panes::{PaneKind, Rect},
     logger::LoggerState,
     palette::{
         CommandPalette, PaletteMode, PalettePromptEvent,
@@ -219,7 +219,6 @@ impl Engine {
             total_memory_allocated: 0,
         };
 
-        let mut files_from_args = false;
         for (i, file) in args.files.iter().enumerate() {
             let file_str = file.to_string_lossy();
 
@@ -235,15 +234,6 @@ impl Engine {
             }
 
             engine.open_url(file, false, true);
-            files_from_args = true;
-        }
-
-        if files_from_args
-            && let Some((current_buffer_id, view_id)) = engine.get_current_buffer_id()
-        {
-            let buffer = &mut engine.workspace.buffers[current_buffer_id];
-            buffer.goto(view_id, args.line as i64);
-            engine.workspace.panes = Panes::new(current_buffer_id, view_id);
         }
 
         if !std::io::stdin().is_terminal() {
@@ -1420,18 +1410,32 @@ impl Engine {
     }
 
     pub fn open_file(&mut self, path: impl AsRef<Path>, create_file: bool) -> bool {
-        let real_path = match dunce::canonicalize(&path) {
+        let mut path = path.as_ref();
+        let string = path.to_string_lossy();
+        let mut line_number = None;
+        {
+            // regex matches digits after colon at end of string
+            let regex = regex::Regex::new(r#":(\d+)\z"#).expect("failed to parse hardcoded regex");
+            let captures = regex.captures(&string);
+            if let Some(captures) = captures
+                && !path.exists()
+            {
+                let (whole_match, groups) = captures.extract::<1>();
+                path = Path::new(&string[..string.len() - whole_match.len()]);
+                line_number = groups[0].parse::<i64>().ok();
+            }
+        }
+
+        let real_path = match dunce::canonicalize(path) {
             Ok(path) => path,
             Err(err) => match err.kind() {
-                io::ErrorKind::NotFound if create_file => {
-                    match std::path::absolute(&path) {
-                        Ok(path) => path,
-                        Err(err) => {
-                            self.palette.set_error(err);
-                            return false;
-                        }
+                io::ErrorKind::NotFound if create_file => match std::path::absolute(path) {
+                    Ok(path) => path,
+                    Err(err) => {
+                        self.palette.set_error(err);
+                        return false;
                     }
-                }
+                },
                 _ => {
                     self.palette.set_error(err);
                     return false;
@@ -1439,55 +1443,59 @@ impl Engine {
             },
         };
 
-        match self.workspace.buffers.iter_mut().find(|(_, buffer)| {
+        if let Some((buffer_id, buffer)) = self.workspace.buffers.iter_mut().find(|(_, buffer)| {
             buffer
                 .file()
                 .and_then(|path| dunce::canonicalize(path).ok())
                 .as_deref()
                 == Some(&real_path)
         }) {
-            Some((id, buffer)) => {
-                buffer.update_interact(None);
+            buffer.update_interact(None);
+            let view_id = buffer.create_view();
+            match line_number {
+                Some(line_number) => self.workspace.buffers[buffer_id].goto(view_id, line_number),
+                None => self.load_view_data(buffer_id, view_id),
+            }
+            self.make_current_pane(PaneKind::Buffer(buffer_id, view_id));
+            return true;
+        }
+
+        match Buffer::builder()
+            .with_blame(true)
+            .from_file(&real_path)
+            .build()
+        {
+            Ok(mut buffer) => {
                 let view_id = buffer.create_view();
-                self.load_view_data(id, view_id);
-                self.make_current_pane(PaneKind::Buffer(id, view_id));
+                let (buffer_id, buffer) = self.insert_buffer(buffer, view_id, true);
+                match line_number {
+                    Some(line_number) => buffer.goto(view_id, line_number),
+                    None => self.load_view_data(buffer_id, view_id),
+                }
                 true
             }
-            None => match Buffer::builder()
-                .with_blame(true)
-                .from_file(&real_path)
-                .build()
-            {
-                Ok(mut buffer) => {
-                    let view_id = buffer.create_view();
-                    let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
-                    self.load_view_data(buffer_id, view_id);
-                    true
-                }
-                Err(err) => match err.kind() {
-                    io::ErrorKind::NotFound if create_file => {
-                        match Buffer::builder()
-                            .with_blame(true)
-                            .with_path(path.as_ref())
-                            .build()
-                        {
-                            Ok(mut buffer) => {
-                                let view_id = buffer.create_view();
-                                let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
-                                self.load_view_data(buffer_id, view_id);
-                                true
+            Err(err) => match err.kind() {
+                io::ErrorKind::NotFound if create_file => {
+                    match Buffer::builder().with_blame(true).with_path(path).build() {
+                        Ok(mut buffer) => {
+                            let view_id = buffer.create_view();
+                            let (buffer_id, buffer) = self.insert_buffer(buffer, view_id, true);
+                            match line_number {
+                                Some(line_number) => buffer.goto(view_id, line_number),
+                                None => self.load_view_data(buffer_id, view_id),
                             }
-                            Err(err) => {
-                                self.palette.set_error(err);
-                                false
-                            }
+                            true
+                        }
+                        Err(err) => {
+                            self.palette.set_error(err);
+                            false
                         }
                     }
-                    _ => {
-                        self.palette.set_error(err);
-                        false
-                    }
-                },
+                }
+                _ => {
+                    self.palette.set_error(err);
+                    false
+                }
             },
         }
     }

@@ -98,8 +98,8 @@ impl Default for View {
             clamp_cursor: true,
             searcher: None,
             replacement: None,
-            view_lines: 100,   // semi resonable default for first frame
-            view_columns: 100, // semi resonable default for first frame
+            view_lines: 30,   // semi resonable default for first frame
+            view_columns: 30, // semi resonable default for first frame
             last_word_selected: None,
             completer: Completer::new(),
             drag: ViewDrag::default(),

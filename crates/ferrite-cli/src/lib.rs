@@ -7,9 +7,6 @@ pub struct Args {
     /// path to files that will be opened
     #[argh(positional)]
     pub files: Vec<PathBuf>,
-    /// line to open file on
-    #[argh(option, short = 'l', long = "line", default = "0")]
-    pub line: u32,
     /// use process local clipboard
     #[argh(switch, long = "local-clipboard")]
     pub local_clipboard: bool,
