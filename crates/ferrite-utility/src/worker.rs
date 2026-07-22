@@ -1,7 +1,10 @@
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
-    mpsc,
+use std::{
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
+    time::Duration,
 };
 
 type F<State, Input, Output> = fn(&mut State, Input) -> Output;
@@ -14,7 +17,7 @@ pub enum Consumption {
 }
 
 struct InternalState<State, Input, Output> {
-    state: State,
+    state: Option<State>,
     closure: F<State, Input, Output>,
     tx: mpsc::Sender<Output>,
     rx: mpsc::Receiver<Input>,
@@ -41,7 +44,7 @@ where
         let running = Arc::new(AtomicBool::new(false));
 
         let internal_state = Arc::new(Mutex::new(InternalState {
-            state,
+            state: Some(state),
             closure: func,
             tx: output_tx,
             rx: input_rx,
@@ -68,6 +71,16 @@ where
             rayon::spawn(move || {
                 let mut guard = state.lock().unwrap();
                 loop {
+                    if guard.state.is_none() {
+                        drop(guard);
+                        std::thread::sleep(Duration::from_millis(5));
+                        guard = state.lock().unwrap();
+                        continue;
+                    }
+                    break;
+                }
+
+                loop {
                     let input = match guard.consumption {
                         Consumption::Latest => {
                             let mut latest = None;
@@ -84,7 +97,7 @@ where
                             Err(_) => break,
                         },
                     };
-                    let output = (guard.closure)(&mut guard.state, input);
+                    let output = (guard.closure)(guard.state.as_mut().unwrap(), input);
                     if guard.tx.send(output).is_err() {
                         break;
                     }
@@ -96,5 +109,44 @@ where
 
     pub fn recv(&mut self) -> Option<Output> {
         self.rx.recv().ok()
+    }
+}
+
+impl<State, Input, Output> Worker<State, Input, Output>
+where
+    State: Send + 'static,
+    Input: Send + 'static,
+    Output: Send + 'static,
+{
+    pub fn lazy<Lazy: Send + 'static + FnOnce() -> State>(
+        consumption: Consumption,
+        lazy: Lazy,
+        func: F<State, Input, Output>,
+    ) -> Self {
+        let (input_tx, input_rx) = mpsc::channel();
+        let (output_tx, output_rx) = mpsc::channel();
+
+        let running = Arc::new(AtomicBool::new(false));
+
+        let internal_state = Arc::new(Mutex::new(InternalState {
+            state: None,
+            closure: func,
+            tx: output_tx,
+            rx: input_rx,
+            consumption,
+        }));
+
+        let state = internal_state.clone();
+        rayon::spawn(move || {
+            let mut guard = state.lock().unwrap();
+            guard.state = Some((lazy)());
+        });
+
+        Self {
+            state: internal_state,
+            running,
+            tx: input_tx,
+            rx: output_rx,
+        }
     }
 }

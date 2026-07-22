@@ -14,8 +14,11 @@ use tree_sitter::{
     Range, TextProvider, Tree,
 };
 
-use super::{TreeSitterConfig, get_tree_sitter_language};
-use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
+use super::get_tree_sitter_language;
+use crate::{
+    event_loop_proxy::{EventLoopProxy, UserEvent},
+    language::get_available_languages,
+};
 
 type HighlightResult = Arc<
     Mutex<
@@ -36,62 +39,74 @@ struct SyntaxWorkerState {
 }
 
 struct SyntaxWorker {
-    pub language: &'static TreeSitterConfig,
+    pub language: String,
     pub worker: Worker<SyntaxWorkerState, Rope, ()>,
 }
 
 impl SyntaxWorker {
     pub fn new(
-        language: &'static TreeSitterConfig,
+        language: &str,
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
         result: HighlightResult,
     ) -> Result<Self> {
-        let state = SyntaxWorkerState {
-            epoch: 0,
-            highlight_config: language.highlight_config.clone(),
-            highlighter: Highlighter::default(),
-            result,
-            proxy: proxy.dup(),
-        };
+        let worker_language = language.to_string();
+        let worker = Worker::lazy(
+            Consumption::Latest,
+            move || {
+                let language = get_tree_sitter_language(&worker_language).unwrap();
 
-        let worker = Worker::new(Consumption::Latest, state, |state, rope: Rope| {
-            state.epoch += 1;
-            let mut arena = ferrite_ctx::Ctx::arena_mut();
-
-            let time = Instant::now();
-            if let Ok(iterator) = state.highlighter.highlight(
-                &state.highlight_config.clone(),
-                rope.slice(..),
-                |name| get_tree_sitter_language(name).map(|language| &*language.highlight_config),
-            ) {
-                let mut sum_tree: gpui_sum_tree::TreeMap<(usize, usize), Highlight> =
-                    gpui_sum_tree::TreeMap::default();
-
-                let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
-                for event in iterator.filter_map(|event| event.ok()) {
-                    match event {
-                        HighlightEvent::Source { start, end } => {
-                            if let Some(highlight) = highlight_stack.last() {
-                                sum_tree.insert((start, end), *highlight);
-                            }
-                        }
-                        HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
-                        HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
-                    }
+                SyntaxWorkerState {
+                    epoch: 0,
+                    highlight_config: language.highlight_config.clone(),
+                    highlighter: Highlighter::default(),
+                    result,
+                    proxy: proxy.dup(),
                 }
+            },
+            |state, rope: Rope| {
+                state.epoch += 1;
+                let mut arena = ferrite_ctx::Ctx::arena_mut();
 
-                *state.result.lock().unwrap() = Some((state.epoch, rope.clone(), sum_tree));
-                state.proxy.request_render("syntax update parsed");
-            }
-            tracing::debug!(
-                "highlight took: {}us or {}ms",
-                time.elapsed().as_micros(),
-                time.elapsed().as_millis()
-            );
-            arena.reset();
-        });
+                let time = Instant::now();
+                if let Ok(iterator) = state.highlighter.highlight(
+                    &state.highlight_config.clone(),
+                    rope.slice(..),
+                    |name| {
+                        get_tree_sitter_language(name).map(|language| &*language.highlight_config)
+                    },
+                ) {
+                    let mut sum_tree: gpui_sum_tree::TreeMap<(usize, usize), Highlight> =
+                        gpui_sum_tree::TreeMap::default();
 
-        Ok(Self { language, worker })
+                    let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
+                    for event in iterator.filter_map(|event| event.ok()) {
+                        match event {
+                            HighlightEvent::Source { start, end } => {
+                                if let Some(highlight) = highlight_stack.last() {
+                                    sum_tree.insert((start, end), *highlight);
+                                }
+                            }
+                            HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
+                            HighlightEvent::HighlightEnd => drop(highlight_stack.pop()),
+                        }
+                    }
+
+                    *state.result.lock().unwrap() = Some((state.epoch, rope.clone(), sum_tree));
+                    state.proxy.request_render("syntax update parsed");
+                }
+                tracing::debug!(
+                    "highlight took: {}us or {}ms",
+                    time.elapsed().as_micros(),
+                    time.elapsed().as_millis()
+                );
+                arena.reset();
+            },
+        );
+
+        Ok(Self {
+            language: language.to_string(),
+            worker,
+        })
     }
 
     pub fn update_text(&mut self, rope: Rope) {
@@ -122,23 +137,24 @@ impl Syntax {
                 Some((usize::MAX, Rope::new(), gpui_sum_tree::TreeMap::default()));
             return Ok(());
         }
-        match get_tree_sitter_language(language) {
-            Some(lang) => {
-                tracing::info!("set lang to `{language}`");
-                self.syntax_worker = Some(SyntaxWorker::new(
-                    lang,
-                    self.proxy.dup(),
-                    self.result.clone(),
-                )?);
-                *self.result.lock().unwrap() = None;
-                Ok(())
-            }
-            None => bail!("Unknown language: `{language}`"),
+
+        let languages = get_available_languages();
+        if !languages.contains(&language) {
+            bail!("Unknown language: `{language}`");
         }
+
+        tracing::info!("set lang to `{language}`");
+        *self.result.lock().unwrap() = None;
+        self.syntax_worker = Some(SyntaxWorker::new(
+            language,
+            self.proxy.dup(),
+            self.result.clone(),
+        )?);
+        Ok(())
     }
 
     pub fn get_language_name(&self) -> Option<&str> {
-        Some(&self.syntax_worker.as_ref()?.language.name)
+        Some(&self.syntax_worker.as_ref()?.language)
     }
 
     pub fn update_text(&mut self, rope: Rope) {
