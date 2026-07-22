@@ -27,7 +27,7 @@ type HighlightResult = Arc<
     >,
 >;
 
-struct SyntaxActorState {
+struct SyntaxWorkerState {
     epoch: usize,
     highlight_config: Arc<HighlightConfiguration>,
     highlighter: Highlighter,
@@ -35,18 +35,18 @@ struct SyntaxActorState {
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
 
-struct SyntaxActor {
+struct SyntaxWorker {
     pub language: &'static TreeSitterConfig,
-    pub worker: Worker<SyntaxActorState, Rope, ()>,
+    pub worker: Worker<SyntaxWorkerState, Rope, ()>,
 }
 
-impl SyntaxActor {
+impl SyntaxWorker {
     pub fn new(
         language: &'static TreeSitterConfig,
         proxy: Box<dyn EventLoopProxy<UserEvent>>,
         result: HighlightResult,
     ) -> Result<Self> {
-        let state = SyntaxActorState {
+        let state = SyntaxWorkerState {
             epoch: 0,
             highlight_config: language.highlight_config.clone(),
             highlighter: Highlighter::default(),
@@ -100,7 +100,7 @@ impl SyntaxActor {
 }
 
 pub struct Syntax {
-    syntax_provder: Option<SyntaxActor>,
+    syntax_provder: Option<SyntaxWorker>,
     result: HighlightResult,
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
@@ -122,7 +122,7 @@ impl Syntax {
         match get_tree_sitter_language(language) {
             Some(lang) => {
                 tracing::info!("set lang to `{language}`");
-                self.syntax_provder = Some(SyntaxActor::new(
+                self.syntax_provder = Some(SyntaxWorker::new(
                     lang,
                     self.proxy.dup(),
                     self.result.clone(),
