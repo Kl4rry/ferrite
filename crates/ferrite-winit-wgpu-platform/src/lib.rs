@@ -613,25 +613,50 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                             MouseButton::Middle => &mut state.mouse_state.middle,
                         };
                         mouse_state.pressed = false;
+                        let now = Instant::now();
+                        if now.duration_since(mouse_state.last_release) < Duration::from_millis(400)
+                        {
+                            mouse_state.clicks += 1;
+                            if mouse_state.clicks > 3 {
+                                mouse_state.clicks = 1;
+                            }
+                        } else {
+                            mouse_state.clicks = 1;
+                        }
+                        mouse_state.last_release = now;
 
+                        let metrics = backend::get_metrics(app.runtime.scale);
+                        let (cell_width, cell_height) = backend::calculate_cell_size(
+                            &mut state.renderer.font_system,
+                            metrics,
+                            glyphon::Weight(app.runtime.font_weight),
+                        );
+
+                        let (width, height) = (state.config.width, state.config.height);
+                        let bounds = create_bounds(
+                            Vec2::new(width as usize, height as usize),
+                            Vec2::new(cell_width, cell_height),
+                        );
                         if mouse_state.drag_start.is_some() {
                             mouse_state.drag_start = None;
-                            let metrics = backend::get_metrics(app.runtime.scale);
-                            let (cell_width, cell_height) = backend::calculate_cell_size(
-                                &mut state.renderer.font_system,
-                                metrics,
-                                glyphon::Weight(app.runtime.font_weight),
-                            );
-
-                            let (width, height) = (state.config.width, state.config.height);
-                            let bounds = create_bounds(
-                                Vec2::new(width as usize, height as usize),
-                                Vec2::new(cell_width, cell_height),
-                            );
 
                             let mouse_interaction = MouseInterction {
                                 button,
                                 kind: MouseInterctionKind::DragStop,
+                                cell_size: Vec2::new(cell_width, cell_height),
+                                position: state.mouse_state.position,
+                                modifiers: state.modifiers,
+                            };
+
+                            app.view_tree.handle_mouse(
+                                &mut app.runtime.state,
+                                bounds,
+                                mouse_interaction,
+                            );
+                        } else {
+                            let mouse_interaction = MouseInterction {
+                                button,
+                                kind: MouseInterctionKind::Click(mouse_state.clicks),
                                 cell_size: Vec2::new(cell_width, cell_height),
                                 position: state.mouse_state.position,
                                 modifiers: state.modifiers,
@@ -654,12 +679,12 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         mouse_state.pressed = true;
                         let now = Instant::now();
                         if now.duration_since(mouse_state.last_press) < Duration::from_millis(400) {
-                            mouse_state.clicks += 1;
-                            if mouse_state.clicks > 3 {
-                                mouse_state.clicks = 1;
+                            mouse_state.presses += 1;
+                            if mouse_state.presses > 3 {
+                                mouse_state.presses = 1;
                             }
                         } else {
-                            mouse_state.clicks = 1;
+                            mouse_state.presses = 1;
                         }
                         mouse_state.last_press = now;
 
@@ -678,7 +703,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
 
                         let mouse_interaction = MouseInterction {
                             button,
-                            kind: MouseInterctionKind::Click(mouse_state.clicks),
+                            kind: MouseInterctionKind::Press(mouse_state.presses),
                             cell_size: Vec2::new(cell_width, cell_height),
                             position: state.mouse_state.position,
                             modifiers: state.modifiers,

@@ -300,12 +300,12 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                         mouse_state.pressed = true;
                         let now = Instant::now();
                         if now.duration_since(mouse_state.last_press) < Duration::from_millis(400) {
-                            mouse_state.clicks += 1;
-                            if mouse_state.clicks > 3 {
-                                mouse_state.clicks = 1;
+                            mouse_state.presses += 1;
+                            if mouse_state.presses > 3 {
+                                mouse_state.presses = 1;
                             }
                         } else {
-                            mouse_state.clicks = 1;
+                            mouse_state.presses = 1;
                         }
                         mouse_state.last_press = now;
 
@@ -317,7 +317,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
 
                         let mouse_interaction = MouseInterction {
                             button,
-                            kind: MouseInterctionKind::Click(mouse_state.clicks),
+                            kind: MouseInterctionKind::Press(mouse_state.presses),
                             cell_size: Vec2::new(1.0, 1.0),
                             position: self.mouse_state.position,
                             modifiers: self.modifiers,
@@ -345,29 +345,47 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                             MouseButton::Middle => &mut self.mouse_state.middle,
                         };
                         mouse_state.pressed = false;
+                        let now = Instant::now();
+                        if now.duration_since(mouse_state.last_release) < Duration::from_millis(400)
+                        {
+                            mouse_state.clicks += 1;
+                            if mouse_state.clicks > 3 {
+                                mouse_state.clicks = 1;
+                            }
+                        } else {
+                            mouse_state.clicks = 1;
+                        }
+                        mouse_state.last_release = now;
 
-                        if mouse_state.drag_start.is_some() {
+                        let bounds = Bounds::new(
+                            Rect::new(0, 0, self.columns.into(), self.lines.into()),
+                            Vec2::new(1.0, 1.0),
+                            Rounding::Round,
+                        );
+                        let mouse_interaction = if mouse_state.drag_start.is_some() {
                             mouse_state.drag_start = None;
-                            let bounds = Bounds::new(
-                                Rect::new(0, 0, self.columns.into(), self.lines.into()),
-                                Vec2::new(1.0, 1.0),
-                                Rounding::Round,
-                            );
 
-                            let mouse_interaction = MouseInterction {
+                            MouseInterction {
                                 button,
                                 kind: MouseInterctionKind::DragStop,
                                 cell_size: Vec2::new(1.0, 1.0),
                                 position: self.mouse_state.position,
                                 modifiers: self.modifiers,
-                            };
-
-                            self.view_tree.handle_mouse(
-                                &mut self.runtime.state,
-                                bounds,
-                                mouse_interaction,
-                            );
-                        }
+                            }
+                        } else {
+                            MouseInterction {
+                                button,
+                                kind: MouseInterctionKind::Click(mouse_state.presses),
+                                cell_size: Vec2::new(1.0, 1.0),
+                                position: self.mouse_state.position,
+                                modifiers: self.modifiers,
+                            }
+                        };
+                        self.view_tree.handle_mouse(
+                            &mut self.runtime.state,
+                            bounds,
+                            mouse_interaction,
+                        );
                     }
                     MouseEventKind::Drag(button) => {
                         self.dirty = true;

@@ -73,6 +73,8 @@ impl<S> Runtime<S> {
 pub struct MouseButtonState {
     pub pressed: bool,
     pub last_press: Instant,
+    pub last_release: Instant,
+    pub presses: usize,
     pub clicks: usize,
     pub drag_start: Option<Vec2<f32>>,
 }
@@ -82,6 +84,8 @@ impl Default for MouseButtonState {
         Self {
             pressed: false,
             last_press: Instant::now(),
+            last_release: Instant::now(),
+            presses: 1,
             clicks: 1,
             drag_start: None,
         }
@@ -104,6 +108,7 @@ pub enum MouseButton {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MouseInterctionKind {
+    Press(usize),
     Click(usize),
     Drag {
         drag_start: Vec2<f32>,

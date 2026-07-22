@@ -111,20 +111,22 @@ impl View<Buffer> for EditorView {
         let cell_position = mouse_interaction.cell_position(bounds.view_bounds().position());
         let (_, left_offset) = lines_to_left_offset(buffer.len_lines());
         match mouse_interaction.kind {
-            MouseInterctionKind::Click(clicks) if mouse_interaction.button == MouseButton::Left => {
+            MouseInterctionKind::Press(presses)
+                if mouse_interaction.button == MouseButton::Left =>
+            {
                 if get_scrollbar_track(bounds).contains(mouse_interaction.position) {
-                    // TODO: handle clicks on scrollbar
+                    // TODO: handle presses on scrollbar
                 } else {
                     buffer.handle_click(
                         view_id,
-                        clicks,
+                        presses,
                         mouse_interaction.modifiers == KeyModifiers::ALT,
                         cell_position.x.saturating_sub(left_offset),
                         cell_position.y,
                     );
                 }
             }
-            MouseInterctionKind::Click(_) if mouse_interaction.button == MouseButton::Middle => {
+            MouseInterctionKind::Press(_) if mouse_interaction.button == MouseButton::Middle => {
                 let cmd = Cmd::PastePrimary {
                     column: cell_position.x.saturating_sub(left_offset),
                     line: cell_position.y,
