@@ -18,7 +18,7 @@ pub fn categorize_char(ch: char) -> CharCategory {
         CharCategory::Eol
     } else if ch.is_whitespace() {
         CharCategory::Whitespace
-    } else if char_is_word(ch) {
+    } else if is_word_char(ch) {
         CharCategory::Word
     } else if char_is_punctuation(ch) {
         CharCategory::Punctuation
@@ -81,7 +81,17 @@ pub fn char_is_punctuation(ch: char) -> bool {
     )
 }
 
-#[inline]
-pub fn char_is_word(ch: char) -> bool {
-    ch.is_alphanumeric() || ch == '_'
+pub fn is_word_char(ch: char) -> bool {
+    use unicode_general_category::GeneralCategory;
+    matches!(
+        unicode_general_category::get_general_category(ch),
+        GeneralCategory::ConnectorPunctuation
+            | GeneralCategory::UppercaseLetter
+            | GeneralCategory::TitlecaseLetter
+            | GeneralCategory::LowercaseLetter
+            | GeneralCategory::NonspacingMark
+            | GeneralCategory::DecimalNumber
+            | GeneralCategory::LetterNumber
+            | GeneralCategory::OtherLetter
+    )
 }

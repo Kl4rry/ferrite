@@ -17,7 +17,10 @@ use ropey::{Rope, RopeSlice, iter::Chunks, str_utils::byte_to_char_idx};
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 use unicode_width::UnicodeWidthStr;
 
-use crate::line_ending::{self, LineEnding, get_line_ending, line_without_line_ending};
+use crate::{
+    chars::is_word_char,
+    line_ending::{self, LineEnding, get_line_ending, line_without_line_ending},
+};
 
 pub const TAB_WIDTH: u16 = 4;
 
@@ -505,21 +508,6 @@ impl Clone for GraphemeStr<'_> {
     fn clone(&self) -> Self {
         self.deref().to_owned().into()
     }
-}
-
-pub fn is_word_char(ch: char) -> bool {
-    use unicode_general_category::GeneralCategory;
-    matches!(
-        unicode_general_category::get_general_category(ch),
-        GeneralCategory::ConnectorPunctuation
-            | GeneralCategory::UppercaseLetter
-            | GeneralCategory::TitlecaseLetter
-            | GeneralCategory::LowercaseLetter
-            | GeneralCategory::NonspacingMark
-            | GeneralCategory::DecimalNumber
-            | GeneralCategory::LetterNumber
-            | GeneralCategory::OtherLetter
-    )
 }
 
 pub trait RopeGraphemeExt {

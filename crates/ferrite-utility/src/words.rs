@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use ropey::{Rope, RopeSlice};
 
-use crate::graphemes::is_word_char;
+use crate::chars::is_word_char;
 
 pub fn count_words<'a>(words: &mut HashMap<RopeSlice<'a>, usize>, rope: &'a Rope) {
     let mut word_start = 0;
