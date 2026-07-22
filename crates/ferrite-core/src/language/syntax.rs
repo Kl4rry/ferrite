@@ -100,7 +100,7 @@ impl SyntaxWorker {
 }
 
 pub struct Syntax {
-    syntax_provder: Option<SyntaxWorker>,
+    syntax_worker: Option<SyntaxWorker>,
     result: HighlightResult,
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
@@ -108,7 +108,7 @@ pub struct Syntax {
 impl Syntax {
     pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
         Self {
-            syntax_provder: None,
+            syntax_worker: None,
             result: Arc::new(Mutex::new(None)),
             proxy,
         }
@@ -117,7 +117,7 @@ impl Syntax {
     #[profiling::function]
     pub fn set_language(&mut self, language: &str) -> Result<()> {
         if language == "text" {
-            self.syntax_provder = None;
+            self.syntax_worker = None;
             *self.result.lock().unwrap() =
                 Some((usize::MAX, Rope::new(), gpui_sum_tree::TreeMap::default()));
             return Ok(());
@@ -125,7 +125,7 @@ impl Syntax {
         match get_tree_sitter_language(language) {
             Some(lang) => {
                 tracing::info!("set lang to `{language}`");
-                self.syntax_provder = Some(SyntaxWorker::new(
+                self.syntax_worker = Some(SyntaxWorker::new(
                     lang,
                     self.proxy.dup(),
                     self.result.clone(),
@@ -138,11 +138,11 @@ impl Syntax {
     }
 
     pub fn get_language_name(&self) -> Option<&str> {
-        Some(&self.syntax_provder.as_ref()?.language.name)
+        Some(&self.syntax_worker.as_ref()?.language.name)
     }
 
     pub fn update_text(&mut self, rope: Rope) {
-        if let Some(syntax) = &mut self.syntax_provder {
+        if let Some(syntax) = &mut self.syntax_worker {
             syntax.update_text(rope);
         }
     }
