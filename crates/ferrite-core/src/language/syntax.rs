@@ -117,6 +117,9 @@ impl Syntax {
     #[profiling::function]
     pub fn set_language(&mut self, language: &str) -> Result<()> {
         if language == "text" {
+            self.syntax_provder = None;
+            *self.result.lock().unwrap() =
+                Some((usize::MAX, Rope::new(), gpui_sum_tree::TreeMap::default()));
             return Ok(());
         }
         match get_tree_sitter_language(language) {

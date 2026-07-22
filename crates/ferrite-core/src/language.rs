@@ -521,7 +521,9 @@ pub fn get_tree_sitter_language(language: &str) -> Option<&'static TreeSitterCon
 
 #[profiling::function]
 pub fn get_available_languages() -> Vec<&'static str> {
-    LANGUAGES.keys().copied().collect()
+    std::iter::once("text")
+        .chain(LANGUAGES.keys().copied())
+        .collect()
 }
 
 #[cfg(test)]
