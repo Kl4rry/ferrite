@@ -131,26 +131,7 @@ impl Clone for View {
 
 impl View {
     pub fn coalesce_cursors(&mut self) {
-        // This function is messy :(
-        let arena = ferrite_ctx::Ctx::arena();
-        let mut new_cursors: ArenaVec<(usize, Cursor)> = ArenaVec::new_in(&arena);
-
-        for (mut i, mut cursor) in self.cursors.iter().copied().enumerate() {
-            let mut removed = 0;
-            for j in 0..new_cursors.len() {
-                if cursor.intersects(new_cursors[j - removed].1) {
-                    let (_old_index, old) = new_cursors.remove(j - removed);
-                    i = 0;
-                    cursor = cursor.coalesce(old);
-                    removed += 1;
-                }
-            }
-            new_cursors.push((i, cursor));
-        }
-
-        self.cursors.clear();
-        self.cursors
-            .replace_with_iter(new_cursors.into_iter().map(|(_, c)| c));
+        cursor::coalesce_cursors(&mut self.cursors);
     }
 
     pub fn line_pos_floored(&self) -> usize {
@@ -1017,13 +998,7 @@ impl Buffer {
             });
         }
 
-        // TODO: make it so coalesce_cursors does not reorder cursors
-        // currently the first cursor gets resuffled when coalesce_cursors
-        // and if escape is pressed to delete all cursors we jump the view
-        // to the first match. This coalesce_cursors should not be needed
-        // as search rope should never yield overlapping ranges but lets
-        // make sure it never happes by coalescing cursors
-        // self.views[view_id].coalesce_cursors();
+        self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
         self.history.finish();
         self.hide_completers();
