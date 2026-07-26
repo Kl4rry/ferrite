@@ -282,7 +282,7 @@ impl KeyCode {
     }
 }
 
-#[allow(clippy::to_string_trait_impl)]
+#[expect(clippy::to_string_trait_impl)]
 impl ToString for KeyCode {
     fn to_string(&self) -> String {
         match self {

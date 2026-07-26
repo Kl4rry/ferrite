@@ -1150,7 +1150,7 @@ impl Engine {
     pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
         match event {
             UserEvent::Wake => (),
-            #[allow(clippy::single_match)]
+            #[expect(clippy::single_match)]
             UserEvent::PalettePreview { mode, content } => match mode {
                 PaletteMode::Search => self.handle_search(content),
                 _ => (),
