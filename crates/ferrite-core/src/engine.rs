@@ -1415,7 +1415,7 @@ impl Engine {
         let mut line_number = None;
         {
             // regex matches digits after colon at end of string
-            let regex = regex::Regex::new(r#":(\d+)\z"#).expect("failed to parse hardcoded regex");
+            let regex = regex::regex!(r#":(\d+)\z"#);
             let captures = regex.captures(&string);
             if let Some(captures) = captures
                 && !path.exists()
