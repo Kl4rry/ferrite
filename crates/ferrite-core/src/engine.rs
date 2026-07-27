@@ -1395,6 +1395,51 @@ impl Engine {
                 .len()
             {
                 let selection = self.workspace.buffers[buffer_id].get_selection(view_id, i);
+
+                {
+                    for (rule_name, rule) in &self.config.editor.open_rules {
+                        // TODO: enable multiline support
+                        let regex = match regex::Regex::new(&rule.match_regex) {
+                            Ok(regex) => regex,
+                            Err(err) => {
+                                self.palette.set_error(err);
+                                return;
+                            }
+                        };
+
+                        // TODO: maybe rename to plumbing rules
+
+                        // TODO: make this and captures_iter
+                        let Some(captures) = regex.captures(&selection) else {
+                            continue;
+                        };
+
+                        tracing::info!("matched rule {rule_name}");
+
+                        // TODO: rewrite all this not allocate and not be super messy
+                        // maybe use the regex expansion/Replacer api
+                        let replace_regex = regex::regex!(r"%(\d)%");
+                        let mut to_be_replaced = Vec::new();
+                        for capture in replace_regex.captures_iter(&rule.cmd) {
+                            to_be_replaced.push(capture[1].parse::<usize>().unwrap());
+                        }
+
+                        let mut cmd = rule.cmd.clone();
+                        for capture_index in to_be_replaced {
+                            let Some(value) = captures.get(capture_index) else {
+                                self.palette
+                                    .set_error(format!("Capture {capture_index} not found"));
+                                return;
+                            };
+
+                            cmd = cmd.replace(&format!("%{capture_index}%"), value.as_str());
+                        }
+
+                        self.run_shell_command(cmd, None, true, false);
+                        return;
+                    }
+                }
+
                 let mut finder = LinkFinder::new();
                 finder.kinds(&[LinkKind::Url]);
                 let spans: Vec<_> = finder.spans(&selection).collect();

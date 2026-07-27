@@ -37,6 +37,12 @@ font_family = "FiraCode Nerd Font Mono"
 font_weight = "normal"
 cursor_type = "line"
 
+[open_rules]
+open_git_log_oneline = { match = "^([a-z0-9]{7})\\s.*", cmd = "git show %1%" }
+open_git_log = { match = "^commit\\s([a-z0-9]{40,})\\s*.*", cmd = "git show %1%" }
+open_manpage = { match = "\\w+\\(\\d+\\)", cmd = "man '%0%'" }
+
+
 [keymap]
 "F5" = { cmd = "run_action", name = "build" }
 
