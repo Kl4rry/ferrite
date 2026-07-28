@@ -1397,7 +1397,7 @@ impl Engine {
                 let selection = self.workspace.buffers[buffer_id].get_selection(view_id, i);
 
                 {
-                    for (rule_name, rule) in &self.config.editor.plumbing_rules {
+                    for (rule_name, rule) in self.config.editor.plumbing_rules.clone().into_iter() {
                         let regex = match regex::RegexBuilder::new(&rule.match_regex)
                             .multi_line(true)
                             .build()
@@ -1409,34 +1409,37 @@ impl Engine {
                             }
                         };
 
-                        // TODO: make this and captures_iter
-                        let Some(captures) = regex.captures(&selection) else {
+                        let mut matched = false;
+                        for captures in regex.captures_iter(&selection) {
+                            tracing::info!("matched rule {rule_name}");
+                            matched = true;
+                            // TODO: rewrite all this not allocate and not be super messy
+                            // maybe use the regex expansion/Replacer api
+                            let replace_regex = regex::regex!(r"%(\d)%");
+                            let mut to_be_replaced = Vec::new();
+                            for capture in replace_regex.captures_iter(&rule.cmd) {
+                                to_be_replaced.push(capture[1].parse::<usize>().unwrap());
+                            }
+
+                            let mut cmd = rule.cmd.clone();
+                            for capture_index in to_be_replaced {
+                                let Some(value) = captures.get(capture_index) else {
+                                    self.palette
+                                        .set_error(format!("Capture {capture_index} not found"));
+                                    return;
+                                };
+
+                                cmd = cmd.replace(&format!("%{capture_index}%"), value.as_str());
+                            }
+
+                            self.run_shell_command(cmd, None, true, false);
+                        }
+
+                        if matched {
+                            return;
+                        } else {
                             continue;
-                        };
-
-                        tracing::info!("matched rule {rule_name}");
-
-                        // TODO: rewrite all this not allocate and not be super messy
-                        // maybe use the regex expansion/Replacer api
-                        let replace_regex = regex::regex!(r"%(\d)%");
-                        let mut to_be_replaced = Vec::new();
-                        for capture in replace_regex.captures_iter(&rule.cmd) {
-                            to_be_replaced.push(capture[1].parse::<usize>().unwrap());
                         }
-
-                        let mut cmd = rule.cmd.clone();
-                        for capture_index in to_be_replaced {
-                            let Some(value) = captures.get(capture_index) else {
-                                self.palette
-                                    .set_error(format!("Capture {capture_index} not found"));
-                                return;
-                            };
-
-                            cmd = cmd.replace(&format!("%{capture_index}%"), value.as_str());
-                        }
-
-                        self.run_shell_command(cmd, None, true, false);
-                        return;
                     }
                 }
 
@@ -2019,6 +2022,7 @@ impl Engine {
     ) {
         let buffer_id = if pipe {
             let mut buffer = Buffer::new();
+            buffer.non_disposable = true;
             let view_id = buffer.create_view();
             match name {
                 Some(name) => buffer.set_name(name),

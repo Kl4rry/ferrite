@@ -172,6 +172,9 @@ pub struct Buffer {
     // syntax highlight
     syntax: Option<Syntax>,
     pub history: History,
+    // A flag to stop buffers from being autodeleted used so
+    // that empty buffers tied to shell jobs do not get deleted
+    pub non_disposable: bool,
 }
 
 impl Clone for Buffer {
@@ -203,6 +206,7 @@ impl Clone for Buffer {
             views: self.views.clone(),
             completion_source: self.completion_source.clone(),
             blame: Blame::new(),
+            non_disposable: self.non_disposable,
         }
     }
 }
@@ -231,6 +235,7 @@ impl Default for Buffer {
             views: SlotMap::with_key(),
             completion_source: CompletionSource::new(),
             blame: Blame::new(),
+            non_disposable: false,
         }
     }
 }
@@ -2962,6 +2967,7 @@ impl Buffer {
 
     pub fn is_disposable(&self) -> bool {
         !self.is_dirty()
+            && !self.non_disposable
             && self.rope().len_bytes() == 0
             && self.views.is_empty()
             && self.file.is_none()
