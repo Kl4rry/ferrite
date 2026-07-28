@@ -77,7 +77,7 @@ pub struct Editor {
     #[serde(default)]
     pub actions: HashMap<String, Vec1<String>>,
     #[serde(default)]
-    pub open_rules: HashMap<String, OpenRule>,
+    pub plumbing_rules: HashMap<String, PlumbingRule>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -217,7 +217,7 @@ impl Default for PickerConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OpenRule {
+pub struct PlumbingRule {
     #[serde(rename = "match")]
     pub match_regex: String,
     pub cmd: String,

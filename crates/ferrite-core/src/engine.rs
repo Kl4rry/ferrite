@@ -1397,17 +1397,17 @@ impl Engine {
                 let selection = self.workspace.buffers[buffer_id].get_selection(view_id, i);
 
                 {
-                    for (rule_name, rule) in &self.config.editor.open_rules {
-                        // TODO: enable multiline support
-                        let regex = match regex::Regex::new(&rule.match_regex) {
+                    for (rule_name, rule) in &self.config.editor.plumbing_rules {
+                        let regex = match regex::RegexBuilder::new(&rule.match_regex)
+                            .multi_line(true)
+                            .build()
+                        {
                             Ok(regex) => regex,
                             Err(err) => {
                                 self.palette.set_error(err);
                                 return;
                             }
                         };
-
-                        // TODO: maybe rename to plumbing rules
 
                         // TODO: make this and captures_iter
                         let Some(captures) = regex.captures(&selection) else {
