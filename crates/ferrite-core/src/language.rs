@@ -428,6 +428,9 @@ pub fn get_language_from_path(path: impl AsRef<Path>) -> Option<&'static str> {
         (Suffix(".lua"), "lua"),
         (Suffix(".nu"), "nu"),
         (Name("hyprland.conf"), "hyprlang"),
+        (Name("hyprlock.conf"), "hyprlang"),
+        (Name("hypridle.conf"), "hyprlang"),
+        (Name("hyprpaper.conf"), "hyprlang"),
         (Name("COMMIT_EDITMSG"), "git-commit"),
         (Name("git-rebase-todo"), "git-rebase"),
         // cmake
