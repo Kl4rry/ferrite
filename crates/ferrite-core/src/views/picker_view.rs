@@ -81,10 +81,10 @@ where
         let new_index = start_page * result_area.height as usize + cell_position.y;
 
         match mouse_interaction.kind {
-            MouseInterctionKind::Click(1) if mouse_interaction.button == MouseButton::Left => {
+            MouseInterctionKind::Press(1) if mouse_interaction.button == MouseButton::Left => {
                 picker.set_selected(new_index);
             }
-            MouseInterctionKind::Click(2) if mouse_interaction.button == MouseButton::Left => {
+            MouseInterctionKind::Press(2) if mouse_interaction.button == MouseButton::Left => {
                 picker.set_choice(new_index);
             }
             _ => (),
