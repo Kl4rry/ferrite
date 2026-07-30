@@ -31,6 +31,7 @@ use crate::{
         self,
         editor::{CursorType, Editor, LineNumber},
     },
+    language::syntax::HighlightRange,
     theme::EditorTheme,
 };
 
@@ -468,7 +469,8 @@ impl View<Buffer> for EditorView {
                     && let Some((epoch, rope, sum_tree)) = &*syntax.get_highlight_events()
                 {
                     syntax_data = Some((*epoch, rope.clone()));
-                    for ((start, end), highlight) in sum_tree.iter_from(&(range.start, range.start))
+                    for (HighlightRange(start, end), highlight) in
+                        sum_tree.iter_from(&HighlightRange(range.start, range.start))
                     {
                         if *start > range.end {
                             break;

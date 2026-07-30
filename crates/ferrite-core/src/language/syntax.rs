@@ -16,16 +16,35 @@ use tree_sitter::{
 
 use super::get_tree_sitter_language;
 use crate::{
+    buffer::cursor::intersects,
     event_loop_proxy::{EventLoopProxy, UserEvent},
     language::get_available_languages,
 };
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub struct HighlightRange(pub usize, pub usize);
+
+impl PartialOrd for HighlightRange {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for HighlightRange {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if intersects(self.0, self.1, other.0, other.1) {
+            return std::cmp::Ordering::Equal;
+        }
+        self.0.cmp(&other.0)
+    }
+}
 
 type HighlightResult = Arc<
     Mutex<
         Option<(
             usize,
             Rope,
-            gpui_sum_tree::TreeMap<(usize, usize), Highlight>,
+            gpui_sum_tree::TreeMap<HighlightRange, Highlight>,
         )>,
     >,
 >;
@@ -75,7 +94,7 @@ impl SyntaxWorker {
                         get_tree_sitter_language(name).map(|language| &*language.highlight_config)
                     },
                 ) {
-                    let mut sum_tree: gpui_sum_tree::TreeMap<(usize, usize), Highlight> =
+                    let mut sum_tree: gpui_sum_tree::TreeMap<HighlightRange, Highlight> =
                         gpui_sum_tree::TreeMap::default();
 
                     let mut highlight_stack: ArenaVec<Highlight> = ArenaVec::new_in(&arena);
@@ -83,7 +102,7 @@ impl SyntaxWorker {
                         match event {
                             HighlightEvent::Source { start, end } => {
                                 if let Some(highlight) = highlight_stack.last() {
-                                    sum_tree.insert((start, end), *highlight);
+                                    sum_tree.insert(HighlightRange(start, end), *highlight);
                                 }
                             }
                             HighlightEvent::HighlightStart(h) => highlight_stack.push(h),
@@ -170,7 +189,7 @@ impl Syntax {
         Option<(
             usize,
             Rope,
-            gpui_sum_tree::TreeMap<(usize, usize), Highlight>,
+            gpui_sum_tree::TreeMap<HighlightRange, Highlight>,
         )>,
     > {
         self.result.lock().unwrap()
