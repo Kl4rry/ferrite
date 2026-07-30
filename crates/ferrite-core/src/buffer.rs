@@ -122,10 +122,30 @@ impl Clone for View {
             view_columns: self.view_columns,
             last_word_selected: self.last_word_selected,
             completer: self.completer.clone(),
-            drag: self.drag,
+            drag: ViewDrag::default(), // we do not clone that drag info as it should be pointless
             highlight_cache: HighlightCache::default(), // Not cloned as it is easily recreated
             unique_id: UniqueId::new(),
         }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.cursors.clone_from(&source.cursors);
+        self.line_pos = source.line_pos;
+        self.col_pos = source.col_pos;
+        self.clamp_cursor = source.clamp_cursor;
+        self.searcher = None; // TODO: fix
+        self.replacement = None; // TODO: fix
+        self.view_lines = source.view_lines;
+        self.view_columns = source.view_columns;
+        self.last_word_selected = source.last_word_selected;
+        // TODO: the array of words used by the completer should be owned by the buffer
+        // and each view should only keep info about the current completion.
+        // but before that we just default it as this function is only called
+        // when writing data to the main view
+        self.completer = Default::default();
+        self.drag = ViewDrag::default(); // we do not clone that drag info as it should be pointless
+        self.highlight_cache = HighlightCache::default(); // Not cloned as it is easily recreated
+        self.unique_id = UniqueId::new();
     }
 }
 
@@ -154,6 +174,8 @@ slotmap::new_key_type! {
 pub struct Buffer {
     rope: Rope,
     pub views: SlotMap<ViewId, View>,
+    pub main_view: View,
+    last_used_view: ViewId,
     file: Option<PathBuf>,
     name: String,
     simple: bool,
@@ -167,7 +189,6 @@ pub struct Buffer {
     pub conflicts: Arc<Mutex<Vec<(usize, usize, usize)>>>,
     pub blame: Blame,
     last_interact: Instant,
-    last_used_view: ViewId,
     completion_source: CompletionSource,
     // syntax highlight
     syntax: Option<Syntax>,
@@ -204,6 +225,7 @@ impl Clone for Buffer {
             last_interact: self.last_interact,
             last_used_view: self.last_used_view,
             views: self.views.clone(),
+            main_view: self.main_view.clone(),
             completion_source: self.completion_source.clone(),
             blame: Blame::new(),
             non_disposable: self.non_disposable,
@@ -233,6 +255,7 @@ impl Default for Buffer {
             last_interact: Instant::now(),
             last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
+            main_view: View::default(),
             completion_source: CompletionSource::new(),
             blame: Blame::new(),
             non_disposable: false,
@@ -2675,6 +2698,7 @@ impl Buffer {
         self.last_interact = Instant::now();
         if let Some(view_id) = view_id {
             self.last_used_view = view_id;
+            self.main_view.clone_from(&self.views[view_id]);
         }
     }
 
@@ -3046,7 +3070,7 @@ impl Buffer {
     }
 
     pub fn create_view(&mut self) -> ViewId {
-        self.views.insert(View::default())
+        self.views.insert(self.main_view.clone())
     }
 
     pub fn get_first_view(&self) -> Option<ViewId> {

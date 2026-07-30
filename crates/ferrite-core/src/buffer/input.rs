@@ -70,9 +70,13 @@ impl Buffer {
             BackspaceToStartOfLine if !self.read_only => self.backspace_to_start_of_line(view_id),
             PageUp => self.page_up(view_id),
             PageDown => self.page_down(view_id),
-            Nop => self.update_interact(Some(view_id)),
-            _ => return Ok(()),
+            Nop => (),
+            _ => return Ok(()), // if we do nothing it should not count as an interact
         }
+
+        // TODO: This should probably be moved into each buffer function
+        // is just put it here because I am lazy and it was fast
+        self.update_interact(view_id.into());
 
         Ok(())
     }

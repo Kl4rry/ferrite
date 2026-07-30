@@ -312,33 +312,36 @@ impl Engine {
 
         self.poll_pickers();
 
-        let mut new_buffers = Vec::new();
-        for (_, buffer) in &mut self.workspace.buffers {
-            if let Some(path) = buffer.file() {
-                match self
-                    .workspace
-                    .buffer_extra_data
-                    .iter_mut()
-                    .find(|buffer| buffer.path == path)
-                {
-                    Some(buffer_data) => {
-                        if let Some(view_id) = buffer.get_last_used_view() {
-                            buffer.write_buffer_data(view_id, buffer_data);
+        {
+            profiling::scope!("write buffer data");
+            let mut new_buffers = ArenaVec::new_in(&arena);
+            for (_, buffer) in &mut self.workspace.buffers {
+                if let Some(path) = buffer.file() {
+                    match self
+                        .workspace
+                        .buffer_extra_data
+                        .iter_mut()
+                        .find(|buffer| buffer.path == path)
+                    {
+                        Some(buffer_data) => {
+                            if let Some(view_id) = buffer.get_last_used_view() {
+                                buffer.write_buffer_data(view_id, buffer_data);
+                            }
                         }
-                    }
-                    None => {
-                        if let Some(view_id) = buffer.get_last_used_view()
-                            && let Some(buffer_data) = buffer.get_buffer_data(view_id)
-                        {
-                            new_buffers.push(buffer_data);
+                        None => {
+                            if let Some(view_id) = buffer.get_last_used_view()
+                                && let Some(buffer_data) = buffer.get_buffer_data(view_id)
+                            {
+                                new_buffers.push(buffer_data);
+                            }
                         }
                     }
                 }
             }
+            self.workspace
+                .buffer_extra_data
+                .extend_from_slice(&new_buffers);
         }
-        self.workspace
-            .buffer_extra_data
-            .extend_from_slice(&new_buffers);
 
         for (_, job) in &mut self.save_jobs {
             if let Ok(result) = job.try_recv() {
