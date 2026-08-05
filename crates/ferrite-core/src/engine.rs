@@ -1554,6 +1554,7 @@ impl Engine {
     fn open_manpage(&mut self, page: &str) {
         // TODO: Make width variable
         self.run_shell_command(
+            // TODO: do this instead and strip ansi codes format!("MANWIDTH=80 man --troff-device=utf8 {page}"),
             format!("MANWIDTH=80 man {page}"),
             Some(format!("man://{page}")),
             true,
