@@ -535,7 +535,7 @@ impl View<Buffer> for EditorView {
                             .add(i)
                             .clamp(0, text_area.height);
 
-                        let first = i == 0;
+                        let first = i + line_pos == start_point.line || diff == 0;
                         let last = i == diff;
 
                         let start_view_col = start_point.column.saturating_sub(col_pos);
