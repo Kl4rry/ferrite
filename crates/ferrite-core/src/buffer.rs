@@ -80,8 +80,8 @@ pub struct View {
     pub clamp_cursor: bool,
     pub searcher: Option<BufferSearcher>,
     pub replacement: Option<String>,
-    view_lines: usize,
-    view_columns: usize,
+    pub view_lines: usize,
+    pub view_columns: usize,
     last_word_selected: Option<usize>,
     pub completer: Completer,
     pub drag: ViewDrag,
@@ -446,22 +446,6 @@ impl Buffer {
 
     pub fn is_dirty(&self) -> bool {
         self.dirty
-    }
-
-    pub fn set_view_lines(&mut self, view_id: ViewId, lines: usize) {
-        self.views[view_id].view_lines = lines;
-    }
-
-    pub fn get_view_lines(&self, view_id: ViewId) -> usize {
-        self.views[view_id].view_lines
-    }
-
-    pub fn set_view_columns(&mut self, view_id: ViewId, cols: usize) {
-        self.views[view_id].view_columns = cols;
-    }
-
-    pub fn _get_view_columns(&self, view_id: ViewId) -> usize {
-        self.views[view_id].view_columns
     }
 
     pub fn name(&self) -> &str {

@@ -150,7 +150,7 @@ impl View<Buffer> for EditorView {
                     }
                     ViewDrag::Scrollbar => {
                         let moved_distance = last_pos.y - mouse_interaction.position.y;
-                        let content_height = buffer.get_view_lines(view_id);
+                        let content_height = buffer.views[view_id].view_lines;
                         let len_lines = (buffer.len_lines() + content_height) - 1;
                         let scrollbar_ratio = content_height as f32 / len_lines as f32;
                         let line_distance =
@@ -168,7 +168,7 @@ impl View<Buffer> for EditorView {
 
                             // NOTE: everything in this branch is copy pasted from the scrollbar branch
                             let moved_distance = last_pos.y - mouse_interaction.position.y;
-                            let content_height = buffer.get_view_lines(view_id);
+                            let content_height = buffer.views[view_id].view_lines;
                             let len_lines = (buffer.len_lines() + content_height) - 1;
                             let scrollbar_ratio = content_height as f32 / len_lines as f32;
                             let line_distance =
@@ -304,9 +304,9 @@ impl View<Buffer> for EditorView {
             }
         }
 
-        buffer.set_view_lines(view_id, text_area.height);
+        buffer.views[view_id].view_lines = text_area.height;
 
-        buffer.set_view_columns(view_id, text_area.width.saturating_sub(left_offset));
+        buffer.views[view_id].view_lines = text_area.width.saturating_sub(left_offset);
         buf.set_style(area.into(), theme.background);
 
         if line_nr {
@@ -627,7 +627,7 @@ impl View<Buffer> for EditorView {
                 let line_idx = buffer.cursor_line_idx(view_id, 0);
                 let start_line = buffer.views[view_id].line_pos_floored();
                 let end_line =
-                    buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
+                    buffer.views[view_id].line_pos_floored() + buffer.views[view_id].view_lines;
 
                 if line_idx >= start_line && line_idx < end_line {
                     let cursor_line_area = Rect::new(
@@ -650,7 +650,7 @@ impl View<Buffer> for EditorView {
                 let matches = &*matches.0;
 
                 let view_start = buffer.line_pos(view_id);
-                let view_end = view_start + buffer.get_view_lines(view_id);
+                let view_end = view_start + buffer.views[view_id].view_lines;
 
                 for SearchMatch { start, end, .. } in matches {
                     if start.line >= view_start && end.line < view_end {
@@ -701,7 +701,7 @@ impl View<Buffer> for EditorView {
                 let cursor_line_idx = buffer.cursor_line_idx(view_id, 0);
                 let start_line = buffer.views[view_id].line_pos_floored();
                 let end_line =
-                    buffer.views[view_id].line_pos_floored() + buffer.get_view_lines(view_id);
+                    buffer.views[view_id].line_pos_floored() + buffer.views[view_id].view_lines;
 
                 if !(cursor_line_idx >= start_line && cursor_line_idx < end_line) {
                     break 'block;
@@ -772,7 +772,7 @@ impl View<Buffer> for EditorView {
                 let conflicts = buffer.conflicts.lock().unwrap();
                 normalized_conflicts.reserve_exact(conflicts.len());
                 let start_line = buffer.views[view_id].line_pos_floored();
-                let end_line = start_line + buffer.get_view_lines(view_id);
+                let end_line = start_line + buffer.views[view_id].view_lines;
                 let len_lines = buffer.len_lines() as f32 + bounds.grid_bounds().height as f32;
                 for (start, middle, end) in &*conflicts {
                     normalized_conflicts.push((

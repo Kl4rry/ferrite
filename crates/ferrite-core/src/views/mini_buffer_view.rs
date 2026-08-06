@@ -55,14 +55,15 @@ where
         let mut layer = layer.lock().unwrap();
         let buf = &mut layer.buf;
         let view_id = buffer.get_first_view_or_create();
+        let view = &mut buffer.views[view_id];
         if *one_line {
-            buffer.set_view_lines(view_id, 1);
+            view.view_lines = 1;
         }
-        buffer.views[view_id].clamp_cursor = true;
-        buffer.set_view_columns(view_id, area.width);
+        view.clamp_cursor = true;
+        view.view_lines = area.width;
         // This is a bit cheaty and will result in the buffer being clipped
         // weirdly if it is larger then the screen
-        buffer.views[view_id].line_pos = 0.0;
+        view.line_pos = 0.0;
 
         let view_bounds = match left_prompt {
             Some(left_prompt) => {

@@ -1127,7 +1127,7 @@ impl Engine {
                     );
                     // A buffers default amount of lines when newly opened is too large
                     // and the view will not jump to it.
-                    buffer.set_view_lines(view_id, 50);
+                    buffer.views[view_id].view_lines = 50;
                     buffer.center_on_main_cursor(view_id);
                 }
             }

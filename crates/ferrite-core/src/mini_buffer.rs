@@ -22,7 +22,7 @@ impl MiniBuffer {
     pub fn new() -> Self {
         let mut buffer = Buffer::builder().simple(true).build().unwrap();
         let view_id = buffer.create_view();
-        buffer.set_view_lines(view_id, 1);
+        buffer.views[view_id].view_lines = 1;
         buffer.views[view_id].clamp_cursor = true;
         Self {
             buffer,
