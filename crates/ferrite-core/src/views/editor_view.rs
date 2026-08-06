@@ -526,28 +526,32 @@ impl View<Buffer> for EditorView {
                     for i in 0..(diff + 1) {
                         let start_y = start_point
                             .line
-                            .saturating_sub(line_pos)
                             .add(i)
+                            .saturating_sub(line_pos)
                             .clamp(0, text_area.height);
                         let end_y = end_point
                             .line
-                            .saturating_sub(line_pos)
                             .add(i)
+                            .saturating_sub(line_pos)
                             .clamp(0, text_area.height);
 
-                        let first = i + line_pos == start_point.line || diff == 0;
+                        let first = start_y + line_pos == start_point.line;
                         let last = i == diff;
 
-                        let start_view_col = start_point.column.saturating_sub(col_pos);
                         let start_x = if first {
-                            start_view_col.clamp(0, text_area.width)
+                            start_point
+                                .column
+                                .saturating_sub(col_pos)
+                                .clamp(0, text_area.width)
                         } else {
                             0
                         };
 
-                        let end_view_col = end_point.column.saturating_sub(col_pos);
                         let end_x = if last {
-                            end_view_col.clamp(0, text_area.width)
+                            end_point
+                                .column
+                                .saturating_sub(col_pos)
+                                .clamp(0, text_area.width)
                         } else {
                             text_area.width
                         };
