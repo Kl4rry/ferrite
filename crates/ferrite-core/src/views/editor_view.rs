@@ -305,8 +305,7 @@ impl View<Buffer> for EditorView {
         }
 
         buffer.views[view_id].view_lines = text_area.height;
-
-        buffer.views[view_id].view_lines = text_area.width.saturating_sub(left_offset);
+        buffer.views[view_id].view_columns = text_area.width.saturating_sub(left_offset);
         buf.set_style(area.into(), theme.background);
 
         if line_nr {
