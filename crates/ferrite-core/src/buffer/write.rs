@@ -1,7 +1,9 @@
 use std::{
+    ffi::OsString,
+    fs,
     fs::{File, OpenOptions},
-    io::{BufWriter, Write},
-    path::Path,
+    io::{self, BufWriter, Write},
+    path::{Path, PathBuf},
 };
 
 use encoding_rs::{CoderResult, Encoding};
@@ -10,18 +12,60 @@ use ropey::Rope;
 
 use super::error::BufferError;
 
+fn create_tmp_file_path(path: impl AsRef<Path>) -> Result<PathBuf, BufferError> {
+    let path = path.as_ref();
+    let Some(file_name) = path.file_name() else {
+        return Err(io::Error::other("path has no filename").into());
+    };
+    let Some(parent) = path.parent() else {
+        return Err(io::Error::other("path has no parent").into());
+    };
+    let tmp_file_path = parent.with_file_name({
+        let prefix = ".~";
+        let postfix = ".tmp";
+        let mut tmp = OsString::with_capacity(file_name.len() + prefix.len() + postfix.len());
+        tmp.push(prefix);
+        tmp.push(file_name);
+        tmp.push(postfix);
+        tmp
+    });
+    Ok(tmp_file_path)
+}
+
 pub fn write(
     encoding: &'static Encoding,
     line_ending: LineEnding,
     rope: Rope,
     path: impl AsRef<Path>,
 ) -> Result<usize, BufferError> {
+    let path = path.as_ref();
+    let tmp_file_path = create_tmp_file_path(&path)?;
+    let mut create = true;
+    // This has a TOCTU but I don't really care
+    if let Ok(metadata) = fs::metadata(path) && metadata.is_file() {
+        fs::copy(&path, &tmp_file_path)?;
+        create = false;
+    }
     let mut file = OpenOptions::new()
-        .create(true)
+        .create(create)
         .truncate(false)
         .write(true)
-        .open(path)?;
-    write_inner(encoding, line_ending, rope, BufWriter::new(&mut file))
+        .open(&tmp_file_path)?;
+
+    let bytes_written = match write_inner(encoding, line_ending, rope, BufWriter::new(&mut file)) {
+        Ok(bytes_written) => bytes_written,
+        Err(err) => {
+            fs::remove_file(tmp_file_path)?;
+            return Err(err.into());
+        }
+    };
+
+    if let Err(err) = fs::rename(&tmp_file_path, &path) {
+        fs::remove_file(tmp_file_path)?;
+        return Err(err.into());
+    }
+
+    Ok(bytes_written)
 }
 
 fn write_inner(
