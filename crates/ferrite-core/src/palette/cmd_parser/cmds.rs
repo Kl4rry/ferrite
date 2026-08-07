@@ -75,7 +75,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
             for arg in args {
                 paths.push(arg.take().unwrap().unwrap_path());
             }
-            Cmd::RunShellCmd { args: paths, pipe: false }
+            Cmd::RunShellCmd { args: paths, pipe: true }
         }),
         CmdBuilder::new("sort", Some(("order", CmdTemplateArg::Alternatives(["asc", "desc"].iter().map(|s| s.to_string()).collect()))), true).build(|args| {
             Cmd::SortLines { ascending: args[0].take().map(|o|o.unwrap_string() == "asc").unwrap_or(true)}
