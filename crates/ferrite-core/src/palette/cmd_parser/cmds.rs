@@ -63,6 +63,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("new", Some(("path", CmdTemplateArg::Path)), true).add_alias("n").build(|args| Cmd::New { path: args[0].take().map(|arg| arg.unwrap_path()) }),
         CmdBuilder::new("indent", Some(("indent", CmdTemplateArg::String)), true).build(|args| Cmd::Indent { indent: args[0].take().map(|indent| indent.unwrap_string()) }),
         CmdBuilder::new("replace-all", Some(("replace-all", CmdTemplateArg::String)), false).build(|args| Cmd::ReplaceAll{ text: args[0].take().unwrap().unwrap_string() }),
+        // TODO: make this command function pipe all selections into command
         CmdBuilder::new("pipe", Some(("arg", CmdTemplateArg::Path)), false).build(|args| {
             let mut paths = Vec::new();
             for arg in args {
