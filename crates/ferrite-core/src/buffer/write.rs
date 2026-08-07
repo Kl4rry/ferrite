@@ -42,7 +42,9 @@ pub fn write(
     let tmp_file_path = create_tmp_file_path(&path)?;
     let mut create = true;
     // This has a TOCTU but I don't really care
-    if let Ok(metadata) = fs::metadata(path) && metadata.is_file() {
+    if let Ok(metadata) = fs::metadata(path)
+        && metadata.is_file()
+    {
         fs::copy(&path, &tmp_file_path)?;
         create = false;
     }

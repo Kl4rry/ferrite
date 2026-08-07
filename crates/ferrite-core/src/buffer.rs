@@ -38,7 +38,7 @@ use crate::{
     cmd::LineMoveDir,
     event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy},
     language::detect::detect_language,
-    workspace::BufferData,
+    workspace::persistance,
 };
 
 pub mod builder;
@@ -3396,9 +3396,9 @@ impl Buffer {
         }
     }
 
-    pub fn get_buffer_data(&self, view_id: ViewId) -> Option<BufferData> {
+    pub fn get_buffer_data(&self, view_id: ViewId) -> Option<persistance::Buffer> {
         let path = self.file()?;
-        Some(BufferData {
+        Some(persistance::Buffer {
             path: path.to_path_buf(),
             cursors: self.views[view_id].cursors.clone(),
             line_pos: self.line_pos(view_id),
@@ -3408,7 +3408,7 @@ impl Buffer {
         })
     }
 
-    pub fn write_buffer_data(&self, view_id: ViewId, buffer_data: &mut BufferData) {
+    pub fn write_buffer_data(&self, view_id: ViewId, buffer_data: &mut persistance::Buffer) {
         if buffer_data.cursors != self.views[view_id].cursors {
             buffer_data
                 .cursors
@@ -3422,14 +3422,14 @@ impl Buffer {
         }
     }
 
-    pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &BufferData) {
+    pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &persistance::Buffer) {
         self.views[view_id].cursors = buffer_data.cursors.clone();
         self.ensure_cursors_are_valid(view_id);
         self.views[view_id].line_pos = buffer_data.line_pos as f64;
         self.views[view_id].col_pos = buffer_data.col_pos as f64;
     }
 
-    pub fn load_buffer_data(&mut self, buffer_data: &BufferData) {
+    pub fn load_buffer_data(&mut self, buffer_data: &persistance::Buffer) {
         if let Err(err) = self.set_langauge(&buffer_data.language, get_proxy()) {
             tracing::error!("Error loading buffer data: {err}");
         }

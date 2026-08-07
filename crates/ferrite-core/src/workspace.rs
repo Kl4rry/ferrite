@@ -22,6 +22,8 @@ use crate::{
     watcher::{FileWatcher, TomlConfig},
 };
 
+pub mod persistance;
+
 slotmap::new_key_type! {
     pub struct BufferId;
 }
@@ -43,48 +45,10 @@ pub struct Workspace {
     pub buffers: SlotMap<BufferId, Buffer>,
     pub file_explorers: SlotMap<FileExplorerId, FileExplorer>,
     pub jump_list: JumpList,
-    pub buffer_extra_data: Vec<BufferData>,
+    pub buffer_extra_data: Vec<persistance::Buffer>,
     pub panes: Panes,
     pub config: WorkspaceConfig,
     pub config_watcher: Option<FileWatcher<WorkspaceConfig, TomlConfig>>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct WorkspaceData {
-    buffers: Vec<BufferData>,
-    open_buffers: Vec<PathBuf>,
-    layout: Layout,
-    #[serde(default)] // Default as old data might not have this field
-    palette_histories: HashMap<PaletteMode, History>,
-    #[serde(default)] // Default as old data might not have this field
-    jump_list: JumpListData,
-}
-
-#[derive(Serialize, Deserialize, Default)]
-pub struct JumpListData {
-    stack: Vec<JumpPointData>,
-    current_point: i64,
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum JumpPointData {
-    File {
-        file: PathBuf,
-        cursors: Vec1<Cursor>,
-        line_pos: f64,
-        col_pos: f64,
-    },
-    FileExplorer(PathBuf),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BufferData {
-    pub path: PathBuf,
-    pub cursors: Vec1<Cursor>,
-    pub line_pos: usize,
-    pub col_pos: usize,
-    pub language: String,
-    pub indent: Indentation,
 }
 
 impl Default for Workspace {
@@ -109,12 +73,12 @@ impl Workspace {
     pub fn save_workspace(&self, palette_histories: &HashMap<PaletteMode, History>) -> Result<()> {
         let workspace_dir = std::env::current_dir()?;
         let workspace_file = get_workspace_path(workspace_dir)?;
-        let mut workspace_data = WorkspaceData {
+        let mut workspace_data = persistance::Workspace {
             buffers: self.buffer_extra_data.clone(),
             open_buffers: Vec::new(),
             layout: Layout::from_panes(&self.panes, &self.buffers, &self.file_explorers),
             palette_histories: palette_histories.clone(),
-            jump_list: JumpListData::default(),
+            jump_list: persistance::JumpList::default(),
         };
 
         for (path, buffer) in self
@@ -147,13 +111,13 @@ impl Workspace {
                     cursors,
                     line_pos,
                     col_pos,
-                } => JumpPointData::File {
+                } => persistance::JumpPoint::File {
                     file: file.clone(),
                     cursors: cursors.clone(),
                     line_pos: *line_pos,
                     col_pos: *col_pos,
                 },
-                JumpPoint::FileExplorer(file) => JumpPointData::FileExplorer(file.clone()),
+                JumpPoint::FileExplorer(file) => persistance::JumpPoint::FileExplorer(file.clone()),
             });
         }
 
@@ -176,7 +140,8 @@ impl Workspace {
 
         let workspace_dir = std::env::current_dir()?;
         let workspace_file = get_workspace_path(&workspace_dir)?;
-        let workspace: WorkspaceData = serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
+        let workspace: persistance::Workspace =
+            serde_json::from_str(&fs::read_to_string(workspace_file)?)?;
 
         if load_buffers {
             for path in &workspace.open_buffers {
@@ -255,7 +220,7 @@ impl Workspace {
         let mut jump_points = Vec::new();
         for jump_point in workspace.jump_list.stack {
             jump_points.push(match jump_point {
-                JumpPointData::File {
+                persistance::JumpPoint::File {
                     file,
                     cursors,
                     line_pos,
@@ -266,7 +231,7 @@ impl Workspace {
                     line_pos,
                     col_pos,
                 },
-                JumpPointData::FileExplorer(file) => JumpPoint::FileExplorer(file),
+                persistance::JumpPoint::FileExplorer(file) => JumpPoint::FileExplorer(file),
             });
         }
 
