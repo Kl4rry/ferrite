@@ -60,7 +60,7 @@ where
             view.view_lines = 1;
         }
         view.clamp_cursor = true;
-        view.view_lines = area.width;
+        view.view_columns = area.width;
         // This is a bit cheaty and will result in the buffer being clipped
         // weirdly if it is larger then the screen
         view.line_pos = 0.0;
