@@ -38,14 +38,13 @@ pub fn write(
     rope: Rope,
     path: impl AsRef<Path>,
 ) -> Result<usize, BufferError> {
-    let path = path.as_ref();
-    let tmp_file_path = create_tmp_file_path(path)?;
+    let tmp_file_path = create_tmp_file_path(&path)?;
     let mut create = true;
     // This has a TOCTU but I don't really care
-    if let Ok(metadata) = fs::metadata(path)
+    if let Ok(metadata) = fs::metadata(&path)
         && metadata.is_file()
     {
-        fs::copy(path, &tmp_file_path)?;
+        fs::copy(&path, &tmp_file_path)?;
         create = false;
     }
     let mut file = OpenOptions::new()
@@ -62,7 +61,7 @@ pub fn write(
         }
     };
 
-    if let Err(err) = fs::rename(&tmp_file_path, path) {
+    if let Err(err) = fs::rename(&tmp_file_path, &path) {
         fs::remove_file(tmp_file_path)?;
         return Err(err.into());
     }
