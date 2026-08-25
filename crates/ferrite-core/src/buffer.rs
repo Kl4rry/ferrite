@@ -646,6 +646,10 @@ impl Buffer {
         let len_lines = self.len_lines() as f64;
         self.views[view_id].line_pos =
             (self.views[view_id].line_pos + distance).clamp(0.0, len_lines - 1.0);
+        let clamp_cursor = self.views[view_id].clamp_cursor;
+        self.views[view_id].clamp_cursor = false;
+        self.move_up(view_id, false, false, distance.abs() as usize);
+        self.views[view_id].clamp_cursor = clamp_cursor;
     }
 
     pub fn page_down(&mut self, view_id: ViewId) {
@@ -653,6 +657,10 @@ impl Buffer {
         let len_lines = self.len_lines() as f64;
         self.views[view_id].line_pos =
             (self.views[view_id].line_pos + distance).clamp(0.0, len_lines - 1.0);
+        let clamp_cursor = self.views[view_id].clamp_cursor;
+        self.views[view_id].clamp_cursor = false;
+        self.move_down(view_id, false, false, distance.abs() as usize);
+        self.views[view_id].clamp_cursor = clamp_cursor;
     }
 
     pub fn move_right_char(&mut self, view_id: ViewId, expand_selection: bool) {
