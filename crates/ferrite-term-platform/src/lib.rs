@@ -217,7 +217,18 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 self.dirty = true;
                 self.columns = columns;
                 self.lines = lines;
-                self.terminal.clear().unwrap();
+                {
+                    let mut total = 0;
+                    while let Err(err) = self.terminal.clear() {
+                        tracing::error!("Error clearing terminal: {err}");
+                        std::thread::sleep(Duration::from_millis(10));
+                        // defensive break in case we just keep erroring
+                        if total > 10 {
+                            break;
+                        }
+                        total += 1;
+                    }
+                }
                 self.render(control_flow);
             }
             Event::Key(event) => {
