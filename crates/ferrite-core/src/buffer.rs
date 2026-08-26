@@ -2433,7 +2433,7 @@ impl Buffer {
         if self.views[view_id].cursors.len() > 1 {
             self.views[view_id].cursors.clear();
             if self.views[view_id].clamp_cursor {
-                self.scroll_main_cursor_into_view(view_id);
+                self.center_on_cursor(view_id, 0);
             }
             return;
         }
