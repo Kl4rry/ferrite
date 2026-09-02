@@ -643,16 +643,6 @@ impl Engine {
             Cmd::FilePickerReload => {
                 self.file_cache = None;
             }
-            Cmd::ReplaceAll { text } => {
-                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                    buffer.replace_all(view_id, text);
-                }
-            }
-            Cmd::SortLines { ascending } => {
-                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
-                    buffer.sort_lines(view_id, ascending);
-                }
-            }
             Cmd::Path => match self.try_get_current_buffer_path() {
                 Some(path) => self.palette.set_msg(path.to_string_lossy()),
                 None => self
@@ -1041,6 +1031,28 @@ impl Engine {
             }
             Cmd::JumpForward => {
                 self.jump_forward();
+            }
+            Cmd::UnicodeInsert { code_point } => {
+                let start_offset = if code_point.starts_with("u+") || code_point.starts_with("U+") {
+                    2
+                } else {
+                    0
+                };
+                let code_point = &code_point[start_offset..];
+                let code_point: u32 = match u32::from_str_radix(code_point, 16) {
+                    Ok(code_point) => code_point,
+                    Err(err) => {
+                        self.palette.set_error(err);
+                        return;
+                    }
+                };
+                let Some(ch) = char::from_u32(code_point) else {
+                    self.palette.set_error("Error invalid unicode code point");
+                    return;
+                };
+                if let Some((buffer, view_id)) = self.get_current_buffer_mut() {
+                    buffer.insert_text(view_id, &ch.to_string(), true);
+                }
             }
             input => {
                 if matches!(

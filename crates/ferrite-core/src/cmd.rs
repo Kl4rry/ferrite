@@ -226,6 +226,9 @@ pub enum Cmd {
     EditPalette,
     JumpBack,
     JumpForward,
+    UnicodeInsert {
+        code_point: String,
+    },
 }
 
 impl Cmd {
@@ -372,6 +375,7 @@ impl Cmd {
             EditPalette => "Edit command palette content",
             JumpBack => "Jump back",
             JumpForward => "Jump forward",
+            UnicodeInsert { .. } => "Insert raw unicode code point",
         }
     }
 
@@ -497,6 +501,7 @@ impl Cmd {
             EditPalette => false,
             JumpBack => true,
             JumpForward => true,
+            UnicodeInsert { .. } => true,
         }
     }
 }

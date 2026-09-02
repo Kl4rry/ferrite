@@ -70,6 +70,12 @@ impl Buffer {
             BackspaceToStartOfLine if !self.read_only => self.backspace_to_start_of_line(view_id),
             PageUp => self.page_up(view_id),
             PageDown => self.page_down(view_id),
+            SortLines { ascending } if !self.read_only => {
+                self.sort_lines(view_id, ascending);
+            }
+            Cmd::ReplaceAll { text } if !self.read_only => {
+                self.replace_all(view_id, text);
+            }
             Nop => (),
             _ => return Ok(()), // if we do nothing it should not count as an interact
         }
