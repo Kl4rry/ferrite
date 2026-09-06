@@ -895,6 +895,7 @@ dependencies = [
  "profiling",
  "puffin",
  "puffin_http",
+ "rayon",
  "tracing",
  "tracing-log",
  "tracing-subscriber",

@@ -101,6 +101,18 @@ fn main() -> Result<ExitCode> {
         }
     }
 
+    {
+        let threads = std::thread::available_parallelism().unwrap().get();
+        let num_threads = if threads > 4 { threads - 2 } else { threads };
+
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .use_current_thread()
+            .thread_name(|idx| format!("worker {idx}"))
+            .build_global()
+            .unwrap();
+    }
+
     let _puffin_server = if args.profile {
         let server_addr = format!("127.0.0.1:{}", puffin_http::DEFAULT_PORT);
         let puffin_server = puffin_http::Server::new(&server_addr).unwrap();

@@ -95,6 +95,7 @@ ferrite-winit-wgpu-platform = { workspace = true, optional = true }
 profiling = { workspace = true }
 puffin = { workspace = true }
 puffin_http = { workspace = true }
+rayon = { workspace = true }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["json"] }
