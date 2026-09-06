@@ -21,6 +21,55 @@ pub enum JumpPoint {
     FileExplorer(PathBuf),
 }
 
+impl JumpPoint {
+    pub fn is_similar(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                JumpPoint::Buffer {
+                    buffer_id,
+                    cursors,
+                    line_pos,
+                    col_pos,
+                },
+                JumpPoint::Buffer {
+                    buffer_id: other_buffer_id,
+                    cursors: other_cursors,
+                    line_pos: other_line_pos,
+                    col_pos: other_col_pos,
+                },
+            ) => {
+                buffer_id == other_buffer_id
+                    && cursors == other_cursors
+                    && *line_pos as i64 == *other_line_pos as i64
+                    && *col_pos as i64 == *other_col_pos as i64
+            }
+            (
+                JumpPoint::File {
+                    file,
+                    cursors,
+                    line_pos,
+                    col_pos,
+                },
+                JumpPoint::File {
+                    file: other_file,
+                    cursors: other_cursors,
+                    line_pos: other_line_pos,
+                    col_pos: other_col_pos,
+                },
+            ) => {
+                file == other_file
+                    && cursors == other_cursors
+                    && *line_pos as i64 == *other_line_pos as i64
+                    && *col_pos as i64 == *other_col_pos as i64
+            }
+            (JumpPoint::FileExplorer(file), JumpPoint::FileExplorer(other_file)) => {
+                file == other_file
+            }
+            _ => false,
+        }
+    }
+}
+
 pub struct JumpList {
     stack: Vec<JumpPoint>,
     current_point: i64,
@@ -36,8 +85,12 @@ impl JumpList {
 
     pub fn push(&mut self, jump_point: JumpPoint) {
         // Check if jump point is the same as the last one and don't save it if they are too similar
-        // TODO: The comparison might have to be fuzzy
-        if Some(&jump_point) == self.stack.get((self.current_point + 1) as usize) {
+        if self
+            .stack
+            .get((self.current_point) as usize)
+            .map(|current| current.is_similar(&jump_point))
+            .unwrap_or(false)
+        {
             return;
         }
         self.stack.truncate((self.current_point + 1) as usize);
