@@ -348,7 +348,7 @@ impl Engine {
                 match result {
                     Ok(job) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(job.buffer_id) {
-                            if job.last_edit <= buffer.get_last_edit() {
+                            if job.last_edit_time <= buffer.last_edit_time {
                                 buffer.try_update_blame();
                                 buffer.mark_saved();
                             } else {
@@ -720,14 +720,21 @@ impl Engine {
                 self.save_jump_point();
                 self.open_url(path, false, false);
             }
-            Cmd::Save { path } => {
+            Cmd::Write { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
 
-                self.save_buffer(buffer_id, path);
+                self.save_buffer(buffer_id, path, false);
             }
-            Cmd::SaveAll => {
+            Cmd::ForceWrite { path } => {
+                let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
+                    return;
+                };
+
+                self.save_buffer(buffer_id, path, true);
+            }
+            Cmd::WriteAll => {
                 let arena = ferrite_ctx::Ctx::arena();
                 let mut buffers_to_save = ArenaVec::new_in(&arena);
                 for (buffer_id, buffer) in &self.workspace.buffers {
@@ -737,7 +744,7 @@ impl Engine {
                 }
 
                 for buffer_id in buffers_to_save {
-                    self.save_buffer(buffer_id, None);
+                    self.save_buffer(buffer_id, None, false);
                 }
             }
             Cmd::Language { language } => {
@@ -1627,7 +1634,7 @@ impl Engine {
                         .map(|path| trim_path(&current_dir, path))
                         .unwrap_or_else(|| buffer.name().to_string())
                 },
-                order: buffer.get_last_interact(),
+                order: buffer.last_interact_time,
             })
             .collect();
 
@@ -1812,7 +1819,7 @@ impl Engine {
     fn get_next_buffer(&mut self) -> (BufferId, ViewId) {
         let mut next_buffer = None;
         let mut buffers: Vec<_> = self.workspace.buffers.iter_mut().collect();
-        buffers.sort_by_key(|b| std::cmp::Reverse(b.1.get_last_interact()));
+        buffers.sort_by_key(|b| std::cmp::Reverse(b.1.last_interact_time));
         for (buffer_id, buffer) in &mut buffers {
             if !self.workspace.panes.contains_buffer(*buffer_id) {
                 let view_id = buffer.create_view();
@@ -1953,7 +1960,7 @@ impl Engine {
         (buffer_id, &mut self.workspace.buffers[buffer_id])
     }
 
-    pub fn save_buffer(&mut self, buffer_id: BufferId, path: Option<PathBuf>) {
+    pub fn save_buffer(&mut self, buffer_id: BufferId, path: Option<PathBuf>, force: bool) {
         let buffer = &mut self.workspace.buffers[buffer_id];
 
         if let Some(path) = path
@@ -1995,12 +2002,31 @@ impl Engine {
         }
 
         let job = self.job_manager.spawn_foreground_job(
-            move |_, _, (buffer_id, encoding, line_ending, rope, path, last_edit)| {
+            move |_,
+                  _,
+                  (
+                buffer_id,
+                encoding,
+                line_ending,
+                rope,
+                path,
+                last_edit_time,
+                last_save_time,
+            )| {
+                if !force {
+                    if let Ok(metadata) = std::fs::metadata(&path) {
+                        if let Ok(mtime) = metadata.modified() {
+                            if last_save_time < mtime {
+                                anyhow::bail!("Error the file modified by another program, use write! to overwrite it");
+                            }
+                        }
+                    }
+                }
                 let written = buffer::write::write(encoding, line_ending, rope.clone(), &path)?;
                 Ok(SaveBufferJob {
                     buffer_id,
                     path,
-                    last_edit,
+                    last_edit_time,
                     written,
                 })
             },
@@ -2010,7 +2036,8 @@ impl Engine {
                 buffer.line_ending,
                 buffer.rope().clone(),
                 path.to_path_buf(),
-                buffer.get_last_edit(),
+                buffer.last_edit_time,
+                buffer.last_save_time,
             ),
         );
 

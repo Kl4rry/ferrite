@@ -7,7 +7,7 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::Instant,
+    time::{Instant, SystemTime},
 };
 
 use cursor::{Cursor, Selection};
@@ -182,13 +182,14 @@ pub struct Buffer {
     dirty: bool,
     pub read_only: bool,
     pub read_only_file: bool,
-    last_edit: Instant,
-    pub line_ending: LineEnding,
     pub encoding: &'static Encoding,
     pub indent: Indentation,
     pub conflicts: Arc<Mutex<Vec<(usize, usize, usize)>>>,
     pub blame: Blame,
-    last_interact: Instant,
+    pub last_edit_time: Instant,
+    pub line_ending: LineEnding,
+    pub last_interact_time: Instant,
+    pub last_save_time: SystemTime,
     completion_source: CompletionSource,
     // syntax highlight
     syntax: Option<Syntax>,
@@ -215,14 +216,15 @@ impl Clone for Buffer {
             dirty: self.dirty,
             read_only: self.read_only,
             read_only_file: self.read_only_file,
-            last_edit: self.last_edit,
             line_ending: self.line_ending,
             encoding: self.encoding,
             indent: self.indent,
             syntax: Some(syntax),
             history: self.history.clone(),
             conflicts: Arc::new(Mutex::new(self.conflicts.lock().unwrap().clone())),
-            last_interact: self.last_interact,
+            last_edit_time: self.last_edit_time,
+            last_interact_time: self.last_interact_time,
+            last_save_time: self.last_save_time,
             last_used_view: self.last_used_view,
             views: self.views.clone(),
             main_view: self.main_view.clone(),
@@ -245,14 +247,15 @@ impl Default for Buffer {
             indent: Indentation::default(),
             dirty: false,
             simple: false,
-            last_edit: Instant::now(),
             read_only: false,
             read_only_file: false,
             line_ending: DEFAULT_LINE_ENDING,
             syntax: None,
             history: History::default(),
             conflicts: Arc::new(Mutex::new(Vec::new())),
-            last_interact: Instant::now(),
+            last_edit_time: Instant::now(),
+            last_interact_time: Instant::now(),
+            last_save_time: SystemTime::now(),
             last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
             main_view: View::default(),
@@ -2670,14 +2673,6 @@ impl Buffer {
         self.dirty = false;
     }
 
-    pub fn get_last_edit(&self) -> Instant {
-        self.last_edit
-    }
-
-    pub fn get_last_interact(&self) -> Instant {
-        self.last_interact
-    }
-
     pub fn get_last_used_view(&self) -> Option<ViewId> {
         if self.views.contains_key(self.last_used_view) {
             Some(self.last_used_view)
@@ -2687,7 +2682,7 @@ impl Buffer {
     }
 
     pub fn update_interact(&mut self, view_id: Option<ViewId>) {
-        self.last_interact = Instant::now();
+        self.last_interact_time = Instant::now();
         if let Some(view_id) = view_id {
             self.last_used_view = view_id;
             self.main_view.clone_from(&self.views[view_id]);
@@ -2804,6 +2799,7 @@ impl Buffer {
         if self.language_name() == "text" {
             self.auto_detect_language(true, false);
         }
+        self.last_save_time = SystemTime::now();
     }
 
     pub fn len_bytes(&self) -> usize {
@@ -3395,7 +3391,7 @@ impl Buffer {
 
     pub fn on_file_changed(&mut self, view_id: Option<ViewId>) {
         self.update_interact(view_id);
-        self.last_edit = Instant::now();
+        self.last_edit_time = Instant::now();
         if !self.simple {
             self.update_searchers();
             self.find_conflicts();
