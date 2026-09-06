@@ -233,6 +233,7 @@ impl Engine {
                 continue;
             }
 
+            engine.save_jump_point();
             engine.open_url(file, false, true);
         }
 
@@ -882,6 +883,7 @@ impl Engine {
             }
             Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
             Cmd::Logger => {
+                self.save_jump_point();
                 self.open_url("editor://logger", false, false);
             }
             Cmd::Theme { theme } => match theme {
@@ -1393,7 +1395,6 @@ impl Engine {
             "editor" => self.open_editor_scheme(body),
             _ => {
                 if scheme == "file" && (!open_with_os || is_text_file(body).unwrap_or(false)) {
-                    self.save_jump_point();
                     return self.open_file(body, create_file);
                 }
                 match opener::open(url) {
@@ -1466,9 +1467,11 @@ impl Engine {
                 finder.kinds(&[LinkKind::Url]);
                 let spans: Vec<_> = finder.spans(&selection).collect();
                 if spans.is_empty() {
+                    self.save_jump_point();
                     self.open_url(&selection, true, false);
                 } else {
                     for span in spans {
+                        self.save_jump_point();
                         self.open_url(span.as_str(), true, false);
                     }
                 }

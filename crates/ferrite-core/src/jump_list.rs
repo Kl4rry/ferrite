@@ -40,8 +40,8 @@ impl JumpPoint {
             ) => {
                 buffer_id == other_buffer_id
                     && cursors == other_cursors
-                    && *line_pos as i64 == *other_line_pos as i64
-                    && *col_pos as i64 == *other_col_pos as i64
+                    && line_pos.floor() as i64 == other_line_pos.floor() as i64
+                    && col_pos.floor() as i64 == other_col_pos.floor() as i64
             }
             (
                 JumpPoint::File {
@@ -59,8 +59,8 @@ impl JumpPoint {
             ) => {
                 file == other_file
                     && cursors == other_cursors
-                    && *line_pos as i64 == *other_line_pos as i64
-                    && *col_pos as i64 == *other_col_pos as i64
+                    && line_pos.floor() as i64 == other_line_pos.floor() as i64
+                    && col_pos.floor() as i64 == other_col_pos.floor() as i64
             }
             (JumpPoint::FileExplorer(file), JumpPoint::FileExplorer(other_file)) => {
                 file == other_file
@@ -85,17 +85,19 @@ impl JumpList {
 
     pub fn push(&mut self, jump_point: JumpPoint) {
         // Check if jump point is the same as the last one and don't save it if they are too similar
-        if self
-            .stack
-            .get((self.current_point) as usize)
-            .map(|current| current.is_similar(&jump_point))
-            .unwrap_or(false)
+        if self.current_point >= 0
+            && self
+                .stack
+                .get((self.current_point) as usize)
+                .map(|current| current.is_similar(&jump_point))
+                .unwrap_or(false)
         {
             return;
         }
+
         self.stack.truncate((self.current_point + 1) as usize);
         self.stack.push(jump_point);
-        self.current_point += 1;
+        self.current_point = self.stack.len() as i64 - 1;
     }
 
     pub fn jump_back(&mut self, mut jump_point: JumpPoint) -> Option<JumpPoint> {
