@@ -237,9 +237,8 @@ fn get_icon(entry: &DirEntry, file_type: FileType) -> (&'static str, Option<Colo
 
 pub fn is_executable(metadata: &std::fs::Metadata) -> bool {
     #[cfg(unix)]
-    if std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0 {
-        return true;
-    }
+    return std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 != 0;
+    #[cfg(not(unix))]
     false
 }
 

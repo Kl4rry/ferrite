@@ -2013,14 +2013,14 @@ impl Engine {
                 last_edit_time,
                 last_save_time,
             )| {
-                if !force {
-                    if let Ok(metadata) = std::fs::metadata(&path) {
-                        if let Ok(mtime) = metadata.modified() {
-                            if last_save_time < mtime {
-                                anyhow::bail!("Error the file modified by another program, use write! to overwrite it");
-                            }
-                        }
-                    }
+                if !force
+                    && let Ok(metadata) = std::fs::metadata(&path)
+                    && let Ok(mtime) = metadata.modified()
+                    && last_save_time < mtime
+                {
+                    anyhow::bail!(
+                        "Error the file modified by another program, use write! to overwrite it"
+                    );
                 }
                 let written = buffer::write::write(encoding, line_ending, rope.clone(), &path)?;
                 Ok(SaveBufferJob {
