@@ -690,7 +690,6 @@ impl Engine {
                 let (buffer_id, view_id) = match self.workspace.panes.get_current_pane() {
                     PaneKind::Buffer(buffer_id, _) => {
                         let view_id = self.workspace.buffers[buffer_id].create_view();
-                        self.load_view_data(buffer_id, view_id);
                         (buffer_id, view_id)
                     }
                     _ => self.get_next_buffer(),
@@ -1000,8 +999,7 @@ impl Engine {
                     new_buffer.views.clear();
                     let _ = new_buffer.set_file(None::<&str>); // NOTE cannot fail
                     let view_id = new_buffer.create_view();
-                    let (buffer_id, _) = self.insert_buffer(new_buffer, view_id, true);
-                    self.load_view_data(buffer_id, view_id);
+                    self.insert_buffer(new_buffer, view_id, true);
                 }
             }
             Cmd::OpenRename => {
@@ -1120,7 +1118,6 @@ impl Engine {
 
                 let buffer = &mut self.workspace.buffers[choice.id];
                 let view_id = buffer.create_view();
-                self.load_view_data(choice.id, view_id);
 
                 self.make_current_pane(PaneKind::Buffer(choice.id, view_id));
             }
@@ -1832,10 +1829,6 @@ impl Engine {
             && let Some((buffer_id, buffer)) = buffers.first_mut()
         {
             next_buffer = Some((*buffer_id, buffer.create_view()));
-        }
-
-        if let Some((buffer_id, view_id)) = next_buffer {
-            self.load_view_data(buffer_id, view_id);
         }
 
         next_buffer.unwrap_or_else(|| {
