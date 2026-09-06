@@ -1338,7 +1338,8 @@ impl Buffer {
             }
             (text.len(), true)
         } else if auto_indent && text_as_rope.len_lines() > 1 {
-            let indent = self.guess_indent(self.views[view_id].cursors[cursor_index].position);
+            let indent =
+                self.guess_indent(self.views[view_id].cursors[cursor_index].position, true);
             let min_indent_width = Rope::from_str(&indent).width(0);
 
             let mut smallest_indent_width = usize::MAX;
@@ -1916,7 +1917,35 @@ impl Buffer {
 
             if !self.views[view_id].cursors[i].has_selection() && !back {
                 let col = self.cursor_grapheme_column(view_id, i);
-                self.insert_text_raw(view_id, i, &self.indent.to_next_ident(col), false, false);
+                let cursor = self.views[view_id].cursors[i];
+                let line = self.rope.line(self.rope.byte_to_line(cursor.position));
+                if line.is_whitespace() {
+                    let indent_width =
+                        Rope::from_str(&self.guess_indent(cursor.position, false)).width(0);
+                    if self.cursor_grapheme_column(view_id, i) >= indent_width {
+                        // Insert single indent
+                        self.insert_text_raw(
+                            view_id,
+                            i,
+                            &self.indent.to_next_ident(col),
+                            false,
+                            false,
+                        );
+                    } else {
+                        // Auto indent until we reach the estimated indent level
+                        while self.cursor_grapheme_column(view_id, i) < indent_width {
+                            self.insert_text_raw(
+                                view_id,
+                                i,
+                                &self.indent.to_next_ident(col),
+                                false,
+                                false,
+                            );
+                        }
+                    }
+                } else {
+                    self.insert_text_raw(view_id, i, &self.indent.to_next_ident(col), true, false);
+                }
             } else {
                 // TODO optimize for larger files
                 let cursor_col = self.cursor_grapheme_column(view_id, i);
@@ -2841,9 +2870,9 @@ impl Buffer {
         }
     }
 
-    pub fn guess_indent(&self, byte_index: usize) -> String {
+    pub fn guess_indent(&self, byte_index: usize, include_current_line: bool) -> String {
         let line_idx = self.rope.byte_to_line(byte_index);
-        for line_idx in (0..=line_idx).rev() {
+        for line_idx in (0..(line_idx + include_current_line as usize)).rev() {
             let line = self.rope.line_without_line_ending(line_idx);
             if line.len_bytes() == 0 {
                 continue;
@@ -3352,7 +3381,7 @@ impl Buffer {
 
         for (cursor_loop_index, (_, i)) in cursors.iter().copied().enumerate() {
             let before_len_bytes = self.rope.len_bytes();
-            let indent = self.guess_indent(self.views[view_id].cursors[i].position);
+            let indent = self.guess_indent(self.views[view_id].cursors[i].position, true);
             self.insert_text_raw(view_id, i, "\n", false, false);
             let cursor = &mut self.views[view_id].cursors[i];
             cursor.position -= 1;
