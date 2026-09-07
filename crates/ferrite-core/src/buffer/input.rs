@@ -37,9 +37,10 @@ impl Buffer {
             RemoveLine if !self.read_only => self.remove_line(view_id),
             Copy => self.copy(view_id),
             Cut if !self.read_only => self.cut(view_id),
-            Paste if !self.read_only => self.paste(view_id),
+            Paste if !self.read_only => self.paste(view_id, false),
+            PastePrimary if !self.read_only => self.paste(view_id, true),
             PasteWithMouse { column, line } if !self.read_only => {
-                self.paste_primary(view_id, column, line)
+                self.paste_with_mouse(view_id, column, line)
             }
             TabOrIndent { back } if !self.read_only => self.tab_or_indent(view_id, back),
             VerticalScroll { distance } => self.vertical_scroll(view_id, distance),

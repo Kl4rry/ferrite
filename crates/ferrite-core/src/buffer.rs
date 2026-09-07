@@ -2315,8 +2315,12 @@ impl Buffer {
         self.update_completer(Some(view_id), CompleterEvent::None);
     }
 
-    pub fn paste(&mut self, view_id: ViewId) {
-        let text = ferrite_clipboard::get_contents();
+    pub fn paste(&mut self, view_id: ViewId, primary: bool) {
+        let text = if primary {
+            ferrite_clipboard::get_primary()
+        } else {
+            ferrite_clipboard::get_contents()
+        };
         let rope = Rope::from_str(&text);
 
         let lines = rope
@@ -2378,7 +2382,7 @@ impl Buffer {
         self.update_completer(Some(view_id), CompleterEvent::Insert);
     }
 
-    pub fn paste_primary(&mut self, view_id: ViewId, col: usize, line: usize) {
+    pub fn paste_with_mouse(&mut self, view_id: ViewId, col: usize, line: usize) {
         self.views[view_id].cursors.clear();
         self.set_cursor_pos(view_id, 0, col, line);
         self.set_anchor_pos(view_id, 0, col, line);

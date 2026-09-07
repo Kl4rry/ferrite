@@ -130,5 +130,5 @@ pub fn get_primary() -> String {
         }
     }
     #[cfg(not(target_os = "linux"))]
-    String::new()
+    get_contents()
 }

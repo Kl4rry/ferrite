@@ -246,6 +246,12 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
             InputContext::All,
         ),
         (
+            Key::new(KeyCode::Insert, KeyModifiers::SHIFT),
+            Cmd::Paste,
+            false,
+            InputContext::All,
+        ),
+        (
             Key::new(KeyCode::Char('x'), KeyModifiers::CONTROL),
             Cmd::Cut,
             false,
