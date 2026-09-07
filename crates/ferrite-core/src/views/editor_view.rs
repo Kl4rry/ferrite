@@ -128,7 +128,7 @@ impl View<Buffer> for EditorView {
                 }
             }
             MouseInterctionKind::Press(_) if mouse_interaction.button == MouseButton::Middle => {
-                let cmd = Cmd::PastePrimary {
+                let cmd = Cmd::PasteWithMouse {
                     column: cell_position.x.saturating_sub(left_offset),
                     line: cell_position.y,
                 };

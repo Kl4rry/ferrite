@@ -38,7 +38,7 @@ impl Buffer {
             Copy => self.copy(view_id),
             Cut if !self.read_only => self.cut(view_id),
             Paste if !self.read_only => self.paste(view_id),
-            PastePrimary { column, line } if !self.read_only => {
+            PasteWithMouse { column, line } if !self.read_only => {
                 self.paste_primary(view_id, column, line)
             }
             TabOrIndent { back } if !self.read_only => self.tab_or_indent(view_id, back),

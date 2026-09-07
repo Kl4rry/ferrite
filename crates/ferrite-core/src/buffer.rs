@@ -2447,6 +2447,8 @@ impl Buffer {
 
         self.ensure_every_cursor_is_valid();
         self.update_completer(None, CompleterEvent::None);
+
+        self.mark_saved();
         Ok(())
     }
 
