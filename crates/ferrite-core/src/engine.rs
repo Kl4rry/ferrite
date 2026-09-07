@@ -720,21 +720,21 @@ impl Engine {
                 self.save_jump_point();
                 self.open_url(path, false, false);
             }
-            Cmd::Write { path } => {
+            Cmd::Save { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
 
                 self.save_buffer(buffer_id, path, false);
             }
-            Cmd::ForceWrite { path } => {
+            Cmd::ForceSave { path } => {
                 let PaneKind::Buffer(buffer_id, _) = self.workspace.panes.get_current_pane() else {
                     return;
                 };
 
                 self.save_buffer(buffer_id, path, true);
             }
-            Cmd::WriteAll => {
+            Cmd::SaveAll => {
                 let arena = ferrite_ctx::Ctx::arena();
                 let mut buffers_to_save = ArenaVec::new_in(&arena);
                 for (buffer_id, buffer) in &self.workspace.buffers {
@@ -2015,7 +2015,7 @@ impl Engine {
                     && last_save_time < mtime
                 {
                     anyhow::bail!(
-                        "Error the file modified by another program, use write! to overwrite it"
+                        "Error the file modified by another program, use the save! command to overwrite it"
                     );
                 }
                 let written = buffer::write::write(encoding, line_ending, rope.clone(), &path)?;

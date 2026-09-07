@@ -23,10 +23,10 @@ pub enum Cmd {
     Cd {
         path: PathBuf,
     },
-    Write {
+    Save {
         path: Option<PathBuf>,
     },
-    ForceWrite {
+    ForceSave {
         path: Option<PathBuf>,
     },
     Language {
@@ -194,7 +194,7 @@ pub enum Cmd {
     OpenFilePicker,
     OpenBufferPicker,
     Escape,
-    WriteAll,
+    SaveAll,
     GrowPane,
     ShrinkPane,
     InputMode {
@@ -296,7 +296,7 @@ impl Cmd {
             OpenFilePicker => "Open file picker",
             OpenBufferPicker => "Open buffer picker",
             Escape => "Escape",
-            WriteAll => "Write all buffers",
+            SaveAll => "Save all buffers",
             Quit => "Quit",
             Close => "Close buffer",
             ClosePane => "Close pane",
@@ -321,8 +321,8 @@ impl Cmd {
             RotateFile => "Rotate file",
             OpenFile { .. } => "Open file",
             Cd { .. } => "Change project directory",
-            Write { .. } => "Write buffer",
-            ForceWrite { .. } => "Force write buffer",
+            Save { .. } => "Save buffer",
+            ForceSave { .. } => "Force save buffer",
             Language { .. } => "Language",
             Encoding { .. } => "Encoding",
             LineEnding { .. } => "Line ending",
@@ -440,7 +440,7 @@ impl Cmd {
             OpenFilePicker => false,
             OpenBufferPicker => false,
             Escape => false,
-            WriteAll => false,
+            SaveAll => false,
             Quit => false,
             Close => false,
             ClosePane => false,
@@ -454,8 +454,8 @@ impl Cmd {
             RotateFile => false,
             OpenFile { .. } => false,
             Cd { .. } => false,
-            Write { .. } => false,
-            ForceWrite { .. } => false,
+            Save { .. } => false,
+            ForceSave { .. } => false,
             Language { .. } => false,
             Encoding { .. } => false,
             LineEnding { .. } => false,

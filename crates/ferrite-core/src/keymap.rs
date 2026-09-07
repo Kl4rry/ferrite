@@ -202,7 +202,7 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
         ),
         (
             Key::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
-            Cmd::Write { path: None },
+            Cmd::Save { path: None },
             false,
             InputContext::Edit,
         ),
