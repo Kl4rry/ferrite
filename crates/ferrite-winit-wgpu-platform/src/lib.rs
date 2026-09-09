@@ -392,9 +392,13 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         let backends = if cfg!(windows) {
             wgpu::Backends::DX12
         } else if cfg!(target_os = "macos") {
-            wgpu::Backends::PRIMARY
-        } else {
+            wgpu::Backends::METAL
+        } else if cfg!(target_os = "netbsd") {
+            wgpu::Backends::GL
+        } else if cfg!(target_os = "linux") {
             wgpu::Backends::all()
+        } else {
+            wgpu::Backends::GL
         };
 
         let instance_descriptor = wgpu::InstanceDescriptor {
