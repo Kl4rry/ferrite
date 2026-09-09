@@ -46,6 +46,7 @@ fn maybe_disown(args: &ferrite_cli::Args) {
     }
 }
 
+// NOTE(axel): fdsjfksjdf
 fn main() -> Result<ExitCode> {
     // Prevents glibc from hoarding memory via memory fragmentation.
     ferrite_core::malloc::limit_mmap_threshold(128 * 1024);

@@ -99,6 +99,12 @@ impl Style {
         self.bg = Some(bg);
         self
     }
+
+    pub fn patch(mut self, other: Style) -> Style {
+        self.fg = other.fg.or(self.fg);
+        self.bg = other.bg.or(self.bg);
+        self
+    }
 }
 
 impl From<Style> for tui_core::style::Style {

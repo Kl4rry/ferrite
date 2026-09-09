@@ -461,17 +461,19 @@ impl View<Buffer> for EditorView {
                 let mut highlight_stack: Vec<Highlight> = Vec::new();
                 let mut vec = ArenaVec::new_in(&arena);
                 let mut last_idx = 0;
-                let mut names_used = std::collections::HashSet::new();
                 loop {
                     let next_idx = highlighter.next_event_offset();
                     if !highlight_stack.is_empty() {
-                        let highlight = highlight_stack[highlight_stack.len() - 1];
-                        let name = match capture_names.get(highlight.idx()) {
-                            Some(name) => name,
-                            None => "unknown", // This should never happen but it does for dockerfiles
-                        };
-                        names_used.insert(name);
-                        let style = theme.get_syntax(name);
+                        let style = highlight_stack.iter().rev().fold(theme.text, |mut acc, highlight| {
+                            let name = match capture_names.get(highlight.idx()) {
+                                Some(name) => name,
+                                None => "unknown", // This should never happen but it does for dockerfiles
+                            };
+                            eprint!(" | {}", name);
+                            acc = acc.patch(self.theme.get_syntax(name));
+                            acc
+                        });
+                        eprintln!();
 
                         highlights.push((last_idx as usize, next_idx as usize, style));
                     }

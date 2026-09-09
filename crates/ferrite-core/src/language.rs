@@ -174,7 +174,7 @@ fn get_lang_config(name: &str) -> Option<TreeSitterConfig> {
         #[cfg(feature = "lang-cmake")]
         "cmake" => TreeSitterConfig::new(
             "cmake",
-            ferrite_tree_sitter::tree_sitter_cmake::language(),
+            ferrite_tree_sitter::tree_sitter_cmake::LANGUAGE,
             include_str!("../../../queries/cmake/highlights.scm"),
             include_str!("../../../queries/cmake/injections.scm"),
             "",
