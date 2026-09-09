@@ -1916,13 +1916,14 @@ impl Buffer {
             let before_len_bytes = self.rope.len_bytes();
 
             if !self.views[view_id].cursors[i].has_selection() && !back {
-                let col = self.cursor_grapheme_column(view_id, i);
                 let cursor = self.views[view_id].cursors[i];
                 let line = self.rope.line(self.rope.byte_to_line(cursor.position));
                 if line.is_whitespace() {
                     let indent_width =
                         Rope::from_str(&self.guess_indent(cursor.position, false)).width(0);
+                    tracing::warn!("indent_width: {indent_width}");
                     if self.cursor_grapheme_column(view_id, i) >= indent_width {
+                        let col = self.cursor_grapheme_column(view_id, i);
                         // Insert single indent
                         self.insert_text_raw(
                             view_id,
@@ -1934,6 +1935,7 @@ impl Buffer {
                     } else {
                         // Auto indent until we reach the estimated indent level
                         while self.cursor_grapheme_column(view_id, i) < indent_width {
+                            let col = self.cursor_grapheme_column(view_id, i);
                             self.insert_text_raw(
                                 view_id,
                                 i,
@@ -1944,6 +1946,7 @@ impl Buffer {
                         }
                     }
                 } else {
+                    let col = self.cursor_grapheme_column(view_id, i);
                     self.insert_text_raw(view_id, i, &self.indent.to_next_ident(col), true, false);
                 }
             } else {
