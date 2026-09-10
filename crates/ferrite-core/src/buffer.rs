@@ -1921,7 +1921,6 @@ impl Buffer {
                 if line.is_whitespace() {
                     let indent_width =
                         Rope::from_str(&self.guess_indent(cursor.position, false)).width(0);
-                    tracing::warn!("indent_width: {indent_width}");
                     if self.cursor_grapheme_column(view_id, i) >= indent_width {
                         let col = self.cursor_grapheme_column(view_id, i);
                         // Insert single indent
