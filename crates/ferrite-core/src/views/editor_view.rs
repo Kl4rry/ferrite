@@ -232,6 +232,10 @@ impl View<Buffer> for EditorView {
             None => buffer.get_first_view_or_create(),
         };
 
+        // This has caused crashes before so we do some extra defensive programming
+        // it should not really be needed but it is pretty fast so
+        buffer.ensure_cursors_are_valid(view_id);
+
         let unique_id = buffer.views[view_id].unique_id();
         let rounding = if *ceil_surface_size && bounds.cell_size() != Vec2::new(1.0, 1.0) {
             Rounding::Ceil
