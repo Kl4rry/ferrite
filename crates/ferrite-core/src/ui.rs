@@ -38,6 +38,7 @@ pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControl
         .state
         .window_backend
         .clone_from(&runtime.window_backend);
+    runtime.window_title.clone_from(&runtime.state.window_title);
 }
 
 #[profiling::function]

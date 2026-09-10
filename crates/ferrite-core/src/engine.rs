@@ -85,6 +85,7 @@ pub struct Engine {
     pub trim_timer: Timer,
     pub drawing_backend: String,
     pub window_backend: String,
+    pub window_title: String,
     pub total_memory_allocated: usize,
     pub num_allocations: usize,
     pub phase_allocations: usize,
@@ -214,6 +215,7 @@ impl Engine {
             trim_timer: Timer::default(),
             drawing_backend: String::from("unknown"),
             window_backend: String::from("unknown"),
+            window_title: String::from("Ferrite"),
             num_allocations: 0,
             phase_allocations: 0,
             total_memory_allocated: 0,
@@ -463,6 +465,20 @@ impl Engine {
         }
 
         self.job_manager.poll_jobs();
+
+        match self.workspace.panes.get_current_pane() {
+            PaneKind::Buffer(buffer_id, _) => {
+                self.window_title.clear();
+                self.window_title
+                    .push_str(self.workspace.buffers[buffer_id].name());
+            }
+            PaneKind::FileExplorer(file_explorer_id) => {
+                self.window_title.clear();
+                // Its a bit bruh to do this every single frame
+                let directory = self.workspace.file_explorers[file_explorer_id].directory_trimmed();
+                self.window_title.push_str(&directory);
+            }
+        };
 
         if self.trim_timer.every(Duration::from_secs(20)) {
             crate::malloc::trim(0);

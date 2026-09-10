@@ -7,7 +7,7 @@ use std::{
 
 use ferrite_ctx::ArenaVec;
 use ferrite_runtime::unique_id::UniqueId;
-use ferrite_utility::{line_ending::LineEnding, utf32::ArenaUtf32};
+use ferrite_utility::{line_ending::LineEnding, trim::trim_path, utf32::ArenaUtf32};
 use ropey::{Rope, RopeSlice};
 
 use crate::{buffer::Buffer, cmd::Cmd};
@@ -255,5 +255,19 @@ impl FileExplorer {
 
     pub fn unique_id(&self) -> UniqueId {
         self.unique_id
+    }
+
+    pub fn directory_trimmed(&self) -> String {
+        if let Some(directories) = directories::UserDirs::new() {
+            let home = directories.home_dir();
+            let trimmed = trim_path(&home.to_string_lossy(), self.directory());
+            if trimmed.len() < self.directory().to_string_lossy().len() {
+                format!("~/{trimmed}")
+            } else {
+                trimmed
+            }
+        } else {
+            self.directory().to_string_lossy().into()
+        }
     }
 }

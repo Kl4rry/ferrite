@@ -49,6 +49,7 @@ pub struct Runtime<S> {
     // about
     pub drawing_backend: String,
     pub window_backend: String,
+    pub window_title: String,
 }
 
 impl<S> Runtime<S> {
@@ -65,6 +66,7 @@ impl<S> Runtime<S> {
             // about
             drawing_backend: String::from("unknown"),
             window_backend: String::from("unknown"),
+            window_title: String::from("Ferrite"),
         }
     }
 }

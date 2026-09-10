@@ -375,9 +375,17 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window = {
             profiling::scope!("spawn window");
+            let mut builder = Window::default_attributes();
+            #[cfg(all(unix, not(target_os = "macos")))]
+            {
+                use winit::platform::{wayland, x11};
+                builder =
+                    wayland::WindowAttributesExtWayland::with_name(builder, "Ferrite", "Ferrite");
+                builder = x11::WindowAttributesExtX11::with_name(builder, "Ferrite", "Ferrite")
+            }
             Arc::new(
                 event_loop
-                    .create_window(Window::default_attributes().with_title("Ferrite"))
+                    .create_window(builder.with_title("Ferrite"))
                     .unwrap(),
             )
         };
@@ -455,7 +463,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         let painter = Painter::new(true);
 
         {
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_family = "unix", not(target_os = "macos")))]
             let window_platform = {
                 use winit::platform::wayland::ActiveEventLoopExtWayland;
                 if event_loop.is_wayland() {
@@ -470,8 +478,14 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             let window_platform = "win32";
 
             self.app.as_mut().unwrap().runtime.window_backend = window_platform.into();
-            self.app.as_mut().unwrap().runtime.drawing_backend =
-                adapter.get_info().backend.to_string();
+            let adapter_info = adapter.get_info();
+            self.app.as_mut().unwrap().runtime.drawing_backend = format!(
+                "{} {} {} {}",
+                adapter_info.backend,
+                adapter_info.name,
+                adapter_info.driver,
+                adapter_info.driver_info
+            );
         }
 
         profiling::finish_frame!();
@@ -898,6 +912,12 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         if state.terminals_changed {
             state.terminals_changed = false;
             state.window.request_redraw();
+        }
+
+        {
+            let app = self.app.as_mut().unwrap();
+            let state = self.state.as_mut().unwrap();
+            state.window.set_title(&app.runtime.window_title);
         }
     }
 }

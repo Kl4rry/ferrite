@@ -52,6 +52,7 @@ pub struct TermPlatform<S, UserEvent> {
     modifiers: KeyModifiers,
     mouse_state: MouseState,
     dirty: bool,
+    last_title: String,
 }
 
 impl<S, UserEvent> TermPlatform<S, UserEvent> {
@@ -82,6 +83,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             modifiers: KeyModifiers::default(),
             mouse_state: MouseState::default(),
             dirty: true,
+            last_title: String::new(),
         })
     }
 
@@ -159,6 +161,10 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
             event_loop::TuiEvent::Render => {
                 self.dirty = true;
                 self.render(control_flow);
+                if self.last_title != self.runtime.window_title {
+                    self.last_title.clone_from(&self.runtime.window_title);
+                    let _ = execute!(io::stdout(), terminal::SetTitle(&self.runtime.window_title));
+                }
             }
         }
     }

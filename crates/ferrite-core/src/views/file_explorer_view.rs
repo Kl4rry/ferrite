@@ -9,7 +9,7 @@ use std::{
 use ferrite_geom::rect::Rect;
 use ferrite_runtime::{Bounds, View};
 use ferrite_style::Color;
-use ferrite_utility::{trim::trim_path, tui_buf_ext::TuiBufExt};
+use ferrite_utility::tui_buf_ext::TuiBufExt;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -157,17 +157,7 @@ impl View<FileExplorer> for FileExplorerView {
             let info_line_y = info_line_area.y + info_line_area.height - 1;
 
             // Its a bit bruh to do this every single frame
-            let directory = if let Some(directories) = directories::UserDirs::new() {
-                let home = directories.home_dir();
-                let trimmed = trim_path(&home.to_string_lossy(), state.directory());
-                if trimmed.len() < state.directory().to_string_lossy().len() {
-                    format!("~/{trimmed}")
-                } else {
-                    trimmed
-                }
-            } else {
-                state.directory().to_string_lossy().into()
-            };
+            let directory = state.directory_trimmed();
 
             buf.draw_string(
                 info_line_area.x as u16,
