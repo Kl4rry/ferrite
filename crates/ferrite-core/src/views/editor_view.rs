@@ -271,7 +271,7 @@ impl View<Buffer> for EditorView {
 
         {
             let left_offset = (left_offset as f32 * bounds.cell_size().x) as usize;
-            let scrollbar_width = bounds.cell_size().x as usize;
+            let scrollbar_width = get_scroll_bar_width(bounds.cell_size().x) as usize;
             let info_line_height = bounds.cell_size().y as usize;
 
             painter.push_cursor_zone(CursorIcon::Text, view_bounds);
