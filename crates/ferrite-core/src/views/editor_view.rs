@@ -891,12 +891,13 @@ impl View<Buffer> for EditorView {
 
             if *scrollbar {
                 profiling::scope!("draw scrollbar");
-                let scrollbar_bounds = get_scrollbar_bounds(buffer, view_id, bounds);
                 let cell_size = bounds.cell_size();
+                let scrollbar_bounds = get_scrollbar_bounds(buffer, view_id, bounds);
+                let scrollbar_width = get_scroll_bar_width(cell_size.x);
                 let rect = Rect::new(
-                    view_bounds.x as f32 + view_bounds.width as f32 - cell_size.x,
+                    view_bounds.x as f32 + view_bounds.width as f32 - scrollbar_width,
                     view_bounds.y as f32,
-                    cell_size.x,
+                    scrollbar_width,
                     view_bounds.height as f32,
                 );
 
@@ -1002,9 +1003,21 @@ impl View<Buffer> for EditorView {
     }
 }
 
+fn get_scroll_bar_width(cell_width: f32) -> f32 {
+    // I think the 1 cell scrollbar is a bit to small so when we do native rendering
+    // we make it a bit bigger. This value could be user configurable
+    const SCROLL_BAR_CELL_WIDTH: f32 = 1.5;
+    if cell_width == 1.0 {
+        cell_width * SCROLL_BAR_CELL_WIDTH.floor()
+    } else {
+        cell_width * SCROLL_BAR_CELL_WIDTH
+    }
+}
+
 fn get_scrollbar_bounds(buffer: &Buffer, view_id: ViewId, bounds: Bounds) -> Rect<f32> {
     let view_bounds = bounds.view_bounds();
     let cell_size = bounds.cell_size();
+    let scroll_bar_width = get_scroll_bar_width(cell_size.x);
 
     let viewport_height = (view_bounds.height as f32 - cell_size.y).max(0.0);
     let content_height = (buffer.len_lines() as f32 * cell_size.y + viewport_height - cell_size.y)
@@ -1020,18 +1033,19 @@ fn get_scrollbar_bounds(buffer: &Buffer, view_id: ViewId, bounds: Bounds) -> Rec
     let thumb_heigh = (scrollbar_ratio * viewport_height).max(cell_size.y);
     let scrollbar_pos = scrollbar_pos_ratio * viewport_height;
 
-    let x = view_bounds.x as f32 + (view_bounds.width as f32 - cell_size.x).max(0.0);
+    let x = view_bounds.x as f32 + (view_bounds.width as f32 - scroll_bar_width).max(0.0);
     let y = view_bounds.y as f32 + scrollbar_pos;
-    Rect::new(x, y, cell_size.x, thumb_heigh)
+    Rect::new(x, y, scroll_bar_width, thumb_heigh)
 }
 
 fn get_scrollbar_track(bounds: Bounds) -> Rect<f32> {
     let view_bounds = bounds.view_bounds();
     let cell_size = bounds.cell_size();
+    let scroll_bar_width = get_scroll_bar_width(cell_size.x);
     Rect::new(
-        view_bounds.x as f32 + view_bounds.width as f32 - cell_size.x,
+        view_bounds.x as f32 + view_bounds.width as f32 - scroll_bar_width,
         view_bounds.y as f32,
-        cell_size.x,
+        scroll_bar_width,
         view_bounds.height as f32 - cell_size.y,
     )
 }
