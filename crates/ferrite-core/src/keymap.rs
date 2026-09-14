@@ -735,13 +735,13 @@ pub fn get_default_mappings() -> Vec<(Key, Cmd, bool, InputContext)> {
         ),
         (
             Key::new(KeyCode::Char('+'), KeyModifiers::ALT),
-            Cmd::GrowPane,
+            Cmd::ResizePane { delta: 5.0 },
             false,
             InputContext::All,
         ),
         (
             Key::new(KeyCode::Char('-'), KeyModifiers::ALT),
-            Cmd::ShrinkPane,
+            Cmd::ResizePane { delta: -5.0 },
             false,
             InputContext::All,
         ),

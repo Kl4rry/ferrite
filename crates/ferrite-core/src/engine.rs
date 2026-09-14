@@ -575,11 +575,8 @@ impl Engine {
                     self.chord = Some(name);
                 }
             }
-            Cmd::GrowPane => {
-                self.workspace.panes.grow_current(self.buffer_area);
-            }
-            Cmd::ShrinkPane => {
-                self.workspace.panes.shrink_current(self.buffer_area);
+            Cmd::ResizePane { delta } => {
+                self.workspace.panes.resize_current(self.buffer_area, delta);
             }
             Cmd::Quit => {
                 self.quit(control_flow);

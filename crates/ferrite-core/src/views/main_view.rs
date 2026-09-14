@@ -44,6 +44,8 @@ impl View<Engine> for MainView {
     }
 
     fn render(&self, engine: &mut Engine, bounds: Bounds, painter: &mut ferrite_runtime::Painter) {
+        // This is cursed. It sets the grid area so that resizing buffers with keybinds works correctly
+        engine.buffer_area = bounds.grid_bounds();
         let pane_bounds = calculate_bounds(engine, bounds);
         self.panes.render(engine, pane_bounds, painter);
         self.palette.render(&mut engine.palette, bounds, painter);

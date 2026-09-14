@@ -306,7 +306,6 @@ impl Pane {
     }
 
     pub fn resize_pane(&mut self, pane_kind: PaneKind, rect: Rect, direction: f32) {
-        debug_assert!(direction == -1.0 || direction == 1.0);
         let rect = self.get_parent_size(pane_kind, rect);
         if let Pane::Internal {
             left,
@@ -420,12 +419,8 @@ impl Panes {
         }
     }
 
-    pub fn grow_current(&mut self, rect: Rect) {
-        self.node.resize_pane(self.current_pane, rect, 1.0);
-    }
-
-    pub fn shrink_current(&mut self, rect: Rect) {
-        self.node.resize_pane(self.current_pane, rect, -1.0);
+    pub fn resize_current(&mut self, rect: Rect, size: f32) {
+        self.node.resize_pane(self.current_pane, rect, size);
     }
 
     pub fn contains(&self, pane_kind: PaneKind) -> bool {
