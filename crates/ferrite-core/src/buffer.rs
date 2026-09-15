@@ -3227,7 +3227,6 @@ impl Buffer {
     }
 
     pub fn trim_trailing_whitespace(&mut self) {
-        let arena = ferrite_ctx::Ctx::arena();
         // TODO: Make this a valid ViewId
         let view_id = ViewId::null();
         self.history
@@ -3273,12 +3272,6 @@ impl Buffer {
         let len_after = self.rope.len_bytes();
 
         self.restore_cursor_positions(cursor_positions);
-
-        for view_id in self.views.keys().collect_in::<ArenaVec<_>>(&*arena) {
-            if self.views[view_id].clamp_cursor {
-                self.center_on_main_cursor(view_id);
-            }
-        }
 
         if len_before != len_after {
             self.mark_dirty();
