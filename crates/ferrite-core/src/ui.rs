@@ -3,7 +3,7 @@ use ferrite_runtime::{Runtime, any_view::AnyView, input::event::InputEvent};
 use crate::{
     cmd::Cmd,
     engine::Engine,
-    event_loop_proxy::{EventLoopControlFlow, UserEvent},
+    event_loop_proxy::UserEvent,
     keymap,
     views::{
         chord_view::ChordView,
@@ -18,8 +18,8 @@ use crate::{
 };
 
 #[profiling::function]
-pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControlFlow) {
-    runtime.state.do_polling(control_flow);
+pub fn update(runtime: &mut Runtime<Engine>) {
+    runtime.state.do_polling();
     runtime.scale = runtime.state.scale;
     runtime.font_family = runtime.state.config.editor.gui.font_family.clone();
     runtime.font_weight = runtime.state.config.editor.gui.font_weight as u16;
@@ -42,11 +42,7 @@ pub fn update(runtime: &mut Runtime<Engine>, control_flow: &mut EventLoopControl
 }
 
 #[profiling::function]
-pub fn input(
-    engine: &mut Engine,
-    input: InputEvent<UserEvent>,
-    control_flow: &mut EventLoopControlFlow,
-) {
+pub fn input(engine: &mut Engine, input: InputEvent<UserEvent>) {
     let cmd = match input {
         InputEvent::Key(key, modifiers) => keymap::get_command_from_input(
             key,
@@ -57,21 +53,18 @@ pub fn input(
         InputEvent::Text(text) => Some(Cmd::Insert { text }),
         InputEvent::Paste(text) => Some(Cmd::Insert { text }),
         InputEvent::Scroll(_x, y) => {
-            engine.handle_single_input_command(
-                Cmd::VerticalScroll {
-                    distance: -y as f64 * 3.0,
-                },
-                &mut EventLoopControlFlow::Poll,
-            );
+            engine.handle_single_input_command(Cmd::VerticalScroll {
+                distance: -y as f64 * 3.0,
+            });
             None
         }
         InputEvent::UserEvent(event) => {
-            engine.handle_app_event(event, control_flow);
+            engine.handle_app_event(event);
             return;
         }
     };
     if let Some(cmd) = cmd {
-        engine.handle_input_command(cmd, control_flow);
+        engine.handle_input_command(cmd);
     }
 }
 

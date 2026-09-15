@@ -257,7 +257,7 @@ impl Engine {
         Ok(engine)
     }
 
-    pub fn do_polling(&mut self, control_flow: &mut EventLoopControlFlow) {
+    pub fn do_polling(&mut self) {
         let arena = ferrite_ctx::Ctx::arena();
         self.logger_state.update();
 
@@ -487,10 +487,10 @@ impl Engine {
         let duration = self
             .spinner
             .update(!self.save_jobs.is_empty() || !self.shell_jobs.is_empty());
-        *control_flow = EventLoopControlFlow::WaitMax(duration);
+        ferrite_runtime::control_flow::wait_max(duration);
     }
 
-    pub fn handle_input_command(&mut self, input: Cmd, control_flow: &mut EventLoopControlFlow) {
+    pub fn handle_input_command(&mut self, input: Cmd) {
         if let Some(repeat) = &mut self.repeat {
             match input {
                 Cmd::Char { ch } if ch.is_ascii_digit() => {
@@ -513,16 +513,16 @@ impl Engine {
                     if input.is_repeatable() {
                         self.palette.set_msg(format!("Repeated: {input}"));
                         for _ in 0..number {
-                            self.handle_single_input_command(input.clone(), control_flow);
+                            self.handle_single_input_command(input.clone());
                         }
                     } else {
-                        self.handle_single_input_command(input, control_flow);
+                        self.handle_single_input_command(input);
                         self.repeat = None;
                     }
                 }
             }
         } else {
-            self.handle_single_input_command(input, control_flow);
+            self.handle_single_input_command(input);
         }
 
         if let Some(repeat) = &self.repeat {
@@ -530,11 +530,7 @@ impl Engine {
         }
     }
 
-    pub fn handle_single_input_command(
-        &mut self,
-        input: Cmd,
-        control_flow: &mut EventLoopControlFlow,
-    ) {
+    pub fn handle_single_input_command(&mut self, input: Cmd) {
         if !matches!(input, Cmd::InputMode { .. }) {
             self.chord = None;
         }
@@ -579,7 +575,7 @@ impl Engine {
                 self.workspace.panes.resize_current(self.buffer_area, delta);
             }
             Cmd::Quit => {
-                self.quit(control_flow);
+                self.quit();
             }
             Cmd::EditPalette => {
                 self.hide_pickers();
@@ -894,7 +890,7 @@ impl Engine {
                 };
                 self.workspace.buffers[buffer_id].transform_case(view_id, case);
             }
-            Cmd::ForceQuit => *control_flow = EventLoopControlFlow::Exit,
+            Cmd::ForceQuit => ferrite_runtime::control_flow::set(EventLoopControlFlow::Exit),
             Cmd::Logger => {
                 self.save_jump_point();
                 self.open_url("editor://logger", false, false);
@@ -1110,7 +1106,7 @@ impl Engine {
                             if cmd == Cmd::Nop {
                                 return;
                             }
-                            self.handle_single_input_command(cmd, control_flow);
+                            self.handle_single_input_command(cmd);
                         }
                     }
                 }
@@ -1181,7 +1177,7 @@ impl Engine {
         }
     }
 
-    pub fn handle_app_event(&mut self, event: UserEvent, control_flow: &mut EventLoopControlFlow) {
+    pub fn handle_app_event(&mut self, event: UserEvent) {
         match event {
             UserEvent::Wake => (),
             #[expect(clippy::single_match)]
@@ -1194,7 +1190,7 @@ impl Engine {
                 PaletteMode::Command => match cmd_parser::parse_cmd(&content) {
                     Ok(cmd) => {
                         self.palette.reset();
-                        self.handle_single_input_command(cmd, control_flow);
+                        self.handle_single_input_command(cmd);
                     }
                     Err(err) => self.palette.set_error(err),
                 },
@@ -1260,7 +1256,9 @@ impl Engine {
                         self.palette.set_error(err);
                     }
                 }
-                PalettePromptEvent::Quit => *control_flow = EventLoopControlFlow::Exit,
+                PalettePromptEvent::Quit => {
+                    ferrite_runtime::control_flow::set(EventLoopControlFlow::Exit)
+                }
                 PalettePromptEvent::CloseCurrent => self.force_close_current_buffer(),
             },
         }
@@ -1594,7 +1592,7 @@ impl Engine {
         );
     }
 
-    pub fn quit(&mut self, control_flow: &mut EventLoopControlFlow) {
+    pub fn quit(&mut self) {
         let unsaved: Vec<_> = self
             .workspace
             .buffers
@@ -1625,7 +1623,7 @@ impl Engine {
                 ('n', PalettePromptEvent::Nop),
             );
         } else {
-            *control_flow = EventLoopControlFlow::Exit;
+            ferrite_runtime::control_flow::set(EventLoopControlFlow::Exit);
         }
     }
 

@@ -7,7 +7,7 @@ use std::{
     ops::Range,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::{Instant, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
 use cursor::{Cursor, Selection};
@@ -190,6 +190,7 @@ pub struct Buffer {
     pub line_ending: LineEnding,
     pub last_interact_time: Instant,
     pub last_save_time: SystemTime,
+    pub last_drag_selection_scroll: Instant,
     completion_source: CompletionSource,
     // syntax highlight
     syntax: Option<Syntax>,
@@ -226,6 +227,7 @@ impl Clone for Buffer {
             last_interact_time: self.last_interact_time,
             last_save_time: self.last_save_time,
             last_used_view: self.last_used_view,
+            last_drag_selection_scroll: self.last_drag_selection_scroll,
             views: self.views.clone(),
             main_view: self.main_view.clone(),
             completion_source: self.completion_source.clone(),
@@ -256,6 +258,7 @@ impl Default for Buffer {
             last_edit_time: Instant::now(),
             last_interact_time: Instant::now(),
             last_save_time: SystemTime::now(),
+            last_drag_selection_scroll: Instant::now(),
             last_used_view: ViewId::null(),
             views: SlotMap::with_key(),
             main_view: View::default(),
@@ -2530,15 +2533,62 @@ impl Buffer {
     }
 
     pub fn handle_drag(&mut self, view_id: ViewId, column: usize, line: usize) {
-        let column = column + self.views[view_id].col_pos as usize;
-        let line = line + self.views[view_id].line_pos as usize;
-        let last_idx = self.views[view_id].cursors.len() - 1;
-        self.set_cursor_pos(view_id, last_idx, column, line);
+        let buffer_column = column + self.views[view_id].col_pos as usize;
+        let buffer_line = line + self.views[view_id].line_pos as usize;
+        let cursor_idx = self.views[view_id].cursors.len() - 1;
+        self.set_cursor_pos(view_id, cursor_idx, buffer_column, buffer_line);
         self.views[view_id].coalesce_cursors();
+
+        self.scroll_drag_into_view(view_id, column, line);
 
         self.update_affinity(view_id);
         self.history.finish();
         self.hide_completers();
+    }
+
+    pub fn scroll_drag_into_view(&mut self, view_id: ViewId, column: usize, line: usize) {
+        let view_lines = self.views[view_id].view_lines;
+        let view_columns = self.views[view_id].view_columns;
+        let now = Instant::now();
+        let since = now.duration_since(self.last_drag_selection_scroll);
+        let duration = Duration::from_millis(50);
+        if since < duration {
+            // TODO: we do not get to run this so the animation from this wake does not really
+            // work as we dont have a drag event that causes us to enter this function
+            ferrite_runtime::control_flow::wait_max(duration - since);
+        } else {
+            {
+                let distance_to_top = line;
+                let distance_to_bottom = view_lines.saturating_sub(line);
+                if distance_to_top < 2 && distance_to_top <= distance_to_bottom {
+                    self.last_drag_selection_scroll = now;
+                    // TODO: make column and line signed and use the amount of
+                    // distance cursor is outside to increase speed
+                    self.vertical_scroll(view_id, -3.0);
+                } else if distance_to_bottom < 2 {
+                    self.last_drag_selection_scroll = now;
+                    // TODO: make column and line signed and use the amount of
+                    // distance cursor is outside to increase speed
+                    self.vertical_scroll(view_id, 3.0);
+                }
+            }
+            {
+                let distance_to_left = column;
+                let distance_to_right = view_columns.saturating_sub(column);
+                if distance_to_left < 2 && distance_to_left <= distance_to_right {
+                    self.last_drag_selection_scroll = now;
+                    // TODO: make column and line signed and use the amount of
+                    // distance cursor is outside to increase speed
+                    self.horizontal_scroll(view_id, -5.0);
+                } else if distance_to_right < 2 {
+                    self.last_drag_selection_scroll = now;
+                    // TODO: make column and line signed and use the amount of
+                    // distance cursor is outside to increase speed
+                    self.horizontal_scroll(view_id, 5.0);
+                }
+                // TODO: clamp after scroll
+            }
+        }
     }
 
     pub fn set_cursor_pos(

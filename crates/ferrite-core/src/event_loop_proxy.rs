@@ -27,7 +27,7 @@ pub enum UserEvent {
 }
 
 // TODO: Remove
-pub use ferrite_runtime::event_loop_proxy::{EventLoopControlFlow, EventLoopProxy};
+pub use ferrite_runtime::{control_flow::EventLoopControlFlow, event_loop_proxy::EventLoopProxy};
 
 pub struct NoopEventLoop;
 

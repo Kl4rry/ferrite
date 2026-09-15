@@ -5,12 +5,12 @@ use ferrite_style::Color;
 
 use crate::{
     any_view::AnyView,
-    event_loop_proxy::EventLoopControlFlow,
     id::Id,
     input::{event::InputEvent, keycode::KeyModifiers},
 };
 
 pub mod any_view;
+pub mod control_flow;
 pub mod event_loop_proxy;
 pub mod id;
 pub mod input;
@@ -19,9 +19,8 @@ pub mod unique_id;
 
 pub use painter::{Bounds, Painter};
 
-pub type Input<S, E> =
-    fn(state: &mut S, event: InputEvent<E>, control_flow: &mut EventLoopControlFlow);
-pub type Update<S> = fn(runtime: &mut Runtime<S>, control_flow: &mut EventLoopControlFlow);
+pub type Input<S, E> = fn(state: &mut S, event: InputEvent<E>);
+pub type Update<S> = fn(runtime: &mut Runtime<S>);
 pub type Layout<S> = for<'a> fn(state: &'a mut S) -> AnyView<S>;
 pub type StartOfFrame<S> = fn(runtime: &mut Runtime<S>);
 

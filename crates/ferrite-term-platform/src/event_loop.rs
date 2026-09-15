@@ -3,7 +3,7 @@ use std::{
     thread,
 };
 
-use ferrite_runtime::event_loop_proxy::{EventLoopControlFlow, EventLoopProxy};
+use ferrite_runtime::{control_flow::EventLoopControlFlow, event_loop_proxy::EventLoopProxy};
 
 pub enum TuiEvent<UserEvent> {
     StartOfEvents,
@@ -46,7 +46,7 @@ impl<UserEvent> TuiEventLoop<UserEvent> {
 
     pub fn run<F>(self, mut handler: F)
     where
-        F: FnMut(&TuiEventLoopProxy<UserEvent>, TuiEvent<UserEvent>, &mut EventLoopControlFlow),
+        F: FnMut(&TuiEventLoopProxy<UserEvent>, TuiEvent<UserEvent>),
     {
         let Self {
             proxy_tx,
@@ -79,25 +79,24 @@ impl<UserEvent> TuiEventLoop<UserEvent> {
             }
         });
 
-        let mut control_flow = EventLoopControlFlow::Wait;
         'main: loop {
-            handler(&proxy, TuiEvent::StartOfEvents, &mut control_flow);
+            handler(&proxy, TuiEvent::StartOfEvents);
 
             while let Ok(event) = crossterm_rx.try_recv() {
-                handler(&proxy, TuiEvent::Crossterm(event), &mut control_flow);
-                if control_flow == EventLoopControlFlow::Exit {
+                handler(&proxy, TuiEvent::Crossterm(event));
+                if ferrite_runtime::control_flow::get() == EventLoopControlFlow::Exit {
                     break 'main;
                 }
             }
             while let Ok(event) = proxy_rx.try_recv() {
-                handler(&proxy, TuiEvent::UserEvent(event), &mut control_flow);
-                if control_flow == EventLoopControlFlow::Exit {
+                handler(&proxy, TuiEvent::UserEvent(event));
+                if ferrite_runtime::control_flow::get() == EventLoopControlFlow::Exit {
                     break 'main;
                 }
             }
-            handler(&proxy, TuiEvent::Render, &mut control_flow);
+            handler(&proxy, TuiEvent::Render);
 
-            match control_flow {
+            match ferrite_runtime::control_flow::get() {
                 EventLoopControlFlow::Poll => {
                     let _ = waker_rx.try_recv();
                 }

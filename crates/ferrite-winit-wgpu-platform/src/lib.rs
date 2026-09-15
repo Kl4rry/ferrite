@@ -12,7 +12,8 @@ use ferrite_runtime::{
     Bounds, Input, Layout, MouseButton, MouseInterction, MouseInterctionKind, MouseState, Painter,
     Runtime, StartOfFrame, Update, View,
     any_view::AnyView,
-    event_loop_proxy::{EventLoopControlFlow, EventLoopProxy},
+    control_flow::EventLoopControlFlow,
+    event_loop_proxy::EventLoopProxy,
     id::Id,
     input::{
         event::InputEvent,
@@ -52,7 +53,6 @@ struct State {
     mouse_state: MouseState,
     line_height: f32,
     cursor_zones: Vec<(CursorIcon, Rect)>,
-    control_flow: EventLoopControlFlow,
 }
 
 pub fn create_event_loop<E: Send>() -> (
@@ -357,7 +357,7 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
     }
 
     fn update_control_flow(&self, event_loop: &ActiveEventLoop) {
-        match self.state.as_ref().unwrap().control_flow {
+        match ferrite_runtime::control_flow::get() {
             EventLoopControlFlow::Poll => event_loop.set_control_flow(ControlFlow::Poll),
             EventLoopControlFlow::Wait => event_loop.set_control_flow(ControlFlow::Wait),
             EventLoopControlFlow::Exit => event_loop.exit(),
@@ -506,7 +506,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             touched: Vec::new(),
             mouse_state: MouseState::default(),
             line_height: 1.0,
-            control_flow: EventLoopControlFlow::Wait,
         });
     }
 
@@ -570,11 +569,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     Key::Named(key) => {
                         if let Some(keycode) = glue::convert_keycode(key, modifiers) {
                             let app = self.app.as_mut().unwrap();
-                            let state = self.state.as_mut().unwrap();
                             (app.input)(
                                 &mut app.runtime.state,
                                 InputEvent::Key(keycode, modifiers),
-                                &mut state.control_flow,
                             );
                             self.update_control_flow(event_loop);
                             return;
@@ -583,11 +580,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     Key::Character(s) => {
                         for ch in s.chars() {
                             let app = self.app.as_mut().unwrap();
-                            let state = self.state.as_mut().unwrap();
                             (app.input)(
                                 &mut app.runtime.state,
                                 InputEvent::Key(KeyCode::Char(ch), modifiers),
-                                &mut state.control_flow,
                             );
                             self.update_control_flow(event_loop);
                         }
@@ -598,12 +593,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
 
                 if let Some(text) = event.text {
                     let app = self.app.as_mut().unwrap();
-                    let state = self.state.as_mut().unwrap();
-                    (app.input)(
-                        &mut app.runtime.state,
-                        InputEvent::Text(text.to_string()),
-                        &mut state.control_flow,
-                    );
+                    (app.input)(&mut app.runtime.state, InputEvent::Text(text.to_string()));
                     self.update_control_flow(event_loop);
                 }
             }
@@ -835,7 +825,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         InputEvent::Scroll(0.0, distance)
                     }
                 };
-                (app.input)(&mut app.runtime.state, input_event, &mut state.control_flow);
+                (app.input)(&mut app.runtime.state, input_event);
                 self.update_control_flow(event_loop);
             }
             WindowEvent::Resized(size) => {
@@ -871,12 +861,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             PlatformEvent::Wake(reason) => tracing::debug!("Woken because: {reason}"),
             PlatformEvent::UserEvent(event) => {
                 let app = self.app.as_mut().unwrap();
-                let state = self.state.as_mut().unwrap();
-                (app.input)(
-                    &mut app.runtime.state,
-                    InputEvent::UserEvent(event),
-                    &mut state.control_flow,
-                );
+                (app.input)(&mut app.runtime.state, InputEvent::UserEvent(event));
                 self.update_control_flow(event_loop);
             }
         }
@@ -900,8 +885,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         self.dirty = false;
         {
             let app = self.app.as_mut().unwrap();
-            let state = self.state.as_mut().unwrap();
-            (app.update)(&mut app.runtime, &mut state.control_flow);
+            (app.update)(&mut app.runtime);
             self.update_control_flow(event_loop);
         }
         self.prepare();

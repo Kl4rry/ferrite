@@ -21,7 +21,6 @@ use ferrite_runtime::{
     Bounds, Input, Layout, MouseButton, MouseInterction, MouseState, Painter, StartOfFrame, Update,
     View,
     any_view::AnyView,
-    event_loop_proxy::EventLoopControlFlow,
     input::{event::InputEvent, keycode::KeyModifiers},
     painter::Rounding,
 };
@@ -132,7 +131,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
         self.runtime.window_backend =
             std::env::var("TERM").unwrap_or_else(|_| "unknown".to_string());
 
-        event_loop.run(|proxy, event, control_flow| self.handle_event(proxy, event, control_flow));
+        event_loop.run(|proxy, event| self.handle_event(proxy, event));
     }
 
     #[profiling::function]
@@ -140,27 +139,20 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
         &mut self,
         proxy: &TuiEventLoopProxy<UserEvent>,
         event: TuiEvent<UserEvent>,
-        control_flow: &mut EventLoopControlFlow,
     ) {
         match event {
             event_loop::TuiEvent::StartOfEvents => {
                 self.runtime.start_of_events = Instant::now();
                 (self.start_of_frame)(&mut self.runtime);
             }
-            event_loop::TuiEvent::Crossterm(event) => {
-                self.handle_crossterm_event(proxy, event, control_flow)
-            }
+            event_loop::TuiEvent::Crossterm(event) => self.handle_crossterm_event(proxy, event),
             event_loop::TuiEvent::UserEvent(event) => {
                 self.dirty = true;
-                (self.input)(
-                    &mut self.runtime.state,
-                    InputEvent::UserEvent(event),
-                    control_flow,
-                );
+                (self.input)(&mut self.runtime.state, InputEvent::UserEvent(event));
             }
             event_loop::TuiEvent::Render => {
                 self.dirty = true;
-                self.render(control_flow);
+                self.render();
                 if self.last_title != self.runtime.window_title {
                     self.last_title.clone_from(&self.runtime.window_title);
                     let _ = execute!(io::stdout(), terminal::SetTitle(&self.runtime.window_title));
@@ -170,12 +162,12 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
     }
 
     #[profiling::function]
-    pub fn render(&mut self, control_flow: &mut EventLoopControlFlow) {
+    pub fn render(&mut self) {
         if !self.dirty {
             return;
         }
         self.dirty = false;
-        (self.update)(&mut self.runtime, control_flow);
+        (self.update)(&mut self.runtime);
         self.view_tree = (self.layout)(&mut self.runtime.state);
 
         if self.runtime.force_redraw {
@@ -215,7 +207,6 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
         &mut self,
         _proxy: &TuiEventLoopProxy<UserEvent>,
         event: event::Event,
-        control_flow: &mut EventLoopControlFlow,
     ) {
         match event {
             Event::Resize(columns, lines) => {
@@ -235,7 +226,7 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                         total += 1;
                     }
                 }
-                self.render(control_flow);
+                self.render();
             }
             Event::Key(event) => {
                 profiling::scope!("key");
@@ -245,22 +236,14 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                     let keycode = glue::convert_keycode(event.code);
                     let modifiers = glue::convert_modifier(event.modifiers);
                     self.modifiers = modifiers;
-                    (self.input)(
-                        &mut self.runtime.state,
-                        InputEvent::Key(keycode, modifiers),
-                        control_flow,
-                    );
+                    (self.input)(&mut self.runtime.state, InputEvent::Key(keycode, modifiers));
                 }
             }
             Event::Paste(string) => {
                 profiling::scope!("paste");
                 tracing::debug!("paste: {:?}", string);
                 self.dirty = true;
-                (self.input)(
-                    &mut self.runtime.state,
-                    InputEvent::Paste(string),
-                    control_flow,
-                );
+                (self.input)(&mut self.runtime.state, InputEvent::Paste(string));
             }
             Event::Mouse(event) => {
                 profiling::scope!("mouse");
@@ -268,35 +251,19 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
                 match event.kind {
                     MouseEventKind::ScrollUp => {
                         self.dirty = true;
-                        (self.input)(
-                            &mut self.runtime.state,
-                            InputEvent::Scroll(0.0, 1.0),
-                            control_flow,
-                        );
+                        (self.input)(&mut self.runtime.state, InputEvent::Scroll(0.0, 1.0));
                     }
                     MouseEventKind::ScrollDown => {
                         self.dirty = true;
-                        (self.input)(
-                            &mut self.runtime.state,
-                            InputEvent::Scroll(0.0, -1.0),
-                            control_flow,
-                        );
+                        (self.input)(&mut self.runtime.state, InputEvent::Scroll(0.0, -1.0));
                     }
                     MouseEventKind::ScrollLeft => {
                         self.dirty = true;
-                        (self.input)(
-                            &mut self.runtime.state,
-                            InputEvent::Scroll(1.0, 0.0),
-                            control_flow,
-                        );
+                        (self.input)(&mut self.runtime.state, InputEvent::Scroll(1.0, 0.0));
                     }
                     MouseEventKind::ScrollRight => {
                         self.dirty = true;
-                        (self.input)(
-                            &mut self.runtime.state,
-                            InputEvent::Scroll(-1.0, 0.0),
-                            control_flow,
-                        );
+                        (self.input)(&mut self.runtime.state, InputEvent::Scroll(-1.0, 0.0));
                     }
                     MouseEventKind::Down(button) => {
                         self.dirty = true;
