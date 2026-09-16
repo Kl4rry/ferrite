@@ -603,11 +603,12 @@ pub mod layout {
                                 None => false,
                             })?;
                         let view_id = buffer.create_view();
+                        let rope = buffer.rope().clone();
                         let view = &mut buffer.views[view_id];
                         view.cursors = cursors.clone();
                         view.line_pos = *line_pos as f64;
                         view.col_pos = *col_pos as f64;
-                        buffer.ensure_cursors_are_valid(view_id);
+                        view.ensure_cursors_are_valid(&rope);
 
                         Some(super::Pane::Leaf(super::PaneKind::Buffer(
                             buffer_id, view_id,

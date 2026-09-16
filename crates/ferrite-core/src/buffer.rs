@@ -165,6 +165,34 @@ impl View {
     pub fn unique_id(&self) -> UniqueId {
         self.unique_id
     }
+
+    pub fn ensure_cursors_are_valid(&mut self, rope: &Rope) {
+        let num_cursors = self.cursors.len();
+        for i in 0..num_cursors {
+            self.cursors[i].position = self.cursors[i].position.min(rope.len_bytes());
+            self.cursors[i].anchor = self.cursors[i].anchor.min(rope.len_bytes());
+
+            {
+                while self.cursors[i].position != 0
+                    && self.cursors[i].position != rope.len_bytes()
+                    && !is_utf8_char_boundary(rope.byte(self.cursors[i].position))
+                {
+                    self.cursors[i].position = self.cursors[i].position.saturating_sub(1);
+                }
+                while self.cursors[i].anchor != 0
+                    && self.cursors[i].anchor != rope.len_bytes()
+                    && !is_utf8_char_boundary(rope.byte(self.cursors[i].anchor))
+                {
+                    self.cursors[i].anchor = self.cursors[i].anchor.saturating_sub(1);
+                }
+            }
+
+            self.cursors[i].position =
+                rope.ensure_grapheme_boundary_next_byte(self.cursors[i].position);
+            self.cursors[i].anchor =
+                rope.ensure_grapheme_boundary_next_byte(self.cursors[i].anchor);
+        }
+    }
 }
 
 slotmap::new_key_type! {
@@ -2422,7 +2450,7 @@ impl Buffer {
         self.history.replace(&mut self.rope, byte_range, text);
         self.set_cursor_pos(view_id, 0, cursor_col, cursor_line);
         self.set_anchor_pos(view_id, 0, anchor_col, anchor_line);
-        self.ensure_cursors_are_valid(view_id);
+        self.views[view_id].ensure_cursors_are_valid(&self.rope);
         self.history.finish();
         self.on_file_changed(Some(view_id));
     }
@@ -2892,41 +2920,6 @@ impl Buffer {
         self.rope.len_bytes()
     }
 
-    pub fn ensure_cursors_are_valid(&mut self, view_id: ViewId) {
-        let num_cursors = self.views[view_id].cursors.len();
-        for i in 0..num_cursors {
-            self.views[view_id].cursors[i].position = self.views[view_id].cursors[i]
-                .position
-                .min(self.rope.len_bytes());
-            self.views[view_id].cursors[i].anchor = self.views[view_id].cursors[i]
-                .anchor
-                .min(self.rope.len_bytes());
-
-            {
-                let view = &mut self.views[view_id];
-                while view.cursors[i].position != 0
-                    && view.cursors[i].position != self.rope.len_bytes()
-                    && !is_utf8_char_boundary(self.rope.byte(view.cursors[i].position))
-                {
-                    view.cursors[i].position = view.cursors[i].position.saturating_sub(1);
-                }
-                while view.cursors[i].anchor != 0
-                    && view.cursors[i].anchor != self.rope.len_bytes()
-                    && !is_utf8_char_boundary(self.rope.byte(view.cursors[i].anchor))
-                {
-                    view.cursors[i].anchor = view.cursors[i].anchor.saturating_sub(1);
-                }
-            }
-
-            self.views[view_id].cursors[i].position = self
-                .rope()
-                .ensure_grapheme_boundary_next_byte(self.views[view_id].cursors[i].position);
-            self.views[view_id].cursors[i].anchor = self
-                .rope()
-                .ensure_grapheme_boundary_next_byte(self.views[view_id].cursors[i].anchor);
-        }
-    }
-
     pub fn guess_indent(&self, byte_index: usize, include_current_line: bool) -> String {
         let line_idx = self.rope.byte_to_line(byte_index);
         for line_idx in (0..(line_idx + include_current_line as usize)).rev() {
@@ -3008,7 +3001,7 @@ impl Buffer {
                 .insert(&mut self.rope, start_byte + inserted_bytes, line);
         }
 
-        self.ensure_cursors_are_valid(view_id);
+        self.views[view_id].ensure_cursors_are_valid(&self.rope);
         self.mark_dirty();
         self.ensure_every_cursor_is_valid();
 
@@ -3049,7 +3042,7 @@ impl Buffer {
 
             searcher.update_buffer(self.rope.clone(), None);
 
-            self.ensure_cursors_are_valid(view_id);
+            self.views[view_id].ensure_cursors_are_valid(&self.rope);
             self.mark_dirty();
             self.ensure_every_cursor_is_valid();
 
@@ -3163,13 +3156,11 @@ impl Buffer {
     }
 
     pub fn ensure_every_cursor_is_valid(&mut self) {
-        let arena = ferrite_ctx::Ctx::arena();
-        let view_ids: ArenaVec<_> = self.views.keys().collect_in(&*arena);
-        for view_id in view_ids {
-            self.ensure_cursors_are_valid(view_id);
-            let view = &mut self.views[view_id];
+        for view in self.views.values_mut() {
+            view.ensure_cursors_are_valid(&self.rope);
             view.line_pos = self.rope.len_lines().min(view.line_pos_floored()) as f64;
         }
+        self.main_view.ensure_cursors_are_valid(&self.rope);
     }
 
     pub fn number(&mut self, view_id: ViewId, number: Option<i64>) {
@@ -3509,7 +3500,7 @@ impl Buffer {
 
     pub fn load_view_data(&mut self, view_id: ViewId, buffer_data: &persistance::Buffer) {
         self.views[view_id].cursors = buffer_data.cursors.clone();
-        self.ensure_cursors_are_valid(view_id);
+        self.views[view_id].ensure_cursors_are_valid(&self.rope);
         self.views[view_id].line_pos = buffer_data.line_pos as f64;
         self.views[view_id].col_pos = buffer_data.col_pos as f64;
     }
@@ -3520,6 +3511,11 @@ impl Buffer {
         }
         self.indent = buffer_data.indent;
         self.last_interact_time = buffer_data.last_interact_time;
+
+        self.main_view.cursors = buffer_data.cursors.clone();
+        self.main_view.ensure_cursors_are_valid(&self.rope);
+        self.main_view.line_pos = buffer_data.line_pos as f64;
+        self.main_view.col_pos = buffer_data.col_pos as f64;
     }
 
     pub fn find_conflicts(&mut self) {
