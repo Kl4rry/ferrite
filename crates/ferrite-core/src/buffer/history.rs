@@ -158,7 +158,7 @@ impl History {
             cursors: cursors.clone(),
             edits: Vec::new(),
             dirty,
-            id: rand::random(),
+            id: rand::random_range(1..u64::MAX),
         });
         self.current_frame += 1;
 
@@ -262,7 +262,11 @@ impl History {
         }
     }
 
+    /// returns the current frames id, if there is no current frame return 0
     pub fn current_id(&self) -> u64 {
+        if self.current_frame < 0 {
+            return 0;
+        }
         self.stack[self.current_frame as usize].id
     }
 
