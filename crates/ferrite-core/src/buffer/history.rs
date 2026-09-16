@@ -92,6 +92,7 @@ struct Frame {
     cursors: SecondaryMap<ViewId, Vec1<Cursor>>,
     edits: Vec<EditKind>,
     dirty: bool,
+    id: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -157,6 +158,7 @@ impl History {
             cursors: cursors.clone(),
             edits: Vec::new(),
             dirty,
+            id: rand::random(),
         });
         self.current_frame += 1;
 
@@ -251,14 +253,17 @@ impl History {
         }
     }
 
-    pub fn save(&mut self) {
+    pub fn save(&mut self, id: u64) {
         if self.current_frame.is_negative() {
             return;
         }
         for frame in &mut self.stack {
-            frame.dirty = true;
+            frame.dirty = frame.id != id;
         }
-        self.stack[self.current_frame as usize].dirty = false;
+    }
+
+    pub fn current_id(&self) -> u64 {
+        self.stack[self.current_frame as usize].id
     }
 
     pub fn mark_all_dirty(&mut self) {

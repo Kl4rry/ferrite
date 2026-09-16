@@ -2447,7 +2447,7 @@ impl Buffer {
         }
 
         self.dirty = false;
-        self.history.save();
+        self.mark_saved(self.history.current_id());
         self.queue_syntax_update();
 
         self.history.finish();
@@ -2457,7 +2457,6 @@ impl Buffer {
         self.ensure_every_cursor_is_valid();
         self.update_completer(None, CompleterEvent::None);
 
-        self.mark_saved();
         Ok(())
     }
 
@@ -2880,9 +2879,9 @@ impl Buffer {
         self.history.mark_all_dirty();
     }
 
-    pub fn mark_saved(&mut self) {
+    pub fn mark_saved(&mut self, id: u64) {
         self.dirty = false;
-        self.history.save();
+        self.history.save(id);
         if self.language_name() == "text" {
             self.auto_detect_language(true, false);
         }

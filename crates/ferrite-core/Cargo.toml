@@ -15,12 +15,12 @@ directories = { workspace = true }
 dunce = { workspace = true }
 encoding_rs = { workspace = true }
 executable-finder = { workspace = true }
-ferrite-runtime = { workspace = true }
 ferrite-blame = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-clipboard = { workspace = true }
 ferrite-ctx = { workspace = true }
 ferrite-geom = { workspace = true }
+ferrite-runtime = { workspace = true }
 ferrite-style = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
 ferrite-tree-sitter = { workspace = true }
@@ -40,6 +40,7 @@ notify-debouncer-full = { workspace = true }
 nucleo = { workspace = true }
 opener = { workspace = true }
 profiling = { workspace = true }
+rand = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 ropey = { workspace = true }
