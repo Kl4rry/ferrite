@@ -351,8 +351,12 @@ impl Engine {
                 match result {
                     Ok(job) => {
                         if let Some(buffer) = self.workspace.buffers.get_mut(job.buffer_id) {
-                            buffer.try_update_blame();
-                            buffer.mark_saved();
+                            if job.last_edit_time <= buffer.last_edit_time {
+                                buffer.try_update_blame();
+                                buffer.mark_saved();
+                            } else {
+                                buffer.mark_history_dirty();
+                            }
                         }
 
                         let path = job.path.file_name().unwrap_or_default().to_string_lossy();
@@ -2013,6 +2017,7 @@ impl Engine {
                 line_ending,
                 rope,
                 path,
+                last_edit_time,
                 last_save_time,
             )| {
                 if !force
@@ -2028,6 +2033,7 @@ impl Engine {
                 Ok(SaveBufferJob {
                     buffer_id,
                     path,
+                    last_edit_time,
                     written,
                 })
             },
@@ -2037,6 +2043,7 @@ impl Engine {
                 buffer.line_ending,
                 buffer.rope().clone(),
                 path.to_path_buf(),
+                buffer.last_edit_time,
                 buffer.last_save_time,
             ),
         );
