@@ -523,6 +523,7 @@ pub trait RopeGraphemeExt {
 
     fn is_whitespace(&self) -> bool;
     fn is_word_char(&self) -> bool;
+    fn is_whole_word(&self, start_byte: usize, end_byte: usize) -> bool;
 
     fn end_of_line_byte(&self, line_idx: usize) -> usize;
     fn end_of_line_char(&self, line_idx: usize) -> usize;
@@ -608,6 +609,23 @@ impl RopeGraphemeExt for RopeSlice<'_> {
 
     fn is_word_char(&self) -> bool {
         self.chars().all(is_word_char)
+    }
+
+    fn is_whole_word(&self, start_byte: usize, end_byte: usize) -> bool {
+        let start_char = self.byte_to_char(start_byte);
+        let end_char = self.byte_to_char(end_byte);
+        let before_is_word = self
+            .chars_at(start_char)
+            .prev()
+            .map(|ch| is_word_char(ch))
+            .unwrap_or(true);
+        let after_is_word = self
+            .chars_at(end_char)
+            .next()
+            .map(|ch| is_word_char(ch))
+            .unwrap_or(true);
+        let is_word = self.byte_slice(start_byte..end_byte).is_word_char();
+        return !before_is_word && is_word && !after_is_word;
     }
 
     fn end_of_line_byte(&self, line_idx: usize) -> usize {
@@ -811,6 +829,10 @@ impl RopeGraphemeExt for Rope {
 
     fn is_word_char(&self) -> bool {
         self.byte_slice(..).is_word_char()
+    }
+
+    fn is_whole_word(&self, start_byte: usize, end_byte: usize) -> bool {
+        self.byte_slice(..).is_whole_word(start_byte, end_byte)
     }
 
     fn end_of_line_byte(&self, byte_idx: usize) -> usize {

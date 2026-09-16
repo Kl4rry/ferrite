@@ -34,6 +34,7 @@ use crate::{
     buffer::{
         builder::BufferBuilder,
         completer::{Completer, CompletionSource},
+        search::SearchOptions,
     },
     cmd::LineMoveDir,
     event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy},
@@ -951,13 +952,21 @@ impl Buffer {
             let mut new_cursor = None;
             let mut clear_last_selection = false;
 
+            let selection_is_whole_word = {
+                let cursor = self.views[view_id].cursors[0];
+                self.rope.is_whole_word(cursor.start(), cursor.end())
+            };
+
             let search_start = last_cursor.position.max(last_cursor.anchor);
             if let Some(m) = {
                 search_rope(
                     self.rope.byte_slice(search_start..),
                     self.get_selection(view_id, 0).to_string(),
-                    false,
-                    true,
+                    SearchOptions {
+                        case_insensitive: false,
+                        stop_at_first: true,
+                        match_whole_word: selection_is_whole_word,
+                    },
                 )
                 .into_iter()
                 .next()
@@ -976,8 +985,11 @@ impl Buffer {
                 let m = search_rope(
                     self.rope.byte_slice(search_start..),
                     self.get_selection(view_id, 0).to_string(),
-                    false,
-                    true,
+                    SearchOptions {
+                        case_insensitive: false,
+                        stop_at_first: true,
+                        match_whole_word: selection_is_whole_word,
+                    },
                 )
                 .into_iter()
                 .next();
@@ -992,8 +1004,11 @@ impl Buffer {
                 let m = search_rope(
                     self.rope.byte_slice(..),
                     self.get_selection(view_id, 0).to_string(),
-                    false,
-                    true,
+                    SearchOptions {
+                        case_insensitive: false,
+                        stop_at_first: true,
+                        match_whole_word: selection_is_whole_word,
+                    },
                 )
                 .into_iter()
                 .next();
@@ -1042,9 +1057,22 @@ impl Buffer {
             self.select_word_raw(view_id, 0);
         }
 
+        let selection_is_whole_word = {
+            let cursor = self.views[view_id].cursors[0];
+            self.rope.is_whole_word(cursor.start(), cursor.end())
+        };
+
         let term = self.get_selection(view_id, 0).to_string();
 
-        for m in search_rope(self.rope.byte_slice(..), term, false, false) {
+        for m in search_rope(
+            self.rope.byte_slice(..),
+            term,
+            SearchOptions {
+                case_insensitive: false,
+                stop_at_first: true,
+                match_whole_word: selection_is_whole_word,
+            },
+        ) {
             self.views[view_id].cursors.push(Cursor {
                 anchor: m.start_byte,
                 position: m.end_byte,

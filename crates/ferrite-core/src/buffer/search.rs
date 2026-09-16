@@ -72,8 +72,15 @@ impl BufferSearcher {
                     }
                 }
 
-                let match_buffer =
-                    search_rope(rope.slice(..), query.clone(), case_insensitive, false);
+                let match_buffer = search_rope(
+                    rope.slice(..),
+                    query.clone(),
+                    SearchOptions {
+                        case_insensitive,
+                        stop_at_first: false,
+                        match_whole_word: false,
+                    },
+                );
 
                 let mut index = match cursor_pos.take() {
                     Some(cursor_pos) => {
@@ -175,11 +182,20 @@ impl BufferSearcher {
     }
 }
 
+pub struct SearchOptions {
+    pub case_insensitive: bool,
+    pub match_whole_word: bool,
+    pub stop_at_first: bool,
+}
+
 pub fn search_rope(
     rope: RopeSlice,
     query: String,
-    case_insensitive: bool,
-    stop_at_first: bool,
+    SearchOptions {
+        case_insensitive,
+        match_whole_word,
+        stop_at_first,
+    }: SearchOptions,
 ) -> Vec<SearchMatch> {
     if query.is_empty() {
         return Vec::new();
@@ -194,6 +210,7 @@ pub fn search_rope(
         .fixed_strings(true)
         .multi_line(multi_line)
         .case_insensitive(case_insensitive)
+        .word(match_whole_word)
         .build(&query)
         .unwrap();
 
