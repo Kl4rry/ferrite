@@ -1,9 +1,13 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, time::SystemTime};
 
 use ferrite_utility::vec1::Vec1;
 use serde::{Deserialize, Serialize};
 
 use crate::workspace::{Cursor, History, Indentation, Layout, PaletteMode};
+
+fn unix_epoch() -> SystemTime {
+    SystemTime::UNIX_EPOCH
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Workspace {
@@ -41,4 +45,6 @@ pub struct Buffer {
     pub col_pos: usize,
     pub language: String,
     pub indent: Indentation,
+    #[serde(default = "unix_epoch")]
+    pub last_interact_time: SystemTime,
 }

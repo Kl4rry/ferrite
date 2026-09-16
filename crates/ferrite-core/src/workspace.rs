@@ -194,7 +194,14 @@ impl Workspace {
         if let PaneKind::Buffer(buffer_id, _) = panes.get_current_pane()
             && buffers.get(buffer_id).is_none()
         {
-            let (buffer_id, buffer) = buffers.iter_mut().next().unwrap();
+            let mut iter = buffers.iter_mut();
+            let (mut buffer_id, mut buffer) = iter.next().unwrap();
+            for (new_buffer_id, new_buffer) in iter {
+                if new_buffer.last_interact_time > buffer.last_interact_time {
+                    buffer_id = new_buffer_id;
+                    buffer = new_buffer;
+                }
+            }
             let view_id = buffer.create_view();
             panes.replace_current(PaneKind::Buffer(buffer_id, view_id));
         }

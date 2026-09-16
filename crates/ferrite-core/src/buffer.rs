@@ -188,7 +188,7 @@ pub struct Buffer {
     pub blame: Blame,
     pub last_edit_time: Instant,
     pub line_ending: LineEnding,
-    pub last_interact_time: Instant,
+    pub last_interact_time: SystemTime,
     pub last_save_time: SystemTime,
     pub last_drag_selection_scroll: Instant,
     completion_source: CompletionSource,
@@ -256,7 +256,7 @@ impl Default for Buffer {
             history: History::default(),
             conflicts: Arc::new(Mutex::new(Vec::new())),
             last_edit_time: Instant::now(),
-            last_interact_time: Instant::now(),
+            last_interact_time: SystemTime::now(),
             last_save_time: SystemTime::now(),
             last_drag_selection_scroll: Instant::now(),
             last_used_view: ViewId::null(),
@@ -2768,7 +2768,7 @@ impl Buffer {
     }
 
     pub fn update_interact(&mut self, view_id: Option<ViewId>) {
-        self.last_interact_time = Instant::now();
+        self.last_interact_time = SystemTime::now();
         if let Some(view_id) = view_id {
             self.last_used_view = view_id;
             self.main_view.clone_from(&self.views[view_id]);
@@ -3488,6 +3488,7 @@ impl Buffer {
             col_pos: self.col_pos(view_id),
             indent: self.indent,
             language: self.language_name().into(),
+            last_interact_time: self.last_interact_time,
         })
     }
 
@@ -3500,6 +3501,7 @@ impl Buffer {
         buffer_data.line_pos = self.line_pos(view_id);
         buffer_data.col_pos = self.col_pos(view_id);
         buffer_data.indent = self.indent;
+        buffer_data.last_interact_time = self.last_interact_time;
         if self.language_name() != buffer_data.language {
             buffer_data.language = self.language_name().into();
         }
@@ -3517,6 +3519,7 @@ impl Buffer {
             tracing::error!("Error loading buffer data: {err}");
         }
         self.indent = buffer_data.indent;
+        self.last_interact_time = buffer_data.last_interact_time;
     }
 
     pub fn find_conflicts(&mut self) {

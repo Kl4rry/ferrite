@@ -1,7 +1,7 @@
 use std::{
     borrow::Cow,
     sync::{Arc, atomic::AtomicBool},
-    time::Instant,
+    time::SystemTime,
 };
 
 use slotmap::SlotMap;
@@ -32,7 +32,7 @@ pub struct BufferItem {
     pub id: BufferId,
     pub name: String,
     pub dirty: bool,
-    pub order: Instant,
+    pub order: SystemTime,
 }
 
 impl Matchable for BufferItem {
