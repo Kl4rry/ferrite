@@ -40,14 +40,14 @@ pub fn write(
 ) -> Result<usize, BufferError> {
     let tmp_file_path = create_tmp_file_path(&path)?;
     let mut create = true;
-    let mut created_copy = false;
+    let mut atomic_write = false;
     // This has a TOCTU but I don't really care
     if let Ok(metadata) = fs::metadata(&path)
         && metadata.is_file()
     {
         // Copy file to keep metadata
         if fs::copy(&path, &tmp_file_path).is_ok() {
-            created_copy = true;
+            atomic_write = true;
             create = false;
         }
     }
@@ -59,21 +59,25 @@ pub fn write(
 
     // If we faild to copy the file fall back to writing to the real file
     // this might lead to non atomic writes but it's better then failing
-    let mut file = open_options
-        .open(&tmp_file_path)
-        .or_else(|_| open_options.open(&path))?;
+    let mut file = match open_options.open(&tmp_file_path) {
+        Ok(file) => {
+            atomic_write = true;
+            file
+        }
+        Err(_) => open_options.open(&path)?,
+    };
 
     let bytes_written = match write_inner(encoding, line_ending, rope, BufWriter::new(&mut file)) {
         Ok(bytes_written) => bytes_written,
         Err(err) => {
-            if created_copy {
+            if atomic_write {
                 fs::remove_file(tmp_file_path)?;
             }
             return Err(err);
         }
     };
 
-    if created_copy && let Err(err) = fs::rename(&tmp_file_path, &path) {
+    if atomic_write && let Err(err) = fs::rename(&tmp_file_path, &path) {
         fs::remove_file(tmp_file_path)?;
         return Err(err.into());
     }
