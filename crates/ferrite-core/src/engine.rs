@@ -443,6 +443,17 @@ impl Engine {
                 if buffer.name() == "editor://logger" {
                     buffer.replace_rope(self.logger_state.rope.clone());
                 }
+
+                if buffer.name() == "editor://watch"
+                    && let Some(watcher) = &self.buffer_watcher
+                {
+                    let mut rope = ropey::RopeBuilder::new();
+                    for (path, _) in &watcher.buffers {
+                        rope.append(&path.to_string_lossy());
+                        rope.append("\n");
+                    }
+                    buffer.replace_rope(rope.finish());
+                }
             }
         }
 
@@ -1377,6 +1388,10 @@ impl Engine {
             }
             "logger" => {
                 self.create_unique_empty_editor_scheme_buffer("editor://logger");
+                true
+            }
+            "watched" => {
+                self.create_unique_empty_editor_scheme_buffer("editor://watch");
                 true
             }
             _ => {

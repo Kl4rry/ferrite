@@ -14,8 +14,8 @@ use crate::{
 };
 
 pub struct BufferWatcher {
+    pub buffers: HashMap<PathBuf, bool>,
     watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
-    buffers: HashMap<PathBuf, bool>,
     update_rx: mpsc::Receiver<PathBuf>,
 }
 
@@ -49,8 +49,8 @@ impl BufferWatcher {
         };
 
         Ok(Self {
-            watcher,
             buffers: HashMap::new(),
+            watcher,
             update_rx: rx,
         })
     }
@@ -71,8 +71,14 @@ impl BufferWatcher {
             if let Some(file) = buffer.file()
                 && !self.buffers.contains_key(file)
             {
-                tracing::info!("Started watching: {file:?}");
-                let _ = self.watcher.watch(file, RecursiveMode::NonRecursive);
+                match self.watcher.watch(file, RecursiveMode::NonRecursive) {
+                    Ok(_) => {
+                        tracing::info!("Started watching: {file:?}");
+                    }
+                    Err(err) => {
+                        tracing::info!("Error watching {file:?} {err}");
+                    }
+                }
                 self.buffers.insert(file.into(), true);
             }
         }
