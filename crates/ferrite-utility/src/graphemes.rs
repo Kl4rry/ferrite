@@ -617,15 +617,15 @@ impl RopeGraphemeExt for RopeSlice<'_> {
         let before_is_word = self
             .chars_at(start_char)
             .prev()
-            .map(|ch| is_word_char(ch))
+            .map(is_word_char)
             .unwrap_or(true);
         let after_is_word = self
             .chars_at(end_char)
             .next()
-            .map(|ch| is_word_char(ch))
+            .map(is_word_char)
             .unwrap_or(true);
         let is_word = self.byte_slice(start_byte..end_byte).is_word_char();
-        return !before_is_word && is_word && !after_is_word;
+        !before_is_word && is_word && !after_is_word
     }
 
     fn end_of_line_byte(&self, line_idx: usize) -> usize {

@@ -2936,8 +2936,7 @@ impl Buffer {
     }
 
     pub fn mark_saved(&mut self, id: u64) {
-        self.dirty = false;
-        self.history.save(id);
+        self.dirty = self.history.save(id);
         if self.language_name() == "text" {
             self.auto_detect_language(true, false);
         }
@@ -3252,8 +3251,6 @@ impl Buffer {
 
         let cursor_positions = self.get_cursor_positions();
 
-        let len_before = self.rope.len_bytes();
-
         let mut cursor_lines = HashSet::new();
         for view in self.views.values() {
             for cursor in &view.cursors[..] {
@@ -3261,6 +3258,7 @@ impl Buffer {
             }
         }
 
+        let mut edited = false;
         for i in 0..self.rope.len_lines() {
             if cursor_lines.contains(&i) {
                 continue;
@@ -3279,7 +3277,7 @@ impl Buffer {
                     byte_idx += grapheme.len_bytes();
                 }
 
-                self.history.remove(
+                edited |= self.history.remove(
                     &mut self.rope,
                     (line_start_byte_idx + last_non_whitespace_byte_idx)
                         ..(line_start_byte_idx + line_len_bytes),
@@ -3287,17 +3285,13 @@ impl Buffer {
             }
         }
 
-        let len_after = self.rope.len_bytes();
-
-        self.restore_cursor_positions(cursor_positions);
-
-        if len_before != len_after {
+        if edited {
+            self.restore_cursor_positions(cursor_positions);
             self.mark_dirty();
+            self.history.finish();
+            self.on_file_changed(None);
+            self.update_completer(None, CompleterEvent::None);
         }
-
-        self.history.finish();
-        self.on_file_changed(None);
-        self.update_completer(None, CompleterEvent::None);
     }
 
     pub fn get_view_selection(&self, view_id: ViewId) -> Vec<Selection> {

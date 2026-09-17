@@ -1978,6 +1978,8 @@ impl Engine {
             return;
         };
 
+        buffer.history.finish();
+
         let config = self.config.languages.from_name(buffer.language_name());
         let fmt = config.and_then(|config| config.format.clone());
         let auto_trim = config

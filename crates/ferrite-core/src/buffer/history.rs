@@ -122,25 +122,41 @@ impl History {
         }
     }
 
-    pub fn insert(&mut self, rope: &mut Rope, byte_idx: usize, text: impl Into<String>) {
-        let insert = EditKind::Insert {
-            byte_idx,
-            text: text.into(),
-        };
+    pub fn insert(&mut self, rope: &mut Rope, byte_idx: usize, text: impl Into<String>) -> bool {
+        let text = text.into();
+        if text.is_empty() {
+            return false;
+        }
+        let insert = EditKind::Insert { byte_idx, text };
         self.edit(rope, insert);
+        true
     }
 
-    pub fn remove(&mut self, rope: &mut Rope, byte_range: Range<usize>) {
+    pub fn remove(&mut self, rope: &mut Rope, byte_range: Range<usize>) -> bool {
+        if byte_range.start == byte_range.end {
+            return false;
+        }
         let remove = EditKind::Remove { range: byte_range };
         self.edit(rope, remove);
+        true
     }
 
-    pub fn replace(&mut self, rope: &mut Rope, byte_range: Range<usize>, text: impl Into<String>) {
+    pub fn replace(
+        &mut self,
+        rope: &mut Rope,
+        byte_range: Range<usize>,
+        text: impl Into<String>,
+    ) -> bool {
+        let text = text.into();
+        if byte_range.start == byte_range.end && text.is_empty() {
+            return false;
+        }
         let replace = EditKind::Replace {
             range: byte_range,
-            text: text.into(),
+            text,
         };
         self.edit(rope, replace);
+        true
     }
 
     pub fn begin(
@@ -166,9 +182,7 @@ impl History {
     }
 
     pub fn finish(&mut self) {
-        if let Some(frame) = self.stack.get_mut(self.current_frame as usize)
-            && !frame.finished
-        {
+        if let Some(frame) = self.stack.get_mut(self.current_frame as usize) {
             frame.finished = true;
         }
     }
@@ -195,10 +209,6 @@ impl History {
             mem::swap(&mut frame.view_id, view_id);
             self.current_frame -= 1;
 
-            if frame.finished {
-                break;
-            }
-
             if let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize) {
                 if frame.finished {
                     break;
@@ -222,10 +232,11 @@ impl History {
         dirty: &mut bool,
     ) {
         let mut last_class = None;
+        let mut running = true;
 
-        loop {
+        while running {
             if self.current_frame + 1 >= self.stack.len() as i64 {
-                return;
+                break;
             }
             self.current_frame += 1;
             let frame = &mut self.stack[self.current_frame as usize];
@@ -238,7 +249,7 @@ impl History {
             mem::swap(&mut frame.view_id, view_id);
 
             if frame.finished {
-                break;
+                running = false;
             }
 
             if let Some(frame) = &mut self.stack.get_mut(self.current_frame as usize + 1) {
@@ -253,13 +264,22 @@ impl History {
         }
     }
 
-    pub fn save(&mut self, id: u64) {
+    pub fn save(&mut self, id: u64) -> bool {
         if self.current_frame.is_negative() {
-            return;
+            return id != 0;
         }
-        for frame in &mut self.stack {
-            frame.dirty = frame.id != id;
+        let mut current_dirty = true;
+        for (i, frame) in self.stack.iter_mut().enumerate() {
+            if frame.id == id {
+                frame.dirty = false;
+            } else {
+                frame.dirty = true;
+            }
+            if self.current_frame == i as i64 {
+                current_dirty = frame.dirty;
+            }
         }
+        current_dirty
     }
 
     /// returns the current frames id, if there is no current frame return 0
@@ -275,4 +295,15 @@ impl History {
             frame.dirty = true;
         }
     }
+
+    /*fn print_history(&self) {
+        use std::fmt::Write;
+        for (i, frame) in self.stack.iter().enumerate() {
+            let mut edit_kinds = String::new();
+            for edit in &frame.edits {
+                write!(edit_kinds, "{:?} ", edit);
+            }
+            eprintln!("{i} {edit_kinds} D: {}, f: {}", frame.dirty, frame.finished);
+        }
+    }*/
 }
