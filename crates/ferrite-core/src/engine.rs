@@ -448,7 +448,7 @@ impl Engine {
                     && let Some(watcher) = &self.buffer_watcher
                 {
                     let mut rope = ropey::RopeBuilder::new();
-                    for (path, _) in &watcher.buffers {
+                    for path in watcher.buffers.keys() {
                         rope.append(&path.to_string_lossy());
                         rope.append("\n");
                     }
