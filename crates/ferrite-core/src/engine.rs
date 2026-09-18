@@ -425,18 +425,18 @@ impl Engine {
         self.shell_jobs.retain(|job| !job.1.is_finished());
 
         {
-            let mut string = ArenaString::new_in(&arena);
-            let _ = write!(string, "Frame time: {:?}", self.last_render_time);
-            #[cfg(feature = "talloc")]
-            let _ = write!(
-                string,
-                "\nHeap memory usage: {}\nHeap allocations: {}\nFrame allocations: {}",
-                crate::byte_size::format_byte_size(self.total_memory_allocated),
-                self.num_allocations,
-                self.phase_allocations,
-            );
             for (_buffer_id, buffer) in &mut self.workspace.buffers {
                 if buffer.name() == "editor://perf" {
+                    let mut string = ArenaString::new_in(&arena);
+                    let _ = write!(string, "Frame time: {:?}", self.last_render_time);
+                    #[cfg(feature = "talloc")]
+                    let _ = write!(
+                        string,
+                        "\nHeap memory usage: {}\nHeap allocations: {}\nFrame allocations: {}",
+                        crate::byte_size::format_byte_size(self.total_memory_allocated),
+                        self.num_allocations,
+                        self.phase_allocations,
+                    );
                     buffer.replace_rope(Rope::from(&*string));
                 }
 
