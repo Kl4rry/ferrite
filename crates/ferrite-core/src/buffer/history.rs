@@ -108,7 +108,7 @@ impl History {
     pub fn finish(&mut self) {
         if let Some(frame) = self.stack.get_mut(self.current_frame) {
             frame.finished = true;
-            if frame.edits.is_empty() && self.current_frame == 0 {
+            if frame.edits.is_empty() && self.current_frame != 0 {
                 self.stack.remove(self.current_frame);
                 self.current_frame -= 1;
             }
