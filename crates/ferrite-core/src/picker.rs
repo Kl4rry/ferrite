@@ -37,6 +37,8 @@ pub trait Previewer<M: Matchable> {
 pub struct Picker<M: Matchable + Send + Sync + Clone + 'static> {
     search_field: MiniBuffer,
     selected: usize,
+    pub scroll_pos: f32,
+    pub view_height: usize,
     previewer: Option<Box<dyn Previewer<M>>>,
     choice: Option<M>,
     nucleo: Nucleo<M>,
@@ -57,6 +59,8 @@ where
         Self {
             search_field: MiniBuffer::new(),
             selected: 0,
+            scroll_pos: 0.0,
+            view_height: 0,
             choice: None,
             previewer,
             nucleo: Nucleo::new(
@@ -117,10 +121,33 @@ where
         } else {
             self.selected = self.selected.saturating_sub(1);
         }
+        self.scroll_selected_into_view();
     }
 
     pub fn move_down(&mut self) {
+        self.get_snapshot();
         self.selected += 1;
+        let count = self.get_snapshot().matched_item_count() as usize;
+        if self.selected + 1 > count {
+            self.selected = 0;
+        }
+        self.scroll_selected_into_view();
+    }
+
+    pub fn clamp_scroll(&mut self) {
+        let matched_item_count = self.get_snapshot().matched_item_count();
+        self.scroll_pos = self
+            .scroll_pos
+            .clamp(0.0, matched_item_count as f32 + self.view_height as f32);
+    }
+
+    pub fn scroll_selected_into_view(&mut self) {
+        if self.selected < (self.scroll_pos as usize) {
+            self.scroll_pos = self.selected as f32;
+        } else if self.selected as f32 >= self.scroll_pos + self.view_height as f32 {
+            self.scroll_pos = self.selected as f32 - self.view_height as f32 + 1.0;
+        }
+        self.clamp_scroll();
     }
 
     pub fn handle_input(&mut self, input: Cmd) -> Result<(), BufferError> {
@@ -131,16 +158,15 @@ where
             Cmd::MoveUp { .. } | Cmd::TabOrIndent { back: true } => self.move_up(),
             Cmd::MoveDown { .. } | Cmd::TabOrIndent { back: false } => self.move_down(),
             Cmd::VerticalScroll { distance } => {
-                if distance.is_sign_negative() {
-                    self.move_up();
-                } else {
-                    self.move_down()
-                }
+                self.scroll_pos += distance as f32;
+                self.clamp_scroll();
             }
             Cmd::Char { .. } => {
                 // TODO check if cursor is at end
                 // settings append to true makes nucleo faster
                 self.search_field.handle_input(input)?;
+                self.selected = 0;
+                self.scroll_pos = 0.0;
             }
             input => enter |= self.search_field.handle_input(input)?,
         }

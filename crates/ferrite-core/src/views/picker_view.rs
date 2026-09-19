@@ -76,9 +76,7 @@ where
             return true;
         }
         let cell_position = mouse_interaction.cell_position(result_bounds.view_bounds().position());
-        let selected = picker.selected();
-        let start_page = selected / result_area.height as usize;
-        let new_index = start_page * result_area.height as usize + cell_position.y;
+        let new_index = picker.scroll_pos as usize + cell_position.y;
 
         match mouse_interaction.kind {
             MouseInterctionKind::Press(1) if mouse_interaction.button == MouseButton::Left => {
@@ -183,15 +181,16 @@ where
             get_preview_and_result_area(inner_area, picker.has_previewer());
 
         {
+            picker.view_height = result_area.height as usize;
+
             let snapshot = picker.get_snapshot();
             let matched_item_count = snapshot.matched_item_count();
 
             let selected = picker.selected();
 
-            let start_page = selected / result_area.height as usize;
-            let cursor_pos = selected % result_area.height as usize;
+            let cursor_pos = selected as i32 - picker.scroll_pos as i32;
 
-            let start = start_page as u32 * result_area.height as u32;
+            let start = (picker.scroll_pos as u32).min(matched_item_count);
             let end = (start + result_area.height as u32).min(matched_item_count);
 
             let mut indicies = Vec::new();
@@ -224,7 +223,7 @@ where
                     item.data.display()
                 };
 
-                let cursor = if i == cursor_pos {
+                let cursor = if i as i32 == cursor_pos {
                     " > ".to_string()
                 } else {
                     "   ".to_string()
@@ -309,7 +308,7 @@ where
                     (width - cursor.width()) as u16,
                 );
 
-                if i == cursor_pos {
+                if i as i32 == cursor_pos {
                     buf.set_style(
                         Rect {
                             x: result_area.x,
