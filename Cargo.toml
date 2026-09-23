@@ -25,7 +25,7 @@ dunce = "1.0.4"
 encoding_rs = "0.8.31"
 executable-finder = "0.3.0"
 ferrite-style = { path = "crates/ferrite-style" }
-ferrite-blame = { path = "crates/ferrite-blame" }
+ferrite-git = { path = "crates/ferrite-git" }
 ferrite-cli = { path = "crates/ferrite-cli" }
 ferrite-clipboard = { path = "crates/ferrite-clipboard" }
 ferrite-core = { path = "crates/ferrite-core" }

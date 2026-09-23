@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use ferrite_blame::BlameHunk;
+use ferrite_git::blame::BlameHunk;
 
 use crate::{
     event_loop_proxy::{EventLoopProxy, UserEvent},
@@ -22,7 +22,7 @@ impl Blame {
     }
 
     pub fn request_update(&mut self, path: PathBuf, proxy: Box<dyn EventLoopProxy<UserEvent>>) {
-        self.promise = Promise::spawn(proxy, move || ferrite_blame::blame(path));
+        self.promise = Promise::spawn(proxy, move || ferrite_git::blame::blame(path));
     }
 
     pub fn get_blame(&mut self) -> &[BlameHunk] {

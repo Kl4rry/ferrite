@@ -902,14 +902,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ferrite-blame"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "regex",
-]
-
-[[package]]
 name = "ferrite-cli"
 version = "0.1.0"
 dependencies = [
@@ -940,11 +932,11 @@ dependencies = [
  "dunce",
  "encoding_rs",
  "executable-finder",
- "ferrite-blame",
  "ferrite-cli",
  "ferrite-clipboard",
  "ferrite-ctx",
  "ferrite-geom",
+ "ferrite-git",
  "ferrite-runtime",
  "ferrite-style",
  "ferrite-talloc",
@@ -997,6 +989,14 @@ dependencies = [
  "num-traits",
  "ratatui-core",
  "serde",
+]
+
+[[package]]
+name = "ferrite-git"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "regex",
 ]
 
 [[package]]
