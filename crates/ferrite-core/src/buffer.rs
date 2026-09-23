@@ -2389,6 +2389,8 @@ impl Buffer {
             .filter(|line| line.line_without_line_ending(0).len_bytes() > 0)
             .count();
 
+        self.history.finish();
+
         if self.views[view_id].cursors.len() != lines || self.views[view_id].cursors.len() < 2 {
             // NOTE: this is a bruh ass hack to remove starting newlines added by the copy function
             if self.views[view_id].cursors.len() == 1 {
