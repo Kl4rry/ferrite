@@ -203,6 +203,20 @@ impl WgpuBackend {
                     attrs = attrs.color(fg);
                     let symbol = cell.symbol();
 
+                    let symbol = if handle_box_char(
+                        symbol,
+                        col_idx as f32 * cell_width + x,
+                        line_idx as f32 * cell_height + y,
+                        cell_width,
+                        cell_height,
+                        fg,
+                        &mut self.top_geometry,
+                    ) {
+                        " "
+                    } else {
+                        symbol
+                    };
+
                     let symbol_width = symbol.width();
                     let mut cow_symbol: Cow<str> = symbol.into();
                     if symbol_width > 1 {
@@ -447,5 +461,128 @@ impl Backend for WgpuBackend {
             return Err(std::io::Error::other("unsupported clear type"));
         }
         Ok(())
+    }
+}
+
+/// returns true if char is box char
+fn handle_box_char(
+    s: &str,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+    color: glyphon::Color,
+    top_geometry: &mut Geometry,
+) -> bool {
+    match s {
+        "▍" => {
+            top_geometry.quads.push(Quad {
+                x,
+                y,
+                width: width * (3.0 / 8.0),
+                height: height,
+                color,
+            });
+            true
+        }
+        "▐" => {
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y,
+                width: width / 2.0,
+                height: height,
+                color,
+            });
+            true
+        }
+        "│" => {
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y,
+                width: 1.0,
+                height,
+                color,
+            });
+            true
+        }
+        "─" => {
+            top_geometry.quads.push(Quad {
+                x,
+                y: y + height / 2.0,
+                width,
+                height: 1.0,
+                color,
+            });
+            true
+        }
+        "┌" => {
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y: y + height / 2.0,
+                width: width / 2.0,
+                height: 1.0,
+                color,
+            });
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y: y + height / 2.0,
+                width: 1.0,
+                height: height / 2.0,
+                color,
+            });
+            true
+        }
+        "┐" => {
+            top_geometry.quads.push(Quad {
+                x,
+                y: y + height / 2.0,
+                width: width / 2.0,
+                height: 1.0,
+                color,
+            });
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y: y + height / 2.0,
+                width: 1.0,
+                height: height / 2.0,
+                color,
+            });
+            true
+        }
+        "└" => {
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y: y + height / 2.0,
+                width: width / 2.0,
+                height: 1.0,
+                color,
+            });
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y,
+                width: 1.0,
+                height: height / 2.0,
+                color,
+            });
+            true
+        }
+        "┘" => {
+            top_geometry.quads.push(Quad {
+                x,
+                y: y + height / 2.0,
+                width: width / 2.0,
+                height: 1.0,
+                color,
+            });
+            top_geometry.quads.push(Quad {
+                x: x + width / 2.0,
+                y,
+                width: 1.0,
+                height: height / 2.0,
+                color,
+            });
+            true
+        }
+        _ => false,
     }
 }
