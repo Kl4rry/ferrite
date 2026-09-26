@@ -90,6 +90,7 @@ impl Default for BlameHunk {
     }
 }
 
+#[profiling::function]
 fn parse_one_blame(porcelain: &[&str]) -> Result<BlameHunk> {
     let mut blame = BlameHunk::default();
 
@@ -152,6 +153,7 @@ fn parse_one_blame(porcelain: &[&str]) -> Result<BlameHunk> {
     Ok(blame)
 }
 
+#[profiling::function]
 fn parse(porcelain: &str) -> Result<Vec<BlameHunk>> {
     let lines = porcelain.lines();
     let mut blames: Vec<BlameHunk> = Vec::new();
@@ -182,6 +184,7 @@ fn parse(porcelain: &str) -> Result<Vec<BlameHunk>> {
 }
 
 #[rustfmt::skip]
+#[profiling::function]
 pub fn blame(path: impl AsRef<Path>) -> Result<Vec<BlameHunk>> {
     let mut cmd = Command::new("git");
     cmd.arg("blame");

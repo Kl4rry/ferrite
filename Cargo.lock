@@ -949,6 +949,7 @@ dependencies = [
  "heck",
  "humansize",
  "ignore",
+ "imara-diff",
  "indexmap",
  "linkify",
  "lru 0.16.4",
@@ -996,7 +997,12 @@ name = "ferrite-git"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ferrite-utility",
+ "imara-diff",
+ "profiling",
  "regex",
+ "ropey",
+ "tracing",
 ]
 
 [[package]]
@@ -1089,6 +1095,8 @@ dependencies = [
 name = "ferrite-utility"
 version = "0.1.0"
 dependencies = [
+ "chardetng",
+ "encoding_rs",
  "ferrite-ctx",
  "ferrite-geom",
  "nucleo",
@@ -1555,6 +1563,16 @@ dependencies = [
  "same-file",
  "walkdir",
  "winapi-util",
+]
+
+[[package]]
+name = "imara-diff"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f01d462f766df78ab820dd06f5eb700233c51f0f4c2e846520eaf4ba6aa5c5c"
+dependencies = [
+ "hashbrown 0.15.5",
+ "memchr",
 ]
 
 [[package]]

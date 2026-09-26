@@ -6,7 +6,7 @@ static PROXY: OnceLock<Box<dyn EventLoopProxy<UserEvent>>> = OnceLock::new();
 
 pub fn set_proxy(proxy: Box<dyn EventLoopProxy<UserEvent>>) {
     if PROXY.set(proxy).is_err() {
-        tracing::error!("Error attempted to set buffer proxy twice");
+        tracing::error!("Error attempted to set event loop proxy twice");
     }
 }
 

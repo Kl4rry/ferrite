@@ -315,6 +315,9 @@ impl View<Buffer> for EditorView {
         buffer.views[view_id].view_columns = text_area.width.saturating_sub(left_offset);
         buf.set_style(area.into(), theme.background);
 
+        let start_line = buffer.views[view_id].line_pos_floored();
+        let end_line = start_line + buffer.views[view_id].view_lines;
+
         if line_nr {
             buf.set_style(
                 Rect {
@@ -631,9 +634,6 @@ impl View<Buffer> for EditorView {
 
             if config.highlight_cursor_line && draw_cursor_line && has_focus {
                 let line_idx = buffer.cursor_line_idx(view_id, 0);
-                let start_line = buffer.views[view_id].line_pos_floored();
-                let end_line =
-                    buffer.views[view_id].line_pos_floored() + buffer.views[view_id].view_lines;
 
                 if line_idx >= start_line && line_idx < end_line {
                     let cursor_line_area = Rect::new(
@@ -705,9 +705,6 @@ impl View<Buffer> for EditorView {
                 profiling::scope!("draw blame");
 
                 let cursor_line_idx = buffer.cursor_line_idx(view_id, 0);
-                let start_line = buffer.views[view_id].line_pos_floored();
-                let end_line =
-                    buffer.views[view_id].line_pos_floored() + buffer.views[view_id].view_lines;
 
                 if !(cursor_line_idx >= start_line && cursor_line_idx < end_line) {
                     break 'block;
@@ -777,8 +774,6 @@ impl View<Buffer> for EditorView {
                 profiling::scope!("draw git conflicts");
                 let conflicts = buffer.conflicts.lock().unwrap();
                 normalized_conflicts.reserve_exact(conflicts.len());
-                let start_line = buffer.views[view_id].line_pos_floored();
-                let end_line = start_line + buffer.views[view_id].view_lines;
                 let len_lines = buffer.len_lines() as f32 + bounds.grid_bounds().height as f32;
                 for (start, middle, end) in &*conflicts {
                     normalized_conflicts.push((
@@ -892,6 +887,49 @@ impl View<Buffer> for EditorView {
                 }
             }
 
+            let modified_style = theme.get_syntax("diff.delta");
+            let inserted_style = theme.get_syntax("diff.plus");
+            {
+                profiling::scope!("draw diff hunks");
+                if line_nr && let Some(diff) = &*buffer.line_diff.diff() {
+                    'outer: for hunk in diff.hunks() {
+                        if hunk.is_pure_removal() {
+                            continue;
+                        }
+                        if !intersects(
+                            hunk.before.start as usize,
+                            hunk.before.end as usize,
+                            start_line,
+                            end_line,
+                        ) {
+                            continue;
+                        }
+
+                        for i in hunk.after.clone() {
+                            if (i as usize) < start_line {
+                                continue;
+                            }
+                            if (i as usize) >= end_line {
+                                break 'outer;
+                            }
+                            let view_line = (i as usize) - start_line;
+                            let style = if hunk.before.contains(&i) {
+                                &modified_style
+                            } else {
+                                &inserted_style
+                            };
+                            buf.draw_string_i32(
+                                text_area.x as i32 - 1,
+                                (text_area.y + view_line) as i32,
+                                "▍",
+                                area.into(),
+                                *style,
+                            );
+                        }
+                    }
+                }
+            }
+
             if *scrollbar {
                 profiling::scope!("draw scrollbar");
                 let cell_size = bounds.cell_size();
@@ -907,42 +945,86 @@ impl View<Buffer> for EditorView {
                 let mut conflict_areas = ArenaVec::new_in(&arena);
                 conflict_areas.reserve_exact(normalized_conflicts.len() * 2);
                 // Draw git conflicts in the scrollbar
-                let conflict_width = cell_size.x;
+                let half_width = get_half_scroll_bar_width(cell_size.x);
                 for (start, middle, end) in normalized_conflicts {
                     let start = start * view_bounds.height as f32;
                     let middle = middle * view_bounds.height as f32;
                     let end = end * view_bounds.height as f32;
                     conflict_areas.push((
                         Rect::new(
-                            view_bounds.x as f32 + view_bounds.width as f32 - conflict_width,
+                            view_bounds.x as f32 + view_bounds.width as f32 - half_width,
                             start,
-                            conflict_width,
+                            half_width,
                             middle - start,
                         ),
                         theme.conflict_current.bg.unwrap_or_default(),
                     ));
                     conflict_areas.push((
                         Rect::new(
-                            view_bounds.x as f32 + view_bounds.width as f32 - conflict_width,
+                            view_bounds.x as f32 + view_bounds.width as f32 - half_width,
                             middle,
-                            conflict_width,
+                            half_width,
                             end - middle,
                         ),
                         theme.conflict_incoming.bg.unwrap_or_default(),
                     ));
                 }
 
+                let mut modified_areas = ArenaVec::new_in(&arena);
+                let mut inserted_areas = ArenaVec::new_in(&arena);
+                let len_lines = buffer.len_lines() as f32;
+                if let Some(diff) = &*buffer.line_diff.diff() {
+                    for hunk in diff.hunks() {
+                        if hunk.is_pure_removal() {
+                            continue;
+                        }
+                        if !hunk.before.is_empty() {
+                            let start =
+                                (hunk.before.start as f32 / len_lines) * view_bounds.height as f32;
+                            let end =
+                                (hunk.before.end as f32 / len_lines) * view_bounds.height as f32;
+                            modified_areas.push((
+                                Rect::new(
+                                    view_bounds.x as f32 + view_bounds.width as f32 - half_width,
+                                    start,
+                                    half_width,
+                                    (end - start).max(cell_size.y / 2.0).max(1.0),
+                                ),
+                                modified_style.fg.unwrap_or_default(),
+                            ));
+                        }
+                        {
+                            let start =
+                                (hunk.after.start as f32 / len_lines) * view_bounds.height as f32;
+                            let end =
+                                (hunk.after.end as f32 / len_lines) * view_bounds.height as f32;
+                            inserted_areas.push((
+                                Rect::new(
+                                    view_bounds.x as f32 + view_bounds.width as f32 - half_width,
+                                    start,
+                                    half_width,
+                                    (end - start).max(cell_size.y / 2.0).max(1.0),
+                                ),
+                                inserted_style.fg.unwrap_or_default(),
+                            ));
+                        }
+                    }
+                }
+
                 if painter.has_painter2d() {
                     let painter2d = layer.painter2d.as_mut().unwrap();
                     painter2d.draw_quad(rect, theme.scrollbar.bg.unwrap_or_default());
 
-                    for (rect, color) in conflict_areas {
+                    painter2d.draw_quad(scrollbar_bounds, theme.scrollbar.fg.unwrap_or_default());
+
+                    for (rect, color) in inserted_areas
+                        .into_iter()
+                        .chain(modified_areas)
+                        .chain(conflict_areas)
+                    {
                         painter2d.draw_quad(rect, color);
                     }
-
-                    painter2d.draw_quad(scrollbar_bounds, theme.scrollbar.fg.unwrap_or_default());
                 } else {
-                    // TODO: use 1/8 blocks to make bar higher resolution
                     let rect = Rect::new(
                         rect.x as usize,
                         rect.y as usize,
@@ -957,14 +1039,24 @@ impl View<Buffer> for EditorView {
                         scrollbar_bounds.width as usize,
                         scrollbar_bounds.height as usize,
                     );
-                    for (rect, color) in conflict_areas {
+                    for (rect, color) in inserted_areas
+                        .into_iter()
+                        .chain(modified_areas)
+                        .chain(conflict_areas)
+                    {
                         let rect = Rect::new(
                             rect.x as usize,
                             rect.y as usize,
                             rect.width as usize,
                             rect.height.ceil() as usize,
                         );
-                        buf.set_style(rect.into(), Style::default().bg(color));
+                        buf.draw_string_i32(
+                            rect.x as i32,
+                            rect.y as i32,
+                            "▐",
+                            rect.into(),
+                            Style::default().fg(color),
+                        );
                     }
                     buf.set_style(
                         rect.into(),
@@ -1014,6 +1106,17 @@ fn get_scroll_bar_width(cell_width: f32) -> f32 {
         cell_width * SCROLL_BAR_CELL_WIDTH.floor()
     } else {
         cell_width * SCROLL_BAR_CELL_WIDTH
+    }
+}
+
+fn get_half_scroll_bar_width(cell_width: f32) -> f32 {
+    // I think the 1 cell scrollbar is a bit to small so when we do native rendering
+    // we make it a bit bigger. This value could be user configurable
+    const SCROLL_BAR_CELL_WIDTH: f32 = 1.5;
+    if cell_width == 1.0 {
+        cell_width * SCROLL_BAR_CELL_WIDTH.floor()
+    } else {
+        cell_width * SCROLL_BAR_CELL_WIDTH / 2.0
     }
 }
 

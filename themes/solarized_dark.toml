@@ -93,5 +93,5 @@ green   = "#859900"
 cursorline = "#073642"
 scrollbar = "#304a50"
 
-conflict-current  = "#27403B"
-conflict-incoming = "#28384B"
+conflict-current  = "#347a71"
+conflict-incoming = "#34699a"

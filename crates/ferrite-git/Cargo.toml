@@ -5,4 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
+ferrite-utility = { workspace = true }
+imara-diff = { workspace = true }
+profiling = { workspace = true }
 regex =  { workspace = true }
+ropey = { workspace = true }
+tracing = { workspace = true }

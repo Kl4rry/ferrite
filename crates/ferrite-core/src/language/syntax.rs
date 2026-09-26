@@ -83,6 +83,7 @@ impl SyntaxWorker {
                 }
             },
             |state, rope: Rope| {
+                profiling::scope!("syntax worker update");
                 state.epoch += 1;
                 let mut arena = ferrite_ctx::Ctx::arena_mut();
 

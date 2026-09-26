@@ -135,6 +135,9 @@ impl History {
             mem::swap(&mut frame.cursors, cursors);
             mem::swap(&mut frame.dirty, dirty);
             mem::swap(&mut frame.view_id, view_id);
+            if self.current_frame == 0 {
+                return;
+            }
             self.current_frame -= 1;
 
             if let Some(frame) = &mut self.stack.get_mut(self.current_frame) {

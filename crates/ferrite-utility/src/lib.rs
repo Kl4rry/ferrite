@@ -3,6 +3,7 @@ pub mod chars;
 pub mod graphemes;
 pub mod line_ending;
 pub mod natural_cmp;
+pub mod read;
 pub mod rope_reader;
 pub mod time;
 pub mod trim;

@@ -15,11 +15,11 @@ directories = { workspace = true }
 dunce = { workspace = true }
 encoding_rs = { workspace = true }
 executable-finder = { workspace = true }
-ferrite-git = { workspace = true }
 ferrite-cli = { workspace = true }
 ferrite-clipboard = { workspace = true }
 ferrite-ctx = { workspace = true }
 ferrite-geom = { workspace = true }
+ferrite-git = { workspace = true }
 ferrite-runtime = { workspace = true }
 ferrite-style = { workspace = true }
 ferrite-talloc = { workspace = true, optional = true }
@@ -32,6 +32,7 @@ grep-searcher = { workspace = true }
 heck = { workspace = true }
 humansize = { workspace = true }
 ignore = { workspace = true }
+imara-diff = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 linkify = { workspace = true }
 lru = { workspace = true }

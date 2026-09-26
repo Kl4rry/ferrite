@@ -118,5 +118,5 @@ search_match = "#b4def1"
 cursorline = "#e8ecf1"
 scrollbar = "#c9ccd6"
 
-conflict-current  = "#27403B"
-conflict-incoming = "#28384B"
+conflict-current  = "#347a71"
+conflict-incoming = "#34699a"

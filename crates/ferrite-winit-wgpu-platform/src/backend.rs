@@ -480,7 +480,7 @@ fn handle_box_char(
                 x,
                 y,
                 width: width * (3.0 / 8.0),
-                height: height,
+                height,
                 color,
             });
             true
@@ -490,7 +490,7 @@ fn handle_box_char(
                 x: x + width / 2.0,
                 y,
                 width: width / 2.0,
-                height: height,
+                height,
                 color,
             });
             true

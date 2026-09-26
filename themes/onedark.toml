@@ -99,5 +99,5 @@ faint_blue = "#324971"
 cursorline = "#2c313c"
 scrollbar = "#3b414d"
 
-conflict-current  = "#27403B"
-conflict-incoming = "#28384B"
+conflict-current  = "#347a71"
+conflict-incoming = "#34699a"

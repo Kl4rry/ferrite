@@ -38,6 +38,7 @@ use crate::{
     },
     cmd::LineMoveDir,
     event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy},
+    git::diff::GitDiff,
     language::detect::detect_language,
     workspace::persistance,
 };
@@ -215,6 +216,7 @@ pub struct Buffer {
     pub indent: Indentation,
     pub conflicts: Arc<Mutex<Vec<(usize, usize, usize)>>>,
     pub blame: Blame,
+    pub line_diff: GitDiff,
     pub last_edit_time: Instant,
     pub line_ending: LineEnding,
     pub last_interact_time: SystemTime,
@@ -261,6 +263,7 @@ impl Clone for Buffer {
             main_view: self.main_view.clone(),
             completion_source: self.completion_source.clone(),
             blame: Blame::new(),
+            line_diff: GitDiff::new(self.rope.clone()),
             non_disposable: self.non_disposable,
         }
     }
@@ -293,6 +296,7 @@ impl Default for Buffer {
             main_view: View::default(),
             completion_source: CompletionSource::new(),
             blame: Blame::new(),
+            line_diff: GitDiff::new(Rope::new()),
             non_disposable: false,
         }
     }
@@ -390,6 +394,7 @@ impl Buffer {
             if builder.blame {
                 new.try_update_blame();
             }
+            new.update_line_diff(true);
         }
         if builder.syntax {
             new.auto_detect_language(true, true);
@@ -431,9 +436,13 @@ impl Buffer {
 
     pub fn set_text(&mut self, text: &str) {
         self.rope = Rope::from(text);
-        self.queue_syntax_update();
-        self.find_conflicts();
-        self.hide_completers();
+        if !self.simple {
+            self.queue_syntax_update();
+            self.find_conflicts();
+            self.hide_completers();
+            self.update_line_diff(false);
+            self.try_update_blame();
+        }
     }
 
     /// Replaces rope, moves all cursors to end of file and autoscrolls
@@ -543,6 +552,7 @@ impl Buffer {
             let cwd = std::env::current_dir()?;
             cwd.join(path)
         };
+        self.update_line_diff(true);
         self.file = Some(path);
         Ok(())
     }
@@ -3491,7 +3501,15 @@ impl Buffer {
             self.find_conflicts();
             self.queue_syntax_update();
             self.completion_source.update_words(self.rope.clone());
+            self.update_line_diff(false);
         }
+    }
+
+    pub fn update_line_diff(&mut self, update_before: bool) {
+        if update_before && let Some(file) = &self.file {
+            self.line_diff.update_before(file.clone());
+        }
+        self.line_diff.update_after(self.rope.clone());
     }
 
     pub fn get_buffer_data(&self, view_id: ViewId) -> Option<persistance::Buffer> {

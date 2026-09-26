@@ -117,5 +117,5 @@ ruler = "#48443f"
 search_match = "#503825"
 scrollbar = "#403c39"
 
-conflict-current  = "#27403B"
-conflict-incoming = "#28384B"
+conflict-current  = "#347a71"
+conflict-incoming = "#34699a"

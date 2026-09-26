@@ -95,5 +95,5 @@ base03    = "#fdf6e3"
 cursorline = "#eee8d5"
 scrollbar = "#c0bcb0"
 
-conflict-current  = "#27403B"
-conflict-incoming = "#28384B"
+conflict-current  = "#347a71"
+conflict-incoming = "#34699a"

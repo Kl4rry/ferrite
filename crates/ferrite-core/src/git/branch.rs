@@ -1,56 +1,15 @@
 use std::{
-    process::Command,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
+use ferrite_git::repo::{get_current_branch, get_git_directory};
 use notify_debouncer_full::{
     DebounceEventResult, Debouncer, RecommendedCache, new_debouncer,
     notify::{self, RecommendedWatcher, RecursiveMode},
 };
 
 use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
-
-fn get_current_branch() -> Option<String> {
-    match Command::new("git")
-        .args(["branch", "--show-current"])
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
-            } else {
-                None
-            }
-        }
-        Err(err) => {
-            tracing::error!("{}", err);
-            None
-        }
-    }
-}
-
-fn get_git_directory() -> Option<String> {
-    match Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                Some(format!(
-                    "{}/.git",
-                    String::from_utf8_lossy(&output.stdout).trim()
-                ))
-            } else {
-                None
-            }
-        }
-        Err(err) => {
-            tracing::error!("{}", err);
-            None
-        }
-    }
-}
 
 pub struct BranchWatcher {
     current_branch: Arc<Mutex<Option<String>>>,
