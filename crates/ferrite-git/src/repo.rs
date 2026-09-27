@@ -8,7 +8,24 @@ pub fn get_current_branch() -> Option<String> {
     {
         Ok(output) => {
             if output.status.success() {
-                Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                Some(String::from_utf8_lossy(&output.stdout).trim().into())
+            } else {
+                None
+            }
+        }
+        Err(err) => {
+            tracing::error!("{}", err);
+            None
+        }
+    }
+}
+
+#[profiling::function]
+pub fn get_current_head() -> Option<String> {
+    match Command::new("git").args(["rev-parse", "HEAD"]).output() {
+        Ok(output) => {
+            if output.status.success() {
+                Some(String::from_utf8_lossy(&output.stdout).trim().into())
             } else {
                 None
             }

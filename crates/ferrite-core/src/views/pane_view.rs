@@ -30,7 +30,7 @@ impl PaneView {
                                 engine.themes[&engine.config.editor.theme].clone(),
                                 engine.get_focus()
                                     == Focus::Pane(PaneKind::Buffer(buffer_id, view_id)),
-                                engine.branch_watcher.current_branch(),
+                                engine.git_watcher.current_branch(),
                                 engine.spinner.current(),
                             )
                             .set_ceil_surface_size(true)

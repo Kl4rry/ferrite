@@ -32,7 +32,7 @@ use crate::{
     event_loop_proxy::{EventLoopControlFlow, EventLoopProxy, UserEvent, set_proxy},
     file_explorer::FileExplorer,
     focus::Focus,
-    git::branch::BranchWatcher,
+    git::watcher::GitWatcher,
     indent::Indentation,
     job_manager::{JobHandle, JobManager, Progress, Progressor},
     jobs::{SaveBufferJob, ShellJobHandle},
@@ -77,7 +77,7 @@ pub struct Engine {
     pub repeat: Option<String>,
     pub last_render_time: Duration,
     pub start_of_events: Instant,
-    pub branch_watcher: BranchWatcher,
+    pub git_watcher: GitWatcher,
     pub buffer_watcher: Option<BufferWatcher>,
     pub buffer_area: Rect,
     pub force_redraw: bool,
@@ -153,7 +153,7 @@ impl Engine {
 
         let job_manager = JobManager::new(proxy.dup());
 
-        let branch_watcher = BranchWatcher::new(proxy.dup())?;
+        let git_watcher = GitWatcher::new(proxy.dup())?;
 
         let buffer_watcher = if config.watch_open_files {
             profiling::scope!("start buffer watcher");
@@ -192,7 +192,7 @@ impl Engine {
             file_picker: None,
             buffer_picker: None,
             global_search_picker: None,
-            branch_watcher,
+            git_watcher,
             proxy,
             job_manager,
             save_jobs: Default::default(),
@@ -271,6 +271,13 @@ impl Engine {
             buffer_watcher.update(&mut self.workspace.buffers);
         } else {
             self.buffer_watcher = BufferWatcher::new(self.proxy.dup()).ok();
+        }
+
+        // If git HEAD changes we update the before buffers for the line diff
+        if self.git_watcher.consume_head_change().is_some() {
+            for buffer in self.workspace.buffers.values_mut() {
+                buffer.update_line_diff(true);
+            }
         }
 
         if let Some(config_watcher) = &mut self.config.editor_watcher
@@ -965,7 +972,7 @@ impl Engine {
                 };
                 let _ = self.workspace.buffers[buffer_id].handle_input(view_id, Cmd::RevertBuffer);
             }
-            Cmd::GitReload => self.branch_watcher.force_reload(),
+            Cmd::GitReload => self.git_watcher.force_reload(),
             Cmd::SwitchPane { direction } => {
                 self.workspace
                     .panes
@@ -1326,8 +1333,8 @@ impl Engine {
 
                 self.file_cache = None;
 
-                match BranchWatcher::new(self.proxy.dup()) {
-                    Ok(branch_watcher) => self.branch_watcher = branch_watcher,
+                match GitWatcher::new(self.proxy.dup()) {
+                    Ok(git_watcher) => self.git_watcher = git_watcher,
                     Err(err) => {
                         let msg = format!("Error creating branch watcher: {err}");
                         tracing::error!(msg);
