@@ -116,7 +116,15 @@ impl View<Buffer> for EditorView {
                 if mouse_interaction.button == MouseButton::Left =>
             {
                 if get_scrollbar_track(bounds).contains(mouse_interaction.position) {
-                    // TODO: handle presses on scrollbar
+                    let view_lines = buffer.views[view_id].view_lines as f32;
+                    let scrollable_lines = buffer.len_lines() as f32 + view_lines;
+                    let scrollbar_height =
+                        (buffer.views[view_id].view_lines as f32) * bounds.cell_size().y;
+                    let view_bounds = bounds.view_bounds();
+                    let relative_pos_y = mouse_interaction.position.y - view_bounds.y as f32;
+                    let normalized_pos_y = relative_pos_y / scrollbar_height;
+                    let new_scroll_pos = scrollable_lines * normalized_pos_y - view_lines / 2.0;
+                    buffer.vertical_scroll_to(view_id, new_scroll_pos as f64);
                 } else {
                     buffer.handle_click(
                         view_id,
