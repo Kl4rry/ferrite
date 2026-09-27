@@ -972,7 +972,8 @@ impl View<Buffer> for EditorView {
 
                 let mut modified_areas = ArenaVec::new_in(&arena);
                 let mut inserted_areas = ArenaVec::new_in(&arena);
-                let len_lines = buffer.len_lines() as f32;
+                // We also need to include the part of the view outside of the file
+                let len_lines = buffer.len_lines() as f32 + text_area.height as f32;
                 if let Some(diff) = &*buffer.line_diff.diff() {
                     for hunk in diff.hunks() {
                         if hunk.is_pure_removal() {
