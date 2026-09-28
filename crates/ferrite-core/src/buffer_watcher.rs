@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub struct BufferWatcher {
-    pub buffers: HashMap<PathBuf, bool>,
+    pub watched: HashMap<PathBuf, bool>,
     watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
     update_rx: mpsc::Receiver<PathBuf>,
 }
@@ -28,12 +28,12 @@ impl BufferWatcher {
             None,
             move |result: DebounceEventResult| {
                 if let Ok(events) = result {
-                    for mut event in events {
-                        if event.kind.is_modify()
-                            && let Some(path) = event.event.paths.pop()
-                        {
-                            let _ = tx.send(path);
-                            proxy.request_render("watched filed updated");
+                    for event in events {
+                        if event.kind.is_modify() || event.kind.is_create() {
+                            for path in event.event.paths {
+                                let _ = tx.send(path);
+                                proxy.request_render("watched filed updated");
+                            }
                         }
                     }
                 }
@@ -49,7 +49,7 @@ impl BufferWatcher {
         };
 
         Ok(Self {
-            buffers: HashMap::new(),
+            watched: HashMap::new(),
             watcher,
             update_rx: rx,
         })
@@ -68,33 +68,33 @@ impl BufferWatcher {
         }
 
         for buffer in buffers.values() {
-            if let Some(file) = buffer.file()
-                && !self.buffers.contains_key(file)
+            if let Some(parent) = buffer.directory()
+                && !self.watched.contains_key(parent)
             {
-                match self.watcher.watch(file, RecursiveMode::NonRecursive) {
+                match self.watcher.watch(parent, RecursiveMode::NonRecursive) {
                     Ok(_) => {
-                        tracing::info!("Started watching: {file:?}");
+                        tracing::info!("Started watching: {parent:?}");
                     }
                     Err(err) => {
-                        tracing::info!("Error watching {file:?} {err}");
+                        tracing::info!("Error watching {parent:?} {err}");
                     }
                 }
-                self.buffers.insert(file.into(), true);
+                self.watched.insert(parent.into(), true);
             }
         }
 
-        for (path, touched) in &mut self.buffers {
+        for (path, touched) in &mut self.watched {
             *touched = false;
             for buffer in buffers.values() {
-                if let Some(file) = buffer.file()
-                    && path == file
+                if let Some(parent) = buffer.directory()
+                    && path == parent
                 {
                     *touched = true;
                 }
             }
         }
 
-        self.buffers.retain(|path, touched| {
+        self.watched.retain(|path, touched| {
             if !*touched {
                 let _ = self.watcher.unwatch(path);
                 tracing::info!("Stopped watching: {path:?}");

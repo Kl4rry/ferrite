@@ -455,7 +455,7 @@ impl Engine {
                     && let Some(watcher) = &self.buffer_watcher
                 {
                     let mut rope = ropey::RopeBuilder::new();
-                    for path in watcher.buffers.keys() {
+                    for path in watcher.watched.keys() {
                         rope.append(&path.to_string_lossy());
                         rope.append("\n");
                     }
@@ -1397,7 +1397,7 @@ impl Engine {
                 self.create_unique_empty_editor_scheme_buffer("editor://logger");
                 true
             }
-            "watched" => {
+            "watch" => {
                 self.create_unique_empty_editor_scheme_buffer("editor://watch");
                 true
             }

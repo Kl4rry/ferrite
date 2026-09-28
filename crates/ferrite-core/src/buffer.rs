@@ -532,6 +532,10 @@ impl Buffer {
         self.file.as_deref()
     }
 
+    pub fn directory(&self) -> Option<&Path> {
+        self.file.as_ref().and_then(|path| path.parent())
+    }
+
     pub fn set_file(&mut self, path: Option<impl Into<PathBuf>>) -> Result<(), std::io::Error> {
         let Some(path) = path else {
             self.file = None;
