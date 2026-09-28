@@ -18,8 +18,8 @@ struct RepoInfo {
 
 pub struct GitWatcher {
     repo_info: Arc<Mutex<RepoInfo>>,
+    change_detected: Arc<Mutex<bool>>,
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
-    head: String,
     _watcher: Option<Debouncer<RecommendedWatcher, RecommendedCache>>,
 }
 
@@ -29,10 +29,12 @@ impl GitWatcher {
             branch: None,
             head: None,
         }));
+        let change_detected = Arc::new(Mutex::new(false));
         let mut watcher = None;
 
         {
             let current_repo_info_thread = current_repo_info.clone();
+            let change_detected_thread = change_detected.clone();
             let thread_proxy = proxy.dup();
 
             if let Some(git_dir) = get_git_directory() {
@@ -40,13 +42,13 @@ impl GitWatcher {
                     Duration::from_millis(200),
                     None,
                     move |_: DebounceEventResult| {
+                        *change_detected_thread.lock().unwrap() = true;
                         if let Some(branch) = get_current_branch() {
                             let mut guard = current_repo_info_thread.lock().unwrap();
                             if let Some(current) = &mut guard.branch
                                 && *current != branch
                             {
                                 tracing::info!("Git branch changed from `{current}` to `{branch}`");
-                                thread_proxy.request_render("git branch changed");
                             }
                             guard.branch = Some(branch);
                         }
@@ -56,10 +58,10 @@ impl GitWatcher {
                                 && *current != head
                             {
                                 tracing::info!("Git HEAD changed from `{current}` to `{head}`");
-                                thread_proxy.request_render("git head changed");
                             }
                             guard.head = Some(head);
                         }
+                        thread_proxy.request_render("change in .git folder detected");
                     },
                 ) {
                     Ok(mut watcher) => {
@@ -76,10 +78,10 @@ impl GitWatcher {
             }
         }
 
-        let mut new = Self {
+        let new = Self {
             proxy,
             repo_info: current_repo_info,
-            head: String::new(),
+            change_detected,
             _watcher: watcher,
         };
         new.force_reload();
@@ -94,19 +96,11 @@ impl GitWatcher {
         self.repo_info.lock().unwrap().head.clone()
     }
 
-    pub fn consume_head_change(&mut self) -> Option<String> {
-        if let Some(head) = &self.repo_info.lock().unwrap().head
-            && *head != self.head
-        {
-            self.head.clone_from(head);
-            return Some(head.clone());
-        }
-        None
+    pub fn consume_change(&mut self) -> bool {
+        *self.change_detected.lock().unwrap()
     }
 
-    pub fn force_reload(&mut self) {
-        // clear string to force head changed
-        self.head.clear();
+    pub fn force_reload(&self) {
         let proxy = self.proxy.dup();
         let current_repo_info_thread = self.repo_info.clone();
         rayon::spawn(move || {

@@ -273,8 +273,8 @@ impl Engine {
             self.buffer_watcher = BufferWatcher::new(self.proxy.dup()).ok();
         }
 
-        // If git HEAD changes we update the before buffers for the line diff
-        if self.git_watcher.consume_head_change().is_some() {
+        // If anything in .git/ directory changes we update the before buffers for the line diff
+        if self.git_watcher.consume_change() {
             for buffer in self.workspace.buffers.values_mut() {
                 buffer.update_line_diff(true);
             }
