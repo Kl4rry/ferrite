@@ -1079,7 +1079,7 @@ impl Buffer {
             term,
             SearchOptions {
                 case_insensitive: false,
-                stop_at_first: true,
+                stop_at_first: false,
                 match_whole_word: selection_is_whole_word,
             },
         ) {
