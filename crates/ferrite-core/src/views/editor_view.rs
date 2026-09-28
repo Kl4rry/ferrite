@@ -899,6 +899,7 @@ impl View<Buffer> for EditorView {
             let inserted_style = theme.get_syntax("diff.plus");
             {
                 profiling::scope!("draw diff hunks");
+
                 if line_nr && let Some(diff) = &*buffer.line_diff.diff() {
                     'outer: for hunk in diff.hunks() {
                         if hunk.is_pure_removal() {
@@ -913,18 +914,18 @@ impl View<Buffer> for EditorView {
                             continue;
                         }
 
-                        for i in hunk.after.clone() {
-                            if (i as usize) < start_line {
+                        for current_line in hunk.after.clone() {
+                            if (current_line as usize) < start_line {
                                 continue;
                             }
-                            if (i as usize) >= end_line {
+                            if (current_line as usize) >= end_line {
                                 break 'outer;
                             }
-                            let view_line = (i as usize) - start_line;
-                            let style = if hunk.before.contains(&i) {
-                                &modified_style
-                            } else {
+                            let view_line = (current_line as usize) - start_line;
+                            let style = if hunk.is_pure_insertion() {
                                 &inserted_style
+                            } else {
+                                &modified_style
                             };
                             buf.draw_string_i32(
                                 text_area.x as i32 - 1,
@@ -978,8 +979,7 @@ impl View<Buffer> for EditorView {
                     ));
                 }
 
-                let mut modified_areas = ArenaVec::new_in(&arena);
-                let mut inserted_areas = ArenaVec::new_in(&arena);
+                let mut diff_areas = ArenaVec::new_in(&arena);
                 // We also need to include the part of the view outside of the file
                 let len_lines = buffer.len_lines() as f32 + text_area.height as f32;
                 if let Some(diff) = &*buffer.line_diff.diff() {
@@ -987,36 +987,24 @@ impl View<Buffer> for EditorView {
                         if hunk.is_pure_removal() {
                             continue;
                         }
-                        if !hunk.before.is_empty() {
-                            let start =
-                                (hunk.before.start as f32 / len_lines) * view_bounds.height as f32;
-                            let end =
-                                (hunk.before.end as f32 / len_lines) * view_bounds.height as f32;
-                            modified_areas.push((
-                                Rect::new(
-                                    view_bounds.x as f32 + view_bounds.width as f32 - half_width,
-                                    start,
-                                    half_width,
-                                    (end - start).max(cell_size.y / 2.0).max(1.0),
-                                ),
-                                modified_style.fg.unwrap_or_default(),
-                            ));
-                        }
-                        {
-                            let start =
-                                (hunk.after.start as f32 / len_lines) * view_bounds.height as f32;
-                            let end =
-                                (hunk.after.end as f32 / len_lines) * view_bounds.height as f32;
-                            inserted_areas.push((
-                                Rect::new(
-                                    view_bounds.x as f32 + view_bounds.width as f32 - half_width,
-                                    start,
-                                    half_width,
-                                    (end - start).max(cell_size.y / 2.0).max(1.0),
-                                ),
-                                inserted_style.fg.unwrap_or_default(),
-                            ));
-                        }
+                        let style = if hunk.is_pure_insertion() {
+                            &inserted_style
+                        } else {
+                            &modified_style
+                        };
+
+                        let start =
+                            (hunk.after.start as f32 / len_lines) * view_bounds.height as f32;
+                        let end = (hunk.after.end as f32 / len_lines) * view_bounds.height as f32;
+                        diff_areas.push((
+                            Rect::new(
+                                view_bounds.x as f32 + view_bounds.width as f32 - half_width,
+                                start,
+                                half_width,
+                                (end - start).max(cell_size.y / 2.0).max(1.0),
+                            ),
+                            style.fg.unwrap_or_default(),
+                        ));
                     }
                 }
 
@@ -1026,11 +1014,7 @@ impl View<Buffer> for EditorView {
 
                     painter2d.draw_quad(scrollbar_bounds, theme.scrollbar.fg.unwrap_or_default());
 
-                    for (rect, color) in inserted_areas
-                        .into_iter()
-                        .chain(modified_areas)
-                        .chain(conflict_areas)
-                    {
+                    for (rect, color) in diff_areas.into_iter().chain(conflict_areas) {
                         painter2d.draw_quad(rect, color);
                     }
                 } else {
@@ -1048,11 +1032,7 @@ impl View<Buffer> for EditorView {
                         scrollbar_bounds.width as usize,
                         scrollbar_bounds.height as usize,
                     );
-                    for (rect, color) in inserted_areas
-                        .into_iter()
-                        .chain(modified_areas)
-                        .chain(conflict_areas)
-                    {
+                    for (rect, color) in diff_areas.into_iter().chain(conflict_areas) {
                         let rect = Rect::new(
                             rect.x as usize,
                             rect.y as usize,
