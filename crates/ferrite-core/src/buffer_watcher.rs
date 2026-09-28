@@ -27,13 +27,18 @@ impl BufferWatcher {
             Duration::from_millis(200),
             None,
             move |result: DebounceEventResult| {
-                if let Ok(events) = result {
-                    for event in events {
-                        if event.kind.is_modify() || event.kind.is_create() {
-                            for path in event.event.paths {
-                                let _ = tx.send(path);
-                                proxy.request_render("watched filed updated");
-                            }
+                let events = match result {
+                    Ok(events) => events,
+                    Err(err) => {
+                        tracing::error!("Error getting events: {err:?}");
+                        return;
+                    }
+                };
+                for event in events {
+                    if event.kind.is_modify() || event.kind.is_create() {
+                        for path in event.event.paths {
+                            let _ = tx.send(path);
+                            proxy.request_render("watched filed updated");
                         }
                     }
                 }

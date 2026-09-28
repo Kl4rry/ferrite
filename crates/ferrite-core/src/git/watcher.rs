@@ -41,27 +41,45 @@ impl GitWatcher {
                 watcher = match new_debouncer(
                     Duration::from_millis(200),
                     None,
-                    move |_: DebounceEventResult| {
-                        *change_detected_thread.lock().unwrap() = true;
-                        if let Some(branch) = get_current_branch() {
-                            let mut guard = current_repo_info_thread.lock().unwrap();
-                            if let Some(current) = &mut guard.branch
-                                && *current != branch
-                            {
-                                tracing::info!("Git branch changed from `{current}` to `{branch}`");
+                    move |result: DebounceEventResult| {
+                        let events = match result {
+                            Ok(events) => events,
+                            Err(err) => {
+                                tracing::error!("Error getting events: {err:?}");
+                                return;
                             }
-                            guard.branch = Some(branch);
-                        }
-                        if let Some(head) = get_current_head() {
-                            let mut guard = current_repo_info_thread.lock().unwrap();
-                            if let Some(current) = &mut guard.head
-                                && *current != head
+                        };
+                        for event in events {
+                            if event.kind.is_modify()
+                                || event.kind.is_create()
+                                || event.kind.is_remove()
                             {
-                                tracing::info!("Git HEAD changed from `{current}` to `{head}`");
+                                if let Some(branch) = get_current_branch() {
+                                    let mut guard = current_repo_info_thread.lock().unwrap();
+                                    if let Some(current) = &mut guard.branch
+                                        && *current != branch
+                                    {
+                                        tracing::info!(
+                                            "Git branch changed from `{current}` to `{branch}`"
+                                        );
+                                    }
+                                    guard.branch = Some(branch);
+                                }
+                                if let Some(head) = get_current_head() {
+                                    let mut guard = current_repo_info_thread.lock().unwrap();
+                                    if let Some(current) = &mut guard.head
+                                        && *current != head
+                                    {
+                                        tracing::info!(
+                                            "Git HEAD changed from `{current}` to `{head}`"
+                                        );
+                                    }
+                                    guard.head = Some(head);
+                                }
+                                *change_detected_thread.lock().unwrap() = true;
+                                thread_proxy.request_render("change in .git folder detected");
                             }
-                            guard.head = Some(head);
                         }
-                        thread_proxy.request_render("change in .git folder detected");
                     },
                 ) {
                     Ok(mut watcher) => {
@@ -97,7 +115,12 @@ impl GitWatcher {
     }
 
     pub fn consume_change(&mut self) -> bool {
-        *self.change_detected.lock().unwrap()
+        let mut guard = self.change_detected.lock().unwrap();
+        if *guard {
+            *guard = false;
+            return true;
+        }
+        false
     }
 
     pub fn force_reload(&self) {
