@@ -54,7 +54,10 @@ pub struct TermPlatform<S, UserEvent> {
     last_title: String,
 }
 
-impl<S, UserEvent> TermPlatform<S, UserEvent> {
+impl<S, UserEvent> TermPlatform<S, UserEvent>
+where
+    UserEvent: Send + 'static,
+{
     pub fn new(
         mut state: S,
         update: Update<S>,
@@ -163,6 +166,14 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
 
     #[profiling::function]
     pub fn render(&mut self) {
+        self.terminal.autoresize().unwrap();
+        let term_area = self.terminal.size().unwrap();
+        if self.columns != term_area.width || self.lines != term_area.height {
+            self.columns = term_area.width;
+            self.lines = term_area.height;
+            self.dirty = true;
+        }
+
         if !self.dirty {
             return;
         }
@@ -209,23 +220,8 @@ impl<S, UserEvent> TermPlatform<S, UserEvent> {
         event: event::Event,
     ) {
         match event {
-            Event::Resize(columns, lines) => {
+            Event::Resize(_, _) => {
                 profiling::scope!("resize");
-                self.dirty = true;
-                self.columns = columns;
-                self.lines = lines;
-                {
-                    let mut total = 0;
-                    while let Err(err) = self.terminal.clear() {
-                        tracing::error!("Error clearing terminal: {err}");
-                        std::thread::sleep(Duration::from_millis(10));
-                        // defensive break in case we just keep erroring
-                        if total > 10 {
-                            break;
-                        }
-                        total += 1;
-                    }
-                }
                 self.render();
             }
             Event::Key(event) => {

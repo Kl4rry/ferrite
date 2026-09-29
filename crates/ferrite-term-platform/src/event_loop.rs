@@ -12,35 +12,38 @@ pub enum TuiEvent<UserEvent> {
     Crossterm(crossterm::event::Event),
 }
 
-pub struct TuiEventLoop<UserEvent> {
-    proxy_tx: Sender<UserEvent>,
-    proxy_rx: Receiver<UserEvent>,
-    waker_tx: Sender<&'static str>,
-    waker_rx: Receiver<&'static str>,
+enum InternalEvent<UserEvent> {
+    UserEvent(UserEvent),
+    Crossterm(crossterm::event::Event),
+    Wake(&'static str),
 }
 
-impl<UserEvent> Default for TuiEventLoop<UserEvent> {
+pub struct TuiEventLoop<UserEvent> {
+    tx: Sender<InternalEvent<UserEvent>>,
+    rx: Receiver<InternalEvent<UserEvent>>,
+}
+
+impl<UserEvent> Default for TuiEventLoop<UserEvent>
+where
+    UserEvent: Send + 'static,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<UserEvent> TuiEventLoop<UserEvent> {
+impl<UserEvent> TuiEventLoop<UserEvent>
+where
+    UserEvent: Send + 'static,
+{
     pub fn new() -> Self {
-        let (proxy_tx, proxy_rx) = mpsc::channel();
-        let (waker_tx, waker_rx) = mpsc::channel();
-        Self {
-            proxy_tx,
-            proxy_rx,
-            waker_tx,
-            waker_rx,
-        }
+        let (tx, rx) = mpsc::channel();
+        Self { tx, rx }
     }
 
     pub fn create_proxy(&self) -> TuiEventLoopProxy<UserEvent> {
         TuiEventLoopProxy {
-            proxy_tx: self.proxy_tx.clone(),
-            waker_tx: self.waker_tx.clone(),
+            tx: self.tx.clone(),
         }
     }
 
@@ -48,18 +51,9 @@ impl<UserEvent> TuiEventLoop<UserEvent> {
     where
         F: FnMut(&TuiEventLoopProxy<UserEvent>, TuiEvent<UserEvent>),
     {
-        let Self {
-            proxy_tx,
-            proxy_rx,
-            waker_tx,
-            waker_rx,
-        } = self;
-        let (crossterm_tx, crossterm_rx) = mpsc::channel();
+        let Self { tx, rx } = self;
 
-        let proxy = TuiEventLoopProxy {
-            proxy_tx,
-            waker_tx: waker_tx.clone(),
-        };
+        let proxy = TuiEventLoopProxy { tx: tx.clone() };
 
         thread::spawn(move || {
             loop {
@@ -73,67 +67,91 @@ impl<UserEvent> TuiEventLoop<UserEvent> {
                         continue;
                     }
 
-                    let _ = crossterm_tx.send(event);
-                    let _ = waker_tx.send("recv crossterm event");
+                    if let Err(_) = tx.send(InternalEvent::Crossterm(event)) {
+                        break;
+                    }
                 }
             }
         });
 
+        let mut events = Vec::new();
         'main: loop {
             handler(&proxy, TuiEvent::StartOfEvents);
 
-            while let Ok(event) = crossterm_rx.try_recv() {
-                handler(&proxy, TuiEvent::Crossterm(event));
-                if ferrite_runtime::control_flow::get() == EventLoopControlFlow::Exit {
-                    break 'main;
-                }
+            while let Ok(event) = rx.try_recv() {
+                events.push(event);
             }
-            while let Ok(event) = proxy_rx.try_recv() {
-                handler(&proxy, TuiEvent::UserEvent(event));
-                if ferrite_runtime::control_flow::get() == EventLoopControlFlow::Exit {
-                    break 'main;
+
+            for event in events.drain(..) {
+                match event {
+                    InternalEvent::UserEvent(user_event) => {
+                        handler(&proxy, TuiEvent::UserEvent(user_event));
+                        if ferrite_runtime::control_flow::get() == EventLoopControlFlow::Exit {
+                            break 'main;
+                        }
+                    }
+                    InternalEvent::Crossterm(crossterm_event) => {
+                        handler(&proxy, TuiEvent::Crossterm(crossterm_event));
+                        if ferrite_runtime::control_flow::get() == EventLoopControlFlow::Exit {
+                            break 'main;
+                        }
+                    }
+                    InternalEvent::Wake(reason) => {
+                        tracing::debug!("term eventloop forced to wake because: {reason}");
+                    }
                 }
             }
             handler(&proxy, TuiEvent::Render);
 
-            match ferrite_runtime::control_flow::get() {
+            let control_flow = ferrite_runtime::control_flow::get();
+            match control_flow {
                 EventLoopControlFlow::Poll => {
-                    let _ = waker_rx.try_recv();
+                    if let Ok(event) = rx.try_recv() {
+                        events.push(event);
+                    }
                 }
                 EventLoopControlFlow::Wait => {
-                    let _ = waker_rx.recv();
+                    if let Ok(event) = rx.recv() {
+                        events.push(event);
+                    }
                 }
                 EventLoopControlFlow::Exit => break,
                 EventLoopControlFlow::WaitMax(timeout) => {
-                    let _ = waker_rx.recv_timeout(timeout);
+                    if let Ok(event) = rx.recv_timeout(timeout) {
+                        events.push(event);
+                    }
                 }
             }
+            // If we where woken by some other cause we reset the control flow to wait
+            // if the application has a reason to wake early it will because animations
+            // use wait max controlflow and the dirty flag should force the application
+            // code to run.
+            ferrite_runtime::control_flow::set(
+                ferrite_runtime::control_flow::EventLoopControlFlow::Wait,
+            );
         }
     }
 }
 
 pub struct TuiEventLoopProxy<UserEvent> {
-    proxy_tx: mpsc::Sender<UserEvent>,
-    waker_tx: mpsc::Sender<&'static str>,
+    tx: mpsc::Sender<InternalEvent<UserEvent>>,
 }
 
 impl<UserEvent> Clone for TuiEventLoopProxy<UserEvent> {
     fn clone(&self) -> Self {
         Self {
-            proxy_tx: self.proxy_tx.clone(),
-            waker_tx: self.waker_tx.clone(),
+            tx: self.tx.clone(),
         }
     }
 }
 
 impl<UserEvent: Send + 'static> EventLoopProxy<UserEvent> for TuiEventLoopProxy<UserEvent> {
     fn send(&self, event: UserEvent) {
-        let _ = self.proxy_tx.send(event);
-        let _ = self.waker_tx.send("recv user event");
+        let _ = self.tx.send(InternalEvent::UserEvent(event));
     }
 
     fn request_render(&self, reason: &'static str) {
-        let _ = self.waker_tx.send(reason);
+        let _ = self.tx.send(InternalEvent::Wake(reason));
     }
 
     fn dup(&self) -> Box<dyn EventLoopProxy<UserEvent>> {
