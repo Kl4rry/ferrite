@@ -375,7 +375,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window = {
             profiling::scope!("spawn window");
-            let mut builder = Window::default_attributes();
+            let mut builder = Window::default_attributes()
+                .with_min_inner_size(winit::dpi::PhysicalSize::new(50u32, 50u32));
             #[cfg(all(unix, not(target_os = "macos")))]
             {
                 use winit::platform::{wayland, x11};
