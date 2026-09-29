@@ -868,13 +868,27 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         }
     }
 
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: StartCause) {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         let app = self.app.as_mut().unwrap();
         app.runtime.start_of_events = Instant::now();
         (app.start_of_frame)(&mut app.runtime);
 
-        if matches!(cause, StartCause::ResumeTimeReached { .. }) {
+        // If we where woken by some other cause we reset the control flow to wait
+        // if the application has a reason to wake early it will because animations
+        // use wait max controlflow and the dirty flag should force the application
+        // code to run.
+        use winit::event::StartCause;
+        if matches!(
+            cause,
+            StartCause::ResumeTimeReached { .. }
+                | StartCause::WaitCancelled { .. }
+                | StartCause::Poll
+        ) {
             self.dirty = true;
+            ferrite_runtime::control_flow::set(
+                ferrite_runtime::control_flow::EventLoopControlFlow::Wait,
+            );
+            self.update_control_flow(event_loop);
         }
     }
 
