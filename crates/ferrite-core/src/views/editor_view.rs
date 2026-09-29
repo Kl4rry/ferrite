@@ -901,7 +901,7 @@ impl View<Buffer> for EditorView {
                 profiling::scope!("draw diff hunks");
 
                 if line_nr && let Some(diff) = &*buffer.line_diff.diff() {
-                    'outer: for hunk in diff.hunks() {
+                    for hunk in diff.hunks() {
                         if hunk.is_pure_removal() {
                             continue;
                         }
@@ -919,7 +919,7 @@ impl View<Buffer> for EditorView {
                                 continue;
                             }
                             if (current_line as usize) >= end_line {
-                                break 'outer;
+                                continue;
                             }
                             let view_line = (current_line as usize) - start_line;
                             let style = if hunk.is_pure_insertion() {
