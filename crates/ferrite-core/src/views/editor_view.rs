@@ -819,6 +819,7 @@ impl View<Buffer> for EditorView {
                 profiling::scope!("draw selections");
                 for Selection { start, end } in buffer.get_view_selection(view_id) {
                     let line_pos = buffer.line_pos(view_id);
+                    let col_pos = buffer.col_pos(view_id);
 
                     for y in 0..text_area.height {
                         let line_idx = y + line_pos;
@@ -836,11 +837,12 @@ impl View<Buffer> for EditorView {
                                 line: y as i64,
                             };
                             if current >= start && current < end {
+                                let visual_x = x as i32 + text_area.left() as i32 - col_pos as i32;
+                                if visual_x < text_area.left() as i32 {
+                                    continue;
+                                }
                                 let cell = buf
-                                    .cell_mut((
-                                        (x + text_area.left()) as u16,
-                                        (y + text_area.top()) as u16,
-                                    ))
+                                    .cell_mut((visual_x as u16, (y + text_area.top()) as u16))
                                     .unwrap();
                                 cell.bg = bg;
                             }

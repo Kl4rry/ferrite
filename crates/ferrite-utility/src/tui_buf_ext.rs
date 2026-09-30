@@ -26,6 +26,10 @@ pub trait TuiBufExt {
     ) where
         T: AsRef<str>,
         S: Into<Style>;
+
+    fn draw_style<S>(&mut self, area: Rect<i32>, style: S)
+    where
+        S: Into<Style> + Copy;
 }
 
 // TODO: switch coord type to i32
@@ -103,6 +107,26 @@ impl TuiBufExt for tui_core::buffer::Buffer {
             // Early exit optimization when we have a small area and very long string
             if x > area.x + area.width {
                 break;
+            }
+        }
+    }
+
+    fn draw_style<S>(&mut self, area: Rect<i32>, style: S)
+    where
+        S: Into<Style> + Copy,
+    {
+        //let area = self.area;
+        for x in area.x..area.width {
+            if x < 0 {
+                continue;
+            }
+            for y in area.y..area.height {
+                if y < 0 {
+                    continue;
+                }
+                if let Some(cell) = self.cell_mut((x as u16, y as u16)) {
+                    cell.set_style(style);
+                }
             }
         }
     }
