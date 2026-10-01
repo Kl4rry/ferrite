@@ -109,19 +109,20 @@ impl Completer {
             profiling::scope!("fuzzy search");
             tracing::debug!("fuzzy searching {} words", guard.len());
 
-            let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
+            let mut config = nucleo::Config::DEFAULT;
+            config.prefer_prefix = true;
+            let mut matcher = nucleo::Matcher::new(config);
             let needle = ArenaUtf32::from_str_in(&query, &arena);
             for haystack in &*guard {
                 let haystack_utf32 = ArenaUtf32::from_str_in(haystack, &arena);
-                if haystack.starts_with(&query)
-                    && let Some(score) =
-                        matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
+                if let Some(score) =
+                    matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
                 {
                     matches.push((score, haystack));
                 }
             }
         }
-        matches.sort_by_key(|(score, _)| *score);
+        matches.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
         tracing::debug!("fuzzy match done");
         self.matching_words.clear();
         self.matching_words
