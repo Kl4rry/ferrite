@@ -3499,14 +3499,18 @@ impl Buffer {
 
     pub fn on_file_changed(&mut self, view_id: Option<ViewId>) {
         self.update_interact(view_id);
-        self.last_edit_time = Instant::now();
+        let now = Instant::now();
         if !self.simple {
             self.update_searchers();
             self.find_conflicts();
             self.queue_syntax_update();
-            self.completion_source.update_words(self.rope.clone());
             self.update_line_diff(false);
+
+            if now.duration_since(self.last_edit_time) > Duration::from_secs(3) {
+                self.completion_source.update_words(self.rope.clone());
+            }
         }
+        self.last_edit_time = now;
     }
 
     pub fn update_line_diff(&mut self, update_before: bool) {
