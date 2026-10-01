@@ -108,12 +108,14 @@ impl Completer {
         {
             profiling::scope!("fuzzy search");
             tracing::debug!("fuzzy searching {} words", guard.len());
+
             let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT);
             let needle = ArenaUtf32::from_str_in(&query, &arena);
             for haystack in &*guard {
                 let haystack_utf32 = ArenaUtf32::from_str_in(haystack, &arena);
-                if let Some(score) =
-                    matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
+                if haystack.starts_with(&query)
+                    && let Some(score) =
+                        matcher.fuzzy_match(haystack_utf32.as_utf32_str(), needle.as_utf32_str())
                 {
                     matches.push((score, haystack));
                 }
