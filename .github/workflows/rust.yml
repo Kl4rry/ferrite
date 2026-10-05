@@ -13,7 +13,9 @@ jobs:
           rustup update ${{ matrix.rust }} --no-self-update
           rustup default ${{ matrix.rust }}
       - name: Vendor
-        run: cargo vendor
+        run: |
+          mkdir -p .cargo
+          cargo vendor > .cargo/config.toml
       - name: Package all sources
         run: tar -czvf ferrite-vendored-source.tar.gz *
       - name: Upload build artifacts
