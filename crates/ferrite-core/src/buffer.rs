@@ -308,6 +308,7 @@ impl fmt::Display for Buffer {
     }
 }
 
+/// Init functions
 #[profiling::all_functions]
 impl Buffer {
     pub fn new() -> Self {
@@ -429,7 +430,10 @@ impl Buffer {
             syntax.update_text(self.rope.clone());
         }
     }
+}
 
+#[profiling::all_functions]
+impl Buffer {
     pub fn has_syntax(&self) -> bool {
         self.syntax.is_some()
     }
@@ -713,6 +717,7 @@ impl Buffer {
     }
 
     pub fn move_right_char(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         for i in 0..self.views[view_id].cursors.len() {
             if !self.views[view_id].cursors[i].has_selection() || expand_selection {
                 let new_idx = self
@@ -741,6 +746,7 @@ impl Buffer {
     }
 
     pub fn move_left_char(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         for i in 0..self.views[view_id].cursors.len() {
             if !self.views[view_id].cursors[i].has_selection() || expand_selection {
                 let new_idx = self
@@ -775,6 +781,7 @@ impl Buffer {
         create_cursor: bool,
         distance: usize,
     ) {
+        self.history.finish();
         if !self.simple && self.views[view_id].completer.can_complete() {
             self.views[view_id].completer.next();
             return;
@@ -850,6 +857,7 @@ impl Buffer {
         create_cursor: bool,
         distance: usize,
     ) {
+        self.history.finish();
         if !self.simple && self.views[view_id].completer.can_complete() {
             self.views[view_id].completer.prev();
             return;
@@ -944,6 +952,7 @@ impl Buffer {
     }
 
     pub fn select_word(&mut self, view_id: ViewId) {
+        self.history.finish();
         self.views[view_id].coalesce_cursors();
         let has_selection = self.views[view_id]
             .cursors
@@ -1065,6 +1074,7 @@ impl Buffer {
     }
 
     pub fn select_all_matching(&mut self, view_id: ViewId) {
+        self.history.finish();
         self.views[view_id].cursors.clear();
 
         if !self.views[view_id].cursors.first().has_selection() {
@@ -1211,6 +1221,7 @@ impl Buffer {
     }
 
     pub fn move_right_word(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         for i in 0..self.views[view_id].cursors.len() {
             if !self.views[view_id].cursors[i].has_selection() || expand_selection {
                 let next_word = self.next_word_end(view_id, i, true);
@@ -1233,6 +1244,7 @@ impl Buffer {
     }
 
     pub fn move_left_word(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         for i in 0..self.views[view_id].cursors.len() {
             if !self.views[view_id].cursors[i].has_selection() || expand_selection {
                 let prev_word = self.prev_word_start(view_id, i, true);
@@ -1256,6 +1268,7 @@ impl Buffer {
 
     /// Move cursor to line. Line is indexed from 1
     pub fn goto(&mut self, view_id: ViewId, line: i64) {
+        self.history.finish();
         self.views[view_id].cursors.clear();
         let line_idx = (self.rope.len_lines().saturating_sub(1) as i64)
             .min(line.saturating_sub(1))
@@ -1300,6 +1313,7 @@ impl Buffer {
     }
 
     pub fn home(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         self.home_raw(view_id, expand_selection, true);
         self.views[view_id].coalesce_cursors();
         self.update_affinity(view_id);
@@ -1322,6 +1336,7 @@ impl Buffer {
     }
 
     pub fn end(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         self.end_raw(view_id, expand_selection);
 
         self.views[view_id].coalesce_cursors();
@@ -1335,6 +1350,7 @@ impl Buffer {
     }
 
     pub fn start(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         self.views[view_id].cursors.clear();
         self.views[view_id].cursors.first_mut().position = 0;
         if !expand_selection {
@@ -1352,6 +1368,7 @@ impl Buffer {
     }
 
     pub fn eof(&mut self, view_id: ViewId, expand_selection: bool) {
+        self.history.finish();
         self.views[view_id].cursors.clear();
         self.views[view_id].cursors.first_mut().position = self.rope.len_bytes();
         if !expand_selection {
@@ -2153,6 +2170,7 @@ impl Buffer {
     }
 
     pub fn select_all(&mut self, view_id: ViewId) {
+        self.history.finish();
         self.views[view_id].cursors.clear();
         self.views[view_id].cursors.first_mut().anchor = 0;
         self.views[view_id].cursors.first_mut().position = self.rope.len_bytes();
@@ -2188,6 +2206,7 @@ impl Buffer {
     }
 
     pub fn select_line(&mut self, view_id: ViewId) {
+        self.history.finish();
         for i in 0..self.views[view_id].cursors.len() {
             self.select_line_raw(view_id, i);
         }
@@ -2569,6 +2588,7 @@ impl Buffer {
         column: usize,
         line: usize,
     ) {
+        self.history.finish();
         let column = column + self.views[view_id].col_pos as usize;
         let line = line + self.views[view_id].line_pos as usize;
         let cursor_idx = if spawn_cursor {
