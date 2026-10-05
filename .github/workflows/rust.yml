@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - name: Install Rust
         run: |
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Install system deps
         run: cargo install cross
       - name: Install Rust
@@ -63,11 +63,32 @@ jobs:
           name: ubuntu-musl-build-artifacts
           path: target/x86_64-unknown-linux-musl/release/ferrite
 
+  build-linux-aarch64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system deps
+        run: cargo install cross
+      - name: Install Rust
+        run: |
+          rustup update ${{ matrix.rust }} --no-self-update
+          rustup default ${{ matrix.rust }}
+      - name: Vendor
+        run: cargo vendor
+      - name: Build
+        run: cross build --target=aarch64-unknown-linux-gnu --release
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aarch-linux-build-artifacts
+          path: target/x86_64-unknown-linux-musl/release/ferrite
+
   build-linux-old-glibc:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Docker build
         run: |
           rm .cargo/config.toml
@@ -82,7 +103,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
