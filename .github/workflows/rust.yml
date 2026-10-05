@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
@@ -17,7 +17,7 @@ jobs:
       - name: Package all sources
         run: tar -czvf ferrite-vendored-source.tar.gz *
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vendored-source
           path: ferrite-vendored-source.tar.gz
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         run: |
@@ -37,7 +37,7 @@ jobs:
       - name: Build
         run: cargo build --release --all-features
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubuntu-build-artifacts
           path: target/release/ferrite
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install system deps
         run: cargo install cross
       - name: Install Rust
@@ -58,7 +58,7 @@ jobs:
       - name: Build
         run: cross build --target=x86_64-unknown-linux-musl --release
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubuntu-musl-build-artifacts
           path: target/x86_64-unknown-linux-musl/release/ferrite
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install system deps
         run: cargo install cross
       - name: Install Rust
@@ -79,7 +79,7 @@ jobs:
       - name: Build
         run: cross build --target=aarch64-unknown-linux-gnu --release
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aarch-linux-build-artifacts
           path: target/x86_64-unknown-linux-musl/release/ferrite
@@ -88,13 +88,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Docker build
         run: |
           rm .cargo/config.toml
           ./build_in_container.sh
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubuntu-old-glibc-build-artifacts
           path: ferrite
@@ -103,7 +103,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Rust
         run: |
           rustup update ${{ matrix.rust }} --no-self-update
@@ -113,7 +113,7 @@ jobs:
       - name: Build
         run: cargo build --release --all-features
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-build-artifacts
           path: target/release/ferrite.exe
