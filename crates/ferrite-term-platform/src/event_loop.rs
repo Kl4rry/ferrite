@@ -67,7 +67,7 @@ where
                         continue;
                     }
 
-                    if let Err(_) = tx.send(InternalEvent::Crossterm(event)) {
+                    if tx.send(InternalEvent::Crossterm(event)).is_err() {
                         break;
                     }
                 }
