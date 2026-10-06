@@ -3740,6 +3740,22 @@ impl Buffer {
             self.blame.request_update(file.to_path_buf(), get_proxy());
         }
     }
+
+    pub fn stage_selected_hunks(&mut self, view_id: ViewId) -> Result<(), BufferError> {
+        let Some(file) = &self.file else {
+            return Err(BufferError::NoPathSet);
+        };
+        let cursor = self.views[view_id].cursors.first();
+        let start_line_idx = self.rope.byte_to_line(cursor.start());
+        let end_line_idx = self.rope.byte_to_line(cursor.end());
+        ferrite_git::diff::stage_line_range(
+            self.rope.clone(),
+            file,
+            (start_line_idx..end_line_idx).into(),
+        )?;
+
+        Ok(())
+    }
 }
 
 enum CompleterEvent {

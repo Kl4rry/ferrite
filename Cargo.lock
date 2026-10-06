@@ -1000,6 +1000,7 @@ dependencies = [
  "ferrite-utility",
  "imara-diff",
  "profiling",
+ "rand 0.10.2",
  "regex",
  "ropey",
  "tracing",

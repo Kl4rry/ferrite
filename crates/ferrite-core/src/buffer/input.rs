@@ -77,6 +77,9 @@ impl Buffer {
             Cmd::ReplaceAll { text } if !self.read_only => {
                 self.replace_all(view_id, text);
             }
+            Cmd::StageSelectedHunks if !self.read_only => {
+                self.stage_selected_hunks(view_id)?;
+            }
             Nop => (),
             _ => return Ok(()), // if we do nothing it should not count as an interact
         }

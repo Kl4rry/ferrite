@@ -109,6 +109,7 @@ impl Buffer {
         }
 
         self.mark_dirty();
+        self.on_file_changed(Some(view_id));
         self.history.finish();
     }
 }

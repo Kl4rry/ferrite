@@ -899,15 +899,12 @@ impl View<Buffer> for EditorView {
 
             let modified_style = theme.get_syntax("diff.delta");
             let inserted_style = theme.get_syntax("diff.plus");
+            let removed_style = theme.get_syntax("diff.minus");
             {
                 profiling::scope!("draw diff hunks");
 
                 if line_nr && let Some(diff) = &*buffer.line_diff.diff() {
                     'outer: for hunk in diff.hunks() {
-                        if hunk.is_pure_removal() {
-                            continue;
-                        }
-
                         if !intersects(
                             start_line,
                             end_line,
@@ -915,6 +912,17 @@ impl View<Buffer> for EditorView {
                             hunk.after.end as usize,
                         ) {
                             continue;
+                        }
+
+                        if hunk.is_pure_removal() {
+                            let view_line = (hunk.after.start as usize) - start_line;
+                            buf.draw_string_i32(
+                                text_area.x as i32 - 1,
+                                (text_area.y + view_line) as i32,
+                                "◤",
+                                area.into(),
+                                removed_style,
+                            );
                         }
 
                         for current_line in hunk.after.clone() {
@@ -987,11 +995,10 @@ impl View<Buffer> for EditorView {
                 let len_lines = buffer.len_lines() as f32 + text_area.height as f32;
                 if let Some(diff) = &*buffer.line_diff.diff() {
                     for hunk in diff.hunks() {
-                        if hunk.is_pure_removal() {
-                            continue;
-                        }
                         let style = if hunk.is_pure_insertion() {
                             &inserted_style
+                        } else if hunk.is_pure_removal() {
+                            &removed_style
                         } else {
                             &modified_style
                         };

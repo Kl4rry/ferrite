@@ -50,6 +50,7 @@ pub static COMMANDS: LazyLock<Vec<CommandTemplate>> = LazyLock::new(|| {
         CmdBuilder::new("duplicate", None, true).build(|_| Cmd::Duplicate),
         CmdBuilder::new("open-rename", None, true).build(|_| Cmd::OpenRename),
         CmdBuilder::new("blame", None, true).build(|_| Cmd::Blame),
+        CmdBuilder::new("stage-selcted", None, true).build(|_| Cmd::StageSelectedHunks),
         CmdBuilder::new("trim-trailing-whitespace", None, true).build(|_| Cmd::TrimTrailingWhitespace),
         CmdBuilder::new("run", Some(("action", CmdTemplateArg::Action)), false).add_alias("r").build(|args| Cmd::RunAction { name: args[0].take().unwrap().unwrap_string() }),
         CmdBuilder::new("open-file-explorer", Some(("path", CmdTemplateArg::Path)), true).build(|args| Cmd::OpenFileExplorer { path: args[0].take().map(|arg| arg.unwrap_path()) }),
