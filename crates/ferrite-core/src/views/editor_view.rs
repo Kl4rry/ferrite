@@ -826,10 +826,10 @@ impl View<Buffer> for EditorView {
                         let width = if line_idx >= buffer.rope().len_lines() {
                             0
                         } else {
-                            buffer.rope().line_without_line_ending(line_idx).width(0)
+                            buffer.rope().line(line_idx).width(0)
                         };
                         for x in 0..text_area.width {
-                            if x > width {
+                            if x >= width.saturating_sub(col_pos) {
                                 break;
                             }
                             let current = Point {
@@ -837,7 +837,7 @@ impl View<Buffer> for EditorView {
                                 line: y as i64,
                             };
                             if current >= start && current < end {
-                                let visual_x = x as i32 + text_area.left() as i32 - col_pos as i32;
+                                let visual_x = x as i32 + text_area.left() as i32;
                                 if visual_x < text_area.left() as i32 {
                                     continue;
                                 }
