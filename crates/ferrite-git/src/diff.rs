@@ -139,7 +139,7 @@ pub fn stage_line_range(
 
 fn apply_patch_to_index(tmp_file_name: &str) -> Result<(), std::io::Error> {
     let output = Command::new("git")
-        .args(["apply", "--cached", &tmp_file_name])
+        .args(["apply", "--cached", tmp_file_name])
         .output()?;
     if !output.status.success() {
         return Err(std::io::Error::other(String::from_utf8_lossy(
