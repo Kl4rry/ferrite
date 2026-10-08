@@ -211,7 +211,7 @@ where
 
 impl<M: Matchable + Send + Sync + 'static> Drop for Picker<M> {
     fn drop(&mut self) {
-        self.running.store(true, Ordering::Relaxed);
+        self.running.store(false, Ordering::Relaxed);
     }
 }
 

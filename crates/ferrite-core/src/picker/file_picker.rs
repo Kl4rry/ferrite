@@ -1,4 +1,4 @@
-use std::{fs::File, path::Path};
+use std::{fs::File, path::Path, sync::atomic::Ordering};
 
 use ignore::DirEntry;
 
@@ -16,9 +16,6 @@ use ferrite_utility::trim::trim_path;
 use crate::event_loop_proxy::get_proxy;
 
 pub fn filter_picker_entry(entry: &DirEntry, root: &Path, dedup_symlinks: bool) -> bool {
-    // We always want to ignore popular VCS directories, otherwise if
-    // `ignore` is turned off, we end up with a lot of noise
-    // in our picker.
     if matches!(
         entry.file_name().to_str(),
         Some(".git" | ".pijul" | ".jj" | ".hg" | ".svn")
@@ -26,8 +23,7 @@ pub fn filter_picker_entry(entry: &DirEntry, root: &Path, dedup_symlinks: bool) 
         return false;
     }
 
-    // We also ignore symlinks that point inside the current directory
-    // if `dedup_links` is enabled.
+    // Ignore symlinks that point inside the current directory if dedup_links is enabled
     if dedup_symlinks && entry.path_is_symlink() {
         return entry
             .path()
@@ -98,16 +94,22 @@ pub fn file_injector(
             Some(trim_path(&path_str, &path))
         });
 
-    |injector, _running| {
+    |injector, running| {
         rayon::spawn(move || {
             if let Some(cache) = source_file_cache {
                 for (_, string) in cache.iter() {
+                    if !running.load(Ordering::Relaxed) {
+                        break;
+                    }
                     injector.push(string.clone(), |item, utf32_string| {
                         utf32_string[0] = nucleo::Utf32String::from(item.as_str())
                     });
                 }
             } else {
                 for string in iterator {
+                    if !running.load(Ordering::Relaxed) {
+                        break;
+                    }
                     if let Some(cache) = &target_file_cache {
                         cache.push(string.clone());
                     }
