@@ -13,6 +13,7 @@ use crate::{
     event_loop_proxy::{EventLoopProxy, UserEvent},
     picker::{Preview, Previewer},
     promise::Promise,
+    workspace::persistance,
 };
 
 pub fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
@@ -28,14 +29,19 @@ pub fn is_text_file(path: impl AsRef<Path>) -> Result<bool, io::Error> {
 pub struct FilePreviewer {
     files: LruCache<String, Result<Option<Buffer>, io::Error>>,
     loading: HashMap<String, Promise<Result<Option<Buffer>, io::Error>>>,
+    buffer_extra_data: Vec<persistance::Buffer>,
     proxy: Box<dyn EventLoopProxy<UserEvent>>,
 }
 
 impl FilePreviewer {
-    pub fn new(proxy: Box<dyn EventLoopProxy<UserEvent>>) -> Self {
+    pub fn new(
+        proxy: Box<dyn EventLoopProxy<UserEvent>>,
+        buffer_extra_data: Vec<persistance::Buffer>,
+    ) -> Self {
         Self {
             files: LruCache::new(NonZeroUsize::new(10).unwrap()),
             loading: HashMap::new(),
+            buffer_extra_data,
             proxy,
         }
     }
@@ -70,13 +76,19 @@ impl Previewer<String> for FilePreviewer {
             }
         }
 
+        let buffer_extra_data = self.buffer_extra_data.clone();
         self.loading.insert(
             m.clone(),
             Promise::spawn(self.proxy.dup(), move || {
                 if !is_text_file(&path)? {
                     return Ok(None);
                 }
-                Ok(Some(Buffer::builder().from_file(&path).build()?))
+                let path = std::fs::canonicalize(&path)?;
+                let mut buffer = Buffer::builder().from_file(&path).build()?;
+                if let Some(buffer_data) = buffer_extra_data.iter().find(|data| data.path == path) {
+                    buffer.load_buffer_data(buffer_data);
+                }
+                Ok(Some(buffer))
             }),
         );
         Preview::Loading

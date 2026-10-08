@@ -1682,7 +1682,10 @@ impl Engine {
         self.palette.reset();
         self.buffer_picker = None;
         let picker = Picker::new(
-            Some(Box::new(FilePreviewer::new(self.proxy.dup()))),
+            Some(Box::new(FilePreviewer::new(
+                self.proxy.dup(),
+                self.workspace.buffer_extra_data.clone(),
+            ))),
             self.proxy.dup(),
         );
 
