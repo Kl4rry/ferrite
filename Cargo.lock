@@ -987,6 +987,7 @@ dependencies = [
 name = "ferrite-geom"
 version = "0.1.0"
 dependencies = [
+ "linalg",
  "num-traits",
  "ratatui-core",
  "serde",
@@ -1139,11 +1140,12 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
- "bitflags 2.11.1",
- "ferrite-geom",
+ "bitflags 2.13.1",
  "ferrite-style",
  "ferrite-utility",
+ "linalg",
  "ratatui-core",
+ "ropey",
  "serde",
 ]
 
@@ -1825,6 +1827,10 @@ dependencies = [
  "plain",
  "redox_syscall 0.9.0",
 ]
+
+[[package]]
+name = "linalg"
+version = "0.1.0"
 
 [[package]]
 name = "line-clipping"

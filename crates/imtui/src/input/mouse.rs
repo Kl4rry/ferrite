@@ -1,7 +1,6 @@
 use std::time::Instant;
 
-use ferrite_geom::rect::Vec2;
-
+use linalg::*;
 use crate::input::keycode::KeyModifiers;
 
 #[derive(Debug, Clone)]
@@ -58,17 +57,17 @@ pub struct MouseInterction {
 }
 
 impl MouseInterction {
-    pub fn cell_position(&self, offset: Vec2) -> Vec2<usize> {
+    pub fn cell_position(&self, offset: Vec2<i32>) -> Vec2<i32> {
         let offset = Vec2::new(offset.x as f32, offset.y as f32);
         if self.cell_size.x == 1.0 && self.cell_size.y == 1.0 {
             return Vec2::new(
-                (self.position.x - offset.x) as usize,
-                (self.position.y - offset.y) as usize,
+                (self.position.x - offset.x) as i32,
+                (self.position.y - offset.y) as i32,
             );
         }
 
-        let cell_x = ((self.position.x - offset.x) / self.cell_size.x).round() as usize;
-        let cell_y = ((self.position.y - offset.y) / self.cell_size.y) as usize;
+        let cell_x = ((self.position.x - offset.x) / self.cell_size.x).round() as i32;
+        let cell_y = ((self.position.y - offset.y) / self.cell_size.y) as i32;
         Vec2::new(cell_x, cell_y)
     }
 
