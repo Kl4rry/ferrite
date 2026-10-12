@@ -1,6 +1,5 @@
-use ferrite_geom::rect::Rect;
 use ferrite_style::Style;
-use ferrite_utility::tui_buf_ext::TuiBufExt;
+use linalg::*;
 
 use crate::{Response, Ui, Widget};
 
@@ -29,13 +28,9 @@ impl Widget for TextButton {
     type State = ();
     fn ui(self, ui: &mut Ui, _: &mut Self::State) -> Response {
         let layer = ui.layer();
-        layer.buf.draw_string_i32(
-            self.area.x,
-            self.area.y,
-            self.text,
-            self.area,
-            self.style,
-        );
+        layer
+            .grid
+            .draw_string(self.area.x, self.area.y, self.text, self.area, self.style);
         // TODO: create hover zone if hover style is set
         Response {}
     }
