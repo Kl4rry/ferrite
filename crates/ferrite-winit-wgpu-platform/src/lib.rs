@@ -574,7 +574,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                                 &mut app.runtime.state,
                                 InputEvent::Key(keycode, modifiers),
                             );
-                            self.update_control_flow(event_loop);
                             return;
                         }
                     }
@@ -585,7 +584,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                                 &mut app.runtime.state,
                                 InputEvent::Key(KeyCode::Char(ch), modifiers),
                             );
-                            self.update_control_flow(event_loop);
                         }
                         return;
                     }
@@ -595,7 +593,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                 if let Some(text) = event.text {
                     let app = self.app.as_mut().unwrap();
                     (app.input)(&mut app.runtime.state, InputEvent::Text(text.to_string()));
-                    self.update_control_flow(event_loop);
                 }
             }
             WindowEvent::MouseInput {
@@ -827,7 +824,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     }
                 };
                 (app.input)(&mut app.runtime.state, input_event);
-                self.update_control_flow(event_loop);
             }
             WindowEvent::Resized(size) => {
                 profiling::scope!("resized");
@@ -856,39 +852,37 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
     }
 
     #[profiling::function]
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: PlatformEvent<UserEvent>) {
+    fn user_event(&mut self, _: &ActiveEventLoop, event: PlatformEvent<UserEvent>) {
         self.dirty = true;
         match event {
             PlatformEvent::Wake(reason) => tracing::debug!("Woken because: {reason}"),
             PlatformEvent::UserEvent(event) => {
                 let app = self.app.as_mut().unwrap();
                 (app.input)(&mut app.runtime.state, InputEvent::UserEvent(event));
-                self.update_control_flow(event_loop);
             }
         }
     }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        let app = self.app.as_mut().unwrap();
-        app.runtime.start_of_events = Instant::now();
-        (app.start_of_frame)(&mut app.runtime);
-
+    #[profiling::function]
+    fn new_events(&mut self, _: &ActiveEventLoop, cause: StartCause) {
         // If we where woken by some other cause we reset the control flow to wait
         // if the application has a reason to wake early it will because animations
         // use wait max controlflow and the dirty flag should force the application
         // code to run.
-        use winit::event::StartCause;
         if matches!(
             cause,
-            StartCause::ResumeTimeReached { .. }
-                | StartCause::WaitCancelled { .. }
-                | StartCause::Poll
+            StartCause::ResumeTimeReached { .. } | StartCause::Poll
         ) {
             self.dirty = true;
             ferrite_runtime::control_flow::set(
                 ferrite_runtime::control_flow::EventLoopControlFlow::Wait,
             );
-            self.update_control_flow(event_loop);
+        }
+
+        {
+            let app = self.app.as_mut().unwrap();
+            app.runtime.start_of_events = Instant::now();
+            (app.start_of_frame)(&mut app.runtime);
         }
     }
 
@@ -901,7 +895,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         {
             let app = self.app.as_mut().unwrap();
             (app.update)(&mut app.runtime);
-            self.update_control_flow(event_loop);
         }
         self.prepare();
         let state = self.state.as_mut().unwrap();
@@ -918,6 +911,8 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             let state = self.state.as_mut().unwrap();
             state.window.set_title(&app.runtime.window_title);
         }
+
+        self.update_control_flow(event_loop);
     }
 }
 

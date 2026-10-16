@@ -8,7 +8,7 @@ use std::{
     time::Instant,
 };
 
-use crate::event_loop_proxy::{EventLoopProxy, UserEvent};
+use crate::event_loop_proxy::{EventLoopProxy, UserEvent, get_proxy};
 
 pub struct JobHandle<T, P = ()> {
     end_recv: mpsc::Receiver<T>,
@@ -61,6 +61,7 @@ pub struct Progressor<T> {
 
 impl<T> Progressor<T> {
     pub fn make_progress(&mut self, t: T) {
+        get_proxy().request_render("job manager task done");
         let _ = self.sender.send(t);
     }
 }
