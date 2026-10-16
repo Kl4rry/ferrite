@@ -1,4 +1,4 @@
-use linalg::*;
+use ferrite_linalg::*;
 
 use crate::Rounding;
 
@@ -11,7 +11,12 @@ pub fn rect_to_tui(rect: Rect<i32>) -> tui_core::layout::Rect {
     }
 }
 
-pub fn calculate_grid_size(area: Rect<f32>, cell_size: Vec2<f32>, rounding: Rounding) -> Rect<i32> {
+pub fn calculate_grid_size(
+    area: Rect<f32>,
+    cell_size: impl Into<Vec2<f32>>,
+    rounding: Rounding,
+) -> Rect<i32> {
+    let cell_size = cell_size.into();
     match rounding {
         Rounding::Round => Rect::new(
             (area.x as f32 / cell_size.x).round() as i32,

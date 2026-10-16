@@ -3,29 +3,34 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ferrite_linalg::*;
 use ferrite_style::Color;
 use ferrite_utility::graphemes::RopeGraphemeExt;
-use linalg::*;
 use ropey::RopeSlice;
 use tui_core::style::Style;
-pub use utility::calculate_grid_size;
 
-use crate::{
-    id::Id,
-    input::{event::InputEvent, mouse::MouseState},
-    utility::rect_to_tui,
-};
-
-pub mod id;
-pub mod input;
+pub mod control_flow;
+mod event_loop_proxy;
+mod id;
+mod input;
 mod utility;
 pub mod widgets;
+
+pub use control_flow::EventLoopControlFlow;
+pub use event_loop_proxy::*;
+pub use id::Id;
+pub use input::{
+    event::InputEvent,
+    keycode::{KeyCode, KeyModifiers},
+    mouse::{MouseButton, MouseInterction, MouseInterctionKind, MouseState},
+};
+pub use utility::{calculate_grid_size, rect_to_tui};
 
 pub struct Response {}
 
 pub struct Ui {
+    pub rect: Rect<f32>,
     pub cell_size: Vec2<f32>,
-    pub area: Rect<f32>,
     mouse_state: MouseState,
     /// Cache of layers from last frame
     layer_cache: HashMap<Id, Layer>,
@@ -44,6 +49,21 @@ pub struct Ui {
 }
 
 impl Ui {
+    pub fn new(rect: Rect<f32>, cell_size: Vec2<f32>, canvas: bool) -> Self {
+        Self {
+            rect,
+            cell_size,
+            mouse_state: Default::default(),
+            layer_cache: HashMap::new(),
+            finshed_layers: Vec::new(),
+            layer_stack: Vec::new(),
+            cursor_zones: Vec::new(),
+            current_frames_widgets: Vec::new(),
+            last_frames_widgets: Vec::new(),
+            canvas,
+        }
+    }
+
     pub fn layer(&mut self) -> &mut Layer {
         self.layer_stack.last_mut().unwrap()
     }
@@ -51,7 +71,7 @@ impl Ui {
     pub fn push_layer(
         &mut self,
         id: impl std::hash::Hash + std::fmt::Debug + 'static,
-        area: Rect<f32>,
+        rect: Rect<f32>,
         rounding: Rounding,
     ) {
         let parent = self.layer_stack.last();
@@ -60,15 +80,15 @@ impl Ui {
         let id = parent_id.with(id);
         let mut layer = match self.layer_cache.remove(&id) {
             Some(mut layer) => {
-                if layer.area != area {
-                    layer.resize(area, self.cell_size, rounding);
+                if layer.rect != rect {
+                    layer.resize(rect, self.cell_size, rounding);
                 }
                 layer
             }
             None if self.canvas => {
-                Layer::new(id, area, self.cell_size, rounding, Some(Canvas::default()))
+                Layer::new(id, rect, self.cell_size, rounding, Some(Canvas::default()))
             }
-            None => Layer::new(id, area, self.cell_size, rounding, None),
+            None => Layer::new(id, rect, self.cell_size, rounding, None),
         };
         layer.z_index = last_z_index + 1.0;
         self.finshed_layers.push(None);
@@ -76,7 +96,10 @@ impl Ui {
     }
 
     pub fn pop_layer(&mut self) {
-        let layer = self.layer_stack.pop().expect("layer list should not be empty");
+        let layer = self
+            .layer_stack
+            .pop()
+            .expect("layer list should not be empty");
         self.finshed_layers[self.layer_stack.len()] = Some(layer);
     }
 
@@ -91,7 +114,10 @@ impl Ui {
             self.layer_cache.insert(layer.id, layer);
         }
         self.last_frames_widgets.clear();
-        std::mem::swap(&mut self.last_frames_widgets, &mut self.current_frames_widgets);
+        std::mem::swap(
+            &mut self.last_frames_widgets,
+            &mut self.current_frames_widgets,
+        );
     }
 
     pub fn push_cursor_shape_zone(&mut self, icon: CursorIcon, zone: Rect<i32>) {
@@ -108,10 +134,19 @@ impl Ui {
     pub fn create_widget(&mut self, id: impl std::hash::Hash + std::fmt::Debug, rect: Rect<f32>) {
         let z_index = self.layer().z_index;
         self.current_frames_widgets.push(WidgetData {
+            // TODO: include entropy from parent widget so widget ids do not have to be globally unique
             id: Id::new(id),
             rect,
             z_index,
         });
+    }
+
+    pub fn cursor_zones(&self) -> &[(CursorIcon, Rect<i32>)] {
+        &self.cursor_zones
+    }
+
+    pub fn finished_layers(&self) -> impl Iterator<Item = &Layer> {
+        self.finshed_layers.iter().map(|l| l.as_ref().unwrap())
     }
 }
 
@@ -141,35 +176,37 @@ pub enum Rounding {
 
 pub struct Layer {
     pub id: Id,
-    pub area: Rect<f32>,
+    pub rect: Rect<f32>,
     pub grid: Grid,
     pub canvas: Option<Canvas>,
     pub z_index: f32,
+    pub rounding: Rounding,
 }
 
 impl Layer {
     pub fn new(
         id: Id,
-        area: Rect<f32>,
+        rect: Rect<f32>,
         cell_size: Vec2<f32>,
         rounding: Rounding,
         canvas: Option<Canvas>,
     ) -> Self {
-        let grid_size = calculate_grid_size(area, cell_size, rounding);
+        let grid_size = calculate_grid_size(rect, cell_size, rounding);
         Self {
             id,
-            area,
+            rect,
             grid: Grid {
                 buf: tui_core::buffer::Buffer::empty(rect_to_tui(grid_size)),
             },
             canvas,
             z_index: 1.0,
+            rounding,
         }
     }
 
-    pub fn resize(&mut self, area: Rect<f32>, cell_size: Vec2<f32>, rounding: Rounding) {
-        self.area = area;
-        let grid_size = calculate_grid_size(area, cell_size, rounding);
+    pub fn resize(&mut self, rect: Rect<f32>, cell_size: Vec2<f32>, rounding: Rounding) {
+        self.rect = rect;
+        let grid_size = calculate_grid_size(rect, cell_size, rounding);
         self.grid.resize(grid_size);
     }
 }
@@ -187,23 +224,36 @@ impl Grid {
         self.buf.resize(rect_to_tui(grid_size));
     }
 
-    pub fn draw_string_local<T, S>(&mut self, x: i32, y: i32, string: T, area: Rect<i32>, style: S)
+    pub fn rect(&self) -> Rect<i32> {
+        Rect::new(
+            self.buf.area.x.into(),
+            self.buf.area.y.into(),
+            self.buf.area.width.into(),
+            self.buf.area.height.into(),
+        )
+    }
+
+    pub fn cells(&self) -> &[tui_core::buffer::Cell] {
+        &self.buf.content
+    }
+
+    pub fn draw_string_local<T, S>(&mut self, x: i32, y: i32, string: T, rect: Rect<i32>, style: S)
     where
         T: AsRef<str>,
         S: Into<Style>,
     {
-        let x = x - area.x;
-        let y = y - area.y;
-        self.draw_string(x, y, string, area, style);
+        let x = x - rect.x;
+        let y = y - rect.y;
+        self.draw_string(x, y, string, rect, style);
     }
 
-    pub fn draw_string<T, S>(&mut self, mut x: i32, y: i32, string: T, area: Rect<i32>, style: S)
+    pub fn draw_string<T, S>(&mut self, mut x: i32, y: i32, string: T, rect: Rect<i32>, style: S)
     where
         T: AsRef<str>,
         S: Into<Style>,
     {
         let string = string.as_ref();
-        if y < area.y || y >= area.y + area.height {
+        if y < rect.y || y >= rect.y + rect.height {
             return;
         }
         let rope = RopeSlice::from(string);
@@ -222,7 +272,7 @@ impl Grid {
         let style = style.into();
         for (symbol, width) in graphemes {
             if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y))
-                && area.contains(Vec2::new(x.into(), y.into()))
+                && rect.contains(Vec2::new(x.into(), y.into()))
                 && let Some(cell) = self.buf.cell_mut((x, y))
             {
                 cell.set_symbol(symbol.as_str().expect("rope slice should be contiguous"))
@@ -233,7 +283,7 @@ impl Grid {
             // Reset following cells if multi-width (they would be hidden by the grapheme)
             while x < next_symbol {
                 if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y))
-                    && area.contains(Vec2::new(x.into(), y.into()))
+                    && rect.contains(Vec2::new(x.into(), y.into()))
                     && let Some(cell) = self.buf.cell_mut((x, y))
                 {
                     cell.reset();
@@ -241,23 +291,23 @@ impl Grid {
                 x += 1;
             }
 
-            // Early exit optimization when we have a small area and very long string
-            if x > area.x + area.width {
+            // Early exit optimization when we have a small rect and very long string
+            if x > rect.x + rect.width {
                 break;
             }
         }
     }
 
-    pub fn draw_style<S>(&mut self, area: Rect<i32>, style: S)
+    pub fn draw_style<S>(&mut self, rect: Rect<i32>, style: S)
     where
         S: Into<Style> + Copy,
     {
-        //let area = self.area;
-        for x in area.x..area.width {
+        //let rect = self.rect;
+        for x in rect.x..rect.width {
             if x < 0 {
                 continue;
             }
-            for y in area.y..area.height {
+            for y in rect.y..rect.height {
                 if y < 0 {
                     continue;
                 }
@@ -316,9 +366,11 @@ impl Runtime {
     }
 }
 
-trait ImTuiApp {
+pub trait ImTuiApp {
+    type UserEvent;
     fn start_of_frame(&mut self, runtime: &mut Runtime);
-    fn update(&mut self, runtime: &mut Runtime, ui: &mut Ui);
+    fn ui(&mut self, runtime: &mut Runtime, ui: &mut Ui);
+    fn event(&mut self, event: InputEvent<Self::UserEvent>);
 }
 
 // layout

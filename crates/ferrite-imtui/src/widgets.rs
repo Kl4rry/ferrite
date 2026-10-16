@@ -1,5 +1,5 @@
+use ferrite_linalg::*;
 use ferrite_style::Style;
-use linalg::*;
 
 use crate::{Response, Ui, Widget};
 

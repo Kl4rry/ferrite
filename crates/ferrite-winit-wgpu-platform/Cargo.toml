@@ -9,7 +9,8 @@ cgmath = { workspace = true }
 cosmic-text = { workspace = true, features = ["monospace_fallback", "shape-run-cache"] }
 ferrite-ctx = { workspace = true }
 ferrite-geom = { workspace = true }
-ferrite-runtime = { workspace = true }
+ferrite-imtui = { workspace = true }
+ferrite-linalg = { workspace = true }
 ferrite-style = { workspace = true }
 glyphon = { workspace = true }
 pollster = { workspace = true }
