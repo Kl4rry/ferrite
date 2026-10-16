@@ -107,11 +107,12 @@ pub fn file_injector(
                 }
             } else {
                 for string in iterator {
-                    if !running.load(Ordering::Relaxed) {
-                        break;
-                    }
                     if let Some(cache) = &target_file_cache {
                         cache.push(string.clone());
+                    } else {
+                        if !running.load(Ordering::Relaxed) {
+                            break;
+                        }
                     }
                     injector.push(string, |item, utf32_string| {
                         utf32_string[0] = nucleo::Utf32String::from(item.as_str())
