@@ -7,20 +7,8 @@ use std::{
 };
 
 use ferrite_ctx::ArenaVec;
-use ferrite_geom::rect::{Rect, Vec2};
-use ferrite_runtime::{
-    Bounds, Input, Layout, MouseButton, MouseInterction, MouseInterctionKind, MouseState, Painter,
-    Runtime, StartOfFrame, Update, View,
-    any_view::AnyView,
-    control_flow::EventLoopControlFlow,
-    event_loop_proxy::EventLoopProxy,
-    id::Id,
-    input::{
-        event::InputEvent,
-        keycode::{KeyCode, KeyModifiers},
-    },
-    painter::{CursorIcon, Rounding},
-};
+use ferrite_imtui::*;
+use ferrite_linalg::*;
 use tui_core::terminal::Terminal;
 use winit::{
     application::ApplicationHandler,
@@ -44,15 +32,15 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     window: Arc<Window>,
     scale_factor: f64,
+    ui: Ui,
     renderer: Renderer,
-    terminals: HashMap<(TypeId, Id), Terminal<backend::WgpuBackend>>,
+    terminals: HashMap<Id, Terminal<backend::WgpuBackend>>,
     terminals_changed: bool,
-    painter: Painter,
     modifiers: KeyModifiers,
-    touched: Vec<(TypeId, Id)>,
+    touched: Vec<Id>,
     mouse_state: MouseState,
     line_height: f32,
-    cursor_zones: Vec<(CursorIcon, Rect)>,
+    cursor_zones: Vec<(CursorIcon, Rect<i32>)>,
 }
 
 pub fn create_event_loop<E: Send>() -> (
@@ -95,22 +83,18 @@ impl<E: Send> EventLoopProxy<E> for EventLoopProxyWrapper<E> {
     }
 }
 
-struct App<S, UserEvent> {
-    runtime: Runtime<S>,
-    update: Update<S>,
-    input: Input<S, UserEvent>,
-    layout: Layout<S>,
-    start_of_frame: StartOfFrame<S>,
-    view_tree: AnyView<S>,
+struct App<S> {
+    runtime: Runtime,
+    app_state: S,
 }
 
-pub struct WinitWgpuPlatform<S, UserEvent> {
+pub struct WinitWgpuPlatform<S> {
     state: Option<State>,
-    app: Option<App<S, UserEvent>>,
+    app: Option<App<S>>,
     dirty: bool,
 }
 
-impl<S, UserEvent: 'static + Send> Default for WinitWgpuPlatform<S, UserEvent> {
+impl<S> Default for WinitWgpuPlatform<S> {
     fn default() -> Self {
         Self {
             state: None,
@@ -120,7 +104,10 @@ impl<S, UserEvent: 'static + Send> Default for WinitWgpuPlatform<S, UserEvent> {
     }
 }
 
-impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
+impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S>
+where
+    S: ImTuiApp<UserEvent = UserEvent>,
+{
     fn state_mut(&mut self) -> &mut State {
         self.state.as_mut().unwrap()
     }
@@ -145,29 +132,23 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         let (width, height) = (state.config.width, state.config.height);
 
         {
-            app.view_tree = (app.layout)(&mut app.runtime.state);
-            let bounds = create_bounds(
-                Vec2::new(width as usize, height as usize),
-                Vec2::new(cell_width, cell_height),
-            );
-            app.view_tree
-                .render(&mut app.runtime.state, bounds, &mut state.painter);
+            app.app_state.ui(&mut app.runtime, &mut state.ui);
 
             state.cursor_zones.clear();
             state
                 .cursor_zones
-                .extend_from_slice(state.painter.cursor_zones());
+                .extend_from_slice(state.ui.cursor_zones());
         }
 
         state.touched.clear();
-        for (type_id, id, layer) in state.painter.layers() {
-            let layer = layer.lock().unwrap();
-            state.touched.push((*type_id, *id));
-            let terminal = state.terminals.entry((*type_id, *id)).or_insert_with(|| {
+        for layer in state.ui.finished_layers() {
+            state.touched.push(layer.id);
+            let terminal = state.terminals.entry(layer.id).or_insert_with(|| {
                 state.terminals_changed = true;
                 Terminal::new(WgpuBackend::new(
                     &mut state.renderer.font_system,
-                    layer.bounds,
+                    layer.rect,
+                    layer.rounding,
                     app.runtime.font_family.clone(),
                     glyphon::Weight(app.runtime.font_weight),
                 ))
@@ -185,28 +166,30 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
                 state.scale_factor as f32 * app.runtime.scale,
             );
 
-            let backend_bounds = terminal.backend().bounds();
-            if backend_bounds != layer.bounds {
-                terminal.backend_mut().resize(layer.bounds);
-                terminal.resize(layer.buf.area).unwrap();
+            let backend_rect = terminal.backend().rect();
+            if backend_rect != layer.rect {
+                terminal.backend_mut().resize(layer.rect, layer.rounding);
+                terminal.resize(rect_to_tui(layer.grid.rect())).unwrap();
             }
 
             terminal
                 .draw(|frame| {
-                    frame.buffer_mut().content.clone_from(&layer.buf.content);
+                    let buf = frame.buffer_mut();
+                    buf.content.clear();
+                    buf.content.extend_from_slice(layer.grid.cells());
                 })
                 .unwrap();
 
             terminal
                 .backend_mut()
-                .set_overlay(layer.painter2d.as_ref().unwrap().get_overlay());
+                .set_overlay(layer.canvas.as_ref().unwrap().get_overlay());
         }
         state.terminals.retain(|k, _v| {
             let contains = state.touched.contains(k);
             state.terminals_changed |= contains;
             contains
         });
-        state.painter.clean_up_frame();
+        state.ui.finish_frame();
     }
 
     #[profiling::function]
@@ -231,12 +214,12 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
         let mut layers = ArenaVec::new_in(&arena);
         for (_, terminal) in terminals {
             let backend = terminal.backend_mut();
-            let view_bounds = backend.bounds().view_bounds();
+            let rect = backend.rect();
             let scissor = Rect {
-                x: view_bounds.x as u32,
-                y: view_bounds.y as u32,
-                width: view_bounds.width as u32,
-                height: view_bounds.height as u32,
+                x: rect.x as u32,
+                y: rect.y as u32,
+                width: rect.width as u32,
+                height: rect.height as u32,
             };
             let bundle = backend.prepare(&mut state.renderer.font_system);
             layers.push(renderer::Layer {
@@ -326,11 +309,8 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
     pub fn run(
         mut self,
         event_loop: EventLoop<PlatformEvent<UserEvent>>,
-        mut runtime: Runtime<S>,
-        update: Update<S>,
-        input: Input<S, UserEvent>,
-        layout: Layout<S>,
-        start_of_frame: StartOfFrame<S>,
+        mut runtime: Runtime,
+        app_state: S,
     ) {
         {
             std::panic::set_hook(Box::new(move |info| {
@@ -343,21 +323,12 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
             }));
         }
 
-        let view_tree = (layout)(&mut runtime.state);
-
-        self.app = Some(App {
-            runtime,
-            update,
-            input,
-            layout,
-            start_of_frame,
-            view_tree,
-        });
+        self.app = Some(App { runtime, app_state });
         event_loop.run_app(&mut self).unwrap();
     }
 
     fn update_control_flow(&self, event_loop: &ActiveEventLoop) {
-        match ferrite_runtime::control_flow::get() {
+        match control_flow::get() {
             EventLoopControlFlow::Poll => event_loop.set_control_flow(ControlFlow::Poll),
             EventLoopControlFlow::Wait => event_loop.set_control_flow(ControlFlow::Wait),
             EventLoopControlFlow::Exit => event_loop.exit(),
@@ -369,7 +340,9 @@ impl<S, UserEvent: 'static + Send> WinitWgpuPlatform<S, UserEvent> {
 }
 
 impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
-    for WinitWgpuPlatform<S, UserEvent>
+    for WinitWgpuPlatform<S>
+where
+    S: ImTuiApp<UserEvent = UserEvent>,
 {
     #[profiling::function]
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -458,10 +431,22 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
         };
         surface.configure(&device, &config);
 
-        let renderer = Renderer::new(&device, &config, size.width as f32, size.height as f32);
+        let mut renderer = Renderer::new(&device, &config, size.width as f32, size.height as f32);
+
+        let ui = {
+            let rect = Rect::new(0.0, 0.0, size.width as f32, size.height as f32);
+
+            let app = self.app.as_mut().unwrap();
+            let metrics = backend::get_metrics(app.runtime.scale);
+            let (cell_width, cell_height) = backend::calculate_cell_size(
+                &mut renderer.font_system,
+                metrics,
+                glyphon::Weight(app.runtime.font_weight),
+            );
+            Ui::new(rect, Vec2::new(cell_width, cell_height), true)
+        };
 
         let terminals = HashMap::new();
-        let painter = Painter::new(true);
 
         {
             #[cfg(all(target_family = "unix", not(target_os = "macos")))]
@@ -499,9 +484,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             window,
             scale_factor: 1.0,
             renderer,
+            ui,
             terminals,
             terminals_changed: false,
-            painter,
             cursor_zones: Vec::new(),
             modifiers: KeyModifiers::empty(),
             touched: Vec::new(),
@@ -570,20 +555,15 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     Key::Named(key) => {
                         if let Some(keycode) = glue::convert_keycode(key, modifiers) {
                             let app = self.app.as_mut().unwrap();
-                            (app.input)(
-                                &mut app.runtime.state,
-                                InputEvent::Key(keycode, modifiers),
-                            );
+                            app.app_state.event(InputEvent::Key(keycode, modifiers));
                             return;
                         }
                     }
                     Key::Character(s) => {
                         for ch in s.chars() {
                             let app = self.app.as_mut().unwrap();
-                            (app.input)(
-                                &mut app.runtime.state,
-                                InputEvent::Key(KeyCode::Char(ch), modifiers),
-                            );
+                            app.app_state
+                                .event(InputEvent::Key(KeyCode::Char(ch), modifiers));
                         }
                         return;
                     }
@@ -592,7 +572,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
 
                 if let Some(text) = event.text {
                     let app = self.app.as_mut().unwrap();
-                    (app.input)(&mut app.runtime.state, InputEvent::Text(text.to_string()));
+                    app.app_state.event(InputEvent::Text(text.to_string()));
                 }
             }
             WindowEvent::MouseInput {
@@ -638,11 +618,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                             glyphon::Weight(app.runtime.font_weight),
                         );
 
-                        let (width, height) = (state.config.width, state.config.height);
-                        let bounds = create_bounds(
-                            Vec2::new(width as usize, height as usize),
-                            Vec2::new(cell_width, cell_height),
-                        );
                         if mouse_state.drag_start.is_some() {
                             mouse_state.drag_start = None;
 
@@ -654,11 +629,12 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                                 modifiers: state.modifiers,
                             };
 
-                            app.view_tree.handle_mouse(
+                            // TODO: fix
+                            /*app.view_tree.handle_mouse(
                                 &mut app.runtime.state,
                                 bounds,
                                 mouse_interaction,
-                            );
+                            );*/
                         } else {
                             let mouse_interaction = MouseInterction {
                                 button,
@@ -668,11 +644,12 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                                 modifiers: state.modifiers,
                             };
 
-                            app.view_tree.handle_mouse(
+                            // TODO: fix
+                            /*app.view_tree.handle_mouse(
                                 &mut app.runtime.state,
                                 bounds,
                                 mouse_interaction,
-                            );
+                            );*/
                         }
                     }
                     winit::event::ElementState::Pressed => {
@@ -701,12 +678,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                             glyphon::Weight(app.runtime.font_weight),
                         );
 
-                        let (width, height) = (state.config.width, state.config.height);
-                        let bounds = create_bounds(
-                            Vec2::new(width as usize, height as usize),
-                            Vec2::new(cell_width, cell_height),
-                        );
-
                         let mouse_interaction = MouseInterction {
                             button,
                             kind: MouseInterctionKind::Press(mouse_state.presses),
@@ -715,11 +686,12 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                             modifiers: state.modifiers,
                         };
 
-                        app.view_tree.handle_mouse(
+                        // TODO: fix
+                        /*app.view_tree.handle_mouse(
                             &mut app.runtime.state,
                             bounds,
                             mouse_interaction,
-                        );
+                        );*/
                     }
                 }
             }
@@ -751,12 +723,6 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                     glyphon::Weight(app.runtime.font_weight),
                 );
 
-                let (width, height) = (state.config.width, state.config.height);
-                let bounds = create_bounds(
-                    Vec2::new(width as usize, height as usize),
-                    Vec2::new(cell_width, cell_height),
-                );
-
                 let last_pos = state.mouse_state.position;
                 if state.mouse_state.left.pressed {
                     if state.mouse_state.left.drag_start.is_none() {
@@ -772,8 +738,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         position: Vec2::new(position.x as f32, position.y as f32),
                         modifiers: state.modifiers,
                     };
-                    app.view_tree
-                        .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
+                    // TODO: fix
+                    /*app.view_tree
+                    .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);*/
                 }
                 if state.mouse_state.right.pressed {
                     if state.mouse_state.right.drag_start.is_none() {
@@ -789,8 +756,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         position: Vec2::new(position.x as f32, position.y as f32),
                         modifiers: state.modifiers,
                     };
-                    app.view_tree
-                        .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
+                    // TODO: fix
+                    /*app.view_tree
+                    .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);*/
                 }
                 if state.mouse_state.middle.pressed {
                     if state.mouse_state.middle.drag_start.is_none() {
@@ -806,8 +774,9 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         position: Vec2::new(position.x as f32, position.y as f32),
                         modifiers: state.modifiers,
                     };
-                    app.view_tree
-                        .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);
+                    // TODO: fix
+                    /*app.view_tree
+                    .handle_mouse(&mut app.runtime.state, bounds, mouse_interaction);*/
                 }
                 state.mouse_state.position.x = position.x as f32;
                 state.mouse_state.position.y = position.y as f32;
@@ -823,7 +792,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
                         InputEvent::Scroll(0.0, distance)
                     }
                 };
-                (app.input)(&mut app.runtime.state, input_event);
+                app.app_state.event(input_event);
             }
             WindowEvent::Resized(size) => {
                 profiling::scope!("resized");
@@ -858,7 +827,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             PlatformEvent::Wake(reason) => tracing::debug!("Woken because: {reason}"),
             PlatformEvent::UserEvent(event) => {
                 let app = self.app.as_mut().unwrap();
-                (app.input)(&mut app.runtime.state, InputEvent::UserEvent(event));
+                app.app_state.event(InputEvent::UserEvent(event));
             }
         }
     }
@@ -874,15 +843,13 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             StartCause::ResumeTimeReached { .. } | StartCause::Poll
         ) {
             self.dirty = true;
-            ferrite_runtime::control_flow::set(
-                ferrite_runtime::control_flow::EventLoopControlFlow::Wait,
-            );
+            control_flow::set(control_flow::EventLoopControlFlow::Wait);
         }
 
         {
             let app = self.app.as_mut().unwrap();
             app.runtime.start_of_events = Instant::now();
-            (app.start_of_frame)(&mut app.runtime);
+            app.app_state.start_of_frame(&mut app.runtime);
         }
     }
 
@@ -892,10 +859,11 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
             return;
         }
         self.dirty = false;
-        {
+        // TODO: fix
+        /*{
             let app = self.app.as_mut().unwrap();
             (app.update)(&mut app.runtime);
-        }
+        }*/
         self.prepare();
         let state = self.state.as_mut().unwrap();
         if state.terminals.values().any(|t| t.backend().redraw) {
@@ -916,6 +884,7 @@ impl<S, UserEvent: 'static + Send> ApplicationHandler<PlatformEvent<UserEvent>>
     }
 }
 
+/*
 fn create_bounds(window_size: Vec2, cell_size: Vec2<f32>) -> Bounds {
     Bounds::new(
         Rect::new(0, 0, window_size.x.saturating_sub(1).max(1), window_size.y),
@@ -923,12 +892,13 @@ fn create_bounds(window_size: Vec2, cell_size: Vec2<f32>) -> Bounds {
         Rounding::Round,
     )
 }
+*/
 
 fn get_cursor(
-    cursor_zones: &[(CursorIcon, Rect)],
+    cursor_zones: &[(CursorIcon, Rect<i32>)],
     position: Vec2<f32>,
 ) -> winit::window::CursorIcon {
-    let position = Vec2::new(position.x as usize, position.y as usize);
+    let position = Vec2::new(position.x as i32, position.y as i32);
     let mut last_icon = CursorIcon::Default;
     for (icon, rect) in cursor_zones {
         if rect.contains(position) {

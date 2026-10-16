@@ -9,6 +9,19 @@ impl<T> Rect<T> {
             height,
         }
     }
+
+    pub fn map<O, F: FnMut(T) -> O>(self, mut f: F) -> Rect<O> {
+        Rect::new((f)(self.x), (f)(self.y), (f)(self.width), (f)(self.height))
+    }
+
+    pub fn try_map<O, E, F: FnMut(T) -> Result<O, E>>(self, mut f: F) -> Result<Rect<O>, E> {
+        Ok(Rect::new(
+            (f)(self.x)?,
+            (f)(self.y)?,
+            (f)(self.width)?,
+            (f)(self.height)?,
+        ))
+    }
 }
 
 impl<T> Rect<T>

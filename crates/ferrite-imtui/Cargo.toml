@@ -1,5 +1,5 @@
 [package]
-name = "ferrite_imtui"
+name = "ferrite-imtui"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,7 +9,7 @@ anyhow = { workspace = true }
 bitflags = { workspace = true }
 ferrite-style = { workspace = true }
 ferrite-utility = { workspace = true }
-linalg = { workspace = true }
+ferrite-linalg = { workspace = true }
 ropey = { workspace = true }
 serde = { workspace = true }
 tui-core = { workspace = true }

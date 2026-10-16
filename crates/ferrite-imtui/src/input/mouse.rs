@@ -1,12 +1,14 @@
 use std::time::Instant;
 
-use linalg::*;
+use ferrite_linalg::*;
 use crate::input::keycode::KeyModifiers;
 
 #[derive(Debug, Clone)]
 pub struct MouseButtonState {
     pub pressed: bool,
     pub last_press: Instant,
+    pub last_release: Instant,
+    pub presses: usize,
     pub clicks: usize,
     pub drag_start: Option<Vec2<f32>>,
 }
@@ -16,12 +18,13 @@ impl Default for MouseButtonState {
         Self {
             pressed: false,
             last_press: Instant::now(),
+            last_release: Instant::now(),
+            presses: 1,
             clicks: 1,
             drag_start: None,
         }
     }
 }
-
 #[derive(Debug, Clone, Default)]
 pub struct MouseState {
     pub left: MouseButtonState,
@@ -40,6 +43,7 @@ pub enum MouseButton {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum MouseInterctionKind {
     Click(usize),
+    Press(usize),
     Drag {
         drag_start: Vec2<f32>,
         last_pos: Vec2<f32>,

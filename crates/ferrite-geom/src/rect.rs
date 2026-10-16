@@ -1,1 +1,1 @@
-pub use linalg::{Rect, Vec2};
+pub use ferrite_linalg::{Rect, Vec2};

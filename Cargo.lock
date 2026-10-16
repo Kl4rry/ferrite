@@ -987,7 +987,7 @@ dependencies = [
 name = "ferrite-geom"
 version = "0.1.0"
 dependencies = [
- "linalg",
+ "ferrite-linalg",
  "num-traits",
  "ratatui-core",
  "serde",
@@ -1006,6 +1006,25 @@ dependencies = [
  "ropey",
  "tracing",
 ]
+
+[[package]]
+name = "ferrite-imtui"
+version = "0.1.0"
+dependencies = [
+ "ahash",
+ "anyhow",
+ "bitflags 2.13.1",
+ "ferrite-linalg",
+ "ferrite-style",
+ "ferrite-utility",
+ "ratatui-core",
+ "ropey",
+ "serde",
+]
+
+[[package]]
+name = "ferrite-linalg"
+version = "0.1.0"
 
 [[package]]
 name = "ferrite-lsp-client"
@@ -1122,7 +1141,8 @@ dependencies = [
  "cosmic-text",
  "ferrite-ctx",
  "ferrite-geom",
- "ferrite-runtime",
+ "ferrite-imtui",
+ "ferrite-linalg",
  "ferrite-style",
  "glyphon",
  "pollster",
@@ -1132,21 +1152,6 @@ dependencies = [
  "unicode-width",
  "wgpu",
  "winit",
-]
-
-[[package]]
-name = "ferrite_imtui"
-version = "0.1.0"
-dependencies = [
- "ahash",
- "anyhow",
- "bitflags 2.13.1",
- "ferrite-style",
- "ferrite-utility",
- "linalg",
- "ratatui-core",
- "ropey",
- "serde",
 ]
 
 [[package]]
@@ -1827,10 +1832,6 @@ dependencies = [
  "plain",
  "redox_syscall 0.9.0",
 ]
-
-[[package]]
-name = "linalg"
-version = "0.1.0"
 
 [[package]]
 name = "line-clipping"

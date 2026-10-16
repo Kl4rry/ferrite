@@ -1,7 +1,7 @@
 use std::{borrow::Cow, mem};
 
 use ferrite_geom::rect::{Rect, Vec2};
-use ferrite_runtime::Bounds;
+use ferrite_imtui::*;
 use ferrite_style::Color;
 use glyphon::{
     Attrs, AttrsList, Buffer, BufferLine, Family, FontSystem, Metrics, Shaping, TextArea,
@@ -58,7 +58,9 @@ pub fn get_metrics(scale: f32) -> Metrics {
 }
 
 pub struct WgpuBackend {
-    bounds: Bounds,
+    rect: Rect<f32>,
+    cell_size: Vec2<f32>,
+    rounding: Rounding,
     pub redraw: bool,
     reshape: bool,
     buffer: Buffer,
@@ -79,7 +81,8 @@ pub struct WgpuBackend {
 impl WgpuBackend {
     pub fn new(
         font_system: &mut FontSystem,
-        bounds: Bounds,
+        rect: Rect<f32>,
+        rounding: Rounding,
         font_family: String,
         font_weight: Weight,
     ) -> Self {
@@ -88,17 +91,12 @@ impl WgpuBackend {
         let mut buffer = Buffer::new(font_system, metrics);
         // borrowed from cosmic term
         let (cell_width, cell_height) = calculate_cell_size(font_system, metrics, font_weight);
-        let bounds = Bounds::new(
-            bounds.view_bounds(),
-            Vec2::new(cell_width, cell_height),
-            bounds.rounding,
-        );
         buffer.set_monospace_width(font_system, Some(cell_width));
         buffer.set_wrap(font_system, glyphon::Wrap::None);
 
-        let grid_bounds = bounds.grid_bounds();
-        let columns = grid_bounds.width as u16;
-        let lines = grid_bounds.height as u16;
+        let grid_rect = calculate_grid_size(rect, (cell_width, cell_height), rounding);
+        let columns = grid_rect.width as u16;
+        let lines = grid_rect.height as u16;
 
         let mut cells = Vec::new();
         for _ in 0..lines {
@@ -110,7 +108,9 @@ impl WgpuBackend {
         }
 
         Self {
-            bounds,
+            rect,
+            cell_size: Vec2::new(cell_width, cell_height),
+            rounding,
             buffer,
             top_geometry: Default::default(),
             bottom_geometry: Default::default(),
@@ -126,11 +126,11 @@ impl WgpuBackend {
         }
     }
 
-    pub fn resize(&mut self, bounds: Bounds) {
-        self.bounds = bounds;
-        let grid_bounds = bounds.grid_bounds();
-        let columns = grid_bounds.width as u16;
-        let lines = grid_bounds.height as u16;
+    pub fn resize(&mut self, rect: Rect<f32>, rounding: Rounding) {
+        self.rect = rect;
+        let grid_size = calculate_grid_size(rect, self.cell_size, rounding);
+        let columns = grid_size.width as u16;
+        let lines = grid_size.height as u16;
         self.cells.clear();
         for _ in 0..lines {
             let mut line = Vec::with_capacity(columns.into());
@@ -144,16 +144,13 @@ impl WgpuBackend {
     }
 
     pub fn prepare(&mut self, font_system: &mut FontSystem) -> Bundle<'_> {
-        let view_bounds = self.bounds.view_bounds();
-        self.buffer.set_size(
-            font_system,
-            Some(view_bounds.width as f32),
-            Some(view_bounds.height as f32),
-        );
-        let cell_width = self.bounds.cell_size().x;
-        let cell_height = self.bounds.cell_size().y;
-        let x = view_bounds.x as f32;
-        let y = view_bounds.y as f32;
+        let rect = self.rect;
+        self.buffer
+            .set_size(font_system, Some(self.rect.width), Some(self.rect.height));
+        let cell_width = self.cell_size.x;
+        let cell_height = self.cell_size.y;
+        let x = rect.x;
+        let y = rect.y;
 
         let default_attrs = Attrs::new()
             .weight(self.font_weight)
@@ -294,8 +291,8 @@ impl WgpuBackend {
             bounds: TextBounds {
                 left: x as i32,
                 top: y as i32,
-                right: view_bounds.width as i32 + x as i32,
-                bottom: view_bounds.height as i32 + y as i32,
+                right: rect.width as i32 + x as i32,
+                bottom: rect.height as i32 + y as i32,
             },
             default_color: self.default_fg,
             custom_glyphs: &[],
@@ -338,12 +335,8 @@ impl WgpuBackend {
         let (cell_width, cell_height) = calculate_cell_size(font_system, metrics, self.font_weight);
         self.buffer
             .set_monospace_width(font_system, Some(cell_width));
-        self.bounds = Bounds::new(
-            self.bounds.view_bounds(),
-            Vec2::new(cell_width, cell_height),
-            self.bounds.rounding,
-        );
-        self.resize(self.bounds);
+        self.cell_size = Vec2::new(cell_width, cell_height);
+        self.resize(self.rect, self.rounding);
     }
 
     pub fn scale(&self) -> f32 {
@@ -351,7 +344,7 @@ impl WgpuBackend {
     }
 
     pub fn line_height(&self) -> f32 {
-        self.bounds.cell_size().y
+        self.cell_size.y
     }
 
     pub fn set_default_fg(&mut self, r: u8, g: u8, b: u8) {
@@ -362,8 +355,8 @@ impl WgpuBackend {
         self.default_bg = glyphon::Color::rgb(r, g, b);
     }
 
-    pub fn bounds(&self) -> Bounds {
-        self.bounds
+    pub fn rect(&self) -> Rect<f32> {
+        self.rect
     }
 
     pub fn set_overlay(&mut self, overlay: &[(Rect<f32>, Color)]) {
@@ -426,11 +419,10 @@ impl Backend for WgpuBackend {
     }
 
     fn window_size(&mut self) -> std::io::Result<tui_core::backend::WindowSize> {
-        let grid_bounds = self.bounds.grid_bounds();
-        let view_bounds = self.bounds.view_bounds();
+        let grid_rect = calculate_grid_size(self.rect, self.cell_size, self.rounding);
         Ok(WindowSize {
-            columns_rows: Size::new(grid_bounds.width as u16, grid_bounds.height as u16),
-            pixels: Size::new(view_bounds.width as u16, view_bounds.height as u16),
+            columns_rows: Size::new(grid_rect.width as u16, grid_rect.height as u16),
+            pixels: Size::new(self.rect.width as u16, self.rect.height as u16),
         })
     }
 
@@ -447,11 +439,7 @@ impl Backend for WgpuBackend {
     }
 
     fn size(&self) -> std::io::Result<tui_core::layout::Size> {
-        let grid_bounds = self.bounds.grid_bounds();
-        Ok(Size::new(
-            grid_bounds.width as u16,
-            grid_bounds.height as u16,
-        ))
+        Ok(Size::new(self.rect.width as u16, self.rect.height as u16))
     }
 
     fn clear_region(&mut self, clear_type: tui_core::backend::ClearType) -> std::io::Result<()> {
