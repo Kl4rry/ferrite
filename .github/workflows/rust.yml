@@ -84,7 +84,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: aarch-linux-build-artifacts
-          path: target/x86_64-unknown-linux-musl/release/ferrite
+          path: target/aarch64-unknown-linux-gnu/release/ferrite
 
   build-linux-old-glibc:
     runs-on: ubuntu-latest
