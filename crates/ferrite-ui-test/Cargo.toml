@@ -1,0 +1,9 @@
+[package]
+name = "ferrite-ui-test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ferrite-imtui = { workspace = true }
+ferrite-linalg = { workspace = true }
+ferrite-winit-wgpu-platform = { workspace = true }

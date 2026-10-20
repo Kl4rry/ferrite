@@ -1113,6 +1113,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ferrite-ui-test"
+version = "0.1.0"
+dependencies = [
+ "ferrite-imtui",
+ "ferrite-linalg",
+ "ferrite-winit-wgpu-platform",
+]
+
+[[package]]
 name = "ferrite-utility"
 version = "0.1.0"
 dependencies = [

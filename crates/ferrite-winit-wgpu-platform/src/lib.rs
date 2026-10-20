@@ -156,6 +156,7 @@ where
             });
 
             let backend = terminal.backend_mut();
+            backend.z_index = layer.z_index;
             backend.set_font_family(&mut state.renderer.font_system, &app.runtime.font_family);
             backend.set_font_weight(
                 &mut state.renderer.font_system,
@@ -209,7 +210,9 @@ where
         // Sort into correct render order
         {
             profiling::scope!("sort layers");
-            terminals.sort_by_cached_key(|(k, _v)| state.touched.iter().position(|i| i == *k));
+            terminals.sort_by(|(_, lhs), (_, rhs)| {
+                lhs.backend().z_index.partial_cmp(&rhs.backend().z_index).unwrap()
+            });
         }
         let mut layers = ArenaVec::new_in(&arena);
         for (_, terminal) in terminals {
@@ -306,12 +309,7 @@ where
         app.runtime.last_render_time = Instant::now().duration_since(app.runtime.start_of_events);
     }
 
-    pub fn run(
-        mut self,
-        event_loop: EventLoop<PlatformEvent<UserEvent>>,
-        mut runtime: Runtime,
-        app_state: S,
-    ) {
+    pub fn run(mut self, event_loop: EventLoop<PlatformEvent<UserEvent>>, app_state: S) {
         {
             std::panic::set_hook(Box::new(move |info| {
                 eprintln!();
@@ -322,7 +320,7 @@ where
                 eprintln!("{panic_info}");
             }));
         }
-
+        let runtime = Runtime::new();
         self.app = Some(App { runtime, app_state });
         event_loop.run_app(&mut self).unwrap();
     }

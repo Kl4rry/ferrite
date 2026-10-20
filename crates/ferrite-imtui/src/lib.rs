@@ -4,10 +4,8 @@ use std::{
 };
 
 use ferrite_linalg::*;
-use ferrite_style::Color;
 use ferrite_utility::graphemes::RopeGraphemeExt;
 use ropey::RopeSlice;
-use tui_core::style::Style;
 
 pub mod control_flow;
 mod event_loop_proxy;
@@ -18,6 +16,7 @@ pub mod widgets;
 
 pub use control_flow::EventLoopControlFlow;
 pub use event_loop_proxy::*;
+pub use ferrite_style::{Style, Color};
 pub use id::Id;
 pub use input::{
     event::InputEvent,
@@ -161,7 +160,7 @@ struct CreateWidgetResponse {
     // this will hold data abut clicks so we can check for that
 }
 
-trait Widget {
+pub trait Widget {
     type State;
     fn ui(self, ui: &mut Ui, state: &mut Self::State) -> Response;
 }
@@ -312,7 +311,7 @@ impl Grid {
                     continue;
                 }
                 if let Some(cell) = self.buf.cell_mut((x as u16, y as u16)) {
-                    cell.set_style(style);
+                    cell.set_style(style.into());
                 }
             }
         }
