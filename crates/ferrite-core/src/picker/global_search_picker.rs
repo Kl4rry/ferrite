@@ -89,6 +89,7 @@ pub fn global_search_injector(
                     let name = buffer.name().to_string();
                     let rope = buffer.rope().clone();
                     let buffer = Arc::new(Mutex::new(buffer));
+                    let mut injected = 0;
 
                     if let Err(err) = Searcher::new().search_reader(
                         &matcher,
@@ -99,6 +100,7 @@ pub fn global_search_injector(
                                 let rope_line = rope.line(lnum);
                                 let start_col = rope_line.byte_to_col(mymatch.start());
                                 let end_col = rope_line.byte_to_col(mymatch.end());
+                                injected += 1;
                                 injector.push(
                                     GlobalSearchMatch {
                                         buffer: buffer.clone(),
@@ -119,6 +121,10 @@ pub fn global_search_injector(
                         }),
                     ) {
                         tracing::error!("Search error: {err}");
+                    }
+
+                    if injected > 0 {
+                        get_proxy().request_render("global search found matches in file");
                     }
 
                     WalkState::Continue
