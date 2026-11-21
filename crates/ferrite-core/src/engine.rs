@@ -433,7 +433,7 @@ impl Engine {
 
         {
             for (_buffer_id, buffer) in &mut self.workspace.buffers {
-                if buffer.name() == "editor://perf" {
+                if buffer.name() == "editor:perf" {
                     let mut string = ArenaString::new_in(&arena);
                     let _ = write!(string, "Frame time: {:?}", self.last_render_time);
                     #[cfg(feature = "talloc")]
@@ -447,11 +447,11 @@ impl Engine {
                     buffer.replace_rope(Rope::from(&*string));
                 }
 
-                if buffer.name() == "editor://logger" {
+                if buffer.name() == "editor:logger" {
                     buffer.replace_rope(self.logger_state.rope.clone());
                 }
 
-                if buffer.name() == "editor://watch"
+                if buffer.name() == "editor:watch"
                     && let Some(watcher) = &self.buffer_watcher
                 {
                     let mut rope = ropey::RopeBuilder::new();
@@ -907,7 +907,7 @@ impl Engine {
             Cmd::ForceQuit => ferrite_runtime::control_flow::set(EventLoopControlFlow::Exit),
             Cmd::Logger => {
                 self.save_jump_point();
-                self.open_url("editor://logger", false, false);
+                self.open_url("editor:logger", false, false);
             }
             Cmd::Theme { theme } => match theme {
                 Some(theme) =>
@@ -1390,15 +1390,15 @@ impl Engine {
     fn open_editor_scheme(&mut self, body: &str) -> bool {
         match body {
             "perf" => {
-                self.create_unique_empty_editor_scheme_buffer("editor://perf");
+                self.create_unique_empty_editor_scheme_buffer("editor:perf");
                 true
             }
             "logger" => {
-                self.create_unique_empty_editor_scheme_buffer("editor://logger");
+                self.create_unique_empty_editor_scheme_buffer("editor:logger");
                 true
             }
             "watch" => {
-                self.create_unique_empty_editor_scheme_buffer("editor://watch");
+                self.create_unique_empty_editor_scheme_buffer("editor:watch");
                 true
             }
             _ => {
@@ -1413,7 +1413,7 @@ impl Engine {
         let url = url.as_ref();
         let url_str = url.to_string_lossy();
         let (scheme, body) = url::parse_scheme(&url_str);
-        tracing::info!("Opening url: {}://{}", scheme, body);
+        tracing::info!("Opening url: {}:{}", scheme, body);
 
         match scheme {
             "man" => {
@@ -1604,7 +1604,7 @@ impl Engine {
         self.run_shell_command(
             // TODO: do this instead and strip ansi codes format!("MANWIDTH=80 man --troff-device=utf8 {page}"),
             format!("MANWIDTH=80 man {page}"),
-            Some(format!("man://{page}")),
+            Some(format!("man:{page}")),
             true,
             true,
         );

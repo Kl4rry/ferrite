@@ -188,7 +188,7 @@ impl Completer {
 
                     match input_type {
                         CmdTemplateArg::Url => {
-                            // TODO add all schemes to completer like manpages and editor://
+                            // TODO add all schemes to completer like manpages and editor:perf
                             self.options.extend(
                                 complete_file_path(text, false)
                                     .into_iter()

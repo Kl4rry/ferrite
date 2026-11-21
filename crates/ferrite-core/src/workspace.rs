@@ -93,7 +93,7 @@ impl Workspace {
 
             let name = buffer.name();
             // TODO: replace this with a more general handling of non file schemes
-            if name.starts_with("editor://") || name.starts_with("man://") {
+            if name.starts_with("editor:") || name.starts_with("man:") {
                 workspace_data
                     .open_buffers
                     .push(Path::new(name).to_path_buf());
@@ -146,7 +146,7 @@ impl Workspace {
         if load_buffers {
             for path in &workspace.open_buffers {
                 // TODO: replace this with a more general handling of non file schemes
-                if path.starts_with("editor://") || path.starts_with("man://") {
+                if path.starts_with("editor:") || path.starts_with("man:") {
                     // TODO: correctly load non file schemes
                     continue;
                 }
