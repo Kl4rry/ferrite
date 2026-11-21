@@ -578,7 +578,9 @@ fn handle_box_char(
                 x: x + width / 2.0,
                 y,
                 width: 1.0,
-                height: height / 2.0,
+                // This + 1.0 is need because the border is an inner border on the right/top
+                // and a outer border on the left/bottom side.
+                height: height / 2.0 + 1.0,
                 color,
             });
             true
