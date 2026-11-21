@@ -59,7 +59,7 @@ where
 
 impl<T> Vec2<T>
 where
-    T: Clamp<T>,
+    T: Clamp,
 {
     #[inline]
     pub fn clamp(self, min: Self, max: Self) -> Self {
@@ -278,6 +278,46 @@ impl<T: std::ops::SubAssign> std::ops::SubAssign for Vec2<T> {
     fn sub_assign(&mut self, other: Self) {
         self.x -= other.x;
         self.y -= other.y;
+    }
+}
+
+impl<T: std::ops::Mul<Output = T>> std::ops::Mul for Vec2<T> {
+    type Output = Self;
+
+    #[inline]
+    fn mul(self, other: Self) -> Self {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+        }
+    }
+}
+
+impl<T: std::ops::MulAssign> std::ops::MulAssign for Vec2<T> {
+    #[inline]
+    fn mul_assign(&mut self, other: Self) {
+        self.x *= other.x;
+        self.y *= other.y;
+    }
+}
+
+impl<T: std::ops::Div<Output = T>> std::ops::Div for Vec2<T> {
+    type Output = Self;
+
+    #[inline]
+    fn div(self, other: Self) -> Self {
+        Self {
+            x: self.x / other.x,
+            y: self.y / other.y,
+        }
+    }
+}
+
+impl<T: std::ops::DivAssign> std::ops::DivAssign for Vec2<T> {
+    #[inline]
+    fn div_assign(&mut self, other: Self) {
+        self.x /= other.x;
+        self.y /= other.y;
     }
 }
 

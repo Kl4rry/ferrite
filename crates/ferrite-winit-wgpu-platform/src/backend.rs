@@ -130,6 +130,7 @@ impl WgpuBackend {
 
     pub fn resize(&mut self, rect: Rect<f32>, rounding: Rounding) {
         self.rect = rect;
+        self.rounding = rounding;
         let grid_size = calculate_grid_size(rect, self.cell_size, rounding);
         let columns = grid_size.width as u16;
         let lines = grid_size.height as u16;
@@ -361,6 +362,10 @@ impl WgpuBackend {
         self.rect
     }
 
+    pub fn rounding(&self) -> Rounding {
+        self.rounding
+    }
+
     pub fn set_overlay(&mut self, overlay: &[(Rect<f32>, Color)]) {
         self.overlay_geometry.clear();
         for (rect, color) in overlay {
@@ -386,12 +391,18 @@ impl Backend for WgpuBackend {
     where
         I: Iterator<Item = (u16, u16, &'a tui_core::buffer::Cell)>,
     {
-        for (column, line, cell) in content {
-            let line = &mut self.cells[line as usize];
-            line[column as usize] = cell.clone();
+        let line = &mut self.cells[0];
+        let mut output = String::new();
+        for cell in line.iter() {
+            output += cell.symbol();
+        }
+        for (column_idx, line_idx, cell) in content {
+            let lines = self.cells.len();
+            let line = &mut self.cells[line_idx as usize];
+            line[column_idx as usize] = cell.clone();
             let cell_width = cell.symbol().width();
             if cell_width > 1
-                && let Some(next_cell) = &mut line.get_mut(column as usize + 1)
+                && let Some(next_cell) = &mut line.get_mut(column_idx as usize + 1)
             {
                 next_cell.reset();
                 next_cell.set_symbol("");
@@ -441,7 +452,8 @@ impl Backend for WgpuBackend {
     }
 
     fn size(&self) -> std::io::Result<tui_core::layout::Size> {
-        Ok(Size::new(self.rect.width as u16, self.rect.height as u16))
+        let grid_rect = calculate_grid_size(self.rect, self.cell_size, self.rounding);
+        Ok(Size::new(grid_rect.width as u16, grid_rect.height as u16))
     }
 
     fn clear_region(&mut self, clear_type: tui_core::backend::ClearType) -> std::io::Result<()> {

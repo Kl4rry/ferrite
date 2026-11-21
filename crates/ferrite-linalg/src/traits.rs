@@ -154,7 +154,6 @@ impl NegOne<f64> for f64 {
     const NEG_ONE: f64 = 1.0;
 }
 
-#[expect(unused)]
 pub trait Two<T> {
     const TWO: T;
 }
@@ -215,91 +214,179 @@ impl Two<f64> for f64 {
     const TWO: f64 = 2.0;
 }
 
-pub trait Clamp<T> {
+pub trait Clamp {
     fn clamp_t(self, min: Self, max: Self) -> Self;
 }
 
-impl Clamp<u8> for u8 {
+impl Clamp for u8 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<i8> for i8 {
+impl Clamp for i8 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<u16> for u16 {
+impl Clamp for u16 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<i16> for i16 {
+impl Clamp for i16 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<u32> for u32 {
+impl Clamp for u32 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<i32> for i32 {
+impl Clamp for i32 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<u64> for u64 {
+impl Clamp for u64 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<i64> for i64 {
+impl Clamp for i64 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<u128> for u128 {
+impl Clamp for u128 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<i128> for i128 {
+impl Clamp for i128 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<usize> for usize {
+impl Clamp for usize {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<isize> for isize {
+impl Clamp for isize {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<f32> for f32 {
+impl Clamp for f32 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
     }
 }
 
-impl Clamp<f64> for f64 {
+impl Clamp for f64 {
     fn clamp_t(self, min: Self, max: Self) -> Self {
         self.clamp(min, max)
+    }
+}
+
+pub trait SaturatingSub {
+    fn saturating_sub_t(self, v: Self) -> Self;
+}
+
+impl SaturatingSub for u8 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for i8 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for u16 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for i16 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for u32 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for i32 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for u64 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for i64 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for u128 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for i128 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for usize {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for isize {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self.saturating_sub(v)
+    }
+}
+
+impl SaturatingSub for f32 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self - v
+    }
+}
+
+impl SaturatingSub for f64 {
+    fn saturating_sub_t(self, v: Self) -> Self {
+        self - v
     }
 }
 

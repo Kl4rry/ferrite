@@ -128,8 +128,10 @@ where
             glyphon::Weight(app.runtime.font_weight),
         );
         state.line_height = cell_height;
-
+        state.ui.cell_size = vec2(cell_width, cell_height);
         let (width, height) = (state.config.width, state.config.height);
+        let rect = Rect::new(0.0, 0.0, width as f32, height as f32);
+        state.ui.rect = rect;
 
         {
             app.app_state.ui(&mut app.runtime, &mut state.ui);
@@ -168,7 +170,8 @@ where
             );
 
             let backend_rect = terminal.backend().rect();
-            if backend_rect != layer.rect {
+            let backend_rounding = terminal.backend().rounding();
+            if backend_rect != layer.rect || layer.rounding != backend_rounding {
                 terminal.backend_mut().resize(layer.rect, layer.rounding);
                 terminal.resize(rect_to_tui(layer.grid.rect())).unwrap();
             }
@@ -211,7 +214,10 @@ where
         {
             profiling::scope!("sort layers");
             terminals.sort_by(|(_, lhs), (_, rhs)| {
-                lhs.backend().z_index.partial_cmp(&rhs.backend().z_index).unwrap()
+                lhs.backend()
+                    .z_index
+                    .partial_cmp(&rhs.backend().z_index)
+                    .unwrap()
             });
         }
         let mut layers = ArenaVec::new_in(&arena);
@@ -311,14 +317,14 @@ where
 
     pub fn run(mut self, event_loop: EventLoop<PlatformEvent<UserEvent>>, app_state: S) {
         {
-            std::panic::set_hook(Box::new(move |info| {
+            /*std::panic::set_hook(Box::new(move |info| {
                 eprintln!();
                 let _ = std::fs::write("./panic.txt", format!("{info:?}"));
                 let backtrace = std::backtrace::Backtrace::force_capture();
                 let panic_info = format!("{backtrace}\n{info}");
                 let _ = std::fs::write("panic.txt", &panic_info);
                 eprintln!("{panic_info}");
-            }));
+            }));*/
         }
         let runtime = Runtime::new();
         self.app = Some(App { runtime, app_state });

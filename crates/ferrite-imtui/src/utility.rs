@@ -11,6 +11,14 @@ pub fn rect_to_tui(rect: Rect<i32>) -> tui_core::layout::Rect {
     }
 }
 
+pub fn round(value: f32, rounding: Rounding) -> f32 {
+    match rounding {
+        Rounding::Round => value.round(),
+        Rounding::Ceil => value.round(),
+        Rounding::Floor => value.round(),
+    }
+}
+
 pub fn calculate_grid_size(
     area: Rect<f32>,
     cell_size: impl Into<Vec2<f32>>,

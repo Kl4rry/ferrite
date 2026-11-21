@@ -1,5 +1,4 @@
 use ferrite_imtui::*;
-use ferrite_linalg::*;
 
 struct TestAppState {}
 
@@ -11,7 +10,35 @@ impl ImTuiApp for TestAppState {
 
         let fg = Color::new(1.0, 1.0, 1.0);
         let bg = Color::new(0.2, 0.2, 0.2);
-        widgets::TextButton::new("hello".into(), Rect::new(0, 0, 10, 1))
+
+        widgets::TextButton::new(
+            "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
+        )
+        .style(Style::default().fg(fg).bg(bg))
+        .ui(ui, &mut ());
+
+        widgets::TextButton::new("c".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
+            .style(Style::default().fg(fg).bg(bg))
+            .ui(ui, &mut ());
+        widgets::TextButton::new("d".into())
             .style(Style::default().fg(fg).bg(bg))
             .ui(ui, &mut ());
 

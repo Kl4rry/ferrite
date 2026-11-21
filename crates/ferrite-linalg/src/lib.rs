@@ -86,3 +86,34 @@ pub const fn vec3<T>(x: T, y: T, z: T) -> Vec3<T> {
 pub const fn vec2<T>(x: T, y: T) -> Vec2<T> {
     Vec2 { x, y }
 }
+
+#[inline]
+pub const fn rect<T>(x: T, y: T, width: T, height: T) -> Rect<T> {
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
+}
+
+#[inline]
+pub fn max<T: PartialOrd>(a: T, b: T) -> T {
+    if a > b {
+        a
+    } else if a < b {
+        b
+    } else {
+        a
+    }
+}
+
+pub fn min<T: PartialOrd>(a: T, b: T) -> T {
+    if a < b {
+        a
+    } else if a > b {
+        b
+    } else {
+        a
+    }
+}

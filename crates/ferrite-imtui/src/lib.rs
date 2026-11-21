@@ -16,7 +16,7 @@ pub mod widgets;
 
 pub use control_flow::EventLoopControlFlow;
 pub use event_loop_proxy::*;
-pub use ferrite_style::{Style, Color};
+pub use ferrite_style::{Color, Style};
 pub use id::Id;
 pub use input::{
     event::InputEvent,
@@ -25,9 +25,12 @@ pub use input::{
 };
 pub use utility::{calculate_grid_size, rect_to_tui};
 
+use crate::utility::round;
+
 pub struct Response {}
 
 pub struct Ui {
+    /// Size of viewport
     pub rect: Rect<f32>,
     pub cell_size: Vec2<f32>,
     mouse_state: MouseState,
@@ -39,10 +42,14 @@ pub struct Ui {
     layer_stack: Vec<Layer>,
     /// Zones that affect the cursor icon
     cursor_zones: Vec<(CursorIcon, Rect<i32>)>,
+    /// Widget stack for current frame
+    widget_stack: Vec<WidgetData>,
     /// Widgets created this frame
     current_frames_widgets: Vec<WidgetData>,
     /// Widgets from last frame (used for mouse hit detection)
     last_frames_widgets: Vec<WidgetData>,
+    /// Layout stack
+    layout_stack: Vec<Layout>,
     /// Ui has a canvas
     canvas: bool,
 }
@@ -57,8 +64,10 @@ impl Ui {
             finshed_layers: Vec::new(),
             layer_stack: Vec::new(),
             cursor_zones: Vec::new(),
+            widget_stack: Vec::new(),
             current_frames_widgets: Vec::new(),
             last_frames_widgets: Vec::new(),
+            layout_stack: Vec::new(),
             canvas,
         }
     }
@@ -70,9 +79,10 @@ impl Ui {
     pub fn push_layer(
         &mut self,
         id: impl std::hash::Hash + std::fmt::Debug + 'static,
-        rect: Rect<f32>,
+        rect: impl Into<Rect<f32>>,
         rounding: Rounding,
     ) {
+        let rect = rect.into();
         let parent = self.layer_stack.last();
         let last_z_index = parent.map(|layer| layer.z_index).unwrap_or(1.0);
         let parent_id = parent.map(|layer| layer.id).unwrap_or(Id::NULL);
@@ -92,6 +102,11 @@ impl Ui {
         layer.z_index = last_z_index + 1.0;
         self.finshed_layers.push(None);
         self.layer_stack.push(layer);
+
+        self.layout_stack.push(Layout {
+            remaining_space: rect,
+            ..Default::default()
+        });
     }
 
     pub fn pop_layer(&mut self) {
@@ -100,6 +115,7 @@ impl Ui {
             .pop()
             .expect("layer list should not be empty");
         self.finshed_layers[self.layer_stack.len()] = Some(layer);
+        self.layout_stack.pop();
     }
 
     pub fn finish_frame(&mut self) {
@@ -130,14 +146,25 @@ impl Ui {
     }
 
     // low level utility function
-    pub fn create_widget(&mut self, id: impl std::hash::Hash + std::fmt::Debug, rect: Rect<f32>) {
+    pub fn push_widget(&mut self, id: impl std::hash::Hash + std::fmt::Debug, rect: Rect<f32>) {
         let z_index = self.layer().z_index;
-        self.current_frames_widgets.push(WidgetData {
-            // TODO: include entropy from parent widget so widget ids do not have to be globally unique
+        let parent = self
+            .widget_stack
+            .last()
+            .map(|widget| widget.id)
+            // Adds some extra starting entropy. Does this matter? IDK but it's free
+            .unwrap_or(Id::new(346778349));
+        let id = parent.with(id);
+        self.widget_stack.push(WidgetData {
             id: Id::new(id),
             rect,
             z_index,
         });
+    }
+
+    pub fn pop_widget(&mut self) {
+        let widget = self.widget_stack.pop().expect("Popped empty widget stack");
+        self.current_frames_widgets.push(widget);
     }
 
     pub fn cursor_zones(&self) -> &[(CursorIcon, Rect<i32>)] {
@@ -146,6 +173,37 @@ impl Ui {
 
     pub fn finished_layers(&self) -> impl Iterator<Item = &Layer> {
         self.finshed_layers.iter().map(|l| l.as_ref().unwrap())
+    }
+
+    pub fn allocate_cell_space(&mut self, requested_size: impl Into<Vec2<i32>>) -> Rect<i32> {
+        let rounding = self.layer().rounding;
+        let requested_size = requested_size.into().map(|v| v as f32);
+        (self.allocate_space(requested_size * self.cell_size) / self.cell_size)
+            .map(|v| round(v, rounding) as i32)
+    }
+
+    pub fn allocate_space(&mut self, requested_size: impl Into<Vec2<f32>>) -> Rect<f32> {
+        let requested_size = requested_size.into();
+        let layout = self.layout_stack.last_mut().unwrap();
+        let remaining_space = layout.remaining_space;
+        match (layout.sizing, layout.axis) {
+            (Sizing::Fill, _) => {
+                layout.remaining_space.width = 0.0;
+                layout.remaining_space.height = 0.0;
+                return remaining_space;
+            }
+            (Sizing::Min, Axis::Vertical) => {
+                let width = remaining_space.width.min(requested_size.x);
+                let height = remaining_space.height.min(requested_size.y);
+                let allocated_space =
+                    Rect::new(remaining_space.x, remaining_space.y, width, height);
+                layout.remaining_space = remaining_space.margin_top(height);
+                return allocated_space;
+            }
+            (Sizing::Min, Axis::Horizontal) => {
+                todo!();
+            }
+        }
     }
 }
 
@@ -269,6 +327,7 @@ impl Grid {
             .filter(|(_symbol, width)| *width > 0);
 
         let style = style.into();
+        let mut drawn = String::new();
         for (symbol, width) in graphemes {
             if let (Ok(x), Ok(y)) = (u16::try_from(x), u16::try_from(y))
                 && rect.contains(Vec2::new(x.into(), y.into()))
@@ -276,6 +335,7 @@ impl Grid {
             {
                 cell.set_symbol(symbol.as_str().expect("rope slice should be contiguous"))
                     .set_style(style);
+                drawn += symbol.as_str().unwrap();
             }
             let next_symbol = x + width as i32;
             x += 1;
@@ -301,7 +361,6 @@ impl Grid {
     where
         S: Into<Style> + Copy,
     {
-        //let rect = self.rect;
         for x in rect.x..rect.width {
             if x < 0 {
                 continue;
@@ -372,26 +431,34 @@ pub trait ImTuiApp {
     fn event(&mut self, event: InputEvent<Self::UserEvent>);
 }
 
-// layout
-enum Sizing {
-    Fill,
-    Min,
+#[derive(Default)]
+struct Layout {
+    remaining_space: Rect<f32>,
+    sizing: Sizing,
+    alignment: Alignment,
+    axis: Axis,
 }
 
-enum Alignment {
+#[derive(Default, Copy, Clone, Debug)]
+pub enum Sizing {
+    #[default]
+    Min,
+    Fill,
+}
+
+#[derive(Default, Copy, Clone, Debug)]
+pub enum Alignment {
+    #[default]
     Start,
     End,
     Center,
 }
 
-enum Axis {
+#[derive(Default, Copy, Clone, Debug)]
+pub enum Axis {
+    #[default]
     Vertical,
     Horizontal,
-}
-
-enum AxisDirection {
-    Forward,
-    Backward,
 }
 
 #[non_exhaustive]
