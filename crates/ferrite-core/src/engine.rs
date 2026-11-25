@@ -433,33 +433,32 @@ impl Engine {
 
         {
             for (_buffer_id, buffer) in &mut self.workspace.buffers {
-                if buffer.name() == "editor:perf" {
-                    let mut string = ArenaString::new_in(&arena);
-                    let _ = write!(string, "Frame time: {:?}", self.last_render_time);
-                    #[cfg(feature = "talloc")]
-                    let _ = write!(
-                        string,
-                        "\nHeap memory usage: {}\nHeap allocations: {}\nFrame allocations: {}",
-                        crate::byte_size::format_byte_size(self.total_memory_allocated),
-                        self.num_allocations,
-                        self.phase_allocations,
-                    );
-                    buffer.replace_rope(Rope::from(&*string));
-                }
-
-                if buffer.name() == "editor:logger" {
-                    buffer.replace_rope(self.logger_state.rope.clone());
-                }
-
-                if buffer.name() == "editor:watch"
-                    && let Some(watcher) = &self.buffer_watcher
-                {
-                    let mut rope = ropey::RopeBuilder::new();
-                    for path in watcher.watched.keys() {
-                        rope.append(&path.to_string_lossy());
-                        rope.append("\n");
+                match buffer.name() {
+                    "editor:perf" => {
+                        let mut string = ArenaString::new_in(&arena);
+                        let _ = write!(string, "Frame time: {:?}", self.last_render_time);
+                        #[cfg(feature = "talloc")]
+                        let _ = write!(
+                            string,
+                            "\nHeap memory usage: {}\nHeap allocations: {}\nFrame allocations: {}",
+                            crate::byte_size::format_byte_size(self.total_memory_allocated),
+                            self.num_allocations,
+                            self.phase_allocations,
+                        );
+                        buffer.replace_rope(Rope::from(&*string));
                     }
-                    buffer.replace_rope(rope.finish());
+                    "editor:logger" => {
+                        buffer.replace_rope(self.logger_state.rope.clone());
+                    }
+                    "editor:watch" if let Some(watcher) = &self.buffer_watcher => {
+                        let mut rope = ropey::RopeBuilder::new();
+                        for path in watcher.watched.keys() {
+                            rope.append(&path.to_string_lossy());
+                            rope.append("\n");
+                        }
+                        buffer.replace_rope(rope.finish());
+                    }
+                    _ => (),
                 }
             }
         }
@@ -1084,6 +1083,22 @@ impl Engine {
                     buffer.insert_text(view_id, &ch.to_string(), true);
                 }
             }
+            Cmd::DebugWords => {
+                if let Some((buffer, _)) = self.get_current_buffer() {
+                    let words = buffer.completion_source.words.clone();
+                    let buffer_name = format!("editor:words/{}", buffer.name());
+                    let buffer_id = self.create_unique_empty_editor_scheme_buffer(&buffer_name);
+                    let buffer = &mut self.workspace.buffers[buffer_id];
+                    let mut rope = ropey::RopeBuilder::new();
+                    for word in &*words.lock().unwrap() {
+                        rope.append(word);
+                        rope.append("\n");
+                    }
+                    buffer.replace_rope(rope.finish());
+                } else {
+                    self.palette.set_error("Error pane is not a text buffer");
+                }
+            }
             input => {
                 if matches!(
                     input,
@@ -1365,7 +1380,7 @@ impl Engine {
 
     /// This is an internal function for creating empty singleton buffers that are used
     /// by non file schemes to display or let you edit non text file data
-    fn create_unique_empty_editor_scheme_buffer(&mut self, name: &str) {
+    fn create_unique_empty_editor_scheme_buffer(&mut self, name: &str) -> BufferId {
         if let Some((buffer_id, buffer)) = self
             .workspace
             .buffers
@@ -1374,7 +1389,7 @@ impl Engine {
         {
             let view_id = buffer.create_view();
             self.make_current_pane(PaneKind::Buffer(buffer_id, view_id));
-            return;
+            return buffer_id;
         }
 
         let mut buffer = Buffer::builder()
@@ -1384,7 +1399,8 @@ impl Engine {
             .build()
             .unwrap();
         let view_id = buffer.create_view();
-        let (_buffer_id, _) = self.insert_buffer(buffer, view_id, true);
+        let (buffer_id, _) = self.insert_buffer(buffer, view_id, true);
+        buffer_id
     }
 
     fn open_editor_scheme(&mut self, body: &str) -> bool {

@@ -235,6 +235,7 @@ pub enum Cmd {
         code_point: String,
     },
     StageSelectedHunks,
+    DebugWords,
 }
 
 impl Cmd {
@@ -384,6 +385,7 @@ impl Cmd {
             JumpForward => "Jump forward",
             UnicodeInsert { .. } => "Insert raw unicode code point",
             StageSelectedHunks => "Stage selected hunks",
+            DebugWords => "Show list of words parsed from current buffer",
         }
     }
 
@@ -512,6 +514,7 @@ impl Cmd {
             JumpForward => true,
             UnicodeInsert { .. } => true,
             StageSelectedHunks => false,
+            DebugWords => false,
         }
     }
 }

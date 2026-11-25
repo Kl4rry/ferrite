@@ -222,7 +222,7 @@ pub struct Buffer {
     pub last_interact_time: SystemTime,
     pub last_save_time: SystemTime,
     pub last_drag_selection_scroll: Instant,
-    completion_source: CompletionSource,
+    pub completion_source: CompletionSource,
     // syntax highlight
     syntax: Option<Syntax>,
     pub history: History,
