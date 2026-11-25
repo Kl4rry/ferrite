@@ -433,8 +433,9 @@ impl Engine {
 
         {
             for (_buffer_id, buffer) in &mut self.workspace.buffers {
-                match buffer.name() {
-                    "editor:perf" => {
+                let (scheme, body) = url::parse_scheme(buffer.name());
+                match (scheme, body) {
+                    ("editor", "perf") => {
                         let mut string = ArenaString::new_in(&arena);
                         let _ = write!(string, "Frame time: {:?}", self.last_render_time);
                         #[cfg(feature = "talloc")]
@@ -447,10 +448,10 @@ impl Engine {
                         );
                         buffer.replace_rope(Rope::from(&*string));
                     }
-                    "editor:logger" => {
+                    ("editor", "logger") => {
                         buffer.replace_rope(self.logger_state.rope.clone());
                     }
-                    "editor:watch" if let Some(watcher) = &self.buffer_watcher => {
+                    ("editor", "watch") if let Some(watcher) = &self.buffer_watcher => {
                         let mut rope = ropey::RopeBuilder::new();
                         for path in watcher.watched.keys() {
                             rope.append(&path.to_string_lossy());
@@ -1084,6 +1085,8 @@ impl Engine {
                 }
             }
             Cmd::DebugWords => {
+                // Its a bit ugly to have this as a command instead instead of using url opening
+                // like is done for all other schemes files, but I guess this one is a bit fake.
                 if let Some((buffer, _)) = self.get_current_buffer() {
                     let words = buffer.completion_source.words.clone();
                     let buffer_name = format!("editor:words/{}", buffer.name());
@@ -1404,16 +1407,17 @@ impl Engine {
     }
 
     fn open_editor_scheme(&mut self, body: &str) -> bool {
-        match body {
-            "perf" => {
+        let segments = url::split_on_path_delim(body);
+        match &*segments {
+            &["perf"] => {
                 self.create_unique_empty_editor_scheme_buffer("editor:perf");
                 true
             }
-            "logger" => {
+            &["logger"] => {
                 self.create_unique_empty_editor_scheme_buffer("editor:logger");
                 true
             }
-            "watch" => {
+            &["watch"] => {
                 self.create_unique_empty_editor_scheme_buffer("editor:watch");
                 true
             }

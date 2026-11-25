@@ -6,3 +6,11 @@ pub fn parse_scheme(url: &str) -> (&str, &str) {
     };
     (scheme, body)
 }
+
+pub fn split_on_path_delim(url_body: &str) -> Vec<&str> {
+    #[cfg(not(windows))]
+    let delims = ['/'];
+    #[cfg(windows)]
+    let delims = ['/', '\\'];
+    url_body.split(|c: char| delims.contains(&c)).collect()
+}
