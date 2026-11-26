@@ -38,10 +38,10 @@ font_weight = "normal"
 cursor_type = "line"
 
 [plumbing_rules]
-open_git_log_oneline = { match = "^([a-z0-9]{7})\\s.*", cmd = "git show %1%" }
-open_git_log = { match = "^commit\\s([a-z0-9]{40,})\\s*.*", cmd = "git show %1%" }
-open_manpage = { match = "\\w+\\(\\d+\\)", cmd = "man '%0%'" }
-
+open_git_log_oneline = { match = "^([a-z0-9]{7})\\s.*", cmd = "sh git show %1%" }
+open_git_log = { match = "^commit\\s([a-z0-9]{40,})\\s*.*", cmd = "sh git show %1%" }
+open_manpage = { match = "\\w+\\(\\d+\\)", cmd = "sh man '%0%'" }
+open_include = { match = "#include \"(.+)\"", cmd = "open %buffer-dir%/%1%" }
 
 [keymap]
 "F5" = { cmd = "run_action", name = "build" }

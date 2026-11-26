@@ -1408,16 +1408,16 @@ impl Engine {
 
     fn open_editor_scheme(&mut self, body: &str) -> bool {
         let segments = url::split_on_path_delim(body);
-        match &*segments {
-            &["perf"] => {
+        match *segments {
+            ["perf"] => {
                 self.create_unique_empty_editor_scheme_buffer("editor:perf");
                 true
             }
-            &["logger"] => {
+            ["logger"] => {
                 self.create_unique_empty_editor_scheme_buffer("editor:logger");
                 true
             }
-            &["watch"] => {
+            ["watch"] => {
                 self.create_unique_empty_editor_scheme_buffer("editor:watch");
                 true
             }
@@ -1501,7 +1501,22 @@ impl Engine {
                                 cmd = cmd.replace(&format!("%{capture_index}%"), value.as_str());
                             }
 
-                            self.run_shell_command(cmd, None, true, false);
+                            if let Some((buffer, _)) = self.get_current_buffer() {
+                                if let Some(dir) = buffer.directory() {
+                                    cmd = cmd.replace("%buffer-dir%", &dir.to_string_lossy());
+                                };
+
+                                if let Some(file) = buffer.file() {
+                                    cmd = cmd.replace("%buffer-file%", &file.to_string_lossy());
+                                };
+
+                                cmd = cmd.replace("%buffer-name%", buffer.name());
+                            }
+
+                            match cmd_parser::parse_cmd(&cmd) {
+                                Ok(cmd) => self.handle_single_input_command(cmd),
+                                Err(err) => self.palette.set_error(err),
+                            }
                         }
 
                         if matched {
@@ -1916,6 +1931,7 @@ impl Engine {
     }
 
     pub fn force_close_current_buffer(&mut self) {
+        self.hide_pickers();
         if let Some((buffer_id, _)) = self.get_current_buffer_id() {
             let buffer = self.workspace.buffers.remove(buffer_id).unwrap();
 
